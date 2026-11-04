@@ -142,7 +142,7 @@ public class AdminService {
                 .soNguoi(pt.getSoNguoi())
                 .diaChi(pt.getDiaChi())
                 .moTa(pt.getMoTa())
-                .coc(pt.getCoc())
+                .coc(pt.getCocPhong())
                 .trangThai(pt.getTrangThai())
                 .thoiGianDang(pt.getThoiGianDang())
                 .hinhAnhUrls(imageUrls)
