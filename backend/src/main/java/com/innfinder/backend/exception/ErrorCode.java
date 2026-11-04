@@ -12,10 +12,7 @@ public enum ErrorCode {
     UNAUTHENTICATED("Tên đăng nhập hoặc mật khẩu không chính xác", HttpStatus.UNAUTHORIZED),
     ACCESS_DENIED("Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
     ACCOUNT_LOCKED("Tài khoản của bạn đã bị khóa bởi Quản trị viên", HttpStatus.FORBIDDEN),
-    INVALID_KEY("Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
-    ROOM_NOT_FOUND("Không tìm thấy thông tin phòng trọ", HttpStatus.NOT_FOUND),
-    COMPLAINT_NOT_FOUND("Không tìm thấy phiếu khiếu nại", HttpStatus.NOT_FOUND),
-    INVALID_RATING("Điểm đánh giá phải từ 1 đến 5 sao", HttpStatus.BAD_REQUEST);
+    INVALID_KEY("Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

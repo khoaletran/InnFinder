@@ -17,7 +17,7 @@ import java.util.List;
 public class NguoiDung {
 
     @Id
-    @Column(name = "ma_nguoi_dung", length = 50)
+    @Column(name = "ma_nguoi_dung", length = 14)
     private String maNguoiDung;
 
     @Column(name = "ten_dang_nhap", unique = true, nullable = false, length = 50)
@@ -32,7 +32,7 @@ public class NguoiDung {
     @Column(nullable = false, length = 15)
     private String sdt;
 
-    @Column(length = 20)
+    @Column(length = 12)
     private String cccd;
 
     @Enumerated(EnumType.STRING)
