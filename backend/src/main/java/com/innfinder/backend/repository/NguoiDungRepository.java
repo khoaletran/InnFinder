@@ -9,4 +9,5 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, String> {
     Optional<NguoiDung> findByTenDangNhap(String tenDangNhap);
     Boolean existsByTenDangNhap(String tenDangNhap);
     Boolean existsByEmail(String nguoiDungId);
+    Boolean existsBySdt(String sdt);
 }
