@@ -24,8 +24,13 @@ public enum ErrorCode {
     ROOM_ALREADY_FAVORITED("Phòng trọ này đã nằm trong danh sách yêu thích", HttpStatus.BAD_REQUEST),
     FAVORITE_NOT_FOUND("Phòng trọ không có trong danh sách yêu thích của bạn", HttpStatus.NOT_FOUND),
     UPLOAD_IMAGE_FAILED("Lỗi tải hình ảnh lên Cloudinary", HttpStatus.INTERNAL_SERVER_ERROR),
-    INVALID_IMAGE_FILE("Định dạng file tải lên không hợp lệ (chỉ hỗ trợ hình ảnh)", HttpStatus.BAD_REQUEST);
+    INVALID_IMAGE_FILE("Định dạng file tải lên không hợp lệ (chỉ hỗ trợ hình ảnh)", HttpStatus.BAD_REQUEST),
 
+    APPOINTMENT_NOT_FOUND("Không tìm thấy thông tin phiếu đặt lịch", HttpStatus.NOT_FOUND),
+    APPOINTMENT_TIME_INVALID("Thời gian hẹn xem phòng phải sau thời điểm hiện tại", HttpStatus.BAD_REQUEST),
+    CANNOT_BOOK_OWN_ROOM("Bạn không thể tự đặt lịch xem phòng trọ của chính mình", HttpStatus.BAD_REQUEST),
+    INVALID_APPOINTMENT_STATUS("Trạng thái lịch hẹn không hợp lệ để thực hiện thao tác này", HttpStatus.BAD_REQUEST),
+    NOT_APPOINTMENT_OWNER("Bạn không có quyền thao tác trên lịch hẹn này", HttpStatus.FORBIDDEN);
     private final String message;
     private final HttpStatus statusCode;
 
