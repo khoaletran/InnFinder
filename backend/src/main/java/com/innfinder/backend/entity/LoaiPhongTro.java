@@ -26,4 +26,7 @@ public class LoaiPhongTro {
 
     @OneToMany(mappedBy = "loaiPhong")
     private List<PhongTro> dsPhongTro;
+
+    @OneToOne(mappedBy = "loaiPhong", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Coc coc;
 }

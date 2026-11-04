@@ -57,8 +57,9 @@ public class PhongTro {
     @Column(name = "vi_do", length = 50)
     private String viDo;
 
+    @Column(name = "coc_phong")
     @Builder.Default
-    private Long coc = 0L;
+    private Long cocPhong = 0L;
 
     @OneToMany(mappedBy = "phongTro", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<HinhAnh> hinhAnh;
