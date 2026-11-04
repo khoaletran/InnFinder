@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: innFinder
+  datasource:
+    url: jdbc:mariadb://localhost:3307/inn_finder_db?useUnicode=true&characterEncoding=utf8mb4
+    username: inn_finder_user
+    password: inn_finder_password
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
