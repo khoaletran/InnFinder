@@ -3,7 +3,7 @@ package com.innfinder.backend.security;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-
+import com.innfinder.backend.exception.AppException;
 public class SecurityUtils {
 
     // Lấy tên đăng nhập của User hiện tại từ Token
@@ -19,4 +19,6 @@ public class SecurityUtils {
         }
         return null;
     }
+
+
 }
