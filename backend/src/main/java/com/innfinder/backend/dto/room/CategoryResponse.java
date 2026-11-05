@@ -26,7 +26,7 @@ public class CategoryResponse {
     private String tenLoaiPhongTro;
     private String moTa;
 
-    public static CategoryResponse fromEnity(LoaiPhongTro loaiPhongTro){
+    public static CategoryResponse fromEntity(LoaiPhongTro loaiPhongTro){
         if(loaiPhongTro == null) return null;
         return CategoryResponse.builder()
                 .maLpt(loaiPhongTro.getMaLpt())

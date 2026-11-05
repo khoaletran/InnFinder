@@ -34,7 +34,7 @@ public class CategoryService {
     public List<CategoryResponse> getAllRoomTypes(){
         return loaiPhongTroRepository.findAll()
                 .stream()
-                .map(CategoryResponse::fromEnity)
+                .map(CategoryResponse::fromEntity)
                 .toList();
     }
 
