@@ -36,6 +36,7 @@ export default function MapSearchScreen() {
       const list = res?.content || [];
       setRooms(list);
       if (list.length > 0) setSelectedRoom(list[0]);
+      // setSelectedRoom(null);
     } catch (error) {
       console.warn("Lỗi tải phòng bản đồ:", error);
     } finally {
@@ -59,7 +60,7 @@ export default function MapSearchScreen() {
       ) : (
         <MapView
           provider={PROVIDER_DEFAULT}
-          // style={StyleSheet.absoluteFillObject}
+          style={{ width: "100%", height: "100%" }}
           initialRegion={initialRegion}
         >
           {rooms.map((room) => {
