@@ -254,7 +254,14 @@ export default function RoomDetailScreen() {
             onPress={() =>
               router.push({
                 pathname: "/booking/schedule-modal" as any,
-                params: { roomId: room.maPhongTro },
+                params: {
+                  roomId: room.maPhongTro,
+                  title: room.moTa
+                    ? room.moTa.slice(0, 40)
+                    : `Phòng trọ #${room.maPhongTro}`,
+                  price: room.giaThue,
+                  image: room.dsHinhAnh?.[0]?.url || "",
+                },
               })
             }
             className="w-full rounded-full bg-teal-600"
