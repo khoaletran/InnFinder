@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Button, Card, FieldError, Input, Label, TextField } from 'heroui-native';
 import { authUserService } from '../../services/authUser.service';
@@ -40,7 +39,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 justify-center px-5">
+    <View className="flex-1 pt-safe pb-safe bg-slate-50 justify-center px-5">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -95,6 +94,6 @@ export default function LoginScreen() {
           </Card.Body>
         </Card>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
