@@ -7,6 +7,7 @@ import {
   Pressable,
   Linking,
   Share,
+  ActivityIndicator,
 } from "react-native";
 import { Avatar, Button, Card, Spinner } from "heroui-native";
 import { Image } from "expo-image";
@@ -62,7 +63,7 @@ export default function RoomDetailScreen() {
   if (loading) {
     return (
       <View className="flex-1 bg-white items-center justify-center">
-        <Spinner size="lg" color="accent" />
+        <ActivityIndicator size="large" color="#0D9488" />
       </View>
     );
   }
