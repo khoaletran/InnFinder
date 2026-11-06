@@ -9,11 +9,10 @@ import {
   Platform,
   Modal,
   FlatList,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Card, CloseButton, Label, TextArea, TextField } from 'heroui-native';
+import { Button, Card, Label, TextArea, TextField } from 'heroui-native';
 import { authUserService } from '../../services/authUser.service';
 import { Colors } from '../../constants/theme';
 
@@ -34,75 +33,15 @@ interface ViewedRoom {
   giaThue: string;
 }
 
-// Danh sách dữ liệu mẫu mô phỏng phân trang (Mỗi lần load thêm)
-const ALL_VIEWED_ROOMS: ViewedRoom[] = [
-  {
-    maPhongTro: 'PT011126143000',
-    tieuDe: 'Ký túc xá cao cấp Cầu Giấy',
-    diaChi: 'Số 15, Ngõ 68 Cầu Giấy, Hà Nội',
-    ngayXem: '14:00 - 05/11/2026',
-    giaThue: '1.800.000 đ/tháng',
-  },
-  {
-    maPhongTro: 'PT281026091520',
-    tieuDe: 'Phòng trọ khép kín Khâm Thiên',
-    diaChi: 'Ngõ 222 Khâm Thiên, Đống Đa, Hà Nội',
-    ngayXem: '09:30 - 28/10/2026',
-    giaThue: '3.500.000 đ/tháng',
-  },
-  {
-    maPhongTro: 'PT201026160000',
-    tieuDe: 'Căn hộ Studio Full đồ Mễ Trì',
-    diaChi: 'Số 42 Mễ Trì Thượng, Nam Từ Liêm, Hà Nội',
-    ngayXem: '16:00 - 20/10/2026',
-    giaThue: '4.800.000 đ/tháng',
-  },
-  {
-    maPhongTro: 'PT151026100000',
-    tieuDe: 'Phòng ban công thoáng Nguyễn Trãi',
-    diaChi: 'Ngõ 129 Nguyễn Trãi, Thanh Xuân, Hà Nội',
-    ngayXem: '10:00 - 15/10/2026',
-    giaThue: '3.200.000 đ/tháng',
-  },
-  {
-    maPhongTro: 'PT051026153000',
-    tieuDe: 'Chung cư mini Chùa Láng',
-    diaChi: 'Số 18 Ngõ 185 Chùa Láng, Đống Đa, Hà Nội',
-    ngayXem: '15:30 - 05/10/2026',
-    giaThue: '4.200.000 đ/tháng',
-  },
-];
-
 export default function ComplaintScreen() {
   const [selectedReason, setSelectedReason] = useState(REASON_PRESETS[0]);
-  const [selectedRoom, setSelectedRoom] = useState<ViewedRoom | null>(ALL_VIEWED_ROOMS[0]);
+  const [selectedRoom, setSelectedRoom] = useState<ViewedRoom | null>(null);
   const [noiDung, setNoiDung] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // State Modal chọn phòng & Phân trang (Load 3 phòng ban đầu)
+  // Danh sách các phòng đã xem lấy từ API thực tế
+  const [viewedRooms, setViewedRooms] = useState<ViewedRoom[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [displayedRooms, setDisplayedRooms] = useState<ViewedRoom[]>(ALL_VIEWED_ROOMS.slice(0, 3));
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-
-  // Kéo xuống đáy modal -> load tiếp các phòng tiếp theo
-  const handleLoadMore = () => {
-    if (loadingMore || !hasMore) return;
-    if (displayedRooms.length >= ALL_VIEWED_ROOMS.length) {
-      setHasMore(false);
-      return;
-    }
-
-    setLoadingMore(true);
-    setTimeout(() => {
-      const nextCount = displayedRooms.length + 2;
-      setDisplayedRooms(ALL_VIEWED_ROOMS.slice(0, nextCount));
-      setLoadingMore(false);
-      if (nextCount >= ALL_VIEWED_ROOMS.length) {
-        setHasMore(false);
-      }
-    }, 600);
-  };
 
   const handleSubmitComplaint = async () => {
     if (!selectedRoom) {
@@ -156,7 +95,7 @@ export default function ComplaintScreen() {
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
           <Card className="p-5 mb-8">
             <Card.Body className="gap-5">
-              {/* Vấn đề bạn gặp phải (To rõ ràng) */}
+              {/* Vấn đề bạn gặp phải */}
               <View>
                 <Text className="text-base font-bold text-slate-900 mb-2.5">
                   Vấn đề bạn gặp phải
@@ -194,17 +133,16 @@ export default function ComplaintScreen() {
                 </View>
               </View>
 
-              {/* Chọn phòng trọ cần khiếu nại (Nút bấm mở Modal) */}
+              {/* Chọn phòng trọ cần khiếu nại */}
               <View>
                 <Text className="text-base font-bold text-slate-900 mb-1.5">
                   Chọn phòng trọ cần khiếu nại
                 </Text>
                 <Text className="text-xs text-slate-500 mb-2.5">
-                  Chỉ cho phép khiếu nại phòng bạn đã đặt lịch hẹn và đi xem thực tế.
+                  Chỉ những phòng bạn đã đặt lịch hẹn và đến xem thực tế mới có thể khiếu nại:
                 </Text>
 
                 {selectedRoom ? (
-                  /* Thẻ hiển thị phòng đã chọn kèm nút đổi phòng */
                   <View className="p-3.5 rounded-xl border border-teal-300 bg-teal-50/60">
                     <View className="flex-row items-center justify-between mb-1">
                       <Text className="text-sm font-bold text-teal-900">
@@ -224,13 +162,19 @@ export default function ComplaintScreen() {
                   </View>
                 ) : (
                   <Pressable
-                    onPress={() => setIsModalOpen(true)}
+                    onPress={() => {
+                      if (viewedRooms.length === 0) {
+                        Alert.alert('Chưa có dữ liệu', 'Bạn chưa có lịch hẹn xem phòng nào đã hoàn tất trên hệ thống.');
+                        return;
+                      }
+                      setIsModalOpen(true);
+                    }}
                     className="flex-row items-center justify-between p-4 border border-dashed border-teal-400 rounded-xl bg-teal-50/40 active:opacity-80"
                   >
                     <View className="flex-row items-center gap-2">
                       <Ionicons name="home-outline" size={20} color={Colors.primary} />
                       <Text className="text-sm font-semibold text-teal-800">
-                        Bấm để chọn phòng trọ đã đi xem
+                        {viewedRooms.length === 0 ? 'Chưa có lịch sử xem phòng' : 'Bấm để chọn phòng trọ đã đi xem'}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
@@ -259,7 +203,7 @@ export default function ComplaintScreen() {
                 </Label>
                 <Pressable
                   onPress={() =>
-                    Alert.alert('Đính kèm ảnh', 'Chức năng chọn ảnh từ thư viện sẽ được liên kết.')
+                    Alert.alert('Đính kèm ảnh', 'Chức năng chọn ảnh từ thư viện thiết bị.')
                   }
                   className="flex-row items-center justify-center gap-2 p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 active:bg-slate-100"
                 >
@@ -274,7 +218,7 @@ export default function ComplaintScreen() {
               <Button
                 variant="danger"
                 size="lg"
-                isDisabled={loading}
+                isDisabled={loading || !selectedRoom}
                 onPress={handleSubmitComplaint}
                 className="mt-2 active:opacity-80"
               >
@@ -287,7 +231,7 @@ export default function ComplaintScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modal Chọn Phòng Trọ Đã Xem (Tải 3 phòng đầu, cuộn xuống load tiếp) */}
+      {/* Modal Chọn Phòng Trọ */}
       <Modal
         visible={isModalOpen}
         animationType="slide"
@@ -296,7 +240,6 @@ export default function ComplaintScreen() {
       >
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl max-h-[80%] pt-4 pb-8 px-5">
-            {/* Header Modal */}
             <View className="flex-row items-center justify-between pb-3 border-b border-slate-200 mb-3">
               <View>
                 <Text className="text-lg font-bold text-slate-900">
@@ -314,14 +257,11 @@ export default function ComplaintScreen() {
               </Pressable>
             </View>
 
-            {/* Danh sách phòng phân trang */}
             <FlatList
-              data={displayedRooms}
+              data={viewedRooms}
               keyExtractor={(item) => item.maPhongTro}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
-              onEndReached={handleLoadMore}
-              onEndReachedThreshold={0.2}
               renderItem={({ item }) => {
                 const isCurrent = selectedRoom?.maPhongTro === item.maPhongTro;
                 return (
@@ -359,26 +299,6 @@ export default function ComplaintScreen() {
                     </View>
                   </Pressable>
                 );
-              }}
-              ListFooterComponent={() => {
-                if (loadingMore) {
-                  return (
-                    <View className="py-4 items-center justify-center">
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                      <Text className="text-[11px] text-slate-400 mt-1">Đang tải thêm phòng...</Text>
-                    </View>
-                  );
-                }
-                if (!hasMore && displayedRooms.length > 0) {
-                  return (
-                    <View className="py-3 items-center">
-                      <Text className="text-[11px] text-slate-400">
-                        Đã hiển thị toàn bộ phòng bạn đã xem
-                      </Text>
-                    </View>
-                  );
-                }
-                return null;
               }}
             />
           </View>

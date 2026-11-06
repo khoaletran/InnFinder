@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Chip } from 'heroui-native';
+import { Card } from 'heroui-native';
 import { Colors } from '../../constants/theme';
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
   tieuDe: string;
   noiDung: string;
@@ -13,79 +13,39 @@ interface NotificationItem {
   chuaDoc: boolean;
 }
 
-// Dữ liệu mẫu chuẩn nghiệp vụ InnFinder (Swimlane Cọc giữ chân & Lịch hẹn)
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    tieuDe: 'Chủ trọ đã xác nhận lịch hẹn',
-    noiDung: 'Chủ phòng trọ Ký túc xá Cầu Giấy đã xác nhận lịch xem phòng lúc 14:00 ngày mai. Vui lòng nộp cọc giữ chân để giữ phòng.',
-    thoiGian: '10 phút trước',
-    loai: 'LICH_HEN',
-    chuaDoc: true,
-  },
-  {
-    id: '2',
-    tieuDe: 'Hoàn trả 100% cọc giữ chân',
-    noiDung: 'Bạn đã hoàn tất buổi xem phòng thực tế. Hệ thống đã hoàn trả 200.000 VNĐ tiền cọc vào số dư ví của bạn.',
-    thoiGian: '2 giờ trước',
-    loai: 'GIAO_DICH',
-    chuaDoc: true,
-  },
-  {
-    id: '3',
-    tieuDe: 'Yêu cầu thuê phòng đã được chấp thuận',
-    noiDung: 'Chúc mừng bạn! Chủ trọ đã đồng ý hợp đồng thuê phòng trọ Mini Khâm Thiên. Hạn hoàn tất thủ tục là 3 ngày.',
-    thoiGian: 'Hôm qua',
-    loai: 'LICH_HEN',
-    chuaDoc: false,
-  },
-  {
-    id: '4',
-    tieuDe: 'Khiếu nại đang được xử lý',
-    noiDung: 'Quản trị viên InnFinder đã tiếp nhận phản ánh của bạn về thông tin giá phòng sai lệch và đang liên hệ xác minh.',
-    thoiGian: '3 ngày trước',
-    loai: 'HE_THONG',
-    chuaDoc: false,
-  },
-];
-
 export default function TenantNotificationsScreen() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  // Danh sách thông báo thực tế (Ban đầu để trống, nạp từ API)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filterType, setFilterType] = useState<'ALL' | 'LICH_HEN' | 'GIAO_DICH'>('ALL');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Đếm số thông báo chưa đọc
   const unreadCount = notifications.filter((item) => item.chuaDoc).length;
 
-  // Lọc theo chip
   const filteredList = notifications.filter((item) => {
     if (filterType === 'ALL') return true;
     return item.loai === filterType;
   });
 
-  // Đánh dấu tất cả đã đọc
   const handleMarkAllAsRead = () => {
     setNotifications((prev) =>
       prev.map((item) => ({ ...item, chuaDoc: false }))
     );
   };
 
-  // Đánh dấu 1 thông báo là đã đọc khi click
   const handleItemPress = (id: string) => {
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, chuaDoc: false } : item))
     );
   };
 
-  // Giả lập làm mới kéo thả
   const onRefresh = () => {
     setRefreshing(true);
+    // Khi kết nối API thông báo thật: fetchNotifications()
     setTimeout(() => {
       setRefreshing(false);
-    }, 1000);
+    }, 600);
   };
 
-  // Icon và màu sắc tương ứng với từng loại thông báo
   const getIconConfig = (type: NotificationItem['loai']) => {
     switch (type) {
       case 'LICH_HEN':
@@ -175,18 +135,23 @@ export default function TenantNotificationsScreen() {
         </View>
       </View>
 
-      {/* Danh sách thông báo */}
+      {/* Danh sách thông báo (Hiển thị EmptyState chuẩn khi chưa có dữ liệu) */}
       <FlatList
         data={filteredList}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
         }
         ListEmptyComponent={
-          <View className="items-center justify-center py-20">
-            <Ionicons name="notifications-off-outline" size={48} color={Colors.textMuted} />
-            <Text className="text-sm text-slate-500 mt-3">Không có thông báo nào</Text>
+          <View className="flex-1 items-center justify-center py-24">
+            <View className="size-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+              <Ionicons name="notifications-off-outline" size={32} color={Colors.textMuted} />
+            </View>
+            <Text className="text-base font-bold text-slate-800">Không có thông báo mới</Text>
+            <Text className="text-xs text-slate-500 text-center mt-1 px-8">
+              Khi có xác nhận lịch hẹn, hoàn trả tiền cọc hoặc phản hồi từ ban quản trị, thông báo sẽ xuất hiện tại đây.
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -201,12 +166,10 @@ export default function TenantNotificationsScreen() {
                 }`}
               >
                 <View className="flex-row gap-3">
-                  {/* Icon */}
                   <View className={`size-10 rounded-full ${icon.bg} items-center justify-center`}>
                     <Ionicons name={icon.name} size={20} color={icon.color} />
                   </View>
 
-                  {/* Nội dung */}
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-1">
                       <Text
