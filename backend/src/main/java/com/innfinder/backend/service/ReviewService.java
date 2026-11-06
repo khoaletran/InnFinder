@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -29,14 +30,29 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponseDTO createReview(String roomId, ReviewRequestDTO request) {
-        PhongTro phongTro = phongTroRepository.findById(roomId).orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+        PhongTro phongTro = phongTroRepository.findById(roomId)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
 
-        NguoiDung nguoiDung = nguoiDungRepository.findById(request.getMaNguoiDung()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        NguoiDung nguoiDung = nguoiDungRepository.findById(request.getMaNguoiDung())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (request.getDiem() < 1 || request.getDiem() > 5) {
             throw new AppException(ErrorCode.INVALID_RATING);
         }
 
+        // KIỂM TRA ĐÃ TỪNG ĐÁNH GIÁ CHƯA: Nếu có thì CẬP NHẬT thay vì tạo trùng lặp
+        Optional<DanhGia> existingOpt = danhGiaRepository
+                .findByPhongTro_MaPhongTroAndNguoiDung_MaNguoiDung(roomId, request.getMaNguoiDung());
+
+        if (existingOpt.isPresent()) {
+            DanhGia existing = existingOpt.get();
+            existing.setDiem(request.getDiem());
+            existing.setNoiDung(request.getNoiDung());
+            existing.setNgayDanhGia(LocalDateTime.now());
+            return toResponseDTO(danhGiaRepository.save(existing));
+        }
+
+        // Nếu chưa có thì tạo mới
         String maDanhGia = "DG" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
 
         DanhGia danhGia = DanhGia.builder()
@@ -49,7 +65,6 @@ public class ReviewService {
                 .build();
 
         danhGia = danhGiaRepository.save(danhGia);
-
         return toResponseDTO(danhGia);
     }
 
@@ -78,5 +93,5 @@ public class ReviewService {
                 .noiDung(dg.getNoiDung())
                 .ngayDanhGia(dg.getNgayDanhGia())
                 .build();
-    }
+    }   
 }
