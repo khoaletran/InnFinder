@@ -25,9 +25,8 @@ public enum ErrorCode {
     FAVORITE_NOT_FOUND("Phòng trọ không có trong danh sách yêu thích của bạn", HttpStatus.NOT_FOUND),
     UPLOAD_IMAGE_FAILED("Lỗi tải hình ảnh lên Cloudinary", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_IMAGE_FILE("Định dạng file tải lên không hợp lệ (chỉ hỗ trợ hình ảnh)", HttpStatus.BAD_REQUEST),
-    ROOM_NOT_FOUND("Không tìm thấy thông tin phòng trọ", HttpStatus.NOT_FOUND),
     COMPLAINT_NOT_FOUND("Không tìm thấy phiếu khiếu nại", HttpStatus.NOT_FOUND),
-    INVALID_RATING("Điểm đánh giá phải từ 1 đến 5 sao", HttpStatus.BAD_REQUEST);
+    INVALID_RATING("Điểm đánh giá phải từ 1 đến 5 sao", HttpStatus.BAD_REQUEST),
 
     APPOINTMENT_NOT_FOUND("Không tìm thấy thông tin phiếu đặt lịch", HttpStatus.NOT_FOUND),
     APPOINTMENT_TIME_INVALID("Thời gian hẹn xem phòng phải sau thời điểm hiện tại", HttpStatus.BAD_REQUEST),
