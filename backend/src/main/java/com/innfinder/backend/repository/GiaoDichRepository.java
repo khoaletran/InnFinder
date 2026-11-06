@@ -15,8 +15,6 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich,String> {
      * Dùng cho endpoint: GET /api/transactions/my-history
      */
     List<GiaoDich> findByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String nguoiDungMaNguoiDung);
-public interface GiaoDichRepository extends JpaRepository<GiaoDich, String> {
-
     @Query("SELECT COALESCE(SUM(g.soTien), 0) FROM GiaoDich g WHERE g.trangThai = :trangThai")
     Long sumSoTienByTrangThai(@Param("trangThai") TrangThaiGD trangThai);
 }

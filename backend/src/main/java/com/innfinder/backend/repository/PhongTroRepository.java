@@ -33,7 +33,6 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     Optional<PhongTro> findByMaPhongTro(String maPhongTro);
     List<PhongTro> findByChuPhongTro_MaChuTro(String maChuTro);
 
-public interface PhongTroRepository extends JpaRepository<PhongTro, String> {
     List<PhongTro> findByTrangThai(TrangThaiPhongTro trangThai);
     long countByTrangThai(TrangThaiPhongTro trangThai);
 }
