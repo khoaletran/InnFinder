@@ -1,6 +1,12 @@
 // mobile/src/app/room/map-search.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 import { Button, Card, Chip, Spinner } from "heroui-native";
 import { Image } from "expo-image";
@@ -48,7 +54,7 @@ export default function MapSearchScreen() {
     <View className="flex-1 bg-white">
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" color="accent" />
+          <ActivityIndicator size="large" color="#0D9488" />
         </View>
       ) : (
         <MapView
