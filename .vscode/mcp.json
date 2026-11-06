@@ -1,0 +1,20 @@
+{
+  "servers": {
+    "heroui-native": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@heroui/native-mcp@latest"
+      ]
+    },
+    "heroui-react": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@heroui/react-mcp@latest"
+      ]
+    }
+  }
+}

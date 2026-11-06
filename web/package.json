@@ -10,8 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/react": "^3.2.7",
+    "@heroui/styles": "^3.2.7",
+    "@tailwindcss/vite": "^4.3.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "tailwind-variants": "^4.0.1",
+    "tailwindcss": "^4.3.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

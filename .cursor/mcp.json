@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "heroui-native": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@heroui/native-mcp@latest"
+      ]
+    },
+    "heroui-react": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@heroui/react-mcp@latest"
+      ]
+    }
+  }
+}
