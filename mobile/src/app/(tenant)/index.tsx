@@ -228,10 +228,6 @@ export default function TenantHomeScreen() {
               <Text className="text-slate-600 font-semibold text-sm mt-2">
                 Backend đang trả về 0 phòng có trạng thái DA_DUYET.
               </Text>
-              <Text className="text-slate-400 text-xs text-center mt-1 px-4">
-                Hãy mở CSDL innfinder_db và đảm bảo có phòng trọ với cột
-                trang_thai = 'DA_DUYET'.
-              </Text>
             </View>
           )}
         </View>
