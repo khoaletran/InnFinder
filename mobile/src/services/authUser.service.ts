@@ -45,4 +45,9 @@ export const authUserService = {
   createComplaint: (data: ComplaintRequestDTO) => {
     return axiosClient.post<any, any>('/api/complaints', data);
   },
+
+  // 4. Lịch hẹn (AppointmentController)
+  getMyAppointments: () => {
+    return axiosClient.get<any, any[]>('/api/appointments/my-appointments');
+  },
 };

@@ -4,3 +4,11 @@
 
 @source "./src";
 @source "./node_modules/heroui-native/lib";
+
+@layer theme {
+  :root {
+    --accent: #0D9488;
+    --accent-foreground: #FFFFFF;
+    --focus: #0D9488;
+  }
+}

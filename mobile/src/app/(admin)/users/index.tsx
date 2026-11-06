@@ -50,19 +50,27 @@ export default function AdminUsersScreen() {
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header */}
-      <View className="px-4 py-3 bg-white border-b border-slate-200">
-        <Text className="text-xl font-bold text-slate-900 mb-2">Người dùng</Text>
+      {/* Header đồng bộ phong cách InnFinder */}
+      <View className="px-4 py-3 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text className="text-xl font-bold text-slate-900">Người dùng</Text>
+            <Text className="text-xs text-slate-500 mt-0.5">Quản lý thành viên & phân quyền hệ thống</Text>
+          </View>
+          <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+            <Text className="text-xs font-bold text-teal-700">{filteredUsers.length} tài khoản</Text>
+          </View>
+        </View>
 
-        {/* Search input */}
-        <View className="flex-row items-center bg-slate-100 rounded-xl px-3 py-2">
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+        {/* Thanh tìm kiếm phong cách bo tròn giống Khách hàng */}
+        <View className="flex-row items-center bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-full mb-3">
+          <Ionicons name="search" size={18} color="#94A3B8" />
           <TextInput
-            placeholder="Tìm kiếm tên, email, SĐT..."
+            placeholder="Tìm kiếm theo tên, email, SĐT..."
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={setSearch}
-            className="flex-1 ml-2 text-sm text-slate-900"
+            className="flex-1 ml-2.5 text-sm text-slate-900 py-0"
           />
           {search ? (
             <Pressable onPress={() => setSearch('')}>
@@ -71,23 +79,23 @@ export default function AdminUsersScreen() {
           ) : null}
         </View>
 
-        {/* Filter chips */}
-        <View className="flex-row items-center gap-2 mt-3">
+        {/* Filter pills chuẩn tenant */}
+        <View className="flex-row items-center gap-2">
           {TABS.map((tab) => {
             const isActive = activeTab === tab;
             return (
               <Pressable
                 key={tab}
                 onPress={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-full border ${
+                className={`px-3.5 py-1.5 rounded-full border ${
                   isActive
-                    ? 'bg-teal-600 border-teal-600'
+                    ? 'bg-teal-700 border-teal-700'
                     : 'bg-white border-slate-200'
                 }`}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    isActive ? 'text-white' : 'text-slate-600'
+                  className={`text-xs ${
+                    isActive ? 'font-semibold text-white' : 'font-medium text-slate-700'
                   }`}
                 >
                   {tab}
@@ -106,9 +114,12 @@ export default function AdminUsersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {filteredUsers.length === 0 ? (
-          <View className="items-center justify-center py-12">
-            <Ionicons name="people-outline" size={48} color="#CBD5E1" />
-            <Text className="text-sm text-slate-400 mt-2">Không tìm thấy người dùng phù hợp</Text>
+          <View className="items-center justify-center py-16">
+            <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+              <Ionicons name="people-outline" size={32} color="#94A3B8" />
+            </View>
+            <Text className="text-sm font-semibold text-slate-600">Không tìm thấy người dùng phù hợp</Text>
+            <Text className="text-xs text-slate-400 mt-1">Hãy thử tìm kiếm với từ khóa khác</Text>
           </View>
         ) : (
           filteredUsers.map((user) => (

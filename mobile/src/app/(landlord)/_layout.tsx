@@ -61,7 +61,7 @@ export default function LandlordTabLayout() {
         name="rental-requests"
         options={{
           title: 'Thông báo',
-          tabBarBadge: 1,
+          // tabBarBadge: 1,
           tabBarBadgeStyle: {
             backgroundColor: '#EF4444',
             color: '#FFFFFF',

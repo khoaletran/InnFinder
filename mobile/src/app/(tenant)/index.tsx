@@ -17,6 +17,8 @@ import { useFilterStore } from "../../store/useFilterStore";
 import { PopularAreaCard } from "../../components/room/PopularAreaCard";
 import { RoomCard } from "../../components/room/RoomCard";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useNotificationStore } from "../../store/useNotificationStore";
+import { InnFinderLogo } from "../../components/common/InnFinderLogo";
 
 const PAGE_SIZE = 10;
 
@@ -30,6 +32,7 @@ export default function TenantHomeScreen() {
 
   const { setFilter } = useFilterStore();
   const { user, token } = useAuthStore();
+  const unreadNotifications = useNotificationStore((s) => s.unreadCount);
 
   // Tải trang đầu tiên (hoặc reset khi refresh)
   const loadFirstPage = useCallback(
@@ -128,14 +131,7 @@ export default function TenantHomeScreen() {
     <>
       {/* 1. Header: Logo & Avatar */}
       <View className="flex-row items-center justify-between px-4 py-2.5">
-        <View className="flex-row items-center gap-2">
-          <View className="w-8 h-8 rounded-lg bg-teal-600 items-center justify-center">
-            <Ionicons name="home" size={18} color="#FFFFFF" />
-          </View>
-          <Text className="text-xl font-extrabold text-teal-800">
-            InnFinder
-          </Text>
-        </View>
+        <InnFinderLogo variant="horizontal" size="sm" />
 
         <View className="flex-row items-center gap-3">
           <Pressable
@@ -143,7 +139,9 @@ export default function TenantHomeScreen() {
             className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center relative"
           >
             <Ionicons name="notifications-outline" size={20} color="#334155" />
-            <View className="w-2 h-2 rounded-full bg-red-500 absolute top-2 right-2" />
+            {unreadNotifications > 0 && (
+              <View className="w-2 h-2 rounded-full bg-red-500 absolute top-2 right-2" />
+            )}
           </Pressable>
 
           <Pressable

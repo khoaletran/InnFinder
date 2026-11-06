@@ -15,16 +15,19 @@ export const ComplaintItemCard: React.FC<ComplaintItemCardProps> = ({ complaint,
 
   return (
     <Pressable onPress={onPress} className="mb-3 active:opacity-90">
-      <Card className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-xs font-bold text-slate-800">{complaint.maKhieuNai}</Text>
+      <Card className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+        <View className="flex-row items-center justify-between mb-2.5">
+          <View className="flex-row items-center gap-1.5">
+            <View className="w-2 h-2 rounded-full bg-teal-500" />
+            <Text className="text-xs font-bold text-slate-700">{complaint.maKhieuNai}</Text>
+          </View>
           <View
-            className={`px-2 py-0.5 rounded-full ${
+            className={`px-2.5 py-0.5 rounded-full ${
               isPending
-                ? 'bg-amber-100'
+                ? 'bg-amber-50 border border-amber-200'
                 : isProcessing
-                ? 'bg-blue-100'
-                : 'bg-emerald-100'
+                ? 'bg-sky-50 border border-sky-200'
+                : 'bg-emerald-50 border border-emerald-200'
             }`}
           >
             <Text
@@ -32,7 +35,7 @@ export const ComplaintItemCard: React.FC<ComplaintItemCardProps> = ({ complaint,
                 isPending
                   ? 'text-amber-700'
                   : isProcessing
-                  ? 'text-blue-700'
+                  ? 'text-sky-700'
                   : 'text-emerald-700'
               }`}
             >
@@ -41,20 +44,23 @@ export const ComplaintItemCard: React.FC<ComplaintItemCardProps> = ({ complaint,
           </View>
         </View>
 
-        <View className="flex-row items-center gap-1.5 mb-1.5">
-          <Text className="text-xs font-bold text-slate-900">{complaint.nguoiKhieuNai}</Text>
+        <View className="flex-row items-center gap-2 mb-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <Text className="text-xs font-bold text-slate-800">{complaint.nguoiKhieuNai}</Text>
           <Ionicons name="arrow-forward" size={12} color="#94A3B8" />
           <Text className="text-xs font-medium text-slate-600">{complaint.doiTuongBiKhieuNai}</Text>
         </View>
 
-        <Text className="text-xs text-slate-500 line-clamp-2 leading-relaxed" numberOfLines={2}>
+        <Text className="text-xs text-slate-600 leading-relaxed font-normal" numberOfLines={2}>
           {complaint.vanDe}
         </Text>
 
         <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
-          <Text className="text-[11px] text-slate-400">{complaint.thoiGian}</Text>
           <View className="flex-row items-center gap-1">
-            <Text className="text-xs font-semibold text-teal-700">Xem chi tiết</Text>
+            <Ionicons name="calendar-outline" size={13} color="#94A3B8" />
+            <Text className="text-[11px] text-slate-400 font-medium">{complaint.thoiGian}</Text>
+          </View>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-xs font-semibold text-teal-600">Xem chi tiết</Text>
             <Ionicons name="chevron-forward" size={14} color="#0D9488" />
           </View>
         </View>

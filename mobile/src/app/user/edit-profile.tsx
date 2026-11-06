@@ -145,17 +145,6 @@ export default function EditProfileScreen() {
                 </Text>
               </View>
 
-              {/* Mã định danh (ID) */}
-              <TextField>
-                <Label>Mã định danh (ID)</Label>
-                <Input
-                  value={user?.maNguoiDung || 'Đang cập nhật...'}
-                  readOnly
-                  editable={false}
-                  className="bg-slate-100 text-slate-500 font-mono"
-                />
-              </TextField>
-
               {/* Tên đăng nhập */}
               <TextField>
                 <Label>Tên đăng nhập</Label>

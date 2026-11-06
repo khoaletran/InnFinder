@@ -19,12 +19,17 @@ export default function AdminProfileScreen() {
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-200">
-        <Pressable onPress={() => router.back()} className="flex-row items-center gap-1">
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+      {/* Header chuẩn tenant */}
+      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center gap-2.5">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
           <Text className="text-base font-bold text-slate-900">Thông tin cá nhân</Text>
-        </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -36,62 +41,65 @@ export default function AdminProfileScreen() {
         <View className="items-center py-4 mb-4">
           <Avatar size="lg" color="accent" className="size-20 mb-2 border-2 border-teal-600">
             {user?.avatarUrl ? <Avatar.Image source={{ uri: user.avatarUrl }} /> : null}
-            <Avatar.Fallback className="bg-teal-100">
+            <Avatar.Fallback className="bg-teal-50">
               <Text className="text-2xl font-bold text-teal-800">
                 {fullName.slice(0, 2).toUpperCase()}
               </Text>
             </Avatar.Fallback>
           </Avatar>
-          <Pressable onPress={() => Alert.alert('Chọn ảnh', 'Mở thư viện ảnh')}>
+          <Pressable
+            onPress={() => Alert.alert('Chọn ảnh', 'Mở thư viện ảnh')}
+            className="mt-1 px-3 py-1 rounded-full bg-teal-50 border border-teal-200"
+          >
             <Text className="text-xs font-semibold text-teal-700">Thay đổi ảnh đại diện</Text>
           </Pressable>
         </View>
 
-        {/* Inputs */}
-        <View className="space-y-4">
-          <View className="mb-3">
-            <Text className="text-xs font-semibold text-slate-600 mb-1">Họ và tên</Text>
+        {/* Inputs card */}
+        <View className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-6 shadow-xs">
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-slate-600 mb-1.5">Họ và tên</Text>
             <TextInput
               value={fullName}
               onChangeText={setFullName}
-              className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
             />
           </View>
 
-          <View className="mb-3">
-            <Text className="text-xs font-semibold text-slate-600 mb-1">Vai trò</Text>
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-slate-600 mb-1.5">Vai trò hệ thống</Text>
             <View className="bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 flex-row justify-between items-center">
               <Text className="text-sm font-medium text-slate-700">Quản trị viên hệ thống</Text>
               <Ionicons name="lock-closed" size={16} color="#94A3B8" />
             </View>
           </View>
 
-          <View className="mb-3">
-            <Text className="text-xs font-semibold text-slate-600 mb-1">Email đăng ký</Text>
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-slate-600 mb-1.5">Email liên hệ</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
-              className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
             />
           </View>
 
-          <View className="mb-3">
-            <Text className="text-xs font-semibold text-slate-600 mb-1">Số điện thoại</Text>
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-slate-600 mb-1.5">Số điện thoại</Text>
             <TextInput
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="text-xs font-semibold text-slate-600 mb-1">Địa chỉ</Text>
+          <View>
+            <Text className="text-xs font-semibold text-slate-600 mb-1.5">Địa chỉ</Text>
             <TextInput
               value={address}
               onChangeText={setAddress}
-              className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900"
             />
           </View>
         </View>
@@ -100,9 +108,9 @@ export default function AdminProfileScreen() {
         <View className="flex-row gap-3">
           <Pressable
             onPress={() => router.back()}
-            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-slate-100 active:bg-slate-200"
+            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-white border border-slate-200 active:bg-slate-50"
           >
-            <Text className="text-sm font-semibold text-slate-700">Huỷ</Text>
+            <Text className="text-sm font-semibold text-slate-700">Huỷ bỏ</Text>
           </Pressable>
           <Pressable
             onPress={handleSave}

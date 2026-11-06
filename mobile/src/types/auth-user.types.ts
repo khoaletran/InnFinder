@@ -63,8 +63,9 @@ export interface BankAccountResponse {
 
 // 6. DTO Khiếu nại (UC 2.7)
 export interface ComplaintRequestDTO {
+  maNguoiGui: string;
+  doiTuongKhieuNai: string;
   vanDe: string;
-  doiTuongKhieuNaiId: string;
-  phongTroId?: string;
   hinhAnh?: string;
+  mucDoUuTien?: number;
 }
