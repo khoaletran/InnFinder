@@ -1,7 +1,15 @@
 // mobile/src/app/(tenant)/search.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, FlatList } from "react-native";
-import { Chip, Spinner, Tabs } from "heroui-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  FlatList,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { Chip, Tabs } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFilterStore } from "../../store/useFilterStore";
@@ -10,7 +18,8 @@ import { RoomSummaryResponse } from "../../types/room.types";
 import { RoomCard } from "../../components/room/RoomCard";
 
 export default function TenantSearchScreen() {
-  const { filter, setFilter, getActiveFilterCount } = useFilterStore();
+  const { filter, setFilter, resetFilter, getActiveFilterCount } =
+    useFilterStore();
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -31,6 +40,8 @@ export default function TenantSearchScreen() {
       setTotalElements(res?.totalElements || 0);
     } catch (error) {
       console.warn("Lỗi tìm kiếm phòng:", error);
+      setRooms([]);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
@@ -84,60 +95,165 @@ export default function TenantSearchScreen() {
         </Pressable>
       </View>
 
-      {/* 2. Filter Active Chips Bar bằng <Chip> HeroUI */}
-      <View className="flex-row px-4 py-2 gap-2 flex-wrap">
-        {filter.keyword ? (
-          <Chip
-            variant="primary"
-            color="accent"
-            size="sm"
-            onPress={() => {
-              setKeywordInput("");
-              setFilter({ keyword: "" });
-            }}
-          >
-            <Chip.Label className="text-xs font-semibold">
-              {filter.keyword} ✕
-            </Chip.Label>
-          </Chip>
-        ) : null}
-
-        {filter.minGia || filter.maxGia ? (
-          <Chip
-            variant="primary"
-            color="accent"
-            size="sm"
-            onPress={() => setFilter({ minGia: undefined, maxGia: undefined })}
-          >
-            <Chip.Label className="text-xs font-semibold">
-              Khoảng giá ✕
-            </Chip.Label>
-          </Chip>
-        ) : (
-          <Chip
-            variant="secondary"
-            size="sm"
-            onPress={() => router.push("/room/filter-modal")}
-          >
-            <Chip.Label className="text-xs text-slate-600">Giá cả</Chip.Label>
-          </Chip>
-        )}
-
-        <Chip
-          variant="secondary"
-          size="sm"
-          onPress={() => router.push("/room/filter-modal")}
+      {/* 2. Filter Active Chips Bar Động (Cuộn ngang linh hoạt) */}
+      <View className="py-2 border-b border-slate-100">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="px-4"
+          contentContainerStyle={{ gap: 8, alignItems: "center" }}
         >
-          <Chip.Label className="text-xs text-slate-600">Diện tích</Chip.Label>
-        </Chip>
+          {/* Nút Xoá tất cả (chỉ hiện khi có lọc)
+          {getActiveFilterCount() > 0 && (
+            <Pressable
+              onPress={() => {
+                setKeywordInput("");
+                resetFilter();
+              }}
+              className="px-2.5 py-1.5 rounded-full bg-red-50 border border-red-200"
+            >
+              <Text className="text-red-600 text-xs font-bold">
+                Xóa tất cả ✕
+              </Text>
+            </Pressable>
+          )} */}
 
-        <Chip
-          variant="secondary"
-          size="sm"
-          onPress={() => router.push("/room/filter-modal")}
-        >
-          <Chip.Label className="text-xs text-slate-600">Loại phòng</Chip.Label>
-        </Chip>
+          {/* Chip Từ khóa */}
+          {filter.keyword ? (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() => {
+                setKeywordInput("");
+                setFilter({ keyword: "" });
+              }}
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                "{filter.keyword}" ✕
+              </Chip.Label>
+            </Chip>
+          ) : null}
+
+          {/* Chip Khoảng Giá */}
+          {filter.minGia !== undefined || filter.maxGia !== undefined ? (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() =>
+                setFilter({ minGia: undefined, maxGia: undefined })
+              }
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                ≤ {((filter.maxGia || 8000000) / 1_000_000).toFixed(1)} tr ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push("/room/filter-modal")}
+            >
+              <Chip.Label className="text-xs text-slate-600">Giá cả</Chip.Label>
+            </Chip>
+          )}
+
+          {/* Chip Diện Tích */}
+          {filter.minDienTich !== undefined ||
+          filter.maxDienTich !== undefined ? (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() =>
+                setFilter({ minDienTich: undefined, maxDienTich: undefined })
+              }
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                ≤ {filter.maxDienTich || 45} m² ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push("/room/filter-modal")}
+            >
+              <Chip.Label className="text-xs text-slate-600">
+                Diện tích
+              </Chip.Label>
+            </Chip>
+          )}
+
+          {/* Chip Loại Phòng */}
+          {filter.maLpt ? (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() => setFilter({ maLpt: undefined })}
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                Loại: {filter.maLpt} ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push("/room/filter-modal")}
+            >
+              <Chip.Label className="text-xs text-slate-600">
+                Loại phòng
+              </Chip.Label>
+            </Chip>
+          )}
+
+          {/* Chip Số Người */}
+          {filter.soNguoi !== undefined ? (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() => setFilter({ soNguoi: undefined })}
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                {filter.soNguoi} người ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push("/room/filter-modal")}
+            >
+              <Chip.Label className="text-xs text-slate-600">
+                Số người
+              </Chip.Label>
+            </Chip>
+          )}
+
+          {/* Chip Tiện Ích */}
+          {filter.dsTienIch && filter.dsTienIch.length > 0 && (
+            <Chip
+              variant="primary"
+              color="default"
+              size="sm"
+              className="bg-teal-700"
+              onPress={() => setFilter({ dsTienIch: [] })}
+            >
+              <Chip.Label className="text-xs font-semibold text-white">
+                {filter.dsTienIch.length} tiện ích ✕
+              </Chip.Label>
+            </Chip>
+          )}
+        </ScrollView>
       </View>
 
       {/* 3. Bar: Tổng số phòng & Tabs HeroUI */}
@@ -167,7 +283,7 @@ export default function TenantSearchScreen() {
       {/* 4. Danh sách phòng từ Backend */}
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" color="accent" />
+          <ActivityIndicator size="large" color="#0D9488" />
         </View>
       ) : (
         <FlatList
