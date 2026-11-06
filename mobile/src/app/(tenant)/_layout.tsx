@@ -53,6 +53,13 @@ export default function TenantTabLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
+          tabBarBadge: 2,
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 'bold',
+          },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications-outline" size={size} color={color as string} />
           ),

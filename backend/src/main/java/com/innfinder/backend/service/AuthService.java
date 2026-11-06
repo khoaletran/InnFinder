@@ -3,7 +3,6 @@ package com.innfinder.backend.service;
 import com.innfinder.backend.dto.auth.AuthResponse;
 import com.innfinder.backend.dto.auth.LoginRequest;
 import com.innfinder.backend.dto.auth.RegisterRequest;
-import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
@@ -40,6 +39,7 @@ public class AuthService {
         NguoiDung nguoiDung = NguoiDung.builder()
                 .maNguoiDung(maNguoiDung)
                 .tenDangNhap(request.getTenDangNhap())
+                .hoVaTen(request.getHoVaTen())
                 .matKhau(passwordEncoder.encode(request.getMatKhau()))
                 .email(request.getEmail())
                 .sdt(request.getSdt())
@@ -77,7 +77,7 @@ public class AuthService {
                 .email(nguoiDung.getEmail())
                 .sdt(nguoiDung.getSdt())
                 .vaiTro(nguoiDung.getVaiTro())
-                .chuTro(nguoiDung.getChuTro())
+                .chuTro(nguoiDung.isChuTro())
                 .build();
     }
 }

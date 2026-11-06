@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
+import { Avatar, Chip } from 'heroui-native';
 
 interface MenuItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -30,7 +31,7 @@ function ProfileMenuRow({ icon, label, onPress, color = Colors.text }: MenuItemP
 export default function TenantProfileScreen() {
   const { user, switchMode, logout } = useAuthStore();
 
-  const displayName = user?.tenDangNhap || 'Nguyễn Văn Anh';
+  const displayName = user?.hoVaTen || user?.tenDangNhap || 'Nguyễn Văn An';
   const displaySub = user
     ? `${user.email} • ${user.sdt}`
     : 'vananh@email.com • 0901 234 567';
@@ -52,18 +53,20 @@ export default function TenantProfileScreen() {
   return (
     <View className="flex-1 pt-safe bg-slate-50">
       <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false}>
-        {/* Khối Header Avatar & Tên */}
         <View className="items-center py-6">
-          <View className="size-20 rounded-full bg-teal-100 items-center justify-center border-2 border-teal-600 mb-3">
-            <Text className="text-2xl font-bold text-teal-700">NA</Text>
-          </View>
+          <Avatar size="lg" color="accent" className="size-20 mb-3 border-2 border-teal-600">
+            {user?.avatarUrl ? (
+              <Avatar.Image source={{ uri: user.avatarUrl }} />
+            ) : null}
+            <Avatar.Fallback className="bg-teal-100">
+              <Text className="text-2xl font-extrabold text-teal-700">
+                {displayName.slice(0, 2).toUpperCase()}
+              </Text>
+            </Avatar.Fallback>
+          </Avatar>
 
           <Text className="text-xl font-bold text-slate-900">{displayName}</Text>
-          <Text className="text-xs text-slate-500 mt-1 mb-2">{displaySub}</Text>
-
-          <View className="bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-            <Text className="text-xs font-semibold text-emerald-800">Khách thuê</Text>
-          </View>
+          <Text className="text-xs text-slate-500 mt-1">{displaySub}</Text>
         </View>
 
         {/* Nhóm 1: Tài khoản cá nhân */}
@@ -118,17 +121,27 @@ export default function TenantProfileScreen() {
           />
         </View>
 
-        {/* Nút chuyển đổi giao diện Chủ trọ */}
-        <Pressable
-          onPress={() => {
-            switchMode();
-            router.replace('/(landlord)');
-          }}
-          className="flex-row items-center justify-center gap-2 py-3.5 bg-teal-50 border border-teal-300 rounded-xl mb-3 active:opacity-70"
-        >
-          <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
-          <Text className="text-sm font-bold text-teal-700">Chuyển sang giao diện Chủ trọ</Text>
-        </Pressable>
+        {/* Kiểm tra điều kiện vai trò Chủ trọ */}
+        {user?.chuTro ? (
+          <Pressable
+            onPress={() => {
+              switchMode();
+              router.replace('/(landlord)');
+            }}
+            className="flex-row items-center justify-center gap-2 py-3.5 bg-teal-50 border border-teal-300 rounded-xl mb-3 active:opacity-70"
+          >
+            <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
+            <Text className="text-sm font-bold text-teal-700">Chuyển sang giao diện Chủ trọ</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => router.push('/user/register-landlord')}
+            className="flex-row items-center justify-center gap-2 py-3.5 bg-amber-50 border border-amber-300 rounded-xl mb-3 active:opacity-70"
+          >
+            <Ionicons name="business-outline" size={18} color="#D97706" />
+            <Text className="text-sm font-bold text-amber-700">Đăng ký trở thành Chủ trọ</Text>
+          </Pressable>
+        )}
 
         {/* Nút Đăng xuất */}
         <Pressable

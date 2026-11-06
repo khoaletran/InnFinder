@@ -211,19 +211,20 @@ sequenceDiagram
 |:---:|:---|:---|:---|:---|
 | 1 | `maNguoiDung` | String | `^ND\d{8}\d{4}$` | Định dạng: `ND` + `ddMMyyyy` + `XXXX` (14 ký tự) |
 | 2 | `tenDangNhap` | String | Không rỗng, 3 đến 50 ký tự | Tên đăng nhập duy nhất |
-| 3 | `matKhau` | String | Không rỗng, tối thiểu 8 ký tự | Lưu BCrypt hash |
-| 4 | `hinhDaiDien` | HinhAnh | Có thể rỗng | Ảnh đại diện |
-| 5 | `email` | String | `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$` | Email chuẩn RFC 5322 |
-| 6 | `sdt` | String | `^(03\|05\|07\|08\|09)\d{8}$` hoặc `^\+84\d{9}$` | Số điện thoại Việt Nam |
-| 7 | `vaiTro` | VaiTro (Enum) | `QUAN_TRI`, `KHACH_HANG` | Phân quyền hệ thống |
-| 8 | `cccd` | String | `^\d{12}$` | CCCD gồm đúng 12 chữ số |
-| 9 | `thoiGianMoTaiKhoan`| LocalDate | Không được rỗng, `>= LocalDate.now()` | Ngày tạo tài khoản |
-| 10| `dsTaiKhoanNganHang`| List\<TaiKhoanNganHang\> | Quan hệ 1 - Nhiều (1..*) | Danh sách tài khoản ngân hàng liên kết |
-| 11| `dsKhieuNai` | List\<PhieuKhieuNai\> | Có thể rỗng | Khiếu nại liên quan |
-| 12| `dsViPham` | List\<ViPham\> | Có thể rỗng | Lịch sử vi phạm |
-| 13| `dsDanhGia` | List\<DanhGia\> | Có thể rỗng | Đánh giá đã thực hiện |
-| 14| `dsGD` | List\<GiaoDich\> | Có thể rỗng | Lịch sử giao dịch |
-| 15| `chuTro` | Boolean | True / False | Cờ xác định tài khoản đã kích hoạt vai trò Chủ trọ |
+| 3 | `hoVaTen` | String | Tối đa 100 ký tự | Họ và tên đầy đủ của người dùng |
+| 4 | `matKhau` | String | Không rỗng, tối thiểu 8 ký tự | Lưu BCrypt hash |
+| 5 | `hinhDaiDien` | HinhAnh | Có thể rỗng | Ảnh đại diện |
+| 6 | `email` | String | `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$` | Email chuẩn RFC 5322 |
+| 7 | `sdt` | String | `^(03\|05\|07\|08\|09)\d{8}$` hoặc `^\+84\d{9}$` | Số điện thoại Việt Nam |
+| 8 | `vaiTro` | VaiTro (Enum) | `QUAN_TRI`, `KHACH_HANG` | Phân quyền hệ thống |
+| 9 | `cccd` | String | `^\d{12}$` | CCCD gồm đúng 12 chữ số |
+| 10| `thoiGianMoTaiKhoan`| LocalDate | Không được rỗng, `>= LocalDate.now()` | Ngày tạo tài khoản |
+| 11| `dsTaiKhoanNganHang`| List\<TaiKhoanNganHang\> | Quan hệ 1 - Nhiều (1..*) | Danh sách tài khoản ngân hàng liên kết |
+| 12| `dsKhieuNai` | List\<PhieuKhieuNai\> | Có thể rỗng | Khiếu nại liên quan |
+| 13| `dsViPham` | List\<ViPham\> | Có thể rỗng | Lịch sử vi phạm |
+| 14| `dsDanhGia` | List\<DanhGia\> | Có thể rỗng | Đánh giá đã thực hiện |
+| 15| `dsGD` | List\<GiaoDich\> | Có thể rỗng | Lịch sử giao dịch |
+| 16| `chuTro` | Boolean | True / False | Cờ xác định tài khoản đã kích hoạt vai trò Chủ trọ |
 
 - **Phương thức bắt buộc**:
   - `+ NguoiDung(...)`

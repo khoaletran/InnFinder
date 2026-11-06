@@ -15,6 +15,9 @@ public class RegisterRequest {
     @Size(min = 3, max = 50, message = "Tên đăng nhập phải từ 3 đến 50 ký tự")
     private String tenDangNhap;
 
+    @Size(max = 100, message = "Họ và tên tối đa 100 ký tự")
+    private String hoVaTen;
+
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 6, message = "Mật khẩu phải có tối thiểu 6 ký tự")
     private String matKhau;

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 public class UserProfileResponse {
     private String maNguoiDung;
     private String tenDangNhap;
+    private String hoVaTen;
     private String email;
     private String sdt;
     private String cccd;

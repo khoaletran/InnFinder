@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -36,6 +38,7 @@ public class UserService {
         return UserProfileResponse.builder()
                 .maNguoiDung(user.getMaNguoiDung())
                 .tenDangNhap(user.getTenDangNhap())
+                .hoVaTen(user.getHoVaTen())
                 .email(user.getEmail())
                 .sdt(user.getSdt())
                 .cccd(user.getCccd())
@@ -57,6 +60,9 @@ public class UserService {
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
+        if (request.getHoVaTen() != null) {
+            user.setHoVaTen(request.getHoVaTen().trim());
+        }
         user.setEmail(request.getEmail());
         user.setSdt(request.getSdt());
         user.setHinhDaiDien(request.getHinhDaiDien());
@@ -76,40 +82,43 @@ public class UserService {
 
         user.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
         nguoiDungRepository.save(user);
+
         return "Đổi mật khẩu thành công!";
     }
 
-    // 4. Gửi yêu cầu Đăng ký làm Chủ trọ (Xác thực CCCD & Ngân hàng)
+    // 4. Lấy danh sách tài khoản ngân hàng
+    public List<BankAccountResponse> getMyBankAccounts() {
+        NguoiDung user = getCurrentUser();
+        return taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung()).stream()
+                .map(tk -> BankAccountResponse.builder()
+                        .soTaiKhoan(tk.getSoTaiKhoan())
+                        .tenNganHang(tk.getTenNganHang())
+                        .build())
+                .toList();
+    }
+
+    // 5. Khách hàng nộp hồ sơ xin nâng cấp lên Chủ trọ
     @Transactional
     public String requestUpgradeToLandlord(LandlordUpgradeRequest request) {
         NguoiDung user = getCurrentUser();
 
         if (Boolean.TRUE.equals(user.getChuTro())) {
-            throw new RuntimeException("Tài khoản của bạn đã là Chủ nhà trọ!");
+            throw new RuntimeException("Tài khoản của bạn đã là Chủ trọ rồi!");
         }
 
+        // Lưu CCCD
         user.setCccd(request.getCccd());
-        nguoiDungRepository.save(user);
 
-        TaiKhoanNganHang tknh = TaiKhoanNganHang.builder()
-                .nguoiDung(user)
+        // Tạo tài khoản ngân hàng liên kết
+        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
                 .soTaiKhoan(request.getSoTaiKhoan())
                 .tenNganHang(request.getTenNganHang())
+                .nguoiDung(user)
                 .build();
-        taiKhoanNganHangRepository.save(tknh);
+        taiKhoanNganHangRepository.save(tk);
 
-        return "Đã gửi hồ sơ đăng ký làm Chủ trọ thành công! Vui lòng chờ Admin kiểm duyệt.";
-    }
+        nguoiDungRepository.save(user);
 
-    public java.util.List<BankAccountResponse> getMyBankAccounts() {
-        NguoiDung user = getCurrentUser();
-        return taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
-                .stream()
-                .map(tk -> BankAccountResponse.builder()
-                        .id(tk.getId())
-                        .soTaiKhoan(tk.getSoTaiKhoan())
-                        .tenNganHang(tk.getTenNganHang())
-                        .build())
-                .toList();
+        return "Đã gửi hồ sơ lên Admin xét duyệt trở thành Chủ trọ thành công!";
     }
 }

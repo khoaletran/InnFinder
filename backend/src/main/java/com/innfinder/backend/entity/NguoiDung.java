@@ -23,6 +23,9 @@ public class NguoiDung {
     @Column(name = "ten_dang_nhap", unique = true, nullable = false, length = 50)
     private String tenDangNhap;
 
+    @Column(name = "ho_va_ten", length = 100)
+    private String hoVaTen;
+
     @Column(name = "mat_khau", nullable = false)
     private String matKhau;
 

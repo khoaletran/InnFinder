@@ -5,6 +5,7 @@ export type AppMode = 'TENANT' | 'LANDLORD'; // Khách thuê | Chủ nhà
 // 2. DTO Đăng ký (UC 2.1)
 export interface RegisterRequest {
   tenDangNhap: string;
+  hoVaTen?: string;
   matKhau: string;
   xacNhanMatKhau: string;
   email: string;
@@ -31,6 +32,7 @@ export interface AuthResponse {
 export interface UserProfileResponse {
   maNguoiDung: string;
   tenDangNhap: string;
+  hoVaTen?: string;
   email: string;
   sdt: string;
   cccd?: string;
@@ -41,6 +43,7 @@ export interface UserProfileResponse {
 }
 
 export interface UpdateProfileRequest {
+  hoVaTen?: string;
   email: string;
   sdt: string;
   avatarUrl?: string;
