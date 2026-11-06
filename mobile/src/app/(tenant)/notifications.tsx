@@ -3,6 +3,7 @@ import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
 import { Colors } from '../../constants/theme';
+import { useNotificationStore } from '../../store/useNotificationStore';
 
 export interface NotificationItem {
   id: string;
@@ -14,6 +15,7 @@ export interface NotificationItem {
 }
 
 export default function TenantNotificationsScreen() {
+  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
   // Danh sách thông báo thực tế (Ban đầu để trống, nạp từ API)
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filterType, setFilterType] = useState<'ALL' | 'LICH_HEN' | 'GIAO_DICH'>('ALL');
@@ -27,12 +29,15 @@ export default function TenantNotificationsScreen() {
   });
 
   const handleMarkAllAsRead = () => {
+    setUnreadCount(0);
     setNotifications((prev) =>
       prev.map((item) => ({ ...item, chuaDoc: false }))
     );
   };
 
   const handleItemPress = (id: string) => {
+    const remaining = notifications.filter((item) => item.id !== id && item.chuaDoc).length;
+    setUnreadCount(remaining);
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, chuaDoc: false } : item))
     );

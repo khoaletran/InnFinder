@@ -69,7 +69,7 @@ export default function LandlordDashboardScreen() {
 
         <Pressable className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100">
           <Ionicons name="notifications-outline" size={20} color="#374151" />
-          <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />
+          {/* Notification badge only when count > 0 */}
         </Pressable>
       </View>
 

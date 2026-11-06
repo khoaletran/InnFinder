@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   Platform,
   Modal,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Label, TextArea, TextField } from 'heroui-native';
 import { authUserService } from '../../services/authUser.service';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
 
 const REASON_PRESETS = [
@@ -31,17 +33,49 @@ interface ViewedRoom {
   diaChi: string;
   ngayXem: string;
   giaThue: string;
+  maChuTro?: string;
+  tenChuTro?: string;
 }
 
 export default function ComplaintScreen() {
-  const [selectedReason, setSelectedReason] = useState(REASON_PRESETS[0]);
+  const { user } = useAuthStore();
   const [selectedRoom, setSelectedRoom] = useState<ViewedRoom | null>(null);
+  const [selectedReason, setSelectedReason] = useState(REASON_PRESETS[0]);
   const [noiDung, setNoiDung] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Danh sách các phòng đã xem lấy từ API thực tế
   const [viewedRooms, setViewedRooms] = useState<ViewedRoom[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoadingRooms(true);
+        const res: any = await authUserService.getMyAppointments();
+        const data = Array.isArray(res) ? res : res?.data;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: ViewedRoom[] = data.map((apt: any) => ({
+            maPhongTro: apt.maPhongTro || apt.phongTro?.maPhongTro || 'PT_UNKNOWN',
+            tieuDe: apt.diaChiPhong || apt.phongTro?.diaChi || 'Phòng trọ đã hẹn xem',
+            diaChi: apt.diaChiPhong || apt.phongTro?.diaChi || 'Địa chỉ đang cập nhật',
+            ngayXem: apt.ngayHen ? new Date(apt.ngayHen).toLocaleDateString('vi-VN') : 'Gần đây',
+            giaThue: apt.giaThue ? `${apt.giaThue.toLocaleString('vi-VN')} đ/tháng` : 'Thương lượng',
+            maChuTro: apt.maChuTro || apt.phongTro?.chuPhongTro?.maChuTro || 'ND202611060001',
+            tenChuTro: apt.tenChuTro || 'Chủ trọ',
+          }));
+          setViewedRooms(mapped);
+          setSelectedRoom(mapped[0]);
+        }
+      } catch (err) {
+        console.log('Lỗi tải lịch hẹn xem phòng:', err);
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+    fetchRooms();
+  }, []);
 
   const handleSubmitComplaint = async () => {
     if (!selectedRoom) {
@@ -56,14 +90,14 @@ export default function ComplaintScreen() {
     try {
       setLoading(true);
       await authUserService.createComplaint({
-        vanDe: `[${selectedReason}] ${noiDung.trim()}`,
-        doiTuongKhieuNaiId: 'ND000000000000',
-        phongTroId: selectedRoom.maPhongTro,
+        maNguoiGui: user?.maNguoiDung || 'ND202611060002',
+        doiTuongKhieuNai: selectedRoom.maChuTro || 'ND202611060001',
+        vanDe: `[${selectedReason}] (Phòng: ${selectedRoom.diaChi}) - ${noiDung.trim()}`,
       });
 
       Alert.alert(
         'Đã gửi khiếu nại thành công',
-        'Ban quản trị InnFinder đã tiếp nhận phản ánh của bạn. Chúng tôi sẽ xử lý và phản hồi trong mục Thông báo trong thời gian sớm nhất.',
+        'Ban quản trị InnFinder đã tiếp nhận phản ánh của bạn. Chúng tôi sẽ xử lý và phản hồi trong thời gian sớm nhất.',
         [
           {
             text: 'Về trang cá nhân',
@@ -95,10 +129,69 @@ export default function ComplaintScreen() {
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
           <Card className="p-5 mb-8">
             <Card.Body className="gap-5">
-              {/* Vấn đề bạn gặp phải */}
+              {/* BƯỚC 1: Chọn phòng trọ cần khiếu nại (Đưa lên trước theo yêu cầu) */}
+              <View>
+                <View className="flex-row items-center justify-between mb-1.5">
+                  <Text className="text-base font-bold text-slate-900">
+                    1. Chọn phòng trọ cần khiếu nại
+                  </Text>
+                  {loadingRooms && <ActivityIndicator size="small" color={Colors.primary} />}
+                </View>
+                <Text className="text-xs text-slate-500 mb-2.5">
+                  Chỉ những phòng bạn đã đặt lịch hẹn và đến xem thực tế mới có thể khiếu nại:
+                </Text>
+
+                {selectedRoom ? (
+                  <View className="p-3.5 rounded-xl border border-teal-300 bg-teal-50/60">
+                    <View className="flex-row items-center justify-between mb-1">
+                      <Text className="text-sm font-bold text-teal-900 flex-1 mr-2" numberOfLines={1}>
+                        {selectedRoom.tieuDe}
+                      </Text>
+                      <Pressable
+                        onPress={() => setIsModalOpen(true)}
+                        className="py-1 px-2.5 bg-teal-600 rounded-lg active:opacity-80"
+                      >
+                        <Text className="text-xs font-bold text-white">Đổi phòng</Text>
+                      </Pressable>
+                    </View>
+                    <Text className="text-xs text-slate-600 mb-1">{selectedRoom.diaChi}</Text>
+                    <Text className="text-[11px] text-teal-700 font-medium">
+                      Đã xem lúc: {selectedRoom.ngayXem} • Giá: {selectedRoom.giaThue}
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      if (viewedRooms.length === 0) {
+                        Alert.alert(
+                          'Chưa có dữ liệu',
+                          'Bạn chưa có lịch hẹn xem phòng nào được ghi nhận trên hệ thống.'
+                        );
+                        return;
+                      }
+                      setIsModalOpen(true);
+                    }}
+                    className="flex-row items-center justify-between p-4 border border-dashed border-teal-400 rounded-xl bg-teal-50/40 active:opacity-80"
+                  >
+                    <View className="flex-row items-center gap-2">
+                      <Ionicons name="home-outline" size={20} color={Colors.primary} />
+                      <Text className="text-sm font-semibold text-teal-800">
+                        {loadingRooms
+                          ? 'Đang tải lịch hẹn...'
+                          : viewedRooms.length === 0
+                          ? 'Chưa có lịch sử xem phòng'
+                          : 'Bấm để chọn phòng trọ đã đi xem'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* BƯỚC 2: Vấn đề bạn gặp phải (Chọn sau khi chọn phòng) */}
               <View>
                 <Text className="text-base font-bold text-slate-900 mb-2.5">
-                  Vấn đề bạn gặp phải
+                  2. Vấn đề bạn gặp phải
                 </Text>
                 <View className="gap-2">
                   {REASON_PRESETS.map((reason) => {
@@ -133,59 +226,10 @@ export default function ComplaintScreen() {
                 </View>
               </View>
 
-              {/* Chọn phòng trọ cần khiếu nại */}
-              <View>
-                <Text className="text-base font-bold text-slate-900 mb-1.5">
-                  Chọn phòng trọ cần khiếu nại
-                </Text>
-                <Text className="text-xs text-slate-500 mb-2.5">
-                  Chỉ những phòng bạn đã đặt lịch hẹn và đến xem thực tế mới có thể khiếu nại:
-                </Text>
-
-                {selectedRoom ? (
-                  <View className="p-3.5 rounded-xl border border-teal-300 bg-teal-50/60">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-sm font-bold text-teal-900">
-                        {selectedRoom.tieuDe}
-                      </Text>
-                      <Pressable
-                        onPress={() => setIsModalOpen(true)}
-                        className="py-1 px-2.5 bg-teal-600 rounded-lg active:opacity-80"
-                      >
-                        <Text className="text-xs font-bold text-white">Đổi phòng</Text>
-                      </Pressable>
-                    </View>
-                    <Text className="text-xs text-slate-600 mb-1">{selectedRoom.diaChi}</Text>
-                    <Text className="text-[11px] text-teal-700 font-medium">
-                      Đã xem lúc: {selectedRoom.ngayXem} • Giá: {selectedRoom.giaThue}
-                    </Text>
-                  </View>
-                ) : (
-                  <Pressable
-                    onPress={() => {
-                      if (viewedRooms.length === 0) {
-                        Alert.alert('Chưa có dữ liệu', 'Bạn chưa có lịch hẹn xem phòng nào đã hoàn tất trên hệ thống.');
-                        return;
-                      }
-                      setIsModalOpen(true);
-                    }}
-                    className="flex-row items-center justify-between p-4 border border-dashed border-teal-400 rounded-xl bg-teal-50/40 active:opacity-80"
-                  >
-                    <View className="flex-row items-center gap-2">
-                      <Ionicons name="home-outline" size={20} color={Colors.primary} />
-                      <Text className="text-sm font-semibold text-teal-800">
-                        {viewedRooms.length === 0 ? 'Chưa có lịch sử xem phòng' : 'Bấm để chọn phòng trọ đã đi xem'}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-                  </Pressable>
-                )}
-              </View>
-
-              {/* Mô tả chi tiết sự việc */}
+              {/* BƯỚC 3: Mô tả chi tiết sự việc */}
               <TextField isRequired>
                 <Label className="text-base font-bold text-slate-900 mb-1">
-                  Mô tả chi tiết sự việc
+                  3. Mô tả chi tiết sự việc
                 </Label>
                 <TextArea
                   placeholder="Mô tả cụ thể thời gian, hành vi hoặc nội dung sai sự thật của chủ trọ..."
@@ -196,7 +240,7 @@ export default function ComplaintScreen() {
                 />
               </TextField>
 
-              {/* Đính kèm bằng chứng */}
+              {/* BƯỚC 4: Đính kèm bằng chứng */}
               <View>
                 <Label className="text-sm font-semibold text-slate-800 mb-1.5">
                   Hình ảnh bằng chứng (nếu có)
@@ -214,7 +258,7 @@ export default function ComplaintScreen() {
                 </Pressable>
               </View>
 
-              {/* Nút gửi */}
+              {/* Nút gửi khiếu nại */}
               <Button
                 variant="danger"
                 size="lg"
@@ -259,9 +303,16 @@ export default function ComplaintScreen() {
 
             <FlatList
               data={viewedRooms}
-              keyExtractor={(item) => item.maPhongTro}
+              keyExtractor={(item, index) => `${item.maPhongTro}_${index}`}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+              ListEmptyComponent={
+                <View className="py-8 items-center justify-center">
+                  <Text className="text-sm text-slate-500">
+                    Bạn chưa có lịch hẹn xem phòng nào trên hệ thống.
+                  </Text>
+                </View>
+              }
               renderItem={({ item }) => {
                 const isCurrent = selectedRoom?.maPhongTro === item.maPhongTro;
                 return (

@@ -15,7 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.UUID;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +34,7 @@ public class AuthService {
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
-        String maNguoiDung = "ND_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String maNguoiDung = generateMaNguoiDung();
 
         NguoiDung nguoiDung = NguoiDung.builder()
                 .maNguoiDung(maNguoiDung)
@@ -52,6 +52,34 @@ public class AuthService {
 
         nguoiDungRepository.save(nguoiDung);
         return "Đăng ký tài khoản thành công!";
+    }
+
+    /**
+     * Sinh mã định danh người dùng chuẩn theo AGENTS.md:
+     * Định dạng: ND + ddMMyyyy + 4 số thứ tự = đúng 14 ký tự
+     * Regex: ^ND\d{8}\d{4}$
+     */
+    private synchronized String generateMaNguoiDung() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+        String prefix = "ND" + datePart;
+        String maxId = nguoiDungRepository.findMaxMaNguoiDungByPrefix(prefix);
+
+        int nextSequence = 1;
+        if (maxId != null && maxId.length() == 14 && maxId.startsWith(prefix)) {
+            try {
+                String suffix = maxId.substring(10); // 4 ký tự cuối
+                nextSequence = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSequence = 1;
+            }
+        }
+
+        String candidate = String.format("%s%04d", prefix, nextSequence);
+        while (nguoiDungRepository.existsById(candidate)) {
+            nextSequence++;
+            candidate = String.format("%s%04d", prefix, nextSequence);
+        }
+        return candidate;
     }
 
     public AuthResponse login(LoginRequest request){

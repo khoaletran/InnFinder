@@ -3,6 +3,8 @@ package com.innfinder.backend.repository;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.enums.VaiTro;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -12,4 +14,7 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, String> {
     Boolean existsByEmail(String email);
     long countByVaiTro(VaiTro vaiTro);
     long countByChuTro(Boolean chuTro);
+
+    @Query("SELECT MAX(n.maNguoiDung) FROM NguoiDung n WHERE n.maNguoiDung LIKE CONCAT(:prefix, '%')")
+    String findMaxMaNguoiDungByPrefix(@Param("prefix") String prefix);
 }

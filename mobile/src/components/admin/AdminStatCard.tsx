@@ -26,18 +26,28 @@ export const AdminStatCard: React.FC<AdminStatCardProps> = ({
       <Card
         style={{ width: '100%' }}
         className={`p-3.5 bg-white rounded-2xl border ${
-          isAlert ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200'
-        } shadow-sm`}
+          isAlert ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200/90'
+        } shadow-xs`}
       >
-        <View className="flex-row items-center justify-between mb-1.5">
-          <Text className="text-xs font-medium text-slate-500">{label}</Text>
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-xs font-semibold text-slate-500" numberOfLines={1}>{label}</Text>
           {iconName ? (
-            <Ionicons name={iconName} size={18} color={isAlert ? '#EF4444' : iconColor} />
+            <View
+              className={`w-7 h-7 rounded-full items-center justify-center ${
+                isAlert ? 'bg-rose-100' : 'bg-teal-50'
+              }`}
+            >
+              <Ionicons
+                name={iconName}
+                size={15}
+                color={isAlert ? '#EF4444' : iconColor}
+              />
+            </View>
           ) : null}
         </View>
 
         <Text
-          className={`text-xl font-extrabold ${
+          className={`text-xl font-black tracking-tight ${
             isAlert ? 'text-rose-600' : 'text-slate-900'
           }`}
         >
@@ -45,7 +55,19 @@ export const AdminStatCard: React.FC<AdminStatCardProps> = ({
         </Text>
 
         {subValue ? (
-          <Text className="text-[11px] text-slate-400 mt-1">{subValue}</Text>
+          <View className="flex-row items-center mt-1">
+            <Text
+              className={`text-[11px] font-semibold ${
+                isAlert
+                  ? 'text-rose-600'
+                  : subValue.startsWith('+')
+                  ? 'text-teal-600'
+                  : 'text-slate-400'
+              }`}
+            >
+              {subValue}
+            </Text>
+          </View>
         ) : null}
       </Card>
     </View>

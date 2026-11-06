@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
+import { useNotificationStore } from '../../store/useNotificationStore';
 
 export default function TenantTabLayout() {
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   return (
     <Tabs
       screenOptions={{
@@ -53,7 +55,7 @@ export default function TenantTabLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
-          tabBarBadge: 2,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: '#EF4444',
             color: '#FFFFFF',

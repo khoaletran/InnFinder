@@ -57,12 +57,17 @@ export default function AdminReviewDetailScreen() {
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-200">
-        <Pressable onPress={() => router.back()} className="flex-row items-center gap-1">
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+      {/* Header chuẩn tenant */}
+      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center gap-2.5">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
           <Text className="text-base font-bold text-slate-900">Chi tiết đánh giá</Text>
-        </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -71,10 +76,10 @@ export default function AdminReviewDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* User Card */}
-        <Card className="p-4 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
+        <Card className="p-4 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
           <View className="flex-row items-center gap-3 mb-3">
             <Avatar size="md" color="default" className="size-11">
-              <Avatar.Fallback className="bg-teal-100">
+              <Avatar.Fallback className="bg-teal-50">
                 <Text className="text-sm font-bold text-teal-800">
                   {review.nguoiDanhGia.slice(0, 2).toUpperCase()}
                 </Text>
@@ -82,11 +87,11 @@ export default function AdminReviewDetailScreen() {
             </Avatar>
             <View>
               <Text className="text-sm font-bold text-slate-900">{review.nguoiDanhGia}</Text>
-              <Text className="text-xs text-slate-400 mt-0.5">{review.thoiGian}</Text>
+              <Text className="text-xs text-slate-400 mt-0.5 font-medium">{review.thoiGian}</Text>
             </View>
           </View>
 
-          <View className="flex-row items-center gap-1 mb-2">
+          <View className="flex-row items-center gap-1 mb-2.5">
             {[1, 2, 3, 4, 5].map((s) => (
               <Ionicons
                 key={s}
@@ -97,12 +102,12 @@ export default function AdminReviewDetailScreen() {
             ))}
           </View>
 
-          <Text className="text-xs text-slate-700 leading-relaxed">{review.noiDung}</Text>
+          <Text className="text-xs text-slate-700 leading-relaxed font-normal">{review.noiDung}</Text>
         </Card>
 
         {/* Room Info */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Phòng được đánh giá</Text>
-        <Card className="flex-row p-3 bg-white rounded-2xl border border-slate-200 mb-6 shadow-sm">
+        <Card className="flex-row p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-6 shadow-xs">
           <Image
             source={{
               uri: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300',
@@ -114,7 +119,7 @@ export default function AdminReviewDetailScreen() {
             <Text className="text-sm font-bold text-slate-900" numberOfLines={1}>
               {review.tenPhongTro}
             </Text>
-            <Text className="text-xs text-slate-500 mt-1">
+            <Text className="text-xs text-slate-500 mt-1" numberOfLines={2}>
               {review.diaChiPhong || '124/6 An Dương Vương, P.4, Q.5'}
             </Text>
           </View>
@@ -124,16 +129,16 @@ export default function AdminReviewDetailScreen() {
         <View className="flex-row gap-3">
           <Pressable
             onPress={handleHide}
-            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-slate-100 border border-slate-300 active:bg-slate-200"
+            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-white border border-slate-200 active:bg-slate-50"
           >
-            <Text className="text-sm font-bold text-slate-700">Ẩn đánh giá</Text>
+            <Text className="text-sm font-semibold text-slate-700">Ẩn đánh giá</Text>
           </Pressable>
 
           <Pressable
             onPress={handleDelete}
-            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-rose-50 border border-rose-300 active:opacity-70"
+            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-rose-50 border border-rose-200 active:opacity-80"
           >
-            <Text className="text-sm font-bold text-rose-700">Xoá</Text>
+            <Text className="text-sm font-bold text-rose-600">Xoá vĩnh viễn</Text>
           </Pressable>
         </View>
       </ScrollView>

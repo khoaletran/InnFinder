@@ -26,16 +26,36 @@ export default function AdminAppointmentDetailScreen() {
     );
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'HOAN_THANH':
+        return { label: 'Hoàn thành', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' };
+      case 'XAC_NHAN':
+        return { label: 'Đã xác nhận', bg: 'bg-sky-50 border-sky-200', text: 'text-sky-700' };
+      case 'CHO_XAC_NHAN':
+        return { label: 'Chờ xác nhận', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700' };
+      default:
+        return { label: 'Đã hủy', bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700' };
+    }
+  };
+
+  const badge = getStatusBadge(appointment.trangThai);
+
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200">
-        <Pressable onPress={() => router.back()} className="flex-row items-center gap-1">
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+      {/* Header chuẩn tenant */}
+      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center gap-2.5">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
           <Text className="text-base font-bold text-slate-900">Chi tiết lịch xem</Text>
-        </Pressable>
-        <View className="px-2.5 py-0.5 rounded-full bg-blue-100">
-          <Text className="text-xs font-bold text-blue-700">{appointment.trangThai}</Text>
+        </View>
+        <View className={`px-2.5 py-0.5 rounded-full border ${badge.bg}`}>
+          <Text className={`text-xs font-bold ${badge.text}`}>{badge.label}</Text>
         </View>
       </View>
 
@@ -49,8 +69,8 @@ export default function AdminAppointmentDetailScreen() {
         </Text>
 
         {/* Khách hàng */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin khách hàng</Text>
-        <Card className="flex-row items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
+        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin khách xem</Text>
+        <Card className="flex-row items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
           <View className="flex-row items-center gap-3">
             <Avatar size="md" color="default" className="size-11">
               <Avatar.Fallback className="bg-slate-100">
@@ -61,7 +81,7 @@ export default function AdminAppointmentDetailScreen() {
             </Avatar>
             <View>
               <Text className="text-sm font-bold text-slate-900">{appointment.tenKhachHang}</Text>
-              <Text className="text-xs text-slate-400 mt-0.5">{appointment.sdtKhachHang}</Text>
+              <Text className="text-xs text-slate-400 mt-0.5 font-medium">{appointment.sdtKhachHang}</Text>
             </View>
           </View>
           <View className="w-9 h-9 rounded-full bg-teal-50 items-center justify-center">
@@ -71,10 +91,10 @@ export default function AdminAppointmentDetailScreen() {
 
         {/* Chủ trọ */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin chủ nhà</Text>
-        <Card className="flex-row items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
+        <Card className="flex-row items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
           <View className="flex-row items-center gap-3">
             <Avatar size="md" color="default" className="size-11">
-              <Avatar.Fallback className="bg-teal-100">
+              <Avatar.Fallback className="bg-teal-50">
                 <Text className="text-sm font-bold text-teal-800">
                   {appointment.tenChuTro.slice(0, 2).toUpperCase()}
                 </Text>
@@ -82,7 +102,7 @@ export default function AdminAppointmentDetailScreen() {
             </Avatar>
             <View>
               <Text className="text-sm font-bold text-slate-900">{appointment.tenChuTro}</Text>
-              <Text className="text-xs text-slate-400 mt-0.5">{appointment.sdtChuTro}</Text>
+              <Text className="text-xs text-slate-400 mt-0.5 font-medium">{appointment.sdtChuTro}</Text>
             </View>
           </View>
           <View className="w-9 h-9 rounded-full bg-teal-50 items-center justify-center">
@@ -91,8 +111,8 @@ export default function AdminAppointmentDetailScreen() {
         </Card>
 
         {/* Phòng */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin phòng</Text>
-        <Card className="flex-row p-3 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
+        <Text className="text-sm font-bold text-slate-900 mb-2">Phòng hẹn xem</Text>
+        <Card className="flex-row p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
           <Image
             source={{
               uri: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300',
@@ -104,49 +124,51 @@ export default function AdminAppointmentDetailScreen() {
             <Text className="text-sm font-bold text-slate-900" numberOfLines={1}>
               {appointment.tenPhongTro}
             </Text>
-            <Text className="text-xs text-slate-500 mt-1">{appointment.diaChiPhong}</Text>
+            <Text className="text-xs text-slate-500 mt-1" numberOfLines={2}>{appointment.diaChiPhong}</Text>
           </View>
         </Card>
 
         {/* Ngày giờ */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Ngày giờ hẹn</Text>
-        <Card className="flex-row items-center gap-2.5 p-3.5 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
-          <Ionicons name="calendar-outline" size={18} color="#0D9488" />
+        <Text className="text-sm font-bold text-slate-900 mb-2">Thời gian hẹn</Text>
+        <Card className="flex-row items-center gap-2.5 p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
+          <View className="w-8 h-8 rounded-full bg-teal-50 items-center justify-center">
+            <Ionicons name="calendar-outline" size={18} color="#0D9488" />
+          </View>
           <Text className="text-sm font-semibold text-slate-800">{appointment.ngayHen}</Text>
         </Card>
 
         {/* Ghi chú */}
         {appointment.ghiChu ? (
           <>
-            <Text className="text-sm font-bold text-slate-900 mb-2">Ghi chú</Text>
-            <Card className="p-3.5 bg-white rounded-2xl border border-slate-200 mb-4 shadow-sm">
-              <Text className="text-xs text-slate-600 leading-relaxed">{appointment.ghiChu}</Text>
+            <Text className="text-sm font-bold text-slate-900 mb-2">Ghi chú từ khách</Text>
+            <Card className="p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
+              <Text className="text-xs text-slate-600 leading-relaxed font-normal">{appointment.ghiChu}</Text>
             </Card>
           </>
         ) : null}
 
         {/* Trạng thái lịch xem timeline */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Trạng thái lịch xem</Text>
-        <Card className="p-4 bg-white rounded-2xl border border-slate-200 mb-6 shadow-sm">
+        <Text className="text-sm font-bold text-slate-900 mb-2">Tiến trình lịch hẹn</Text>
+        <Card className="p-4 bg-white rounded-2xl border border-slate-200/90 mb-6 shadow-xs">
           <View className="flex-row items-start gap-3 mb-3">
             <View className="w-3 h-3 rounded-full bg-emerald-500 mt-0.5" />
             <View>
-              <Text className="text-xs font-bold text-slate-800">Đặt lịch hẹn</Text>
-              <Text className="text-[11px] text-slate-400">24/10 14:00</Text>
+              <Text className="text-xs font-bold text-slate-800">Khách gửi yêu cầu đặt lịch</Text>
+              <Text className="text-[11px] text-slate-400">Đã nộp cọc giữ chân</Text>
             </View>
           </View>
           <View className="flex-row items-start gap-3 mb-3">
-            <View className="w-3 h-3 rounded-full bg-emerald-500 mt-0.5" />
+            <View className={`w-3 h-3 rounded-full ${appointment.trangThai !== 'CHO_XAC_NHAN' ? 'bg-emerald-500' : 'bg-slate-300'} mt-0.5`} />
             <View>
-              <Text className="text-xs font-bold text-slate-800">Chủ trọ xác nhận</Text>
-              <Text className="text-[11px] text-slate-400">24/10 16:30</Text>
+              <Text className="text-xs font-bold text-slate-800">Chủ trọ xác nhận lịch hẹn</Text>
+              <Text className="text-[11px] text-slate-400">{appointment.trangThai !== 'CHO_XAC_NHAN' ? 'Đã xác nhận' : 'Đang chờ chủ trọ'}</Text>
             </View>
           </View>
           <View className="flex-row items-start gap-3">
-            <View className="w-3 h-3 rounded-full bg-slate-300 mt-0.5" />
+            <View className={`w-3 h-3 rounded-full ${appointment.trangThai === 'HOAN_THANH' ? 'bg-emerald-500' : 'bg-slate-300'} mt-0.5`} />
             <View>
-              <Text className="text-xs font-medium text-slate-500">Hoàn thành xem phòng</Text>
-              <Text className="text-[11px] text-slate-400">Chưa diễn ra</Text>
+              <Text className="text-xs font-medium text-slate-600">Gặp mặt dẫn xem thực tế & Hoàn cọc</Text>
+              <Text className="text-[11px] text-slate-400">{appointment.trangThai === 'HOAN_THANH' ? 'Đã hoàn tất' : 'Chưa diễn ra'}</Text>
             </View>
           </View>
         </Card>
