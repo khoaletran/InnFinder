@@ -88,7 +88,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                   <Ionicons
                     name={isFavorite ? "heart" : "heart-outline"}
                     size={22}
-                    color={isFavorite ? "#0D9488" : "#94A3B8"}
+                    color={isFavorite ? "#c42626" : "#94A3B8"}
                   />
                 </Pressable>
               </View>
@@ -134,7 +134,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             <Ionicons
               name={isFavorite ? "heart" : "heart-outline"}
               size={20}
-              color={isFavorite ? "#0D9488" : "#64748B"}
+              color={isFavorite ? "#c42626" : "#64748B"}
             />
           </Pressable>
         </View>
