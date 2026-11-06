@@ -1,6 +1,12 @@
 // mobile/src/app/(tenant)/favorites.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { Button, Spinner } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -53,7 +59,7 @@ export default function TenantFavoritesScreen() {
       {/* 2. Danh sách phòng yêu thích từ Backend */}
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" color="accent" />
+          <ActivityIndicator size="large" color="#0D9488" />
         </View>
       ) : (
         <FlatList
