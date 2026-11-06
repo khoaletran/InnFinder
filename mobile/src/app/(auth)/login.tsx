@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Button, Card, FieldError, Input, Label, TextField } from 'heroui-native';
 import { authUserService } from '../../services/authUser.service';
 import { useAuthStore } from '../../store/useAuthStore';
+import { tokenStorage } from '../../api/axiosClient';
 
 export default function LoginScreen() {
   const [tenDangNhap, setTenDangNhap] = useState('');
@@ -23,6 +24,7 @@ export default function LoginScreen() {
       setLoading(true);
       setErrorMsg('');
       const authRes = await authUserService.login({ tenDangNhap, matKhau });
+      await tokenStorage.saveToken(authRes.token);
       const profile = await authUserService.getMyProfile();
       await setAuth(authRes.token, profile);
 
@@ -32,6 +34,7 @@ export default function LoginScreen() {
         router.replace('/(tenant)');
       }
     } catch (err: any) {
+      await tokenStorage.removeToken();
       Alert.alert('Đăng nhập thất bại', err.message || 'Sai thông tin đăng nhập');
     } finally {
       setLoading(false);
