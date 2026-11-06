@@ -104,7 +104,7 @@ export default function FilterModalScreen() {
         <View className="flex-row items-center justify-between mb-2">
           <Text className="font-bold text-slate-800 text-base">Khoảng giá</Text>
           <Text className="text-teal-700 font-bold text-sm">
-            1.5 triệu — {(priceRange / 1_000_000).toFixed(1)} triệu
+            0 — {(priceRange / 1_000_000).toFixed(1)} triệu
           </Text>
         </View>
         <Slider
