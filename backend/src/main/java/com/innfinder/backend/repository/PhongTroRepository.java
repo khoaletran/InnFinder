@@ -17,9 +17,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
+import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
 @Repository
@@ -30,4 +32,8 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "dsTienIch", "chuPhongTro", "chuPhongTro.nguoiDung", "dsDanhGia"})
     Optional<PhongTro> findByMaPhongTro(String maPhongTro);
     List<PhongTro> findByChuPhongTro_MaChuTro(String maChuTro);
+
+public interface PhongTroRepository extends JpaRepository<PhongTro, String> {
+    List<PhongTro> findByTrangThai(TrangThaiPhongTro trangThai);
+    long countByTrangThai(TrangThaiPhongTro trangThai);
 }
