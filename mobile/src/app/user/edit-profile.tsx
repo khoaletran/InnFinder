@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,26 +18,46 @@ import { Colors } from '../../constants/theme';
 
 export default function EditProfileScreen() {
   const { user, setUser } = useAuthStore();
+  const [fetching, setFetching] = useState(false);
 
-  // Dữ liệu định danh hệ thống
-  const maNguoiDung = user?.maNguoiDung || 'ND202611060001';
-  const tenDangNhap = user?.tenDangNhap || 'nguyenvanan';
-  const thoiGianMo = user?.thoiGianMoTaiKhoan || '06/11/2026';
-  const vaiTro = user?.vaiTro || 'KHACH_HANG';
-
-  // State Họ và tên, Email & SĐT (nằm chung trong khối hồ sơ để cập nhật)
-  const [hoVaTen, setHoVaTen] = useState(user?.hoVaTen || 'Nguyễn Văn An');
-  const [email, setEmail] = useState(user?.email || 'vanan.innfinder@gmail.com');
-  const [sdt, setSdt] = useState(user?.sdt || '0901234567');
+  // State chỉnh sửa (khởi tạo rỗng, nạp từ API thật)
+  const [hoVaTen, setHoVaTen] = useState('');
+  const [email, setEmail] = useState('');
+  const [sdt, setSdt] = useState('');
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
 
-  // State xác thực tài khoản (CCCD)
+  // State xác thực CCCD
   const [isVerifying, setIsVerifying] = useState(false);
   const [cccdInput, setCccdInput] = useState('');
   const [loadingVerify, setLoadingVerify] = useState(false);
 
-  // 1. Cập nhật thông tin tài khoản (Email, SĐT)
+  // Gọi API lấy hồ sơ thật mới nhất khi mở trang
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setFetching(true);
+        const data = await authUserService.getMyProfile();
+        setUser(data);
+        setHoVaTen(data.hoVaTen || '');
+        setEmail(data.email || '');
+        setSdt(data.sdt || '');
+      } catch (err: any) {
+        // Nếu dùng state đã có trong store
+        if (user) {
+          setHoVaTen(user.hoVaTen || '');
+          setEmail(user.email || '');
+          setSdt(user.sdt || '');
+        }
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // 1. Cập nhật thông tin tài khoản thật lên Backend
   const handleUpdateAccount = async () => {
     const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
     if (!emailRegex.test(email.trim())) {
@@ -76,7 +97,6 @@ export default function EditProfileScreen() {
 
     try {
       setLoadingVerify(true);
-      // Gọi API cập nhật hoặc nộp CCCD
       if (user) {
         setUser({ ...user, cccd: cccdInput.trim() });
       }
@@ -93,6 +113,15 @@ export default function EditProfileScreen() {
     }
   };
 
+  if (fetching && !user) {
+    return (
+      <View className="flex-1 justify-center items-center bg-slate-50">
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text className="text-xs text-slate-500 mt-2">Đang tải hồ sơ...</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 pt-safe bg-slate-50">
       {/* Header bar */}
@@ -108,10 +137,8 @@ export default function EditProfileScreen() {
         className="flex-1"
       >
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
-          {/* Hộp thông tin tài khoản duy nhất (Chứa toàn bộ định danh, email, sdt) */}
           <Card className="p-4 mb-4">
             <Card.Body className="gap-3.5">
-              {/* Tiêu đề */}
               <View className="pb-2 border-b border-slate-100">
                 <Text className="text-base font-bold text-slate-900">
                   Hồ sơ tài khoản
@@ -122,7 +149,7 @@ export default function EditProfileScreen() {
               <TextField>
                 <Label>Mã định danh (ID)</Label>
                 <Input
-                  value={maNguoiDung}
+                  value={user?.maNguoiDung || 'Đang cập nhật...'}
                   readOnly
                   editable={false}
                   className="bg-slate-100 text-slate-500 font-mono"
@@ -133,7 +160,7 @@ export default function EditProfileScreen() {
               <TextField>
                 <Label>Tên đăng nhập</Label>
                 <Input
-                  value={tenDangNhap}
+                  value={user?.tenDangNhap || ''}
                   readOnly
                   editable={false}
                   className="bg-slate-100 text-slate-600 font-medium"
@@ -146,14 +173,14 @@ export default function EditProfileScreen() {
                 <Input
                   value={hoVaTen}
                   onChangeText={setHoVaTen}
-                  placeholder="Nhập họ và tên đầy đủ"
+                  placeholder="Chưa cập nhật họ và tên"
                   readOnly={!isEditingContact}
                   editable={isEditingContact}
                   className={isEditingContact ? 'bg-white border-teal-500' : 'bg-slate-100 text-slate-700 font-medium'}
                 />
               </TextField>
 
-              {/* Khối Trạng thái định danh (Có nút "Xác thực tài khoản" -> Hiện ô nhập CCCD) */}
+              {/* Khối Trạng thái định danh */}
               <View className="p-3 rounded-xl border bg-slate-50 border-slate-200">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-xs font-semibold text-slate-700">
@@ -170,13 +197,11 @@ export default function EditProfileScreen() {
                   </Chip>
                 </View>
 
-                {/* Nếu đã có CCCD */}
                 {user?.cccd ? (
                   <Text className="text-xs text-slate-600 font-mono mt-1">
                     Số CCCD: {user.cccd.slice(0, 4)}****{user.cccd.slice(-4)}
                   </Text>
                 ) : (
-                  /* Nếu chưa xác thực: hiện nút bấm mở ô nhập CCCD */
                   <View className="mt-2">
                     {!isVerifying ? (
                       <Pressable
@@ -189,7 +214,6 @@ export default function EditProfileScreen() {
                         </Text>
                       </Pressable>
                     ) : (
-                      /* Khung nhập CCCD khi bấm Xác thực tài khoản */
                       <View className="mt-2 pt-2 border-t border-slate-200 gap-2">
                         <TextField isRequired>
                           <Label className="text-xs">Nhập số CCCD (12 chữ số)</Label>
@@ -236,7 +260,7 @@ export default function EditProfileScreen() {
                   <TextField>
                     <Label>Vai trò</Label>
                     <Input
-                      value={vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : 'Thành viên'}
+                      value={user?.vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : 'Thành viên'}
                       readOnly
                       editable={false}
                       className="bg-slate-100 text-slate-600 text-xs"
@@ -247,7 +271,7 @@ export default function EditProfileScreen() {
                   <TextField>
                     <Label>Ngày tham gia</Label>
                     <Input
-                      value={thoiGianMo}
+                      value={user?.thoiGianMoTaiKhoan || 'Chưa cập nhật'}
                       readOnly
                       editable={false}
                       className="bg-slate-100 text-slate-600 text-xs"
@@ -256,7 +280,7 @@ export default function EditProfileScreen() {
                 </View>
               </View>
 
-              {/* Email (Nằm chung hộp thông tin) */}
+              {/* Email */}
               <TextField isRequired>
                 <Label>Địa chỉ Email</Label>
                 <Input
@@ -264,19 +288,21 @@ export default function EditProfileScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  placeholder="Nhập địa chỉ email"
                   readOnly={!isEditingContact}
                   editable={isEditingContact}
                   className={isEditingContact ? 'bg-white border-teal-500' : 'bg-slate-100 text-slate-700'}
                 />
               </TextField>
 
-              {/* Số điện thoại (Nằm chung hộp thông tin) */}
+              {/* Số điện thoại */}
               <TextField isRequired>
                 <Label>Số điện thoại</Label>
                 <Input
                   value={sdt}
                   onChangeText={setSdt}
                   keyboardType="phone-pad"
+                  placeholder="Nhập số điện thoại"
                   readOnly={!isEditingContact}
                   editable={isEditingContact}
                   className={isEditingContact ? 'bg-white border-teal-500' : 'bg-slate-100 text-slate-700'}
@@ -312,8 +338,9 @@ export default function EditProfileScreen() {
                     variant="ghost"
                     size="lg"
                     onPress={() => {
-                      setEmail(user?.email || 'vanan.innfinder@gmail.com');
-                      setSdt(user?.sdt || '0901234567');
+                      setHoVaTen(user?.hoVaTen || '');
+                      setEmail(user?.email || '');
+                      setSdt(user?.sdt || '');
                       setIsEditingContact(false);
                     }}
                     className="px-4"
