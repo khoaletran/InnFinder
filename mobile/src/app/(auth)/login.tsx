@@ -28,7 +28,10 @@ export default function LoginScreen() {
       const profile = await authUserService.getMyProfile();
       await setAuth(authRes.token, profile);
 
-      if (profile.chuTro) {
+      // Phân quyền điều hướng theo đúng vai trò:
+      if (profile.vaiTro === 'QUAN_TRI' || authRes.vaiTro === 'QUAN_TRI') {
+        router.replace('/(admin)');
+      } else if (profile.chuTro) {
         router.replace('/(landlord)');
       } else {
         router.replace('/(tenant)');

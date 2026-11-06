@@ -1,6 +1,6 @@
 // 1. Phân quyền và Chế độ hoạt động
 export type VaiTro = 'QUAN_TRI' | 'KHACH_HANG';
-export type AppMode = 'TENANT' | 'LANDLORD'; // Khách thuê | Chủ nhà
+export type AppMode = 'TENANT' | 'LANDLORD' | 'ADMIN'; // Khách thuê | Chủ nhà | Quản trị
 
 // 2. DTO Đăng ký (UC 2.1)
 export interface RegisterRequest {

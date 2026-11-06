@@ -1,22 +1,21 @@
 import React from 'react';
-import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../constants/theme';
 
 export default function LandlordTabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0F766E', // Màu teal-700 chuẩn theo Mockup Customer
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: Colors.border,
           height: 62,
           paddingBottom: 8,
           paddingTop: 6,
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E2E8F0',
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -29,8 +28,8 @@ export default function LandlordTabLayout() {
         name="index"
         options={{
           title: 'Trang chủ',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color as string} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -40,8 +39,8 @@ export default function LandlordTabLayout() {
         name="my-rooms"
         options={{
           title: 'Phòng',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'business' : 'business-outline'} size={22} color={color as string} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -51,27 +50,26 @@ export default function LandlordTabLayout() {
         name="appointments"
         options={{
           title: 'Lịch hẹn',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color as string} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color as string} />
           ),
         }}
       />
 
-      {/* 4. Tab Thông báo (yêu cầu thuê & lịch mới) */}
+      {/* 4. Tab Thông báo */}
       <Tabs.Screen
         name="rental-requests"
         options={{
           title: 'Thông báo',
-          tabBarIcon: ({ color, focused }) => (
-            <View className="relative">
-              <Ionicons
-                name={focused ? 'notifications' : 'notifications-outline'}
-                size={22}
-                color={color as string}
-              />
-              {/* Badge chấm đỏ thông báo như ảnh mẫu */}
-              <View className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 border border-white" />
-            </View>
+          tabBarBadge: 1,
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 'bold',
+          },
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -81,8 +79,8 @@ export default function LandlordTabLayout() {
         name="menu"
         options={{
           title: 'Tài khoản',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color as string} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color as string} />
           ),
         }}
       />

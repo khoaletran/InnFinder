@@ -125,8 +125,16 @@ export default function TenantProfileScreen() {
               />
             </View>
 
-            {/* Nút chuyển sang Chủ trọ hoặc Đăng ký làm Chủ trọ */}
-            {user.chuTro ? (
+            {/* Nút chuyển đổi vai trò */}
+            {user.vaiTro === 'QUAN_TRI' ? (
+              <Pressable
+                onPress={() => router.replace('/(admin)')}
+                className="flex-row items-center justify-center gap-2 py-3.5 bg-purple-50 border border-purple-300 rounded-xl mb-3 active:opacity-70"
+              >
+                <Ionicons name="shield-checkmark-outline" size={18} color="#7E22CE" />
+                <Text className="text-sm font-bold text-purple-700">Vào bảng quản trị Admin</Text>
+              </Pressable>
+            ) : user.chuTro ? (
               <Pressable
                 onPress={() => {
                   switchMode();

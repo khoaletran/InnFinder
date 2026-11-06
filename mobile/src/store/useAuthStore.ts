@@ -6,7 +6,7 @@ interface AuthState {
   token: string | null;
   user: UserProfileResponse | null;
   isAuthenticated: boolean;
-  activeMode: AppMode; // 'TENANT' hoặc 'LANDLORD'
+  activeMode: AppMode; // 'TENANT' | 'LANDLORD' | 'ADMIN'
   isLoading: boolean;
 
   // Actions
@@ -27,21 +27,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Đăng nhập thành công -> Lưu token vào SecureStore & cập nhật state
   setAuth: async (token, user) => {
     await tokenStorage.saveToken(token);
+    const mode: AppMode = user.vaiTro === 'QUAN_TRI' ? 'ADMIN' : user.chuTro ? 'LANDLORD' : 'TENANT';
     set({
       token,
       user,
       isAuthenticated: true,
-      activeMode: user.chuTro ? 'LANDLORD' : 'TENANT',
+      activeMode: mode,
       isLoading: false,
     });
   },
 
   setUser: (user) => set({ user }),
 
-  // Nút chuyển đổi vai trò ở trang Cá nhân
+  // Nút chuyển đổi vai trò (chỉ dành cho Khách thuê <-> Chủ trọ, Admin không chuyển)
   switchMode: () => {
+    const user = get().user;
+    if (user?.vaiTro === 'QUAN_TRI') {
+      return; // Admin chỉ dùng giao diện quản trị
+    }
     const current = get().activeMode;
-    const isChuTro = get().user?.chuTro;
+    const isChuTro = user?.chuTro;
     if (!isChuTro && current === 'TENANT') {
       alert('Bạn cần kích hoạt tài khoản Chủ trọ trước.');
       return;
@@ -49,7 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ activeMode: current === 'TENANT' ? 'LANDLORD' : 'TENANT' });
   },
 
-  // Đăng xuất -> Xóa token sạch sẽ
+  // Đăng xuất -> Xoá token sạch sẽ
   logout: async () => {
     await tokenStorage.removeToken();
     set({
