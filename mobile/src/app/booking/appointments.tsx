@@ -58,18 +58,21 @@ export default function AppointmentsScreen() {
 
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
-    const success = await cancelAppointment(selectedId, reason);
+    const result = await cancelAppointment(selectedId, reason);
     setIsCanceling(false);
     setCancelModalVisible(false);
-    if (success) {
+
+    if (result.success) {
       Alert.alert("Thành công", "Đã hủy lịch hẹn xem phòng.");
     } else {
-      Alert.alert("Lỗi", "Hủy lịch thất bại, vui lòng thử lại.");
+      Alert.alert(
+        "Lỗi",
+        result.message || "Hủy lịch thất bại, vui lòng thử lại.",
+      );
     }
   };
 
   const handlePressDetail = (maDatLich: string) => {
-    // Điều hướng sang màn hình chi tiết tiến độ (rental-[id].tsx)
     router.push(`/booking/rental-detail?id=${maDatLich}`);
   };
 
@@ -106,7 +109,7 @@ export default function AppointmentsScreen() {
         </Text>
       </View>
 
-      {/* Underline Tabs Bar chuẩn Figma */}
+      {/* Underline Tabs Bar */}
       <View className="bg-white border-b border-slate-200 flex-row">
         {TAB_ITEMS.map((tab) => {
           const isSelected = activeTab === tab.key;
@@ -125,7 +128,6 @@ export default function AppointmentsScreen() {
                 {tab.label}
               </Text>
 
-              {/* Indicator Underline */}
               {isSelected && (
                 <View className="absolute bottom-0 left-2 right-2 h-[2.5px] bg-[#008080] rounded-full" />
               )}
@@ -142,7 +144,7 @@ export default function AppointmentsScreen() {
         </View>
       )}
 
-      {/* Loading hoặc Danh sách */}
+      {/* Danh sách */}
       {isLoading && appointments.length === 0 ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#008080" />
@@ -178,7 +180,7 @@ export default function AppointmentsScreen() {
         />
       )}
 
-      {/* Dialog Hủy lịch */}
+      {/* Modal Hủy lịch */}
       <CancelReasonModal
         visible={cancelModalVisible}
         isLoading={isCanceling}

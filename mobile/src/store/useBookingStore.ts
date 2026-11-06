@@ -16,7 +16,10 @@ interface BookingState {
 
   setActiveTab: (tab: AppointmentFilterTab) => void;
   fetchAppointments: () => Promise<void>;
-  cancelAppointment: (maDatLich: string, liDoHuy: string) => Promise<boolean>;
+  cancelAppointment: (
+    maDatLich: string,
+    liDoHuy: string,
+  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>((set) => ({
@@ -27,7 +30,7 @@ export const useBookingStore = create<BookingState>((set) => ({
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  // Gọi 100% API thật từ Backend
+  // Gọi API lấy danh sách lịch hẹn của tôi
   fetchAppointments: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -45,11 +48,11 @@ export const useBookingStore = create<BookingState>((set) => ({
     }
   },
 
-  // Gọi API hủy lịch thật: PATCH /api/appointments/{id}/cancel
+  // Gọi API hủy lịch hẹn và trả về thông điệp lỗi nếu có
   cancelAppointment: async (maDatLich: string, liDoHuy: string) => {
     try {
       await bookingService.cancelAppointment(maDatLich, liDoHuy);
-      // Cập nhật trạng thái trực tiếp trên local state sau khi API thành công
+      // Cập nhật state trực tiếp
       set((state) => ({
         appointments: state.appointments.map((item) =>
           item.maDatLich === maDatLich
@@ -57,9 +60,15 @@ export const useBookingStore = create<BookingState>((set) => ({
             : item,
         ),
       }));
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          "Hủy lịch hẹn không thành công",
+      };
     }
   },
 }));

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
+import { Button } from "heroui-native";
 
 import { bookingService } from "../../services/booking.service";
 import { roomService } from "../../services/room.service";
@@ -23,6 +24,7 @@ import { useBookingStore } from "../../store/useBookingStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { AppointmentCreateRequest } from "../../types/booking.types";
 import { RoomDetailResponse } from "../../types/room.types";
+import { TimeSlotPicker } from "../../components/booking/TimeSlotPicker";
 
 export default function ScheduleModalScreen() {
   const { roomId, title, price, image } = useLocalSearchParams<{
@@ -37,21 +39,24 @@ export default function ScheduleModalScreen() {
 
   const [roomData, setRoomData] = useState<RoomDetailResponse | null>(null);
 
-  // Mặc định thời gian hẹn là 2 tiếng sau thời điểm hiện tại (đảm bảo > 1 tiếng)
+  // Mặc định thời gian hẹn là 2 tiếng sau thời điểm hiện tại
   const defaultDateTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
-  const [selectedDateTime, setSelectedDateTime] = useState<Date>(defaultDateTime);
+  const [selectedDateTime, setSelectedDateTime] =
+    useState<Date>(defaultDateTime);
 
-  // State điều khiển mở hộp thoại chọn ngày hoặc giờ
+  // State điều khiển mở hộp thoại chọn ngày hoặc giờ tuỳ biến
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
 
-  const [phoneNumber, setPhoneNumber] = useState<string>(
-    user?.sdt || "0901234567"
-  );
+  // Khung giờ chọn nhanh bằng Chip
+  const [selectedQuickTime, setSelectedQuickTime] = useState<string>("09:30");
+
+  // Xóa số điện thoại ảo, lấy số thật của người dùng
+  const [phoneNumber, setPhoneNumber] = useState<string>(user?.sdt || "");
   const [note, setNote] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Tải thông tin phòng nếu chưa có sẵn
+  // Tải thông tin phòng nếu chưa có sẵn từ params
   useEffect(() => {
     if (roomId && (!title || !price)) {
       roomService
@@ -61,7 +66,7 @@ export default function ScheduleModalScreen() {
     }
   }, [roomId, title, price]);
 
-  // Định dạng ngày: "Thứ 6, 16/10/2026"
+  // Định dạng ngày hiển thị
   const formatDateDisplay = (d: Date): string => {
     const days = [
       "Chủ nhật",
@@ -77,7 +82,6 @@ export default function ScheduleModalScreen() {
     return `${dayName}, ${dateStr}`;
   };
 
-  // Định dạng giờ: "14:30"
   const formatTimeDisplay = (d: Date): string => {
     const hours = String(d.getHours()).padStart(2, "0");
     const minutes = String(d.getMinutes()).padStart(2, "0");
@@ -90,7 +94,7 @@ export default function ScheduleModalScreen() {
     return `${million.toFixed(1).replace(".0", "")} triệu/tháng`;
   };
 
-  // Xử lý khi chọn Ngày từ hộp thoại
+  // Chọn ngày từ DateTimePicker
   const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (event.type === "set" && date) {
@@ -100,17 +104,27 @@ export default function ScheduleModalScreen() {
     }
   };
 
-  // Xử lý khi chọn Giờ từ hộp thoại
+  // Chọn giờ tuỳ biến từ DateTimePicker
   const handleTimeChange = (event: DateTimePickerEvent, time?: Date) => {
     setShowTimePicker(Platform.OS === "ios");
     if (event.type === "set" && time) {
       const updated = new Date(selectedDateTime);
       updated.setHours(time.getHours(), time.getMinutes(), 0, 0);
       setSelectedDateTime(updated);
+      setSelectedQuickTime(""); // Bỏ chọn khung giờ nhanh
     }
   };
 
-  // Xác nhận đặt lịch và kiểm tra ràng buộc cách hiện tại ít nhất 1 tiếng
+  // Chọn khung giờ nhanh từ component TimeSlotPicker
+  const handleSelectQuickTime = (slot: string) => {
+    setSelectedQuickTime(slot);
+    const [h, m] = slot.split(":").map(Number);
+    const updated = new Date(selectedDateTime);
+    updated.setHours(h, m, 0, 0);
+    setSelectedDateTime(updated);
+  };
+
+  // Xác nhận đặt lịch
   const handleConfirm = async () => {
     if (!phoneNumber.trim()) {
       Alert.alert("Thông báo", "Vui lòng nhập số điện thoại liên hệ.");
@@ -122,19 +136,19 @@ export default function ScheduleModalScreen() {
       return;
     }
 
-    // RÀNG BUỘC: Thời gian hẹn phải cách thời điểm hiện tại ít nhất 1 tiếng (60 phút)
+    // RÀNG BUỘC: Thời gian hẹn phải cách hiện tại ít nhất 1 tiếng
     const now = Date.now();
     const oneHourLater = now + 60 * 60 * 1000;
 
     if (selectedDateTime.getTime() < oneHourLater) {
       Alert.alert(
         "Thời gian hẹn không hợp lệ",
-        "Thời gian hẹn xem phòng phải cách thời điểm hiện tại ít nhất 1 tiếng. Vui lòng chọn lại ngày hoặc giờ phù hợp hơn!"
+        "Thời gian hẹn xem phòng phải sau thời điểm hiện tại ít nhất 1 tiếng. Vui lòng chọn lại!",
       );
       return;
     }
 
-    // Ghép ngày giờ thành ISO format: "yyyy-MM-ddTHH:mm:ss"
+    // Định dạng ISO: yyyy-MM-ddTHH:mm:ss
     const year = selectedDateTime.getFullYear();
     const month = String(selectedDateTime.getMonth() + 1).padStart(2, "0");
     const day = String(selectedDateTime.getDate()).padStart(2, "0");
@@ -164,22 +178,14 @@ export default function ScheduleModalScreen() {
       setIsSubmitting(false);
       Alert.alert(
         "Lỗi đặt lịch",
-        err.message || "Không thể đặt lịch xem phòng, vui lòng thử lại."
+        err.message || "Không thể đặt lịch xem phòng, vui lòng thử lại.",
       );
     }
   };
 
-  // Dữ liệu hiển thị động
-  const displayImage =
-    image ||
-    roomData?.dsHinhAnh?.[0]?.url ||
-    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500";
-
+  const displayImage = image || roomData?.dsHinhAnh?.[0]?.url;
   const displayTitle =
-    title ||
-    roomData?.moTa?.slice(0, 40) ||
-    `Phòng trọ mã #${roomId || "..."}`;
-
+    title || roomData?.moTa?.slice(0, 40) || `Phòng trọ mã #${roomId || "..."}`;
   const displayPrice = price
     ? formatCurrency(Number(price))
     : formatCurrency(roomData?.giaThue);
@@ -204,13 +210,19 @@ export default function ScheduleModalScreen() {
         contentContainerStyle={{ padding: 20 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2. Thẻ tóm tắt phòng động */}
+        {/* 2. Thẻ tóm tắt phòng */}
         <View className="flex-row items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-5">
-          <Image
-            source={{ uri: displayImage }}
-            className="w-14 h-14 rounded-xl bg-slate-200"
-            resizeMode="cover"
-          />
+          {displayImage ? (
+            <Image
+              source={{ uri: displayImage }}
+              className="w-14 h-14 rounded-xl bg-slate-200"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-14 h-14 rounded-xl bg-slate-200 items-center justify-center">
+              <Ionicons name="home-outline" size={20} color="#64748B" />
+            </View>
+          )}
           <View className="flex-1">
             <Text
               className="text-sm font-bold text-slate-900"
@@ -224,7 +236,7 @@ export default function ScheduleModalScreen() {
           </View>
         </View>
 
-        {/* 3. Ô bấm mở Hộp thoại chọn Ngày xem */}
+        {/* 3. Chọn Ngày xem */}
         <View className="mb-4">
           <Text className="text-sm font-bold text-slate-900 mb-2">
             Ngày xem phòng
@@ -241,26 +253,35 @@ export default function ScheduleModalScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 4. Ô bấm mở Hộp thoại chọn Giờ xem */}
-        <View className="mb-2">
-          <Text className="text-sm font-bold text-slate-900 mb-2">
-            Giờ xem phòng
-          </Text>
-          <TouchableOpacity
-            onPress={() => setShowTimePicker(true)}
-            activeOpacity={0.7}
-            className="flex-row items-center justify-between border border-slate-200 rounded-xl px-4 py-3 bg-slate-50 active:bg-slate-100"
-          >
-            <Text className="text-sm font-semibold text-slate-800">
-              {formatTimeDisplay(selectedDateTime)}
+        {/* 4. Chọn Khung giờ bằng TimeSlotPicker */}
+        <View className="mb-3">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-sm font-bold text-slate-900">
+              Khung giờ xem phòng
             </Text>
-            <Ionicons name="time-outline" size={20} color="#0D9488" />
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowTimePicker(true)}
+              className="flex-row items-center"
+            >
+              <Text className="text-xs font-semibold text-teal-600 mr-1">
+                Giờ khác ({formatTimeDisplay(selectedDateTime)})
+              </Text>
+              <Ionicons name="time-outline" size={14} color="#0D9488" />
+            </TouchableOpacity>
+          </View>
+          <TimeSlotPicker
+            selectedTime={selectedQuickTime}
+            onSelectTime={handleSelectQuickTime}
+          />
         </View>
 
-        {/* Dòng ghi chú điều kiện 1 tiếng */}
+        {/* Ghi chú điều kiện 1 tiếng */}
         <View className="flex-row items-center gap-1.5 mb-5 px-1">
-          <Ionicons name="information-circle-outline" size={14} color="#64748B" />
+          <Ionicons
+            name="information-circle-outline"
+            size={14}
+            color="#64748B"
+          />
           <Text className="text-xs text-slate-500">
             Lưu ý: Thời gian hẹn phải cách thời điểm hiện tại ít nhất 1 tiếng.
           </Text>
@@ -273,7 +294,7 @@ export default function ScheduleModalScreen() {
           </Text>
           <TextInput
             className="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 bg-white"
-            placeholder="Nhập số điện thoại..."
+            placeholder="Nhập số điện thoại liên hệ..."
             placeholderTextColor="#94A3B8"
             keyboardType="phone-pad"
             value={phoneNumber}
@@ -298,13 +319,13 @@ export default function ScheduleModalScreen() {
         </View>
       </ScrollView>
 
-      {/* 7. Hộp thoại DateTimePicker bản địa của điện thoại */}
+      {/* DateTimePicker native */}
       {showDatePicker && (
         <DateTimePicker
           value={selectedDateTime}
           mode="date"
           display="default"
-          minimumDate={new Date()} // Không cho chọn ngày trong quá khứ
+          minimumDate={new Date()}
           onChange={handleDateChange}
         />
       )}
@@ -319,22 +340,23 @@ export default function ScheduleModalScreen() {
         />
       )}
 
-      {/* 8. Nút Xác nhận đặt lịch cố định ở đáy */}
+      {/* 7. Nút Xác nhận đặt lịch HeroUI Native */}
       <View className="px-5 py-3.5 border-t border-slate-100 bg-white">
-        <TouchableOpacity
+        <Button
+          variant="primary"
+          size="lg"
           onPress={handleConfirm}
-          disabled={isSubmitting}
-          activeOpacity={0.8}
-          className="w-full py-3.5 bg-teal-600 rounded-xl items-center justify-center"
+          isDisabled={isSubmitting}
+          className="w-full rounded-xl bg-teal-600"
         >
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text className="text-base font-bold text-white">
+            <Button.Label className="font-bold text-white text-base">
               Xác nhận đặt lịch
-            </Text>
+            </Button.Label>
           )}
-        </TouchableOpacity>
+        </Button>
       </View>
     </SafeAreaView>
   );

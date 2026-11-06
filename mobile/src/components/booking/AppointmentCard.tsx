@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, Button } from "heroui-native";
+import { router } from "expo-router";
 import {
   AppointmentResponse,
   TrangThaiDatLich,
@@ -13,9 +14,6 @@ interface AppointmentCardProps {
   onDetail: (maDatLich: string) => void;
 }
 
-/**
- * Lấy 2 chữ cái đầu của tên chủ trọ (Ví dụ: "Minh Tuấn" -> "MI")
- */
 const getAvatarInitials = (name?: string): string => {
   if (!name || name.trim() === "") return "CT";
   const words = name.trim().split(/\s+/);
@@ -23,9 +21,6 @@ const getAvatarInitials = (name?: string): string => {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 };
 
-/**
- * Định dạng ngày giờ: "14/10/2026" & "09:00"
- */
 const formatDateTime = (isoString?: string) => {
   if (!isoString) return { date: "--/--/----", time: "--:--" };
   try {
@@ -44,9 +39,6 @@ const formatDateTime = (isoString?: string) => {
   }
 };
 
-/**
- * Cấu hình Badge dùng màu chuẩn semantic của HeroUI Chip
- */
 const STATUS_CONFIG: Record<
   TrangThaiDatLich,
   { label: string; color: "warning" | "success" | "accent" | "danger" }
@@ -88,15 +80,17 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     <Card className="bg-white rounded-2xl border border-slate-200 p-3.5 mb-3.5 shadow-sm">
       {/* 1. Header: Ảnh phòng + Tiêu đề + Địa chỉ */}
       <Card.Header className="flex-row items-center mb-3">
-        <Image
-          source={{
-            uri:
-              item.hinhAnh ||
-              "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&auto=format&fit=crop&q=80",
-          }}
-          className="w-[62px] h-[62px] rounded-xl bg-slate-100"
-          resizeMode="cover"
-        />
+        {item.hinhAnh ? (
+          <Image
+            source={{ uri: item.hinhAnh }}
+            className="w-[62px] h-[62px] rounded-xl bg-slate-100"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-[62px] h-[62px] rounded-xl bg-slate-100 items-center justify-center">
+            <Ionicons name="home-outline" size={24} color="#94A3B8" />
+          </View>
+        )}
         <View className="flex-1 ml-3 justify-center">
           <Card.Title
             className="text-[15px] font-bold text-slate-900 mb-1"
@@ -108,14 +102,13 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
             className="text-[13px] text-slate-500"
             numberOfLines={1}
           >
-            {item.diaChiPhong || "TP. Hồ Chí Minh"}
+            {item.diaChiPhong || "Chưa cập nhật địa chỉ"}
           </Card.Description>
         </View>
       </Card.Header>
 
-      {/* 2. Body: Ngày giờ + Chủ trọ + Badge trạng thái HeroUI */}
+      {/* 2. Body: Ngày giờ + Chủ trọ + Badge trạng thái */}
       <Card.Body className="p-0">
-        {/* Ngày giờ hẹn xem */}
         <View className="flex-row items-center mb-3">
           <View className="flex-row items-center">
             <Ionicons name="calendar-outline" size={16} color="#475569" />
@@ -131,7 +124,6 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </View>
         </View>
 
-        {/* Chủ trọ & Chip trạng thái HeroUI */}
         <View className="flex-row justify-between items-center mb-3.5">
           <View className="flex-row items-center flex-1 mr-2">
             <View className="w-8 h-8 rounded-full bg-emerald-100 justify-center items-center mr-2">
@@ -153,7 +145,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         </View>
       </Card.Body>
 
-      {/* 3. Footer: Nút Hủy lịch (HeroUI Ghost) & Chi tiết (HeroUI Outline) */}
+      {/* 3. Footer: Nút Hủy, Đánh giá (nếu hoàn tất) & Chi tiết */}
       <Card.Footer className="flex-row justify-between items-center pt-2 border-t border-slate-100 p-0">
         {canCancel ? (
           <Button
@@ -170,16 +162,42 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <View className="flex-1" />
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-slate-200 rounded-[10px] px-7 py-2 bg-white"
-          onPress={() => onDetail(item.maDatLich)}
-        >
-          <Button.Label className="text-[13px] font-semibold text-slate-900">
-            Chi tiết
-          </Button.Label>
-        </Button>
+        <View className="flex-row items-center gap-2">
+          {/* Nút Đánh giá phòng xuất hiện khi lịch hẹn đã Hoàn tất */}
+          {item.trangThai === "HOAN_THANH" && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="bg-teal-600 rounded-[10px] px-4 py-2"
+              onPress={() =>
+                router.push({
+                  pathname: "/booking/review",
+                  params: {
+                    roomId: item.maPhongTro,
+                    roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                    roomAddress: item.diaChiPhong || "",
+                    roomImage: item.hinhAnh || "",
+                  },
+                })
+              }
+            >
+              <Button.Label className="text-[13px] font-bold text-white">
+                Đánh giá
+              </Button.Label>
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-slate-200 rounded-[10px] px-6 py-2 bg-white"
+            onPress={() => onDetail(item.maDatLich)}
+          >
+            <Button.Label className="text-[13px] font-semibold text-slate-900">
+              Chi tiết
+            </Button.Label>
+          </Button>
+        </View>
       </Card.Footer>
     </Card>
   );

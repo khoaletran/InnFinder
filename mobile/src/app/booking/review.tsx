@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { Button } from "heroui-native";
 
 import { StarRatingInput } from "../../components/booking/StarRatingInput";
 import { bookingService } from "../../services/booking.service";
@@ -29,10 +30,10 @@ export default function ReviewScreen() {
 
   const user = useAuthStore((state) => state.user);
 
-  // Điểm đánh giá chung (gửi vào Java backend)
+  // Điểm đánh giá chung (gửi vào Backend Spring Boot)
   const [overallScore, setOverallScore] = useState<number>(5);
 
-  // 5 tiêu chí phụ trên giao diện
+  // 5 tiêu chí phụ hiển thị trên giao diện
   const [scores, setScores] = useState({
     chatLuong: 5,
     tienIch: 4,
@@ -44,13 +45,11 @@ export default function ReviewScreen() {
   // Nội dung nhận xét
   const [content, setContent] = useState<string>("");
 
-  // Danh sách ảnh chụp minh chứng
-  const [images, setImages] = useState<string[]>([
-    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500",
-  ]);
+  // Khởi tạo danh sách ảnh tải lên là mảng rỗng (Không dùng ảnh mẫu)
+  const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Chọn ảnh từ thư viện
+  // Chọn ảnh thực tế từ thư viện
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -66,33 +65,50 @@ export default function ReviewScreen() {
 
   // Gửi đánh giá lên API Backend Spring Boot
   const handleSubmit = async () => {
+    // 1. Kiểm tra đăng nhập
+    if (!user?.maNguoiDung) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Vui lòng đăng nhập để thực hiện đánh giá phòng.",
+      );
+      return;
+    }
+
+    // 2. Kiểm tra mã phòng trọ
+    if (!params.roomId) {
+      Alert.alert(
+        "Lỗi dữ liệu",
+        "Không tìm thấy thông tin phòng trọ để đánh giá.",
+      );
+      return;
+    }
+
+    // 3. Kiểm tra nội dung nhận xét
     if (!content.trim()) {
       Alert.alert("Thông báo", "Vui lòng nhập trải nghiệm thực tế của bạn.");
       return;
     }
 
-    const roomId = params.roomId || "PT120326100001";
-    const maNguoiDung = user?.maNguoiDung || "ND202603120001";
-
     const payload: ReviewRequestDTO = {
-      maNguoiDung,
+      maNguoiDung: user.maNguoiDung,
       diem: overallScore,
       noiDung: content.trim(),
     };
 
     setIsSubmitting(true);
     try {
-      await bookingService.createReview(roomId, payload);
+      await bookingService.createReview(params.roomId, payload);
       setIsSubmitting(false);
       Alert.alert("Thành công", "Cảm ơn bạn đã gửi đánh giá cho phòng trọ!", [
         { text: "Đóng", onPress: () => router.back() },
       ]);
-    } catch {
+    } catch (err: any) {
       setIsSubmitting(false);
-      // Fallback thông báo thành công cho UI khi chưa bật backend
-      Alert.alert("Thành công", "Đã lưu đánh giá của bạn (Chế độ xem trước).", [
-        { text: "Đóng", onPress: () => router.back() },
-      ]);
+      // Hiển thị lỗi thật từ Backend
+      Alert.alert(
+        "Không thể gửi đánh giá",
+        err.message || "Đã có lỗi xảy ra từ máy chủ, vui lòng thử lại sau.",
+      );
     }
   };
 
@@ -112,29 +128,31 @@ export default function ReviewScreen() {
       >
         {/* 2. Tóm tắt phòng trọ */}
         <View className="flex-row items-center gap-3 pb-4 border-b border-slate-100">
-          <Image
-            source={{
-              uri:
-                params.roomImage ||
-                "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500",
-            }}
-            className="w-16 h-16 rounded-xl bg-slate-100"
-            resizeMode="cover"
-          />
+          {params.roomImage ? (
+            <Image
+              source={{ uri: params.roomImage }}
+              className="w-16 h-16 rounded-xl bg-slate-100"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-16 h-16 rounded-xl bg-slate-100 items-center justify-center">
+              <Ionicons name="home-outline" size={24} color="#94A3B8" />
+            </View>
+          )}
           <View className="flex-1">
             <Text
               className="text-base font-bold text-slate-900"
               numberOfLines={1}
             >
-              {params.roomTitle || "Studio ban công, đầy đủ nội thất mới"}
+              {params.roomTitle || `Phòng trọ mã #${params.roomId || ""}`}
             </Text>
             <Text className="text-xs text-slate-500 mt-1" numberOfLines={1}>
-              {params.roomAddress || "Quận 3, TP. Hồ Chí Minh"}
+              {params.roomAddress || "Địa chỉ phòng trọ"}
             </Text>
           </View>
         </View>
 
-        {/* 3. Điểm đánh giá chung (Ngôi sao lớn ở giữa) */}
+        {/* 3. Điểm đánh giá chung */}
         <View className="items-center py-5">
           <Text className="text-base font-bold text-slate-900 mb-2.5">
             Điểm đánh giá chung
@@ -146,7 +164,7 @@ export default function ReviewScreen() {
           />
         </View>
 
-        {/* 4. Danh sách 5 tiêu chí phụ */}
+        {/* 4. 5 tiêu chí phụ */}
         <View className="gap-3 pb-4 border-b border-slate-100">
           <View className="flex-row justify-between items-center">
             <Text className="text-sm text-slate-700">Chất lượng phòng</Text>
@@ -201,7 +219,7 @@ export default function ReviewScreen() {
           </Text>
           <TextInput
             className="border border-slate-200 rounded-2xl p-3.5 text-sm text-slate-800 bg-white min-h-[110px]"
-            placeholder="Phòng sạch sẽ, ban công đón nắng rất đẹp. Chủ nhà nhiệt tình hỗ trợ..."
+            placeholder="Phòng sạch sẽ, ban công thoáng mát. Chủ nhà nhiệt tình hỗ trợ..."
             placeholderTextColor="#94A3B8"
             value={content}
             onChangeText={setContent}
@@ -216,7 +234,6 @@ export default function ReviewScreen() {
             Hình ảnh minh chứng
           </Text>
           <View className="flex-row flex-wrap gap-3">
-            {/* Nút cộng ảnh nét đứt */}
             <TouchableOpacity
               onPress={handlePickImage}
               className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-300 items-center justify-center bg-slate-50 active:bg-slate-100"
@@ -224,7 +241,6 @@ export default function ReviewScreen() {
               <Ionicons name="add" size={26} color="#64748B" />
             </TouchableOpacity>
 
-            {/* Các ảnh đã chọn */}
             {images.map((uri, idx) => (
               <Image
                 key={idx}
@@ -237,19 +253,23 @@ export default function ReviewScreen() {
         </View>
       </ScrollView>
 
-      {/* 7. Nút Gửi đánh giá cố định ở đáy */}
+      {/* 7. Nút Gửi đánh giá chuẩn HeroUI Native */}
       <View className="px-4 py-3 bg-white border-t border-slate-100">
-        <TouchableOpacity
+        <Button
+          variant="primary"
+          size="lg"
           onPress={handleSubmit}
-          disabled={isSubmitting}
-          className="w-full py-3.5 bg-teal-600 rounded-xl items-center justify-center active:opacity-90"
+          isDisabled={isSubmitting}
+          className="w-full rounded-xl bg-teal-600"
         >
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text className="text-base font-bold text-white">Gửi đánh giá</Text>
+            <Button.Label className="font-bold text-white text-base">
+              Gửi đánh giá
+            </Button.Label>
           )}
-        </TouchableOpacity>
+        </Button>
       </View>
     </SafeAreaView>
   );
