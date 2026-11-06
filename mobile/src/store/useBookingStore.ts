@@ -1,6 +1,9 @@
 import { create } from "zustand";
+import * as SecureStore from "expo-secure-store";
 import { bookingService } from "../services/booking.service";
 import { AppointmentResponse, TrangThaiDatLich } from "../types/booking.types";
+
+const REVIEWED_STORAGE_KEY = "innfinder_reviewed_room_ids";
 
 export type AppointmentFilterTab =
   | "ALL"
@@ -13,29 +16,41 @@ interface BookingState {
   isLoading: boolean;
   error: string | null;
   activeTab: AppointmentFilterTab;
+  reviewedRoomIds: string[]; // Danh sách mã phòng đã đánh giá
 
   setActiveTab: (tab: AppointmentFilterTab) => void;
   fetchAppointments: () => Promise<void>;
+  markRoomAsReviewed: (roomId: string) => Promise<void>;
   cancelAppointment: (
     maDatLich: string,
     liDoHuy: string,
   ) => Promise<{ success: boolean; message?: string }>;
 }
 
-export const useBookingStore = create<BookingState>((set) => ({
+export const useBookingStore = create<BookingState>((set, get) => ({
   appointments: [],
   isLoading: false,
   error: null,
   activeTab: "ALL",
+  reviewedRoomIds: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  // Gọi API lấy danh sách lịch hẹn của tôi
   fetchAppointments: async () => {
     set({ isLoading: true, error: null });
     try {
       const data = await bookingService.getMyAppointments();
-      set({ appointments: data || [], isLoading: false });
+
+      // Đọc danh sách phòng đã đánh giá đã lưu trong máy
+      const storedReviewed =
+        await SecureStore.getItemAsync(REVIEWED_STORAGE_KEY);
+      const parsedReviewed = storedReviewed ? JSON.parse(storedReviewed) : [];
+
+      set({
+        appointments: data || [],
+        reviewedRoomIds: parsedReviewed,
+        isLoading: false,
+      });
     } catch (err: any) {
       set({
         appointments: [],
@@ -48,11 +63,22 @@ export const useBookingStore = create<BookingState>((set) => ({
     }
   },
 
-  // Gọi API hủy lịch hẹn và trả về thông điệp lỗi nếu có
+  // Đánh dấu phòng đã gửi review
+  markRoomAsReviewed: async (roomId: string) => {
+    const current = get().reviewedRoomIds;
+    if (!current.includes(roomId)) {
+      const updated = [...current, roomId];
+      set({ reviewedRoomIds: updated });
+      await SecureStore.setItemAsync(
+        REVIEWED_STORAGE_KEY,
+        JSON.stringify(updated),
+      );
+    }
+  },
+
   cancelAppointment: async (maDatLich: string, liDoHuy: string) => {
     try {
       await bookingService.cancelAppointment(maDatLich, liDoHuy);
-      // Cập nhật state trực tiếp
       set((state) => ({
         appointments: state.appointments.map((item) =>
           item.maDatLich === maDatLich

@@ -7,6 +7,7 @@ import {
   AppointmentResponse,
   TrangThaiDatLich,
 } from "../../types/booking.types";
+import { useBookingStore } from "../../store/useBookingStore";
 
 interface AppointmentCardProps {
   item: AppointmentResponse;
@@ -71,7 +72,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     label: item.trangThai,
     color: "default" as any,
   };
-
+  const reviewedRoomIds = useBookingStore((s) => s.reviewedRoomIds);
   const canCancel =
     item.trangThai === "CHO_XAC_NHAN" || item.trangThai === "XAC_NHAN";
   const initials = getAvatarInitials(item.tenChuTro);
@@ -163,29 +164,53 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         )}
 
         <View className="flex-row items-center gap-2">
-          {/* Nút Đánh giá phòng xuất hiện khi lịch hẹn đã Hoàn tất */}
-          {item.trangThai === "HOAN_THANH" && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="bg-teal-600 rounded-[10px] px-4 py-2"
-              onPress={() =>
-                router.push({
-                  pathname: "/booking/review",
-                  params: {
-                    roomId: item.maPhongTro,
-                    roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
-                    roomAddress: item.diaChiPhong || "",
-                    roomImage: item.hinhAnh || "",
-                  },
-                })
-              }
-            >
-              <Button.Label className="text-[13px] font-bold text-white">
-                Đánh giá
-              </Button.Label>
-            </Button>
-          )}
+          {/* Nút Đánh giá / Xem đánh giá khi lịch hẹn đã Hoàn tất */}
+          {item.trangThai === "HOAN_THANH" &&
+            (reviewedRoomIds.includes(item.maPhongTro) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-teal-600 bg-teal-50/50 rounded-[10px] px-3.5 py-2"
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/review",
+                    params: {
+                      roomId: item.maPhongTro,
+                      roomTitle:
+                        item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                      roomAddress: item.diaChiPhong || "",
+                      roomImage: item.hinhAnh || "",
+                    },
+                  })
+                }
+              >
+                <Button.Label className="text-[13px] font-bold text-teal-700">
+                  Xem đánh giá
+                </Button.Label>
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-teal-600 rounded-[10px] px-4 py-2"
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/review",
+                    params: {
+                      roomId: item.maPhongTro,
+                      roomTitle:
+                        item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                      roomAddress: item.diaChiPhong || "",
+                      roomImage: item.hinhAnh || "",
+                    },
+                  })
+                }
+              >
+                <Button.Label className="text-[13px] font-bold text-white">
+                  Đánh giá
+                </Button.Label>
+              </Button>
+            ))}
 
           <Button
             variant="outline"

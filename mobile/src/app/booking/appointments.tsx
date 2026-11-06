@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppointmentCard } from "../../components/booking/AppointmentCard";
@@ -28,6 +28,7 @@ const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
 ];
 
 export default function AppointmentsScreen() {
+  const { tab } = useLocalSearchParams<{ tab?: AppointmentFilterTab }>();
   const {
     appointments,
     isLoading,
@@ -37,14 +38,16 @@ export default function AppointmentsScreen() {
     fetchAppointments,
     cancelAppointment,
   } = useBookingStore();
-
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("");
   const [isCanceling, setIsCanceling] = useState(false);
-
   useEffect(() => {
+    // Nếu có truyền param tab (ví dụ: HOAN_THANH), tự động chọn tab đó
+    if (tab) {
+      setActiveTab(tab);
+    }
     fetchAppointments();
-  }, []);
+  }, [tab]);
 
   const filteredList: AppointmentResponse[] =
     activeTab === "ALL"

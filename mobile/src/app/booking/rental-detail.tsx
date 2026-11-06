@@ -118,15 +118,17 @@ export default function RentalDetailScreen() {
   // Xác nhận hủy yêu cầu
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
-    const success = await cancelAppointment(item.maDatLich, reason);
+    const result = await cancelAppointment(item.maDatLich, reason);
     setIsCanceling(false);
     setCancelModalVisible(false);
-    if (success) {
+
+    if (result.success) {
       Alert.alert("Thành công", "Đã hủy yêu cầu thuê phòng.");
       router.back();
+    } else {
+      Alert.alert("Lỗi", result.message || "Không thể hủy yêu cầu lúc này.");
     }
   };
-
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-white">
       {/* 1. Header */}
@@ -206,22 +208,57 @@ export default function RentalDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* 5. Cố định 2 nút hành động ở đáy màn hình */}
+      {/* 5. Cụm nút hành động theo trạng thái */}
       <View className="flex-row items-center gap-3 px-4 py-3 bg-white border-t border-slate-100">
-        <TouchableOpacity
-          onPress={() => setCancelModalVisible(true)}
-          className="flex-1 py-3 rounded-xl border border-rose-500 items-center justify-center"
-        >
-          <Text className="text-base font-semibold text-rose-500">
-            Hủy yêu cầu
-          </Text>
-        </TouchableOpacity>
+        {/* Nếu đã hoàn tất -> Hiện nút Đánh giá phòng */}
+        {item.trangThai === "HOAN_THANH" && (
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/booking/review",
+                params: {
+                  roomId: item.maPhongTro,
+                  roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                  roomAddress: item.diaChiPhong || "",
+                  roomImage: item.hinhAnh || "",
+                },
+              })
+            }
+            className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
+          >
+            <Text className="text-base font-bold text-white">
+              Đánh giá phòng
+            </Text>
+          </TouchableOpacity>
+        )}
 
+        {/* Nếu đang chờ hoặc đã xác nhận -> Cho phép Hủy */}
+        {(item.trangThai === "CHO_XAC_NHAN" ||
+          item.trangThai === "XAC_NHAN") && (
+          <TouchableOpacity
+            onPress={() => setCancelModalVisible(true)}
+            className="flex-1 py-3 rounded-xl border border-rose-500 items-center justify-center"
+          >
+            <Text className="text-base font-semibold text-rose-500">
+              Hủy yêu cầu
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Nút Gọi điện cho chủ trọ luôn sẵn sàng */}
         <TouchableOpacity
           onPress={handleCallLandlord}
-          className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
+          className={`flex-1 py-3 rounded-xl items-center justify-center ${
+            item.trangThai === "HOAN_THANH"
+              ? "border border-slate-300 bg-white"
+              : "bg-teal-600"
+          }`}
         >
-          <Text className="text-base font-semibold text-white">
+          <Text
+            className={`text-base font-semibold ${
+              item.trangThai === "HOAN_THANH" ? "text-slate-800" : "text-white"
+            }`}
+          >
             Liên hệ chủ trọ
           </Text>
         </TouchableOpacity>
