@@ -12,6 +12,7 @@ import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.PhieuDatLichRepository;
+import com.innfinder.backend.repository.PhongTroRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,9 +30,9 @@ public class AppointmentService {
     private final TransactionService transactionService;
 
     // Lưu ý: Đảm bảo bạn có PhongTroRepository trong project (do Thành viên 2 tạo, hoặc bạn tự tạo interface tạm thời kế thừa JpaRepository<PhongTro, String>)
-    // private final PhongTroRepository phongTroRepository;
+     private final PhongTroRepository phongTroRepository;
     // Tạm thời nếu bạn muốn query phòng trọ, dùng entityManager hoặc PhongTroRepository:
-    private final jakarta.persistence.EntityManager entityManager;
+//    private final jakarta.persistence.EntityManager entityManager;
 
     /**
      * 1. Khách hàng tạo lịch hẹn xem phòng
@@ -46,7 +47,7 @@ public class AppointmentService {
         NguoiDung khachHang = nguoiDungRepository.findById(maKhachHang)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        PhongTro phongTro = entityManager.find(PhongTro.class, request.getMaPhongTro());
+        PhongTro phongTro = phongTroRepository.findByMaPhongTro(request.getMaPhongTro()).orElse(null);
         if (phongTro == null) {
             throw new AppException(ErrorCode.ROOM_NOT_FOUND);
         }
