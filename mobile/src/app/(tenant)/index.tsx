@@ -362,7 +362,7 @@ export default function TenantHomeScreen() {
       <View className="py-10 items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
         <Ionicons name="business-outline" size={36} color="#94A3B8" />
         <Text className="text-slate-600 font-semibold text-sm mt-2 text-center px-6">
-          Backend đang trả về 0 phòng có trạng thái DA_DUYET.
+          Chưa có phòng.
         </Text>
       </View>
     </View>
