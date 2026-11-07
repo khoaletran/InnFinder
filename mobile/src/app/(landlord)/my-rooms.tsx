@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, Pressable, Image, RefreshControl } from 'react-native';
+import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,15 +9,19 @@ import { LandlordRoomItem } from '../../types/landlord.types';
 
 const PAGE_SIZE = 5;
 
-const FILTER_TABS: Array<{ key: 'ALL' | 'AVAILABLE' | 'RENTED'; label: string }> = [
+type RoomFilterKey = 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH';
+
+const FILTER_TABS: Array<{ key: RoomFilterKey; label: string }> = [
   { key: 'ALL', label: 'Tất cả' },
-  { key: 'AVAILABLE', label: 'Đang trống' },
-  { key: 'RENTED', label: 'Đang thuê' },
+  { key: 'DA_DUYET', label: 'Đã đăng bài' },
+  { key: 'CHO_DUYET', label: 'Chờ duyệt' },
+  { key: 'HUY', label: 'Bị từ chối' },
+  { key: 'HOAN_THANH', label: 'Đã cho thuê' },
 ];
 
 export default function MyRoomsScreen() {
   const router = useRouter();
-  const [filter, setFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED'>('ALL');
+  const [filter, setFilter] = useState<RoomFilterKey>('ALL');
   const [rooms, setRooms] = useState<LandlordRoomItem[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -68,11 +72,23 @@ export default function MyRoomsScreen() {
           />
           <View
             className={`absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full ${
-              room.isRented ? 'bg-emerald-600' : 'bg-amber-500'
+              room.trangThai === 'HOAN_THANH'
+                ? 'bg-emerald-600'
+                : room.trangThai === 'DA_DUYET'
+                ? 'bg-teal-600'
+                : room.trangThai === 'CHO_DUYET'
+                ? 'bg-amber-500'
+                : 'bg-rose-500'
             }`}
           >
             <Text className="text-[10px] font-bold text-white uppercase tracking-wider">
-              {room.isRented ? 'Đang thuê' : 'Đang trống'}
+              {room.trangThai === 'HOAN_THANH'
+                ? 'Đã cho thuê'
+                : room.trangThai === 'DA_DUYET'
+                ? 'Đã đăng bài'
+                : room.trangThai === 'CHO_DUYET'
+                ? 'Chờ duyệt'
+                : 'Bị từ chối'}
             </Text>
           </View>
         </View>
@@ -109,28 +125,34 @@ export default function MyRoomsScreen() {
         </View>
       </View>
 
-      {/* Tabs Filter Cố định */}
-      <View className="flex-row px-4 py-3 bg-white gap-2 border-b border-gray-100">
-        {FILTER_TABS.map((tab) => {
-          const isActive = filter === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setFilter(tab.key)}
-              className={`px-4 py-1.5 rounded-full ${
-                isActive ? 'bg-teal-700' : 'bg-gray-100 active:bg-gray-200'
-              }`}
-            >
-              <Text
-                className={`text-xs font-semibold ${
-                  isActive ? 'text-white' : 'text-gray-600'
+      {/* Tabs Filter ngang có thể cuộn */}
+      <View className="bg-white border-b border-gray-100 py-3">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+        >
+          {FILTER_TABS.map((tab) => {
+            const isActive = filter === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setFilter(tab.key)}
+                className={`px-3.5 py-1.5 rounded-full ${
+                  isActive ? 'bg-teal-700' : 'bg-gray-100 active:bg-gray-200'
                 }`}
               >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+                <Text
+                  className={`text-xs font-semibold ${
+                    isActive ? 'text-white' : 'text-gray-600'
+                  }`}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Danh sách phòng dạng FlatList */}
@@ -148,10 +170,14 @@ export default function MyRoomsScreen() {
               Không tìm thấy phòng trọ nào
             </Text>
             <Text className="text-xs text-gray-400 text-center mt-1">
-              {filter === 'AVAILABLE'
-                ? 'Bạn hiện không có phòng trống nào.'
-                : filter === 'RENTED'
-                ? 'Chưa có phòng nào đang trong hợp đồng thuê.'
+              {filter === 'DA_DUYET'
+                ? 'Bạn hiện không có phòng nào ở trạng thái Đã đăng bài.'
+                : filter === 'CHO_DUYET'
+                ? 'Không có phòng nào đang chờ duyệt.'
+                : filter === 'HUY'
+                ? 'Không có phòng nào bị từ chối.'
+                : filter === 'HOAN_THANH'
+                ? 'Chưa có phòng nào ở trạng thái Đã cho thuê.'
                 : 'Bạn chưa đăng phòng trọ nào. Hãy bấm nút (+) bên dưới để tạo bài đăng mới.'}
             </Text>
           </Card>

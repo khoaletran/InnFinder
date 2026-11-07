@@ -89,25 +89,29 @@ export default function LandlordTabLayout() {
       <Tabs.Screen
         name="create-room/index"
         options={{
-          href: null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="create-room/images"
         options={{
-          href: null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="my-posts"
         options={{
-          href: null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="transactions"
         options={{
-          href: null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>

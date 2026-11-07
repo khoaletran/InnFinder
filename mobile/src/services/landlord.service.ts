@@ -40,7 +40,9 @@ export const landlordService = {
   },
 
   // 2. Danh sách Phòng của tôi (gọi GET /api/landlord/rooms/my-rooms)
-  getMyRooms: async (filter?: 'ALL' | 'AVAILABLE' | 'RENTED'): Promise<LandlordRoomItem[]> => {
+  getMyRooms: async (
+    filter?: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH' | 'AVAILABLE' | 'RENTED'
+  ): Promise<LandlordRoomItem[]> => {
     try {
       const res: any = await axiosClient.get('/api/landlord/rooms/my-rooms');
       const list: LandlordRoomItem[] = Array.isArray(res)
@@ -59,8 +61,10 @@ export const landlordService = {
           }))
         : [];
 
-      if (filter === 'AVAILABLE') return list.filter((r) => !r.isRented);
-      if (filter === 'RENTED') return list.filter((r) => r.isRented);
+      if (filter === 'DA_DUYET' || filter === 'AVAILABLE') return list.filter((r) => r.trangThai === 'DA_DUYET');
+      if (filter === 'CHO_DUYET') return list.filter((r) => r.trangThai === 'CHO_DUYET');
+      if (filter === 'HUY') return list.filter((r) => r.trangThai === 'HUY');
+      if (filter === 'HOAN_THANH' || filter === 'RENTED') return list.filter((r) => r.trangThai === 'HOAN_THANH');
       return list;
     } catch {
       return [];

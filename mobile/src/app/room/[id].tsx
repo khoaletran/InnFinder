@@ -259,9 +259,9 @@ export default function RoomDetailScreen() {
               />
               <Text className="text-sm font-bold text-slate-800">
                 {room.trangThai === 'HOAN_THANH'
-                  ? 'Đang cho thuê'
+                  ? 'Đã cho thuê'
                   : room.trangThai === 'DA_DUYET'
-                  ? 'Đang hoạt động'
+                  ? 'Đã đăng bài'
                   : room.trangThai === 'CHO_DUYET'
                   ? 'Chờ duyệt'
                   : 'Bị từ chối'}

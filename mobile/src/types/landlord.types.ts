@@ -22,7 +22,7 @@ export interface LandlordPostItem {
   id: string;
   tenPhong: string;
   giaThue: number;
-  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'HUY';
+  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
   hinhAnhUrl?: string;
   lyDoTuChoi?: string;
   ngayDang: string;

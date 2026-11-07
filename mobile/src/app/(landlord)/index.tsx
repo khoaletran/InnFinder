@@ -112,7 +112,7 @@ export default function LandlordDashboardScreen() {
         <View className="mt-4 mb-8">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-base font-bold text-gray-900">Tin đăng gần đây</Text>
-            <Pressable onPress={() => router.push('/(landlord)/my-rooms')}>
+            <Pressable onPress={() => router.push('/(landlord)/my-posts')}>
               <Text className="text-xs font-semibold text-teal-700">Quản lý &gt;</Text>
             </Pressable>
           </View>
@@ -142,8 +142,36 @@ export default function LandlordDashboardScreen() {
                       <Text className="text-xs font-semibold text-teal-700">
                         {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
                       </Text>
-                      <View className="px-2 py-0.5 rounded-full bg-emerald-100">
-                        <Text className="text-[10px] font-bold text-emerald-700">Đang hiển thị</Text>
+                      <View
+                        className={`px-2 py-0.5 rounded-full ${
+                          post.trangThai === 'HOAN_THANH'
+                            ? 'bg-emerald-100'
+                            : post.trangThai === 'DA_DUYET'
+                            ? 'bg-teal-100'
+                            : post.trangThai === 'CHO_DUYET'
+                            ? 'bg-amber-100'
+                            : 'bg-rose-100'
+                        }`}
+                      >
+                        <Text
+                          className={`text-[10px] font-bold ${
+                            post.trangThai === 'HOAN_THANH'
+                              ? 'text-emerald-700'
+                              : post.trangThai === 'DA_DUYET'
+                              ? 'text-teal-700'
+                              : post.trangThai === 'CHO_DUYET'
+                              ? 'text-amber-700'
+                              : 'text-rose-700'
+                          }`}
+                        >
+                          {post.trangThai === 'HOAN_THANH'
+                            ? 'Đã cho thuê'
+                            : post.trangThai === 'DA_DUYET'
+                            ? 'Đã đăng bài'
+                            : post.trangThai === 'CHO_DUYET'
+                            ? 'Chờ duyệt'
+                            : 'Bị từ chối'}
+                        </Text>
                       </View>
                     </View>
                   </View>
