@@ -105,7 +105,7 @@ export default function RoomDetailScreen() {
           }).start();
         }
       },
-    })
+    }),
   ).current;
 
   // Hiệu ứng co nhỏ ảnh (scale từ 1 xuống 0.5) khi kéo lên hoặc xuống
@@ -221,7 +221,9 @@ export default function RoomDetailScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={(e) => {
-              const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              const newIndex = Math.round(
+                e.nativeEvent.contentOffset.x / SCREEN_WIDTH,
+              );
               setActiveImageIndex(newIndex);
             }}
             renderItem={({ item, index }) => (
@@ -262,7 +264,7 @@ export default function RoomDetailScreen() {
                   <Ionicons
                     name={isFavorite ? "heart" : "heart-outline"}
                     size={20}
-                    color={isFavorite ? "#0D9488" : "#1E293B"}
+                    color={isFavorite ? "#c42626" : "#1E293B"}
                   />
                 </Pressable>
               )}
@@ -301,19 +303,19 @@ export default function RoomDetailScreen() {
 
           {/* 3 Ô thông số dùng Card HeroUI */}
           <View className="flex-row justify-between mt-4 gap-2.5">
-            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 items-center justify-center">
               <Text className="text-xs text-slate-500">Diện tích</Text>
               <Text className="text-base font-bold text-slate-800 mt-0.5">
                 {room.dienTich} m²
               </Text>
             </Card>
-            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 items-center justify-center">
               <Text className="text-xs text-slate-500">Sức chứa</Text>
               <Text className="text-base font-bold text-slate-800 mt-0.5">
                 {room.soNguoi} người
               </Text>
             </Card>
-            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 items-center justify-center">
               <Text className="text-xs text-slate-500">Khu vực</Text>
               <Text
                 numberOfLines={1}
@@ -373,27 +375,29 @@ export default function RoomDetailScreen() {
       {isLandlordView ? (
         <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex-row items-center gap-3 pb-safe shadow-lg">
           <View className="flex-1">
-            <Text className="text-xs text-slate-500 font-medium">Trạng thái phòng</Text>
+            <Text className="text-xs text-slate-500 font-medium">
+              Trạng thái phòng
+            </Text>
             <View className="flex-row items-center mt-1">
               <View
                 className={`w-2 h-2 rounded-full mr-2 ${
-                  room.trangThai === 'HOAN_THANH'
-                    ? 'bg-emerald-500'
-                    : room.trangThai === 'DA_DUYET'
-                    ? 'bg-teal-600'
-                    : room.trangThai === 'CHO_DUYET'
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500'
+                  room.trangThai === "HOAN_THANH"
+                    ? "bg-emerald-500"
+                    : room.trangThai === "DA_DUYET"
+                      ? "bg-teal-600"
+                      : room.trangThai === "CHO_DUYET"
+                        ? "bg-amber-500"
+                        : "bg-rose-500"
                 }`}
               />
               <Text className="text-sm font-bold text-slate-800">
-                {room.trangThai === 'HOAN_THANH'
-                  ? 'Đã cho thuê'
-                  : room.trangThai === 'DA_DUYET'
-                  ? 'Đã đăng bài'
-                  : room.trangThai === 'CHO_DUYET'
-                  ? 'Chờ duyệt'
-                  : 'Bị từ chối'}
+                {room.trangThai === "HOAN_THANH"
+                  ? "Đã cho thuê"
+                  : room.trangThai === "DA_DUYET"
+                    ? "Đã đăng bài"
+                    : room.trangThai === "CHO_DUYET"
+                      ? "Chờ duyệt"
+                      : "Bị từ chối"}
               </Text>
             </View>
           </View>
@@ -500,10 +504,15 @@ export default function RoomDetailScreen() {
                 index,
               })}
               onMomentumScrollEnd={(e) => {
-                const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                const newIndex = Math.round(
+                  e.nativeEvent.contentOffset.x / SCREEN_WIDTH,
+                );
                 setViewerIndex(newIndex);
                 setActiveImageIndex(newIndex);
-                bannerRef.current?.scrollToIndex({ index: newIndex, animated: false });
+                bannerRef.current?.scrollToIndex({
+                  index: newIndex,
+                  animated: false,
+                });
               }}
               renderItem={({ item }) => (
                 <Pressable
