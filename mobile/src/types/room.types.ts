@@ -47,6 +47,7 @@ export interface RoomSummaryResponse {
   viDo: string;
   diemUyTinChuTro: number;
   thoiGianDang: string;
+  trangThai?: TrangThaiPhongTro;
 }
 
 // 6. DTO Chi tiết phòng trọ

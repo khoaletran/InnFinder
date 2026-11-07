@@ -601,6 +601,16 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                         Chưa có tài khoản? Đăng ký ngay
                       </Text>
                     </Pressable>
+
+                    <Pressable
+                      onPress={() => router.replace('/(tenant)')}
+                      className="flex-row items-center justify-center gap-1.5 py-2 mt-1 active:opacity-70"
+                    >
+                      <Text className="text-xs font-semibold text-slate-500">
+                        Bỏ qua, khám phá không cần đăng nhập
+                      </Text>
+                      <Ionicons name="arrow-forward" size={13} color="#64748B" />
+                    </Pressable>
                   </Card.Body>
                 ) : (
                   /* ---------- FORM ĐĂNG KÝ (HIỂN THỊ ĐỦ 100%, KHÔNG ĐÈ CHỮ) ---------- */

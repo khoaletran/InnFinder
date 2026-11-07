@@ -8,9 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich,String> {
-    @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
-    String findMaxMaDatLichByPrefix(@Param("prefix") String prefix);
+public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, String> {
     /**
      * 1. Lấy danh sách lịch hẹn của một khách hàng (sắp xếp ngày hẹn mới nhất lên đầu)
      * Dùng cho endpoint: GET /api/appointments/my-appointments
@@ -28,14 +26,20 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich,Strin
                     "order by  p.ngayHen desc "
     )
     List<PhieuDatLich> findAppointmentsByLandlordId(@Param("maChuTro") String maChuTro);
+
     /**
      * 3. (Phụ trợ) Lọc lịch hẹn của khách hàng theo trạng thái cụ thể
      */
     List<PhieuDatLich> findByKhachHang_MaNguoiDungAndTrangThai(String maNguoiDung, TrangThaiDatLich trangThai);
 
-
     /**
      * 4. (Phụ trợ) Lấy toàn bộ lịch hẹn của một phòng trọ cụ thể
      */
     List<PhieuDatLich> findByPhongTro_MaPhongTro(String maPhongTro);
+
+    /**
+     * 5. Tính tổng doanh thu phí hoa hồng hệ thống từ các lịch hẹn theo trạng thái
+     */
+    @Query("SELECT COALESCE(SUM(p.phiThu), 0L) FROM PhieuDatLich p WHERE p.trangThai = :trangThai")
+    Long sumPhiThuByTrangThai(@Param("trangThai") TrangThaiDatLich trangThai);
 }

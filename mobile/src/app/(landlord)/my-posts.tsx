@@ -44,9 +44,9 @@ export default function MyPostsScreen() {
       <View className="flex-row px-4 py-3 bg-white gap-2 border-b border-gray-100">
         {[
           { key: 'ALL', label: 'Tất cả' },
-          { key: 'ACTIVE', label: 'Hiển thị' },
+          { key: 'ACTIVE', label: 'Đã đăng bài' },
           { key: 'PENDING', label: 'Chờ duyệt' },
-          { key: 'REJECTED', label: 'Từ chối' },
+          { key: 'REJECTED', label: 'Bị từ chối' },
         ].map((tab) => {
           const isActive = activeTab === tab.key;
           return (

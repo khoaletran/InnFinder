@@ -1,4 +1,4 @@
-// mobile/src/app/(tenant)/search.tsx
+// mobile/src/app/search.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -12,21 +12,46 @@ import {
 import { Chip, Tabs } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useFilterStore } from "../../store/useFilterStore";
-import { roomService } from "../../services/room.service";
-import { RoomSummaryResponse } from "../../types/room.types";
-import { RoomCard } from "../../components/room/RoomCard";
+import { useFilterStore } from "../store/useFilterStore";
+import { roomService } from "../services/room.service";
+import { CategoryResponse, RoomSummaryResponse } from "../types/room.types";
+import { RoomCard } from "../components/room/RoomCard";
+import { FilterModal } from "../components/room/FilterModal";
 
-export default function TenantSearchScreen() {
+export default function SearchScreen() {
   const { filter, setFilter, resetFilter, getActiveFilterCount } =
     useFilterStore();
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [keywordInput, setKeywordInput] = useState<string>(
     filter.keyword || "",
   );
   const [viewMode, setViewMode] = useState<string>("list");
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+
+  // Load danh mục loại phòng để lấy tên hiển thị lên Chip
+  useEffect(() => {
+    roomService.getRoomTypes().then((res) => setCategories(res || []));
+  }, []);
+
+  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài
+  useEffect(() => {
+    setKeywordInput(filter.keyword || "");
+  }, [filter.keyword]);
+
+  //fix tu dong tim
+  // Debounce 400ms: Tự động tìm kiếm sau khi ngừng gõ
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = keywordInput.trim();
+      if (trimmed !== (filter.keyword || "")) {
+        setFilter({ keyword: trimmed });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
 
   useEffect(() => {
     fetchRooms();
@@ -54,22 +79,38 @@ export default function TenantSearchScreen() {
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tenant)");
+    }
+  };
+
+  // Lấy tên loại phòng từ mã
+  const selectedCategoryName = categories.find(
+    (c) => c.maLpt === filter.maLpt,
+  )?.tenLoaiPhongTro;
+
   return (
     <View className="flex-1 pt-safe bg-white">
       {/* 1. Header Search Bar */}
       <View className="flex-row items-center px-4 py-2 gap-2.5">
-        <Pressable onPress={() => router.back()} className="p-1">
+        <Pressable onPress={handleGoBack} className="p-1">
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </Pressable>
 
         <View className="flex-1 flex-row items-center bg-slate-100 rounded-full px-3.5 py-2">
-          <Ionicons name="search" size={18} color="#64748B" />
+          <Pressable onPress={() => setFilter({ keyword: keywordInput })}>
+            <Ionicons name="search" size={18} color="#0D9488" />
+          </Pressable>
           <TextInput
             value={keywordInput}
             onChangeText={setKeywordInput}
-            onSubmitEditing={() => setFilter({ keyword: keywordInput })}
-            placeholder="Tìm theo khu vực, đường..."
+            onSubmitEditing={() => setFilter({ keyword: keywordInput.trim() })}
+            placeholder="Tìm theo địa chỉ, mô tả, tiện ích..."
             placeholderTextColor="#94A3B8"
+            returnKeyType="search"
             className="flex-1 ml-2 text-sm text-slate-800 p-0"
           />
           {keywordInput !== "" && (
@@ -85,7 +126,7 @@ export default function TenantSearchScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
           className="p-2.5 rounded-full bg-slate-100 relative"
         >
           <Ionicons name="options-outline" size={20} color="#1E293B" />
@@ -95,16 +136,23 @@ export default function TenantSearchScreen() {
         </Pressable>
       </View>
 
-      {/* 2. Filter Active Chips Bar Động (Cuộn ngang linh hoạt) */}
+      {/* 2. Filter Active Chips Bar Động (Cuộn ngang) */}
       <View className="py-2 border-b border-slate-100">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="px-4"
-          contentContainerStyle={{ gap: 8, alignItems: "center" }}
+          // sua chip khong bi mat khi scroll ngang
+          bounces={true}
+          overScrollMode="always"
+          contentContainerStyle={{
+            paddingLeft: 16,
+            paddingRight: 30, // Tạo khoảng đệm rộng rãi để chip Tiện ích kéo vào trọn vẹn
+            gap: 8,
+            alignItems: "center",
+          }}
         >
-          {/* Nút Xoá tất cả (chỉ hiện khi có lọc)
-          {getActiveFilterCount() > 0 && (
+          {/* Nút Xoá tất cả: Chỉ hiện khi có bất kỳ bộ lọc nào */}
+          {/* {getActiveFilterCount() > 0 && (
             <Pressable
               onPress={() => {
                 setKeywordInput("");
@@ -136,8 +184,8 @@ export default function TenantSearchScreen() {
             </Chip>
           ) : null}
 
-          {/* Chip Khoảng Giá */}
-          {filter.minGia !== undefined || filter.maxGia !== undefined ? (
+          {/* Chip Giá cả */}
+          {filter.maxGia !== undefined ? (
             <Chip
               variant="primary"
               color="default"
@@ -148,22 +196,21 @@ export default function TenantSearchScreen() {
               }
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                ≤ {((filter.maxGia || 8000000) / 1_000_000).toFixed(1)} tr ✕
+                ≤ {(filter.maxGia / 1_000_000).toFixed(1)} tr ✕
               </Chip.Label>
             </Chip>
           ) : (
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">Giá cả</Chip.Label>
             </Chip>
           )}
 
-          {/* Chip Diện Tích */}
-          {filter.minDienTich !== undefined ||
-          filter.maxDienTich !== undefined ? (
+          {/* Chip Diện tích */}
+          {filter.maxDienTich !== undefined ? (
             <Chip
               variant="primary"
               color="default"
@@ -174,14 +221,14 @@ export default function TenantSearchScreen() {
               }
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                ≤ {filter.maxDienTich || 45} m² ✕
+                ≤ {filter.maxDienTich} m² ✕
               </Chip.Label>
             </Chip>
           ) : (
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Diện tích
@@ -189,7 +236,7 @@ export default function TenantSearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Loại Phòng */}
+          {/* Chip Loại phòng (Hiển thị tên thật của loại phòng) */}
           {filter.maLpt ? (
             <Chip
               variant="primary"
@@ -199,14 +246,14 @@ export default function TenantSearchScreen() {
               onPress={() => setFilter({ maLpt: undefined })}
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                Loại: {filter.maLpt} ✕
+                {selectedCategoryName || filter.maLpt} ✕
               </Chip.Label>
             </Chip>
           ) : (
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Loại phòng
@@ -214,7 +261,7 @@ export default function TenantSearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Số Người */}
+          {/* Chip Số người */}
           {filter.soNguoi !== undefined ? (
             <Chip
               variant="primary"
@@ -231,7 +278,7 @@ export default function TenantSearchScreen() {
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Số người
@@ -239,8 +286,8 @@ export default function TenantSearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Tiện Ích */}
-          {filter.dsTienIch && filter.dsTienIch.length > 0 && (
+          {/* Chip Tiện ích */}
+          {filter.dsTienIch && filter.dsTienIch.length > 0 ? (
             <Chip
               variant="primary"
               color="default"
@@ -250,6 +297,16 @@ export default function TenantSearchScreen() {
             >
               <Chip.Label className="text-xs font-semibold text-white">
                 {filter.dsTienIch.length} tiện ích ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => setIsFilterModalOpen(true)}
+            >
+              <Chip.Label className="text-xs text-slate-600">
+                Tiện ích
               </Chip.Label>
             </Chip>
           )}
@@ -302,6 +359,12 @@ export default function TenantSearchScreen() {
           }
         />
       )}
+
+      {/* 5. Modal Bộ Lọc */}
+      <FilterModal
+        visible={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+      />
     </View>
   );
 }

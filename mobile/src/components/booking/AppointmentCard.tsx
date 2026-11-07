@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, Button } from "heroui-native";
 import { router } from "expo-router";
@@ -78,152 +78,157 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const initials = getAvatarInitials(item.tenChuTro);
 
   return (
-    <Card className="bg-white rounded-2xl border border-slate-200 p-3.5 mb-3.5 shadow-sm">
-      {/* 1. Header: Ảnh phòng + Tiêu đề + Địa chỉ */}
-      <Card.Header className="flex-row items-center mb-3">
-        {item.hinhAnh ? (
-          <Image
-            source={{ uri: item.hinhAnh }}
-            className="w-[62px] h-[62px] rounded-xl bg-slate-100"
-            resizeMode="cover"
-          />
-        ) : (
-          <View className="w-[62px] h-[62px] rounded-xl bg-slate-100 items-center justify-center">
-            <Ionicons name="home-outline" size={24} color="#94A3B8" />
-          </View>
-        )}
-        <View className="flex-1 ml-3 justify-center">
-          <Card.Title
-            className="text-[15px] font-bold text-slate-900 mb-1"
-            numberOfLines={1}
-          >
-            {item.tieuDePhong || `Phòng trọ mã #${item.maPhongTro}`}
-          </Card.Title>
-          <Card.Description
-            className="text-[13px] text-slate-500"
-            numberOfLines={1}
-          >
-            {item.diaChiPhong || "Chưa cập nhật địa chỉ"}
-          </Card.Description>
-        </View>
-      </Card.Header>
+    <Pressable
+      onPress={() => onDetail(item.maDatLich)}
+      className="mb-3 active:opacity-95"
+    >
+      <Card className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+        {/* Phần thân: Ảnh phòng bên trái + Nội dung bên phải (tương tự RoomCard horizontal) */}
+        <View className="flex-row">
+          {item.hinhAnh ? (
+            <Image
+              source={{ uri: item.hinhAnh }}
+              style={{ width: 92, height: 92, borderRadius: 12 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={{ width: 92, height: 92, borderRadius: 12 }}
+              className="bg-slate-100 items-center justify-center border border-slate-200"
+            >
+              <Ionicons name="home-outline" size={28} color="#94A3B8" />
+            </View>
+          )}
 
-      {/* 2. Body: Ngày giờ + Chủ trọ + Badge trạng thái */}
-      <Card.Body className="p-0">
-        <View className="flex-row items-center mb-3">
-          <View className="flex-row items-center">
-            <Ionicons name="calendar-outline" size={16} color="#475569" />
-            <Text className="text-[13px] text-slate-700 font-medium ml-1.5">
-              {date}
-            </Text>
-          </View>
-          <View className="flex-row items-center ml-4">
-            <Ionicons name="time-outline" size={16} color="#475569" />
-            <Text className="text-[13px] text-slate-700 font-medium ml-1.5">
-              {time}
-            </Text>
-          </View>
-        </View>
+          <View className="flex-1 ml-3.5 justify-between py-0.5">
+            <View>
+              <View className="flex-row items-center justify-between gap-1 mb-1">
+                <Text
+                  numberOfLines={1}
+                  className="text-base font-bold text-slate-800 flex-1 mr-1.5"
+                >
+                  {item.tieuDePhong || `Phòng trọ #${item.maPhongTro}`}
+                </Text>
+                <Chip variant="soft" color={statusInfo.color} size="sm">
+                  <Chip.Label className="text-[10px] font-bold">
+                    {statusInfo.label}
+                  </Chip.Label>
+                </Chip>
+              </View>
 
-        <View className="flex-row justify-between items-center mb-3.5">
-          <View className="flex-row items-center flex-1 mr-2">
-            <View className="w-8 h-8 rounded-full bg-emerald-100 justify-center items-center mr-2">
-              <Text className="text-xs font-bold text-emerald-700">
-                {initials}
+              <Text numberOfLines={1} className="text-xs text-slate-500 mb-2">
+                {item.diaChiPhong || "Chưa cập nhật địa chỉ"}
               </Text>
             </View>
-            <Text
-              className="text-[13px] font-semibold text-slate-800"
-              numberOfLines={1}
-            >
-              {item.tenChuTro || "Chủ trọ"}
-            </Text>
+
+            {/* Thông tin lịch hẹn: Ngày & Giờ */}
+            <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="calendar-outline" size={13} color="#0D9488" />
+                <Text className="text-xs font-semibold text-slate-700">
+                  {date}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="time-outline" size={13} color="#0D9488" />
+                <Text className="text-xs font-semibold text-slate-700">
+                  {time}
+                </Text>
+              </View>
+            </View>
+
+            {/* Chủ trọ */}
+            <View className="flex-row items-center mt-1.5">
+              <View className="w-4 h-4 rounded-full bg-teal-50 border border-teal-200 items-center justify-center mr-1.5">
+                <Text className="text-[8px] font-bold text-teal-700">
+                  {initials}
+                </Text>
+              </View>
+              <Text numberOfLines={1} className="text-xs text-slate-600 font-medium">
+                {item.tenChuTro || "Chủ trọ"}
+              </Text>
+            </View>
           </View>
-
-          <Chip variant="soft" color={statusInfo.color} size="sm">
-            <Chip.Label>{statusInfo.label}</Chip.Label>
-          </Chip>
         </View>
-      </Card.Body>
 
-      {/* 3. Footer: Nút Hủy, Đánh giá (nếu hoàn tất) & Chi tiết */}
-      <Card.Footer className="flex-row justify-between items-center pt-2 border-t border-slate-100 p-0">
-        {canCancel ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="px-1"
-            onPress={() => onCancel(item.maDatLich)}
-          >
-            <Button.Label className="text-sm font-semibold text-red-500">
-              Hủy lịch
-            </Button.Label>
-          </Button>
-        ) : (
-          <View className="flex-1" />
-        )}
+        {/* Hàng nút tác vụ bên dưới */}
+        <View className="flex-row items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100">
+          {canCancel ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-1"
+              onPress={() => onCancel(item.maDatLich)}
+            >
+              <Button.Label className="text-xs font-semibold text-rose-500">
+                Hủy lịch hẹn
+              </Button.Label>
+            </Button>
+          ) : (
+            <View className="flex-1" />
+          )}
 
-        <View className="flex-row items-center gap-2">
-          {/* Nút Đánh giá / Xem đánh giá khi lịch hẹn đã Hoàn tất */}
-          {item.trangThai === "HOAN_THANH" &&
-            (reviewedRoomIds.includes(item.maPhongTro) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-teal-600 bg-teal-50/50 rounded-[10px] px-3.5 py-2"
-                onPress={() =>
-                  router.push({
-                    pathname: "/booking/review",
-                    params: {
-                      roomId: item.maPhongTro,
-                      roomTitle:
-                        item.tieuDePhong || `Phòng #${item.maPhongTro}`,
-                      roomAddress: item.diaChiPhong || "",
-                      roomImage: item.hinhAnh || "",
-                    },
-                  })
-                }
-              >
-                <Button.Label className="text-[13px] font-bold text-teal-700">
-                  Xem đánh giá
-                </Button.Label>
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="sm"
-                className="bg-teal-600 rounded-[10px] px-4 py-2"
-                onPress={() =>
-                  router.push({
-                    pathname: "/booking/review",
-                    params: {
-                      roomId: item.maPhongTro,
-                      roomTitle:
-                        item.tieuDePhong || `Phòng #${item.maPhongTro}`,
-                      roomAddress: item.diaChiPhong || "",
-                      roomImage: item.hinhAnh || "",
-                    },
-                  })
-                }
-              >
-                <Button.Label className="text-[13px] font-bold text-white">
-                  Đánh giá
-                </Button.Label>
-              </Button>
-            ))}
+          <View className="flex-row items-center gap-2">
+            {item.trangThai === "HOAN_THANH" &&
+              (reviewedRoomIds.includes(item.maPhongTro) ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-teal-600 bg-teal-50/50 rounded-xl px-3 py-1.5"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/booking/review",
+                      params: {
+                        roomId: item.maPhongTro,
+                        roomTitle:
+                          item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                        roomAddress: item.diaChiPhong || "",
+                        roomImage: item.hinhAnh || "",
+                      },
+                    })
+                  }
+                >
+                  <Button.Label className="text-xs font-bold text-teal-700">
+                    Xem đánh giá
+                  </Button.Label>
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-teal-600 rounded-xl px-3.5 py-1.5"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/booking/review",
+                      params: {
+                        roomId: item.maPhongTro,
+                        roomTitle:
+                          item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                        roomAddress: item.diaChiPhong || "",
+                        roomImage: item.hinhAnh || "",
+                      },
+                    })
+                  }
+                >
+                  <Button.Label className="text-xs font-bold text-white">
+                    Đánh giá
+                  </Button.Label>
+                </Button>
+              ))}
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-slate-200 rounded-[10px] px-6 py-2 bg-white"
-            onPress={() => onDetail(item.maDatLich)}
-          >
-            <Button.Label className="text-[13px] font-semibold text-slate-900">
-              Chi tiết
-            </Button.Label>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-200 rounded-xl px-4 py-1.5 bg-slate-50 active:bg-slate-100"
+              onPress={() => onDetail(item.maDatLich)}
+            >
+              <Button.Label className="text-xs font-semibold text-slate-700">
+                Chi tiết
+              </Button.Label>
+            </Button>
+          </View>
         </View>
-      </Card.Footer>
-    </Card>
+      </Card>
+    </Pressable>
   );
 };

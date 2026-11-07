@@ -92,6 +92,11 @@ export default function LandlordAccountScreen() {
         {/* Nhóm 2: Lịch & Thuê phòng */}
         <View className="bg-white rounded-2xl overflow-hidden border border-slate-200 mb-4 divide-y divide-slate-100">
           <ProfileMenuRow
+            icon="newspaper-outline"
+            label="Quản lý bài đăng"
+            onPress={() => router.push('/(landlord)/my-posts')}
+          />
+          <ProfileMenuRow
             icon="heart-outline"
             label="Phòng yêu thích"
             onPress={() => router.push('/(tenant)/favorites')}

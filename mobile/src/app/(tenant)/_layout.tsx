@@ -1,10 +1,21 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useNotificationStore } from '../../store/useNotificationStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function TenantTabLayout() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { user, isAuthenticated } = useAuthStore();
+
+  // Đảm bảo nếu là Admin thì không bao giờ hiển thị giao diện khách hàng
+  useEffect(() => {
+    if (isAuthenticated && user?.vaiTro === 'QUAN_TRI') {
+      router.replace('/(admin)');
+    }
+  }, [isAuthenticated, user?.vaiTro]);
+
   return (
     <Tabs
       screenOptions={{
@@ -24,6 +35,7 @@ export default function TenantTabLayout() {
         },
       }}
     >
+      {/* 1. Trang chủ */}
       <Tabs.Screen
         name="index"
         options={{
@@ -33,15 +45,8 @@ export default function TenantTabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Tìm kiếm',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color as string} />
-          ),
-        }}
-      />
+
+      {/* 2. Yêu thích (Trái tim sang thứ 2) */}
       <Tabs.Screen
         name="favorites"
         options={{
@@ -51,6 +56,19 @@ export default function TenantTabLayout() {
           ),
         }}
       />
+
+      {/* 3. Lịch hẹn (Ở chính giữa) */}
+      <Tabs.Screen
+        name="appointments"
+        options={{
+          title: 'Lịch hẹn',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color as string} />
+          ),
+        }}
+      />
+
+      {/* 4. Thông báo */}
       <Tabs.Screen
         name="notifications"
         options={{
@@ -67,6 +85,8 @@ export default function TenantTabLayout() {
           ),
         }}
       />
+
+      {/* 5. Cá nhân */}
       <Tabs.Screen
         name="profile"
         options={{

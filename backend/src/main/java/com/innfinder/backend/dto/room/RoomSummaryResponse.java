@@ -6,7 +6,6 @@
 
 package com.innfinder.backend.dto.room;
 
-
 /*
  * @description:
  * @author: Nha Tran Quoc
@@ -15,8 +14,10 @@ package com.innfinder.backend.dto.room;
  */
 import com.innfinder.backend.entity.HinhAnh;
 import com.innfinder.backend.entity.PhongTro;
+import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import lombok.*;
 import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,6 +36,8 @@ public class RoomSummaryResponse {
     private String viDo;
     private Integer diemUyTinChuTro;
     private LocalDateTime thoiGianDang;
+    private TrangThaiPhongTro trangThai;
+
     public static RoomSummaryResponse fromEntity(PhongTro entity) {
         if (entity == null) return null;
         // Ưu tiên lấy ảnh đại diện (laDaiDien = true), nếu không thì lấy ảnh đầu tiên
@@ -62,6 +65,7 @@ public class RoomSummaryResponse {
                 .viDo(entity.getViDo())
                 .diemUyTinChuTro(uyTin)
                 .thoiGianDang(entity.getThoiGianDang())
+                .trangThai(entity.getTrangThai())
                 .build();
     }
 }

@@ -11,7 +11,19 @@ export default function RootLayout() {
           <Stack.Screen name="(tenant)" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(landlord)" />
-          <Stack.Screen name="(admin)" />
+          <Stack.Screen
+            name="(admin)"
+            options={{
+              gestureEnabled: false,
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen
+            name="room/filter-modal"
+            options={{
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </HeroUINativeProvider>
     </GestureHandlerRootView>

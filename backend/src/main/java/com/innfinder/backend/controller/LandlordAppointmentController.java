@@ -58,4 +58,14 @@ public class LandlordAppointmentController {
         appointmentService.hoanThanhLichHen(maDatLich, username);
         return ApiResponse.ok(null, "Xác nhận hoàn tất xem phòng thành công");
     }
+
+    @PatchMapping("/{id}/cancel")
+    @Operation(summary = "Chủ trọ hủy lịch hẹn hoặc xác nhận không thuê sau khi xem (hoàn cọc cho khách)")
+    public ApiResponse<String> huyLichHen(
+            @PathVariable("id") String maDatLich,
+            @Valid @RequestBody AppointmentCancelRequest request) {
+        String username = getCurrentUsername();
+        appointmentService.huyLichHen(maDatLich, username, request);
+        return ApiResponse.ok(null, "Đã cập nhật trạng thái không thuê phòng và hoàn cọc cho khách");
+    }
 }

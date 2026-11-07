@@ -6,9 +6,9 @@ import { adminService } from '../../../services/admin.service';
 import { AdminTransactionItem } from '../../../types/admin.types';
 import { TransactionItemCard } from '../../../components/admin/TransactionItemCard';
 
-const TABS = ['Tất cả', 'Thành công', 'Đang xử lý', 'Thất bại'];
+const TABS = ['Tất cả', 'Rút tiền', 'Cọc giữ chỗ', 'Hoàn cọc'];
 
-export default function AdminTransactionsScreen() {
+export default function AdminTransactionsTabScreen() {
   const [transactions, setTransactions] = useState<AdminTransactionItem[]>([]);
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [search, setSearch] = useState('');
@@ -30,9 +30,9 @@ export default function AdminTransactionsScreen() {
   };
 
   const filtered = transactions.filter((t) => {
-    if (activeTab === 'Thành công' && t.trangThai !== 'THANH_CONG') return false;
-    if (activeTab === 'Đang xử lý' && t.trangThai !== 'DANG_XU_LY') return false;
-    if (activeTab === 'Thất bại' && t.trangThai !== 'THAT_BAI') return false;
+    if (activeTab === 'Rút tiền' && t.loaiGiaoDich !== 'YEU_CAU_RUT_TIEN') return false;
+    if (activeTab === 'Cọc giữ chỗ' && t.loaiGiaoDich !== 'COC_GIU_CHO') return false;
+    if (activeTab === 'Hoàn cọc' && t.loaiGiaoDich !== 'HOAN_COC') return false;
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -45,43 +45,52 @@ export default function AdminTransactionsScreen() {
     return true;
   });
 
+  const pendingWithdrawalCount = transactions.filter(
+    (t) => t.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' && t.trangThai === 'DANG_XU_LY'
+  ).length;
+
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header đồng bộ phong cách InnFinder */}
+      {/* Header */}
       <View className="px-4 py-3 bg-white border-b border-slate-200/80">
         <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-2.5">
-            <Pressable
-              onPress={() => router.back()}
-              className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
-            >
-              <Ionicons name="chevron-back" size={20} color="#0F172A" />
-            </Pressable>
-            <View>
-              <Text className="text-xl font-bold text-slate-900">Giao dịch</Text>
-              <Text className="text-xs text-slate-500 mt-0.5">Lịch sử nạp, cọc & đối soát doanh thu</Text>
-            </View>
+          <View>
+            <Text className="text-xl font-bold text-slate-900">Quản lý giao dịch</Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              Yêu cầu rút tiền, tiền cọc & biến động dòng tiền
+            </Text>
           </View>
+          {pendingWithdrawalCount > 0 ? (
+            <View className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">
+              <Text className="text-xs font-bold text-amber-700">
+                {pendingWithdrawalCount} lệnh rút chờ duyệt
+              </Text>
+            </View>
+          ) : (
+            <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+              <Text className="text-xs font-bold text-teal-700">{filtered.length} giao dịch</Text>
+            </View>
+          )}
         </View>
 
-        {/* Search input bo tròn */}
-        <View className="flex-row items-center bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-full mb-3">
-          <Ionicons name="search" size={18} color="#94A3B8" />
+        {/* Ô tìm kiếm */}
+        <View className="flex-row items-center bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-full mb-3">
+          <Ionicons name="search" size={17} color="#94A3B8" />
           <TextInput
-            placeholder="Tìm theo mã giao dịch, phòng, người gửi..."
+            placeholder="Tìm theo mã GD, tên phòng, người thực hiện..."
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={setSearch}
-            className="flex-1 ml-2.5 text-sm text-slate-900 py-0"
+            className="flex-1 ml-2 text-xs text-slate-900 py-0"
           />
           {search ? (
             <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
             </Pressable>
           ) : null}
         </View>
 
-        {/* Tab filters */}
+        {/* Tab lọc loại giao dịch */}
         <View className="flex-row items-center gap-2">
           {TABS.map((tab) => {
             const isActive = activeTab === tab;
@@ -89,7 +98,7 @@ export default function AdminTransactionsScreen() {
               <Pressable
                 key={tab}
                 onPress={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 rounded-full border ${
+                className={`px-3 py-1.5 rounded-full border ${
                   isActive
                     ? 'bg-teal-700 border-teal-700'
                     : 'bg-white border-slate-200'
@@ -128,7 +137,7 @@ export default function AdminTransactionsScreen() {
             <TransactionItemCard
               key={item.maGiaoDich}
               transaction={item}
-              onPress={() => router.push(`/(admin)/transactions/${item.maGiaoDich}`)}
+              onPress={() => router.push(`/(admin)/transactions/${item.maGiaoDich}` as any)}
             />
           ))
         )}

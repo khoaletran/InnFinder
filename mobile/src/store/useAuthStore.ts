@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppMode, UserProfileResponse } from '../types/auth-user.types';
 import { tokenStorage } from '../api/axiosClient';
+import { authUserService } from '../services/authUser.service';
 
 interface AuthState {
   token: string | null;
@@ -66,17 +67,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  // Kiểm tra token khi mở app
+  // Kiểm tra token và định danh người dùng khi mở app
   checkAuth: async () => {
     try {
       const token = await tokenStorage.getToken();
       if (token) {
-        set({ token, isAuthenticated: true, isLoading: false });
+        try {
+          const user = await authUserService.getMyProfile();
+          const mode: AppMode = user.vaiTro === 'QUAN_TRI' ? 'ADMIN' : user.chuTro ? 'LANDLORD' : 'TENANT';
+          set({
+            token,
+            user,
+            isAuthenticated: true,
+            activeMode: mode,
+            isLoading: false,
+          });
+        } catch {
+          await tokenStorage.removeToken();
+          set({
+            token: null,
+            user: null,
+            isAuthenticated: false,
+            activeMode: 'TENANT',
+            isLoading: false,
+          });
+        }
       } else {
-        set({ token: null, isAuthenticated: false, isLoading: false });
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          activeMode: 'TENANT',
+          isLoading: false,
+        });
       }
     } catch {
-      set({ token: null, isAuthenticated: false, isLoading: false });
+      set({
+        token: null,
+        user: null,
+        isAuthenticated: false,
+        activeMode: 'TENANT',
+        isLoading: false,
+      });
     }
   },
 }));

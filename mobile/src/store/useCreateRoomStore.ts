@@ -35,6 +35,7 @@ const initialStep1: CreateRoomStep1Data = {
   cocPhong: 3500000,
   dienTich: 24,
   soNguoi: 2,
+  diaChi: '',
 };
 
 const initialStep2: CreateRoomStep2Data = {

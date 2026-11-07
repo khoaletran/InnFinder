@@ -22,7 +22,7 @@ export interface LandlordPostItem {
   id: string;
   tenPhong: string;
   giaThue: number;
-  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'HUY';
+  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
   hinhAnhUrl?: string;
   lyDoTuChoi?: string;
   ngayDang: string;
@@ -37,6 +37,12 @@ export interface LandlordAppointmentItem {
   ngayHen: string;
   ghiChu?: string;
   trangThai: 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY';
+  maPhongTro?: string;
+  diaChiPhong?: string;
+  giaThue?: number;
+  coc?: number;
+  phiThu?: number;
+  hinhAnh?: string;
 }
 
 export interface LandlordRentalRequestItem {
@@ -72,6 +78,7 @@ export interface CreateRoomStep1Data {
   cocPhong: number;
   dienTich: number;
   soNguoi: number;
+  diaChi?: string;
 }
 
 export interface CreateRoomStep2Data {

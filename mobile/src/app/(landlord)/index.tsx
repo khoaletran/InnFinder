@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,10 +13,12 @@ import {
   LandlordPostItem,
 } from '../../types/landlord.types';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useLandlordNotificationStore } from '../../store/useLandlordNotificationStore';
 
 export default function LandlordDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const unreadCount = useLandlordNotificationStore((state) => state.unreadCount);
 
   const [stats, setStats] = useState<LandlordDashboardStats>({
     tongPhong: 0,
@@ -45,18 +47,46 @@ export default function LandlordDashboardScreen() {
   };
 
   const handleConfirm = async (id: string) => {
-    await landlordService.confirmAppointment(id);
-    alert('Đã xác nhận lịch xem phòng của khách thành công!');
-    loadData();
+    try {
+      await landlordService.confirmAppointment(id);
+      Alert.alert('Thành công', 'Đã xác nhận lịch xem phòng của khách thành công!');
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Lỗi xác nhận');
+    }
   };
 
   const handleReject = async (id: string) => {
-    await landlordService.rejectAppointment(id);
-    alert('Đã từ chối lịch xem phòng.');
-    loadData();
+    try {
+      await landlordService.rejectAppointment(id);
+      Alert.alert('Thành công', 'Đã từ chối lịch xem phòng.');
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Lỗi từ chối');
+    }
   };
 
-  const displayName = user?.tenDangNhap || 'Minh Anh';
+  const handleComplete = async (id: string) => {
+    try {
+      await landlordService.completeAppointment(id);
+      Alert.alert('Thành công', 'Đã chốt hợp đồng thuê phòng thành công!');
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Lỗi chốt thuê');
+    }
+  };
+
+  const handleCancelRental = async (id: string) => {
+    try {
+      await landlordService.cancelAppointmentByLandlord(id);
+      Alert.alert('Thành công', 'Đã ghi nhận khách không thuê và hoàn cọc.');
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Lỗi xử lý');
+    }
+  };
+
+  const displayName = user?.hoVaTen || 'bạn';
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-slate-50" edges={['top']}>
@@ -67,9 +97,14 @@ export default function LandlordDashboardScreen() {
           <Text className="text-lg font-bold text-gray-900">Xin chào, {displayName}</Text>
         </View>
 
-        <Pressable className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100">
+        <Pressable
+          onPress={() => router.push('/(landlord)/notifications')}
+          className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100 active:bg-gray-100"
+        >
           <Ionicons name="notifications-outline" size={20} color="#374151" />
-          {/* Notification badge only when count > 0 */}
+          {unreadCount > 0 && (
+            <View className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 border border-white" />
+          )}
         </Pressable>
       </View>
 
@@ -85,19 +120,23 @@ export default function LandlordDashboardScreen() {
         {/* 3. Lịch xem sắp tới */}
         <View className="mt-6 mb-2">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-base font-bold text-gray-900">Lịch xem sắp tới</Text>
+            <Text className="text-base font-bold text-gray-900">
+              Lịch xem sắp tới ({appointments.length})
+            </Text>
             <Pressable onPress={() => router.push('/(landlord)/appointments')}>
               <Text className="text-xs font-semibold text-teal-700">Xem tất cả &gt;</Text>
             </Pressable>
           </View>
 
           {appointments.length > 0 ? (
-            appointments.map((apt) => (
+            appointments.slice(0, 2).map((apt) => (
               <LandlordAppointmentCard
                 key={apt.id}
                 appointment={apt}
                 onConfirm={handleConfirm}
                 onReject={handleReject}
+                onComplete={handleComplete}
+                onCancelRental={handleCancelRental}
               />
             ))
           ) : (
@@ -117,35 +156,66 @@ export default function LandlordDashboardScreen() {
           </View>
 
           {recentPosts.map((post) => (
-            <Card
+            <Pressable
               key={post.id}
-              className="p-3 bg-white rounded-2xl border border-gray-100 mb-2.5 shadow-sm"
+              onPress={() => router.push(`/room/${post.id}` as any)}
+              className="active:opacity-90"
             >
-              <View className="flex-row items-center gap-3">
-                <Image
-                  source={{
-                    uri:
-                      post.hinhAnhUrl ||
-                      'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600',
-                  }}
-                  className="w-14 h-14 rounded-xl"
-                  resizeMode="cover"
-                />
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
-                    {post.tenPhong}
-                  </Text>
-                  <View className="flex-row items-center justify-between mt-1">
-                    <Text className="text-xs font-semibold text-teal-700">
-                      {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+              <Card className="p-3 bg-white rounded-2xl border border-gray-100 mb-2.5 shadow-sm">
+                <View className="flex-row items-center gap-3">
+                  <Image
+                    source={{
+                      uri:
+                        post.hinhAnhUrl ||
+                        'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600',
+                    }}
+                    className="w-14 h-14 rounded-xl"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
+                      {post.tenPhong}
                     </Text>
-                    <View className="px-2 py-0.5 rounded-full bg-emerald-100">
-                      <Text className="text-[10px] font-bold text-emerald-700">Đang hiển thị</Text>
+                    <View className="flex-row items-center justify-between mt-1">
+                      <Text className="text-xs font-semibold text-teal-700">
+                        {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+                      </Text>
+                      <View
+                        className={`px-2 py-0.5 rounded-full ${
+                          post.trangThai === 'HOAN_THANH'
+                            ? 'bg-emerald-100'
+                            : post.trangThai === 'DA_DUYET'
+                            ? 'bg-teal-100'
+                            : post.trangThai === 'CHO_DUYET'
+                            ? 'bg-amber-100'
+                            : 'bg-rose-100'
+                        }`}
+                      >
+                        <Text
+                          className={`text-[10px] font-bold ${
+                            post.trangThai === 'HOAN_THANH'
+                              ? 'text-emerald-700'
+                              : post.trangThai === 'DA_DUYET'
+                              ? 'text-teal-700'
+                              : post.trangThai === 'CHO_DUYET'
+                              ? 'text-amber-700'
+                              : 'text-rose-700'
+                          }`}
+                        >
+                          {post.trangThai === 'HOAN_THANH'
+                            ? 'Đã cho thuê'
+                            : post.trangThai === 'DA_DUYET'
+                            ? 'Đã đăng bài'
+                            : post.trangThai === 'CHO_DUYET'
+                            ? 'Chờ duyệt'
+                            : 'Bị từ chối'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </Pressable>
           ))}
         </View>
       </ScrollView>

@@ -40,7 +40,9 @@ export const landlordService = {
   },
 
   // 2. Danh sách Phòng của tôi (gọi GET /api/landlord/rooms/my-rooms)
-  getMyRooms: async (filter?: 'ALL' | 'AVAILABLE' | 'RENTED'): Promise<LandlordRoomItem[]> => {
+  getMyRooms: async (
+    filter?: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH' | 'AVAILABLE' | 'RENTED'
+  ): Promise<LandlordRoomItem[]> => {
     try {
       const res: any = await axiosClient.get('/api/landlord/rooms/my-rooms');
       const list: LandlordRoomItem[] = Array.isArray(res)
@@ -59,8 +61,10 @@ export const landlordService = {
           }))
         : [];
 
-      if (filter === 'AVAILABLE') return list.filter((r) => !r.isRented);
-      if (filter === 'RENTED') return list.filter((r) => r.isRented);
+      if (filter === 'DA_DUYET' || filter === 'AVAILABLE') return list.filter((r) => r.trangThai === 'DA_DUYET');
+      if (filter === 'CHO_DUYET') return list.filter((r) => r.trangThai === 'CHO_DUYET');
+      if (filter === 'HUY') return list.filter((r) => r.trangThai === 'HUY');
+      if (filter === 'HOAN_THANH' || filter === 'RENTED') return list.filter((r) => r.trangThai === 'HOAN_THANH');
       return list;
     } catch {
       return [];
@@ -108,13 +112,19 @@ export const landlordService = {
             id: a.maDatLich,
             khachHangTen: a.tenKhachHang || 'Khách xem phòng',
             sdt: a.sdtKhachHang || '0901234567',
-            phongTen: `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
+            phongTen: a.tieuDePhong || `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
             thoiGian: a.ngayHen
               ? new Date(a.ngayHen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : '10:00 - 10:30',
             ngayHen: a.ngayHen ? a.ngayHen.substring(0, 10) : '2026-11-07',
-            ghiChu: a.liDoHuy || 'Hẹn xem phòng trực tiếp',
+            ghiChu: a.liDoHuy || undefined,
             trangThai: a.trangThai || 'CHO_XAC_NHAN',
+            maPhongTro: a.maPhongTro,
+            diaChiPhong: a.diaChiPhong,
+            giaThue: Number(a.giaThue) || 0,
+            coc: Number(a.coc) || 0,
+            phiThu: Number(a.phiThu) || 0,
+            hinhAnh: a.hinhAnh,
           }))
         : [];
 
@@ -136,6 +146,18 @@ export const landlordService = {
   rejectAppointment: async (id: string, reason?: string): Promise<void> => {
     await axiosClient.patch(`/api/landlord/appointments/${id}/reject`, {
       liDoHuy: reason || 'Chủ trọ bận lịch vào khung giờ này',
+    });
+  },
+
+  // Chủ trọ chốt cho thuê phòng thành công sau khi xem (hoàn cọc khách, cộng tiền chủ trọ, đóng phòng)
+  completeAppointment: async (id: string): Promise<void> => {
+    await axiosClient.patch(`/api/landlord/appointments/${id}/complete`);
+  },
+
+  // Chủ trọ hủy hoặc xác nhận khách không thuê sau khi xem (hoàn cọc cho khách, giữ lại phòng)
+  cancelAppointmentByLandlord: async (id: string, reason?: string): Promise<void> => {
+    await axiosClient.patch(`/api/landlord/appointments/${id}/cancel`, {
+      liDoHuy: reason || 'Không thuê sau khi xem phòng',
     });
   },
 
