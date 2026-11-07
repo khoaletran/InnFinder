@@ -97,11 +97,6 @@ export default function LandlordAccountScreen() {
             onPress={() => router.push('/(landlord)/my-posts')}
           />
           <ProfileMenuRow
-            icon="heart-outline"
-            label="Phòng yêu thích"
-            onPress={() => router.push('/(tenant)/favorites')}
-          />
-          <ProfileMenuRow
             icon="calendar-outline"
             label="Lịch xem phòng"
             onPress={() => router.push('/(landlord)/appointments')}
@@ -109,7 +104,7 @@ export default function LandlordAccountScreen() {
           <ProfileMenuRow
             icon="document-text-outline"
             label="Yêu cầu thuê"
-            onPress={() => router.push('/(landlord)/rental-requests')}
+            onPress={() => router.push('/(landlord)/appointments?status=XAC_NHAN' as any)}
           />
           <ProfileMenuRow
             icon="receipt-outline"
@@ -123,7 +118,7 @@ export default function LandlordAccountScreen() {
           <ProfileMenuRow
             icon="star-outline"
             label="Đánh giá phòng"
-            onPress={() => router.push('/booking/review')}
+            onPress={() => router.push('/(landlord)/reviews' as any)}
           />
           <ProfileMenuRow
             icon="warning-outline"

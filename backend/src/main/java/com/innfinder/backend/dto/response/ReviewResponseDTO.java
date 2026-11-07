@@ -18,4 +18,8 @@ public class ReviewResponseDTO {
     private Integer diem;
     private String noiDung;
     private LocalDateTime ngayDanhGia;
+
+    // Thông tin phòng trọ để hiển thị tiện lợi cho chủ trọ
+    private String diaChiPhong;
+    private String tieuDePhong;
 }
