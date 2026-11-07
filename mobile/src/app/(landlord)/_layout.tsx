@@ -123,6 +123,13 @@ export default function LandlordTabLayout() {
           tabBarStyle: { display: 'none' },
         }}
       />
+      <Tabs.Screen
+        name="complaints"
+        options={{
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }

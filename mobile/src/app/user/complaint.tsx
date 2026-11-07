@@ -15,10 +15,11 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Label, TextArea, TextField } from 'heroui-native';
 import { authUserService } from '../../services/authUser.service';
+import { landlordService } from '../../services/landlord.service';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
 
-const REASON_PRESETS = [
+const TENANT_REASONS = [
   'Thông tin phòng trọ sai sự thật',
   'Chủ trọ không đến buổi hẹn xem phòng',
   'Yêu cầu nộp cọc trái quy định ngoài hệ thống',
@@ -27,59 +28,110 @@ const REASON_PRESETS = [
   'Khác',
 ];
 
+const LANDLORD_REASONS = [
+  'Khách hàng không đến buổi hẹn (Bùng hẹn)',
+  'Khách hàng có hành vi bất lịch sự / quấy rối',
+  'Khách hàng cố ý phá hoại tài sản khi xem phòng',
+  'Cung cấp thông tin liên hệ giả mạo',
+  'Khác',
+];
+
 interface ViewedRoom {
+  maDatLich?: string;
   maPhongTro: string;
   tieuDe: string;
   diaChi: string;
   ngayXem: string;
   giaThue: string;
-  maChuTro?: string;
-  tenChuTro?: string;
+  doiTuongId: string; // maChuTro nếu là khách, maKhachHang nếu là chủ trọ
+  tenDoiTuong: string; // Tên chủ trọ hoặc tên khách
 }
 
 export default function ComplaintScreen() {
-  const { user } = useAuthStore();
+  const { user, activeMode } = useAuthStore();
+  const isLandlord = activeMode === 'LANDLORD' || Boolean(user?.chuTro);
+
+  const reasonPresets = isLandlord ? LANDLORD_REASONS : TENANT_REASONS;
+
   const [selectedRoom, setSelectedRoom] = useState<ViewedRoom | null>(null);
-  const [selectedReason, setSelectedReason] = useState(REASON_PRESETS[0]);
+  const [selectedReason, setSelectedReason] = useState(reasonPresets[0]);
   const [noiDung, setNoiDung] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // Danh sách các phòng đã xem lấy từ API thực tế
+  // Danh sách các phòng / lịch hẹn lấy từ API thực tế
   const [viewedRooms, setViewedRooms] = useState<ViewedRoom[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        setLoadingRooms(true);
+    fetchRooms();
+  }, [isLandlord]);
+
+  const fetchRooms = async () => {
+    try {
+      setLoadingRooms(true);
+      let mapped: ViewedRoom[] = [];
+
+      if (isLandlord) {
+        // Chủ trọ: Lấy danh sách khách đã hẹn xem phòng của chủ trọ
+        const apts = await landlordService.getAppointments();
+        if (Array.isArray(apts) && apts.length > 0) {
+          mapped = apts.map((apt: any) => ({
+            maDatLich: apt.id,
+            maPhongTro: apt.maPhongTro || 'PT_UNKNOWN',
+            tieuDe: apt.phongTen || apt.diaChiPhong || 'Lịch hẹn xem phòng',
+            diaChi: apt.diaChiPhong || 'Địa chỉ phòng trọ',
+            ngayXem: apt.ngayHen || 'Gần đây',
+            giaThue: apt.giaThue ? `${Number(apt.giaThue).toLocaleString('vi-VN')} đ/tháng` : 'Thương lượng',
+            doiTuongId: apt.maKhachHang,
+            tenDoiTuong: apt.khachHangTen || 'Khách xem phòng',
+          }));
+        }
+      } else {
+        // Khách hàng: Lấy danh sách các phòng khách đã đặt lịch hẹn xem
         const res: any = await authUserService.getMyAppointments();
         const data = Array.isArray(res) ? res : res?.data;
         if (Array.isArray(data) && data.length > 0) {
-          const mapped: ViewedRoom[] = data.map((apt: any) => ({
-            maPhongTro: apt.maPhongTro || apt.phongTro?.maPhongTro || 'PT_UNKNOWN',
-            tieuDe: apt.diaChiPhong || apt.phongTro?.diaChi || 'Phòng trọ đã hẹn xem',
-            diaChi: apt.diaChiPhong || apt.phongTro?.diaChi || 'Địa chỉ đang cập nhật',
+          mapped = data.map((apt: any) => ({
+            maDatLich: apt.maDatLich,
+            maPhongTro: apt.maPhongTro || 'PT_UNKNOWN',
+            tieuDe: apt.tieuDePhong || apt.diaChiPhong || 'Phòng trọ đã hẹn xem',
+            diaChi: apt.diaChiPhong || 'Địa chỉ phòng trọ',
             ngayXem: apt.ngayHen ? new Date(apt.ngayHen).toLocaleDateString('vi-VN') : 'Gần đây',
-            giaThue: apt.giaThue ? `${apt.giaThue.toLocaleString('vi-VN')} đ/tháng` : 'Thương lượng',
-            maChuTro: apt.maChuTro || apt.phongTro?.chuPhongTro?.maChuTro || 'ND202611060001',
-            tenChuTro: apt.tenChuTro || 'Chủ trọ',
+            giaThue: apt.giaThue ? `${Number(apt.giaThue).toLocaleString('vi-VN')} đ/tháng` : 'Thương lượng',
+            doiTuongId: apt.maChuTro,
+            tenDoiTuong: apt.tenChuTro || 'Chủ trọ',
           }));
-          setViewedRooms(mapped);
-          setSelectedRoom(mapped[0]);
         }
-      } catch (err) {
-        console.log('Lỗi tải lịch hẹn xem phòng:', err);
-      } finally {
-        setLoadingRooms(false);
       }
-    };
-    fetchRooms();
-  }, []);
+
+      setViewedRooms(mapped);
+      if (mapped.length > 0) {
+        setSelectedRoom(mapped[0]);
+      }
+    } catch (err) {
+      console.log('Lỗi tải lịch hẹn xem phòng:', err);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
 
   const handleSubmitComplaint = async () => {
+    if (!user?.maNguoiDung) {
+      Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập lại để gửi khiếu nại.');
+      return;
+    }
     if (!selectedRoom) {
-      Alert.alert('Chưa chọn phòng', 'Vui lòng chọn phòng trọ bạn đã đi xem để gửi khiếu nại.');
+      Alert.alert(
+        'Chưa chọn cuộc hẹn',
+        isLandlord
+          ? 'Vui lòng chọn khách hàng và phòng có lịch hẹn để gửi khiếu nại.'
+          : 'Vui lòng chọn phòng trọ bạn đã hẹn xem để gửi khiếu nại.'
+      );
+      return;
+    }
+    if (!selectedRoom.doiTuongId) {
+      Alert.alert('Lỗi dữ liệu', 'Không xác định được mã đối tượng của cuộc hẹn này.');
       return;
     }
     if (!noiDung.trim()) {
@@ -90,17 +142,19 @@ export default function ComplaintScreen() {
     try {
       setLoading(true);
       await authUserService.createComplaint({
-        maNguoiGui: user?.maNguoiDung || 'ND202611060002',
-        doiTuongKhieuNai: selectedRoom.maChuTro || 'ND202611060001',
-        vanDe: `[${selectedReason}] (Phòng: ${selectedRoom.diaChi}) - ${noiDung.trim()}`,
+        maNguoiGui: user.maNguoiDung,
+        doiTuongKhieuNai: selectedRoom.doiTuongId,
+        vanDe: `[${selectedReason}] (Phòng: ${selectedRoom.diaChi}${
+          isLandlord ? ` • Khách bị khiếu nại: ${selectedRoom.tenDoiTuong}` : ` • Chủ trọ: ${selectedRoom.tenDoiTuong}`
+        }) - ${noiDung.trim()}`,
       });
 
       Alert.alert(
         'Đã gửi khiếu nại thành công',
-        'Ban quản trị InnFinder đã tiếp nhận phản ánh của bạn. Chúng tôi sẽ xử lý và phản hồi trong thời gian sớm nhất.',
+        'Ban quản trị InnFinder đã tiếp nhận phản ánh của bạn. Chúng tôi sẽ xác minh và phản hồi trong thời gian sớm nhất.',
         [
           {
-            text: 'Về trang cá nhân',
+            text: 'Đóng',
             onPress: () => router.back(),
           },
         ]
@@ -119,7 +173,9 @@ export default function ComplaintScreen() {
         <Pressable onPress={() => router.back()} className="p-1 active:opacity-70 mr-2">
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </Pressable>
-        <Text className="text-lg font-bold text-slate-900">Gửi khiếu nại & Tố cáo</Text>
+        <Text className="text-lg font-bold text-slate-900">
+          {isLandlord ? 'Gửi khiếu nại khách vi phạm' : 'Gửi khiếu nại & Tố cáo'}
+        </Text>
       </View>
 
       <KeyboardAvoidingView
@@ -129,16 +185,18 @@ export default function ComplaintScreen() {
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
           <Card className="p-5 mb-8">
             <Card.Body className="gap-5">
-              {/* BƯỚC 1: Chọn phòng trọ cần khiếu nại (Đưa lên trước theo yêu cầu) */}
+              {/* BƯỚC 1: Chọn cuộc hẹn / phòng trọ cần khiếu nại */}
               <View>
                 <View className="flex-row items-center justify-between mb-1.5">
                   <Text className="text-base font-bold text-slate-900">
-                    1. Chọn phòng trọ cần khiếu nại
+                    1. Chọn {isLandlord ? 'khách hàng & phòng liên quan' : 'phòng trọ cần khiếu nại'}
                   </Text>
                   {loadingRooms && <ActivityIndicator size="small" color={Colors.primary} />}
                 </View>
                 <Text className="text-xs text-slate-500 mb-2.5">
-                  Chỉ những phòng bạn đã đặt lịch hẹn và đến xem thực tế mới có thể khiếu nại:
+                  {isLandlord
+                    ? 'Chọn lịch hẹn của khách bạn muốn phản ánh tới Ban quản trị:'
+                    : 'Chỉ những phòng bạn đã đặt lịch hẹn và đến xem thực tế mới có thể khiếu nại:'}
                 </Text>
 
                 {selectedRoom ? (
@@ -151,13 +209,18 @@ export default function ComplaintScreen() {
                         onPress={() => setIsModalOpen(true)}
                         className="py-1 px-2.5 bg-teal-600 rounded-lg active:opacity-80"
                       >
-                        <Text className="text-xs font-bold text-white">Đổi phòng</Text>
+                        <Text className="text-xs font-bold text-white">Đổi lịch</Text>
                       </Pressable>
                     </View>
                     <Text className="text-xs text-slate-600 mb-1">{selectedRoom.diaChi}</Text>
-                    <Text className="text-[11px] text-teal-700 font-medium">
-                      Đã xem lúc: {selectedRoom.ngayXem} • Giá: {selectedRoom.giaThue}
-                    </Text>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[11px] text-teal-700 font-medium">
+                        {isLandlord ? `Khách: ${selectedRoom.tenDoiTuong}` : `Chủ trọ: ${selectedRoom.tenDoiTuong}`}
+                      </Text>
+                      <Text className="text-[11px] text-slate-500">
+                        Ngày hẹn: {selectedRoom.ngayXem}
+                      </Text>
+                    </View>
                   </View>
                 ) : (
                   <Pressable
@@ -165,7 +228,9 @@ export default function ComplaintScreen() {
                       if (viewedRooms.length === 0) {
                         Alert.alert(
                           'Chưa có dữ liệu',
-                          'Bạn chưa có lịch hẹn xem phòng nào được ghi nhận trên hệ thống.'
+                          isLandlord
+                            ? 'Bạn chưa có lịch hẹn xem phòng nào từ khách thuê.'
+                            : 'Bạn chưa có lịch hẹn xem phòng nào được ghi nhận trên hệ thống.'
                         );
                         return;
                       }
@@ -174,12 +239,14 @@ export default function ComplaintScreen() {
                     className="flex-row items-center justify-between p-4 border border-dashed border-teal-400 rounded-xl bg-teal-50/40 active:opacity-80"
                   >
                     <View className="flex-row items-center gap-2">
-                      <Ionicons name="home-outline" size={20} color={Colors.primary} />
+                      <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
                       <Text className="text-sm font-semibold text-teal-800">
                         {loadingRooms
                           ? 'Đang tải lịch hẹn...'
                           : viewedRooms.length === 0
-                          ? 'Chưa có lịch sử xem phòng'
+                          ? 'Chưa có lịch sử cuộc hẹn nào'
+                          : isLandlord
+                          ? 'Bấm để chọn khách hẹn xem'
                           : 'Bấm để chọn phòng trọ đã đi xem'}
                       </Text>
                     </View>
@@ -188,13 +255,13 @@ export default function ComplaintScreen() {
                 )}
               </View>
 
-              {/* BƯỚC 2: Vấn đề bạn gặp phải (Chọn sau khi chọn phòng) */}
+              {/* BƯỚC 2: Vấn đề bạn gặp phải */}
               <View>
                 <Text className="text-base font-bold text-slate-900 mb-2.5">
                   2. Vấn đề bạn gặp phải
                 </Text>
                 <View className="gap-2">
-                  {REASON_PRESETS.map((reason) => {
+                  {reasonPresets.map((reason) => {
                     const isSelected = selectedReason === reason;
                     return (
                       <Pressable
@@ -232,7 +299,11 @@ export default function ComplaintScreen() {
                   3. Mô tả chi tiết sự việc
                 </Label>
                 <TextArea
-                  placeholder="Mô tả cụ thể thời gian, hành vi hoặc nội dung sai sự thật của chủ trọ..."
+                  placeholder={
+                    isLandlord
+                      ? 'Mô tả cụ thể thời gian, hành vi bùng hẹn hoặc vi phạm của khách...'
+                      : 'Mô tả cụ thể thời gian, hành vi hoặc nội dung sai sự thật của chủ trọ...'
+                  }
                   numberOfLines={4}
                   value={noiDung}
                   onChangeText={setNoiDung}
@@ -275,7 +346,7 @@ export default function ComplaintScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modal Chọn Phòng Trọ */}
+      {/* Modal Chọn Cuộc Hẹn */}
       <Modal
         visible={isModalOpen}
         animationType="slide"
@@ -287,10 +358,12 @@ export default function ComplaintScreen() {
             <View className="flex-row items-center justify-between pb-3 border-b border-slate-200 mb-3">
               <View>
                 <Text className="text-lg font-bold text-slate-900">
-                  Chọn phòng trọ đã đi xem
+                  {isLandlord ? 'Chọn lịch hẹn của khách' : 'Chọn phòng trọ đã đi xem'}
                 </Text>
                 <Text className="text-xs text-slate-500">
-                  Hiển thị lịch sử các phòng bạn đã đến xem thực tế
+                  {isLandlord
+                    ? 'Hiển thị các khách hàng đã đặt lịch hẹn xem phòng của bạn'
+                    : 'Hiển thị lịch sử các phòng bạn đã đặt lịch hẹn xem thực tế'}
                 </Text>
               </View>
               <Pressable
@@ -303,18 +376,22 @@ export default function ComplaintScreen() {
 
             <FlatList
               data={viewedRooms}
-              keyExtractor={(item, index) => `${item.maPhongTro}_${index}`}
+              keyExtractor={(item, index) => `${item.maPhongTro}_${item.doiTuongId}_${index}`}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
               ListEmptyComponent={
                 <View className="py-8 items-center justify-center">
                   <Text className="text-sm text-slate-500">
-                    Bạn chưa có lịch hẹn xem phòng nào trên hệ thống.
+                    {isLandlord
+                      ? 'Bạn chưa có lịch hẹn xem phòng nào từ khách thuê.'
+                      : 'Bạn chưa có lịch hẹn xem phòng nào trên hệ thống.'}
                   </Text>
                 </View>
               }
               renderItem={({ item }) => {
-                const isCurrent = selectedRoom?.maPhongTro === item.maPhongTro;
+                const isCurrent =
+                  selectedRoom?.maPhongTro === item.maPhongTro &&
+                  selectedRoom?.doiTuongId === item.doiTuongId;
                 return (
                   <Pressable
                     onPress={() => {
@@ -341,11 +418,11 @@ export default function ComplaintScreen() {
                     </View>
                     <Text className="text-xs text-slate-600 mb-1.5">{item.diaChi}</Text>
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-[11px] text-slate-400">
-                        Đã xem: {item.ngayXem}
+                      <Text className="text-xs font-semibold text-teal-800">
+                        {isLandlord ? `Khách: ${item.tenDoiTuong}` : `Chủ trọ: ${item.tenDoiTuong}`}
                       </Text>
-                      <Text className="text-xs font-bold text-teal-700">
-                        {item.giaThue}
+                      <Text className="text-[11px] text-slate-400">
+                        Ngày hẹn: {item.ngayXem}
                       </Text>
                     </View>
                   </Pressable>

@@ -9,4 +9,6 @@ import java.util.List;
 public interface PhieuKhieuNaiRepository extends JpaRepository<PhieuKhieuNai, String> {
     List<PhieuKhieuNai> findAllByOrderByNgayGuiDesc();
     List<PhieuKhieuNai> findByTrangThai(TrangThaiKhieuNai trangThai);
+    List<PhieuKhieuNai> findByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
+    List<PhieuKhieuNai> findByNguoiGui_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
 }

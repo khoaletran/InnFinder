@@ -3,14 +3,17 @@ package com.innfinder.backend.service;
 import com.innfinder.backend.dto.request.ComplaintRequestDTO;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
 import com.innfinder.backend.dto.response.ComplaintResponseDTO;
+import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.PhieuKhieuNai;
 import com.innfinder.backend.entity.enums.MucDoViPham;
 import com.innfinder.backend.entity.enums.TrangThaiKhieuNai;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.repository.ChuTroRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.PhieuKhieuNaiRepository;
+import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ public class ComplaintService {
 
     private final PhieuKhieuNaiRepository phieuKhieuNaiRepository;
     private final NguoiDungRepository nguoiDungRepository;
+    private final ChuTroRepository chuTroRepository;
 
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
@@ -62,6 +66,30 @@ public class ComplaintService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<ComplaintResponseDTO> getMyComplaints(String type) {
+        String username = SecurityUtils.getCurrentUsername();
+        if (username == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        NguoiDung currentUser = nguoiDungRepository.findByTenDangNhap(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        List<PhieuKhieuNai> list;
+        if ("SENT".equalsIgnoreCase(type)) {
+            list = phieuKhieuNaiRepository.findByNguoiGui_MaNguoiDungOrderByNgayGuiDesc(currentUser.getMaNguoiDung());
+        } else {
+            // Mặc định RECEIVED: Khiếu nại gửi đến tôi
+            list = phieuKhieuNaiRepository.findByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(currentUser.getMaNguoiDung());
+        }
+
+        List<ComplaintResponseDTO> result = new ArrayList<>();
+        for (PhieuKhieuNai kn : list) {
+            result.add(toResponseDTO(kn));
+        }
+        return result;
+    }
+
     @Transactional
     public ComplaintResponseDTO resolveComplaint(String id, ComplaintResolveDTO request) {
         PhieuKhieuNai kn = phieuKhieuNaiRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.COMPLAINT_NOT_FOUND));
@@ -76,6 +104,21 @@ public class ComplaintService {
         }
         if (request.getMucDoViPham() != null) {
             kn.setMucDoViPham(request.getMucDoViPham());
+
+            // Chế tài vi phạm theo AGENTS.md
+            if (request.getMucDoViPham() == MucDoViPham.TRUNG_BINH && kn.getDoiTuongKhieuNai() != null) {
+                // Trừ 10 điểm uy tín nếu đối tượng vi phạm là Chủ trọ
+                chuTroRepository.findById(kn.getDoiTuongKhieuNai().getMaNguoiDung()).ifPresent(chuTro -> {
+                    int diemHienTai = chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100;
+                    chuTro.setDiemUyTin(Math.max(0, diemHienTai - 10));
+                    chuTroRepository.save(chuTro);
+                });
+            } else if (request.getMucDoViPham() == MucDoViPham.NANG && kn.getDoiTuongKhieuNai() != null) {
+                // Khóa tài khoản nếu vi phạm mức nặng
+                NguoiDung doiTuong = kn.getDoiTuongKhieuNai();
+                doiTuong.setTrangThaiKhoa(true);
+                nguoiDungRepository.save(doiTuong);
+            }
         }
 
         kn = phieuKhieuNaiRepository.save(kn);
