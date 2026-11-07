@@ -383,7 +383,8 @@ export default function TenantHomeScreen() {
             <RoomCard
               room={item}
               variant="vertical"
-              isHighlighted={index === 0}
+              // isHighlighted={index === 0} chu tro co 80 diem uy tin tro len thi noi bat
+              isHighlighted={item.diemUyTinChuTro >= 80}
             />
           </View>
         )}
