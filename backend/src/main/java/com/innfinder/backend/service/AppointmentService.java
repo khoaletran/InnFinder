@@ -20,7 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +35,29 @@ public class AppointmentService {
     private final PhongTroRepository phongTroRepository;
     private final ChuTroRepository chuTroRepository;
     private final TransactionService transactionService;
+
+    private synchronized String generateMaDatLich() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "DL" + datePart;
+        String maxId = phieuDatLichRepository.findMaxMaDatLichByPrefix(prefix);
+
+        int nextSequence = 1;
+        if (maxId != null && maxId.length() == 13 && maxId.startsWith(prefix)) {
+            try {
+                String suffix = maxId.substring(10); // 3 số cuối
+                nextSequence = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSequence = 1;
+            }
+        }
+
+        String candidate = String.format("%s%03d", prefix, nextSequence);
+        while (phieuDatLichRepository.existsById(candidate)) {
+            nextSequence++;
+            candidate = String.format("%s%03d", prefix, nextSequence);
+        }
+        return candidate;
+    }
 
     /**
      * Hàm helper lấy NguoiDung từ username đăng nhập trong Token
@@ -72,7 +97,7 @@ public class AppointmentService {
                 phiThu = (long) phongTro.getLoaiPhong().getCoc().getPhiThu().getPhi();
             }
         }
-        String maDatLich = "APPT_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String maDatLich = generateMaDatLich();
         PhieuDatLich phieu = PhieuDatLich.builder()
                 .maDatLich(maDatLich)
                 .khachHang(khachHang)

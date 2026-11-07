@@ -35,6 +35,7 @@ public class AppointmentResponse {
     private String maKhachHang;
     private String tenKhachHang;
     private String sdtKhachHang;
+    private String emailKhachHang;
 
     // Thông tin chủ trọ
     private String maChuTro;
@@ -61,7 +62,8 @@ public class AppointmentResponse {
                     : entity.getKhachHang().getTenDangNhap();
             builder.maKhachHang(entity.getKhachHang().getMaNguoiDung())
                     .tenKhachHang(tenHienThi)
-                    .sdtKhachHang(entity.getKhachHang().getSdt());
+                    .sdtKhachHang(entity.getKhachHang().getSdt())
+                    .emailKhachHang(entity.getKhachHang().getEmail());
         }
 
         // Lấy thông tin phòng trọ và chủ trọ nếu có

@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface GiaoDichRepository extends JpaRepository<GiaoDich,String> {
+    @Query("SELECT MAX(g.maGiaoDich) FROM GiaoDich g WHERE g.maGiaoDich LIKE CONCAT(:prefix, '%')")
+    String findMaxMaGiaoDichByPrefix(@Param("prefix") String prefix);
     /**
      * Lấy toàn bộ lịch sử giao dịch (nạp/giữ cọc/hoàn tiền) của một người dùng
      * Sắp xếp theo thời gian giao dịch mới nhất lên đầu
