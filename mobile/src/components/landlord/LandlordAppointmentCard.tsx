@@ -5,13 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LandlordAppointmentItem } from '../../types/landlord.types';
 
-interface Props {
+export interface LandlordAppointmentCardProps {
   appointment: LandlordAppointmentItem;
-  onConfirm: (id: string) => void;
-  onReject: (id: string) => void;
-  onComplete?: (id: string) => void;
-  onCancelRental?: (id: string) => void;
+  onConfirm: (id: string) => void | Promise<void>;
+  onReject: (id: string) => void | Promise<void>;
+  onComplete?: (id: string) => void | Promise<void>;
+  onCancelRental?: (id: string) => void | Promise<void>;
 }
+
+export type Props = LandlordAppointmentCardProps;
 
 const STATUS_CONFIG: Record<
   LandlordAppointmentItem['trangThai'],
@@ -212,3 +214,5 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
     </Card>
   );
 };
+
+export default LandlordAppointmentCard;

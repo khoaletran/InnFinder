@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,10 +13,12 @@ import {
   LandlordPostItem,
 } from '../../types/landlord.types';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useLandlordNotificationStore } from '../../store/useLandlordNotificationStore';
 
 export default function LandlordDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const unreadCount = useLandlordNotificationStore((state) => state.unreadCount);
 
   const [stats, setStats] = useState<LandlordDashboardStats>({
     tongPhong: 0,
@@ -47,40 +49,40 @@ export default function LandlordDashboardScreen() {
   const handleConfirm = async (id: string) => {
     try {
       await landlordService.confirmAppointment(id);
-      alert('Đã xác nhận lịch xem phòng của khách thành công!');
+      Alert.alert('Thành công', 'Đã xác nhận lịch xem phòng của khách thành công!');
       loadData();
     } catch (e: any) {
-      alert(e.message || 'Lỗi xác nhận');
+      Alert.alert('Lỗi', e.message || 'Lỗi xác nhận');
     }
   };
 
   const handleReject = async (id: string) => {
     try {
       await landlordService.rejectAppointment(id);
-      alert('Đã từ chối lịch xem phòng.');
+      Alert.alert('Thành công', 'Đã từ chối lịch xem phòng.');
       loadData();
     } catch (e: any) {
-      alert(e.message || 'Lỗi từ chối');
+      Alert.alert('Lỗi', e.message || 'Lỗi từ chối');
     }
   };
 
   const handleComplete = async (id: string) => {
     try {
       await landlordService.completeAppointment(id);
-      alert('Đã chốt hợp đồng thuê phòng thành công!');
+      Alert.alert('Thành công', 'Đã chốt hợp đồng thuê phòng thành công!');
       loadData();
     } catch (e: any) {
-      alert(e.message || 'Lỗi chốt thuê');
+      Alert.alert('Lỗi', e.message || 'Lỗi chốt thuê');
     }
   };
 
   const handleCancelRental = async (id: string) => {
     try {
       await landlordService.cancelAppointmentByLandlord(id);
-      alert('Đã ghi nhận khách không thuê và hoàn cọc.');
+      Alert.alert('Thành công', 'Đã ghi nhận khách không thuê và hoàn cọc.');
       loadData();
     } catch (e: any) {
-      alert(e.message || 'Lỗi xử lý');
+      Alert.alert('Lỗi', e.message || 'Lỗi xử lý');
     }
   };
 
@@ -95,8 +97,14 @@ export default function LandlordDashboardScreen() {
           <Text className="text-lg font-bold text-gray-900">Xin chào, {displayName}</Text>
         </View>
 
-        <Pressable className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100">
+        <Pressable
+          onPress={() => router.push('/(landlord)/notifications')}
+          className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100 active:bg-gray-100"
+        >
           <Ionicons name="notifications-outline" size={20} color="#374151" />
+          {unreadCount > 0 && (
+            <View className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 border border-white" />
+          )}
         </Pressable>
       </View>
 

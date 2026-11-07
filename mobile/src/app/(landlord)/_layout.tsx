@@ -2,8 +2,10 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
+import { useLandlordNotificationStore } from '../../store/useLandlordNotificationStore';
 
 export default function LandlordTabLayout() {
+  const unreadCount = useLandlordNotificationStore((s) => s.unreadCount);
   return (
     <Tabs
       screenOptions={{
@@ -58,10 +60,10 @@ export default function LandlordTabLayout() {
 
       {/* 4. Tab Thông báo */}
       <Tabs.Screen
-        name="rental-requests"
+        name="notifications"
         options={{
           title: 'Thông báo',
-          // tabBarBadge: 1,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: '#EF4444',
             color: '#FFFFFF',
@@ -109,6 +111,13 @@ export default function LandlordTabLayout() {
       />
       <Tabs.Screen
         name="transactions"
+        options={{
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="rental-requests"
         options={{
           tabBarItemStyle: { display: 'none' },
           tabBarStyle: { display: 'none' },
