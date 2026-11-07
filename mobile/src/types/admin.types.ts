@@ -71,12 +71,27 @@ export interface AdminComplaintItem {
   ghiChuXuLy?: string;
 }
 
+export interface AdminLandlordRequestItem {
+  maYeuCau: string;
+  maNguoiDung: string;
+  hoVaTen: string;
+  email: string;
+  sdt: string;
+  cccd: string;
+  tenNganHang: string;
+  soTaiKhoan: string;
+  ngayGui: string;
+  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI';
+  lyDoTuChoi?: string;
+  avatarUrl?: string;
+}
+
 export interface AdminTransactionItem {
   maGiaoDich: string;
   phongTro: string;
   diaChiPhong?: string;
   soTien: number;
-  loaiGiaoDich: string;
+  loaiGiaoDich: 'YEU_CAU_RUT_TIEN' | 'COC_GIU_CHO' | 'HOAN_COC' | 'THANH_TOAN_CHU_TRO' | string;
   trangThai: 'THANH_CONG' | 'DANG_XU_LY' | 'THAT_BAI';
   thoiGian: string;
   nguoiThucHien: string;
@@ -84,6 +99,9 @@ export interface AdminTransactionItem {
   tienCoc: number;
   phiDichVu: number;
   thucNhan: number;
+  tenNganHang?: string;
+  soTaiKhoan?: string;
+  ghiChu?: string;
 }
 
 export interface AdminReviewItem {

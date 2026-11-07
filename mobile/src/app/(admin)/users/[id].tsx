@@ -36,6 +36,30 @@ export default function AdminUserDetailScreen() {
             if (id) {
               await adminService.toggleUserLock(id, !isLocked);
               setIsLocked(!isLocked);
+              Alert.alert('Thành công', `Đã ${actionText.toLowerCase()} tài khoản.`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleResetPassword = () => {
+    Alert.alert(
+      'Reset mật khẩu người dùng',
+      `Đặt lại mật khẩu cho tài khoản "${user?.hoVaTen}" về mật khẩu tạm thời "InnFinder@2026"?`,
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Reset mật khẩu',
+          style: 'default',
+          onPress: async () => {
+            if (id) {
+              await adminService.resetUserPassword(id, 'InnFinder@2026');
+              Alert.alert(
+                'Thành công',
+                'Mật khẩu mới đã được đặt lại thành: InnFinder@2026. Hãy thông báo cho người dùng đổi lại mật khẩu sau khi đăng nhập.'
+              );
             }
           },
         },
@@ -53,7 +77,7 @@ export default function AdminUserDetailScreen() {
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header chuẩn tenant */}
+      {/* Header chuẩn stack */}
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
         <View className="flex-row items-center gap-2.5">
           <Pressable
@@ -63,9 +87,6 @@ export default function AdminUserDetailScreen() {
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
           </Pressable>
           <Text className="text-base font-bold text-slate-900">Chi tiết người dùng</Text>
-        </View>
-        <View className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center">
-          <Ionicons name="ellipsis-horizontal" size={18} color="#64748B" />
         </View>
       </View>
 
@@ -85,16 +106,42 @@ export default function AdminUserDetailScreen() {
             </Avatar.Fallback>
           </Avatar>
           <Text className="text-lg font-bold text-slate-900">{user.hoVaTen}</Text>
-          <View className="px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 mt-1.5">
-            <Text className="text-xs font-bold text-teal-700">
-              {user.vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : user.chuTro ? 'Chủ trọ' : 'Khách hàng'}
-            </Text>
+          <Text className="text-xs text-slate-500 mt-0.5">@{user.tenDangNhap}</Text>
+          <View className="flex-row items-center gap-2 mt-2">
+            <View className="px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200">
+              <Text className="text-xs font-bold text-teal-700">
+                {user.vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : user.chuTro ? 'Chủ trọ' : 'Khách hàng'}
+              </Text>
+            </View>
+            <View
+              className={`px-2.5 py-0.5 rounded-full border ${
+                isLocked
+                  ? 'bg-rose-50 border-rose-200'
+                  : 'bg-emerald-50 border-emerald-200'
+              }`}
+            >
+              <Text
+                className={`text-xs font-bold ${
+                  isLocked ? 'text-rose-600' : 'text-emerald-700'
+                }`}
+              >
+                {isLocked ? 'Đã khoá' : 'Đang hoạt động'}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Thông tin cá nhân */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin cá nhân</Text>
+        {/* Thông tin cơ bản */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin cơ bản</Text>
         <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
+          <View className="flex-row justify-between py-2.5">
+            <Text className="text-xs text-slate-500 font-medium">Mã định danh (Mã ND)</Text>
+            <Text className="text-xs font-bold text-teal-700">{user.maNguoiDung}</Text>
+          </View>
+          <View className="flex-row justify-between py-2.5">
+            <Text className="text-xs text-slate-500 font-medium">Tên đăng nhập</Text>
+            <Text className="text-xs font-semibold text-slate-800">{user.tenDangNhap}</Text>
+          </View>
           <View className="flex-row justify-between py-2.5">
             <Text className="text-xs text-slate-500 font-medium">Họ và tên</Text>
             <Text className="text-xs font-semibold text-slate-800">{user.hoVaTen}</Text>
@@ -108,30 +155,19 @@ export default function AdminUserDetailScreen() {
             <Text className="text-xs font-semibold text-slate-800">{user.sdt}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Trạng thái</Text>
-            <View className="flex-row items-center gap-1.5">
-              <View
-                className={`w-2 h-2 rounded-full ${
-                  isLocked ? 'bg-rose-500' : 'bg-emerald-500'
-                }`}
-              />
-              <Text
-                className={`text-xs font-bold ${
-                  isLocked ? 'text-rose-600' : 'text-emerald-600'
-                }`}
-              >
-                {isLocked ? 'Đã khoá' : 'Hoạt động'}
-              </Text>
-            </View>
+            <Text className="text-xs text-slate-500 font-medium">Căn cước công dân (CCCD)</Text>
+            <Text className="text-xs font-semibold text-slate-800">
+              {user.cccd ? `${user.cccd.slice(0, 4)}****${user.cccd.slice(-4)}` : 'Chưa cập nhật'}
+            </Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Ngày tham gia</Text>
-            <Text className="text-xs font-semibold text-slate-800">{user.ngayTao}</Text>
+            <Text className="text-xs text-slate-500 font-medium">Ngày mở tài khoản</Text>
+            <Text className="text-xs font-semibold text-slate-800">{user.ngayTao || 'Chưa cập nhật'}</Text>
           </View>
         </Card>
 
-        {/* Hoạt động */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Hoạt động hệ thống</Text>
+        {/* Hoạt động tài khoản */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Hoạt động tài khoản</Text>
         <View className="flex-row gap-3 mb-6">
           <Card className="flex-1 p-3.5 bg-white rounded-2xl border border-slate-200/90 items-center shadow-xs">
             <Text className="text-[11px] text-slate-500 font-medium mb-1">Tin đăng</Text>
@@ -147,30 +183,36 @@ export default function AdminUserDetailScreen() {
           </Card>
         </View>
 
-        {/* Nút hành động phong cách InnFinder */}
+        {/* Nút hành động Admin (Hỗ trợ reset mật khẩu và Khoá/Mở khoá tài khoản) */}
         <View className="flex-row gap-3">
           <Pressable
+            onPress={handleResetPassword}
+            className="flex-1 flex-row items-center justify-center gap-1.5 py-3.5 rounded-xl border border-amber-300 bg-amber-50 active:opacity-80"
+          >
+            <Ionicons name="key-outline" size={17} color="#D97706" />
+            <Text className="text-xs font-bold text-amber-700">Reset mật khẩu</Text>
+          </Pressable>
+
+          <Pressable
             onPress={handleToggleLock}
-            className={`flex-1 py-3.5 rounded-xl items-center justify-center border active:opacity-80 ${
+            className={`flex-1 flex-row items-center justify-center gap-1.5 py-3.5 rounded-xl border active:opacity-80 ${
               isLocked
                 ? 'bg-emerald-50 border-emerald-300'
                 : 'bg-rose-50 border-rose-200'
             }`}
           >
+            <Ionicons
+              name={isLocked ? 'lock-open-outline' : 'lock-closed-outline'}
+              size={17}
+              color={isLocked ? '#047857' : '#E11D48'}
+            />
             <Text
-              className={`text-sm font-bold ${
+              className={`text-xs font-bold ${
                 isLocked ? 'text-emerald-700' : 'text-rose-600'
               }`}
             >
               {isLocked ? 'Mở khoá tài khoản' : 'Khoá tài khoản'}
             </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => Alert.alert('Thông báo', 'Đã lưu thay đổi thông tin.')}
-            className="flex-1 py-3.5 rounded-xl items-center justify-center bg-teal-600 active:bg-teal-700"
-          >
-            <Text className="text-sm font-bold text-white">Lưu thay đổi</Text>
           </Pressable>
         </View>
       </ScrollView>
