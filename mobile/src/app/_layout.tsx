@@ -18,6 +18,12 @@ export default function RootLayout() {
               animation: 'fade',
             }}
           />
+          <Stack.Screen
+            name="room/filter-modal"
+            options={{
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </HeroUINativeProvider>
     </GestureHandlerRootView>

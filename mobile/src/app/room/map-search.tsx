@@ -4,11 +4,10 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
-import { Button, Card, Chip, Spinner } from "heroui-native";
+import { Button, Card, Chip } from "heroui-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -16,6 +15,7 @@ import { useFilterStore } from "../../store/useFilterStore";
 import { roomService } from "../../services/room.service";
 import { RoomSummaryResponse } from "../../types/room.types";
 import { PriceMapMarker } from "../../components/room/PriceMapMarker";
+import { FilterModal } from "../../components/room/FilterModal";
 
 export default function MapSearchScreen() {
   const { filter } = useFilterStore();
@@ -24,6 +24,7 @@ export default function MapSearchScreen() {
     null,
   );
   const [loading, setLoading] = useState<boolean>(true);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     loadMapRooms();
@@ -36,7 +37,6 @@ export default function MapSearchScreen() {
       const list = res?.content || [];
       setRooms(list);
       if (list.length > 0) setSelectedRoom(list[0]);
-      // setSelectedRoom(null);
     } catch (error) {
       console.warn("Lỗi tải phòng bản đồ:", error);
     } finally {
@@ -95,7 +95,7 @@ export default function MapSearchScreen() {
             {filter.keyword || "TP. Hồ Chí Minh"}
           </Text>
           <Pressable
-            onPress={() => router.push("/room/filter-modal")}
+            onPress={() => setIsFilterModalOpen(true)}
             className="p-1"
           >
             <Ionicons name="options-outline" size={20} color="#1E293B" />
@@ -117,6 +117,7 @@ export default function MapSearchScreen() {
                 style={{ width: 80, height: 80, borderRadius: 12 }}
                 contentFit="cover"
               />
+
               <Card.Body className="flex-1 ml-3 justify-between h-20 py-0.5">
                 <View>
                   <Chip variant="soft" color="success" size="sm">
@@ -156,6 +157,12 @@ export default function MapSearchScreen() {
           </Card>
         </View>
       )}
+
+      {/* Modal Bộ Lọc */}
+      <FilterModal
+        visible={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+      />
     </View>
   );
 }

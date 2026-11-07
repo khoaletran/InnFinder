@@ -16,6 +16,7 @@ import { useFilterStore } from "../store/useFilterStore";
 import { roomService } from "../services/room.service";
 import { RoomSummaryResponse } from "../types/room.types";
 import { RoomCard } from "../components/room/RoomCard";
+import { FilterModal } from "../components/room/FilterModal";
 
 export default function SearchScreen() {
   const { filter, setFilter, resetFilter, getActiveFilterCount } =
@@ -27,6 +28,7 @@ export default function SearchScreen() {
     filter.keyword || "",
   );
   const [viewMode, setViewMode] = useState<string>("list");
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
 
   // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài (ví dụ bấm chip khu vực ở Trang chủ)
   useEffect(() => {
@@ -112,7 +114,7 @@ export default function SearchScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
           className="p-2.5 rounded-full bg-slate-100 relative"
         >
           <Ionicons name="options-outline" size={20} color="#1E293B" />
@@ -167,7 +169,7 @@ export default function SearchScreen() {
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">Giá cả</Chip.Label>
             </Chip>
@@ -193,7 +195,7 @@ export default function SearchScreen() {
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Diện tích
@@ -218,7 +220,7 @@ export default function SearchScreen() {
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Loại phòng
@@ -243,7 +245,7 @@ export default function SearchScreen() {
             <Chip
               variant="secondary"
               size="sm"
-              onPress={() => router.push("/room/filter-modal")}
+              onPress={() => setIsFilterModalOpen(true)}
             >
               <Chip.Label className="text-xs text-slate-600">
                 Số người
@@ -314,6 +316,12 @@ export default function SearchScreen() {
           }
         />
       )}
+
+      {/* 5. Modal Bộ Lọc */}
+      <FilterModal
+        visible={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+      />
     </View>
   );
 }

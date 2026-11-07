@@ -19,6 +19,7 @@ import { RoomCard } from "../../components/room/RoomCard";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import { InnFinderLogo } from "../../components/common/InnFinderLogo";
+import { FilterModal } from "../../components/room/FilterModal";
 
 const PAGE_SIZE = 10;
 
@@ -29,6 +30,7 @@ export default function TenantHomeScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false); // pull-to-refresh
   const [page, setPage] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
 
   const { setFilter } = useFilterStore();
   const { user, token } = useAuthStore();
@@ -181,7 +183,7 @@ export default function TenantHomeScreen() {
           variant="primary"
           color="default"
           size="md"
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
           className="bg-teal-700"
         >
           <Chip.Label className="text-xs font-semibold text-white">
@@ -191,7 +193,7 @@ export default function TenantHomeScreen() {
         <Chip
           variant="secondary"
           size="md"
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
         >
           <Chip.Label className="text-xs font-medium text-slate-700">
             Giá cả
@@ -200,7 +202,7 @@ export default function TenantHomeScreen() {
         <Chip
           variant="secondary"
           size="md"
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
         >
           <Chip.Label className="text-xs font-medium text-slate-700">
             Diện tích
@@ -209,7 +211,7 @@ export default function TenantHomeScreen() {
         <Chip
           variant="secondary"
           size="md"
-          onPress={() => router.push("/room/filter-modal")}
+          onPress={() => setIsFilterModalOpen(true)}
         >
           <Chip.Label className="text-xs font-medium text-slate-700">
             Loại phòng
@@ -329,6 +331,11 @@ export default function TenantHomeScreen() {
         initialNumToRender={PAGE_SIZE}
         maxToRenderPerBatch={PAGE_SIZE}
         windowSize={5}
+      />
+      <FilterModal
+        visible={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onApply={() => router.push("/search")}
       />
     </View>
   );
