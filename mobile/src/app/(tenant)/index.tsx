@@ -160,7 +160,7 @@ export default function TenantHomeScreen() {
       </View>
 
       {/* 3. Thanh tìm kiếm */}
-      <View className="px-4 mt-3">
+      {/* <View className="px-4 mt-3">
         <Pressable
           onPress={() => router.push("/search")}
           className="flex-row items-center bg-slate-50 border border-slate-200 px-4 py-3 rounded-full"
@@ -170,10 +170,68 @@ export default function TenantHomeScreen() {
             Bạn muốn tìm phòng ở đâu?
           </Text>
         </Pressable>
+      </View> */}
+
+      {/* ===== CÁCH 3: FLOATING SEARCH CARD (KIỂU AIRBNB) ===== */}
+      <View className="px-4 mt-3">
+        <View className="bg-white rounded-3xl p-4 border border-slate-100 shadow-lg shadow-slate-200">
+          {/* Hàng 1: Chọn Địa điểm */}
+          <Pressable
+            onPress={() => router.push("/search")}
+            className="flex-row items-center py-2"
+          >
+            <View className="w-10 h-10 rounded-full bg-teal-50 items-center justify-center mr-3">
+              <Ionicons name="location-outline" size={20} color="#0D9488" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Khu vực bạn muốn ở
+              </Text>
+              <Text className="text-sm font-bold text-slate-800 mt-0.5">
+                Bất kỳ đâu tại TP.HCM, Hà Nội...
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
+
+          {/* Vạch ngăn cách mảnh */}
+          <View className="h-px bg-slate-100 my-2" />
+
+          {/* Hàng 2: Chọn Ngân sách & Nút Tìm kiếm */}
+          <View className="flex-row items-center justify-between pt-1">
+            <Pressable
+              onPress={() => router.push("/search")}
+              className="flex-1 flex-row items-center"
+            >
+              <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center mr-3">
+                <Ionicons name="wallet-outline" size={20} color="#D97706" />
+              </View>
+              <View>
+                <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Ngân sách
+                </Text>
+                <Text className="text-sm font-bold text-slate-800 mt-0.5">
+                  Dưới 5 triệu
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Nút Tìm phòng to bản */}
+            <Pressable
+              onPress={() => router.push("/search")}
+              className="flex-row items-center bg-teal-700 px-4 py-2.5 rounded-full shadow-md active:bg-teal-800"
+            >
+              <Ionicons name="search" size={16} color="#FFFFFF" />
+              <Text className="text-white font-bold text-xs ml-1.5">
+                Tìm phòng
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       {/* 4. Pills lọc nhanh */}
-      <ScrollView
+      {/* <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-3 px-4"
@@ -217,7 +275,7 @@ export default function TenantHomeScreen() {
             Loại phòng
           </Chip.Label>
         </Chip>
-      </ScrollView>
+      </ScrollView> */}
 
       {/* 5. Section Khu vực phổ biến */}
       <View className="mt-6 px-4">
@@ -297,9 +355,7 @@ export default function TenantHomeScreen() {
   ) : (
     <View className="py-12 items-center justify-center">
       <ActivityIndicator size="large" color="#0D9488" />
-      <Text className="text-slate-500 text-xs mt-2">
-        Đang tải phòng từ Backend...
-      </Text>
+      <Text className="text-slate-500 text-xs mt-2">Đang tải phòng...</Text>
     </View>
   );
 
