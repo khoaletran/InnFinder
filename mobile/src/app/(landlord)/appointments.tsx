@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { Card, Button } from 'heroui-native';
 import { WeekCalendarStrip, formatDateKey } from '../../components/landlord/WeekCalendarStrip';
 import { LandlordAppointmentCard } from '../../components/landlord/LandlordAppointmentCard';
@@ -12,9 +13,19 @@ const PAGE_SIZE = 5;
 const DAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function AppointmentsScreen() {
+  const params = useLocalSearchParams<{ status?: string }>();
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDateKey(new Date()));
   const [viewMode, setViewMode] = useState<'BY_DATE' | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY'>(
+    (params.status as any) || 'ALL'
+  );
+
+  useEffect(() => {
+    if (params.status) {
+      setStatusFilter(params.status as any);
+      setViewMode('ALL');
+    }
+  }, [params.status]);
   
   const [allAppointments, setAllAppointments] = useState<LandlordAppointmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

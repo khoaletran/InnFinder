@@ -10,6 +10,7 @@ import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.DanhGiaRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.PhongTroRepository;
+import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,7 +83,37 @@ public class ReviewService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<ReviewResponseDTO> getReviewsForCurrentLandlord() {
+        String username = SecurityUtils.getCurrentUsername();
+        if (username == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        NguoiDung user = nguoiDungRepository.findByTenDangNhap(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        List<DanhGia> list = danhGiaRepository
+                .findByPhongTro_ChuPhongTro_MaChuTroOrderByNgayDanhGiaDesc(user.getMaNguoiDung());
+
+        List<ReviewResponseDTO> result = new ArrayList<>();
+        for (DanhGia dg : list) {
+            result.add(toResponseDTO(dg));
+        }
+        return result;
+    }
+
     private ReviewResponseDTO toResponseDTO(DanhGia dg) {
+        String diaChi = dg.getPhongTro() != null ? dg.getPhongTro().getDiaChi() : null;
+        String tieuDe = null;
+        if (dg.getPhongTro() != null) {
+            if (dg.getPhongTro().getMoTa() != null && !dg.getPhongTro().getMoTa().isBlank()) {
+                String m = dg.getPhongTro().getMoTa();
+                tieuDe = m.length() > 50 ? m.substring(0, 50) + "..." : m;
+            } else {
+                tieuDe = "Phòng trọ mã #" + dg.getPhongTro().getMaPhongTro();
+            }
+        }
+
         return ReviewResponseDTO.builder()
                 .maDanhGia(dg.getMaDanhGia())
                 .maPhongTro(dg.getPhongTro() != null ? dg.getPhongTro().getMaPhongTro() : null)
@@ -92,6 +123,8 @@ public class ReviewService {
                 .diem(dg.getDiem())
                 .noiDung(dg.getNoiDung())
                 .ngayDanhGia(dg.getNgayDanhGia())
+                .diaChiPhong(diaChi)
+                .tieuDePhong(tieuDe)
                 .build();
     }   
 }

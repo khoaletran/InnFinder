@@ -130,6 +130,13 @@ export default function LandlordTabLayout() {
           tabBarStyle: { display: 'none' },
         }}
       />
+      <Tabs.Screen
+        name="reviews"
+        options={{
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }
