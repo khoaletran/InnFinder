@@ -8,6 +8,7 @@ export interface CategoryResponse {
   maLpt: string;
   tenLoaiPhongTro: string;
   moTa?: string;
+  soTienCoc?: number; // Mức cọc xem phòng quy định theo loại phòng
 }
 
 export interface AmenityResponse {
