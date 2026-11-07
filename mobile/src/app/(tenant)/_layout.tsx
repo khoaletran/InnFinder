@@ -1,10 +1,21 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useNotificationStore } from '../../store/useNotificationStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function TenantTabLayout() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { user, isAuthenticated } = useAuthStore();
+
+  // Đảm bảo nếu là Admin thì không bao giờ hiển thị giao diện khách hàng
+  useEffect(() => {
+    if (isAuthenticated && user?.vaiTro === 'QUAN_TRI') {
+      router.replace('/(admin)');
+    }
+  }, [isAuthenticated, user?.vaiTro]);
+
   return (
     <Tabs
       screenOptions={{

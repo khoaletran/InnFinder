@@ -5,7 +5,7 @@ import { ApiResponse } from "../types/api.types";
 // LƯU Ý KHI TEST:
 // - Nếu chạy máy ảo Android: dùng 'http://10.0.2.2:8080'
 // - Nếu chạy trên điện thoại thật qua Expo Go: thay bằng IP mạng LAN máy tính của bạn (VD: 'http://192.168.1.15:8080')
-const BASE_URL = "http://192.168.1.11:8080";
+const BASE_URL = "http://192.168.1.3:8080";
 const TOKEN_KEY = "innfinder_jwt_token";
 
 export const axiosClient = axios.create({

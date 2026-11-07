@@ -7,13 +7,13 @@ import com.innfinder.backend.dto.response.UserResponseDTO;
 import com.innfinder.backend.entity.HinhAnh;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.PhongTro;
-import com.innfinder.backend.entity.enums.TrangThaiGD;
+import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
-import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
+import com.innfinder.backend.repository.PhieuDatLichRepository;
 import com.innfinder.backend.repository.PhongTroRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,7 @@ public class AdminService {
 
     private final PhongTroRepository phongTroRepository;
     private final NguoiDungRepository nguoiDungRepository;
-    private final GiaoDichRepository giaoDichRepository;
+    private final PhieuDatLichRepository phieuDatLichRepository;
 
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
@@ -94,7 +94,8 @@ public class AdminService {
         long soKhachHang = nguoiDungRepository.countByVaiTro(VaiTro.KHACH_HANG);
         long soChuTro = nguoiDungRepository.countByChuTro(true);
 
-        Long tongDoanhThu = giaoDichRepository.sumSoTienByTrangThai(TrangThaiGD.THANH_CONG);
+        // Doanh thu sàn chuẩn nghiệp vụ: Tổng phí hoa hồng (phiThu) từ các phiếu đặt lịch đã hoàn thành
+        Long tongDoanhThu = phieuDatLichRepository.sumPhiThuByTrangThai(TrangThaiDatLich.HOAN_THANH);
         if (tongDoanhThu == null) {
             tongDoanhThu = 0L;
         }

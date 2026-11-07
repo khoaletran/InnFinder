@@ -82,6 +82,9 @@
 - **Bản chất kinh tế**:
   - Mức cọc giữ chân xem phòng (`Coc.soTienCoc`) được quy định **động theo từng loại phòng** (`LoaiPhongTro`).
   - Phí dịch vụ hệ thống (`PhiThu.phi`) là khoản hoa hồng hệ thống trích lại từ tiền cọc khi giao dịch thuê phòng thành công.
+  - **QUY TẮC BẤT KHẢ XÂM PHẠM VỀ DOANH THU SÀN (PLATFORM REVENUE RULE)**:
+    - Sàn InnFinder vận hành theo cơ chế thu phí hoa hồng môi giới thành công. Doanh thu của hệ thống **BẮT BUỘC ĐƯỢC TÍNH TỪ TỔNG `phiThu` CỦA CÁC PHIẾU ĐẶT LỊCH ĐÃ HOÀN TẤT** (`PhieuDatLich.trangThai = HOAN_THANH`).
+    - **NGHIÊM CẤM TÍNH DOANH THU TỪ BẢNG `GiaoDich`**: Bảng `GiaoDich` chỉ đóng vai trò là sổ cái ghi nhận biến động dòng tiền (tiền cọc tạm giữ, hoàn cọc cho khách, thanh toán cho chủ trọ, rút tiền). Việc tính tổng số tiền giao dịch làm sai lệch hoàn toàn bản chất tài chính của sàn.
 
 ```mermaid
 sequenceDiagram
@@ -493,6 +496,13 @@ Toàn bộ các Controller khi trả dữ liệu về cho Frontend (Web & Mobile
 ### 5.4. Quy tắc Database & Flyway:
 - Mọi thay đổi bảng, thêm cột mới bắt buộc phải tạo file Flyway migration mới (`V3__...sql`, `V4__...sql`).
 - Tuyệt đối không sửa file cũ đã commit và chạy.
+
+### 5.5. Quy chuẩn Nghiệp vụ Doanh thu & Sổ cái Giao dịch:
+- **Doanh thu hệ thống (Platform Revenue)**: Sàn thu phí hoa hồng giới thiệu thuê thành công. Doanh thu được tính bằng:
+  ```sql
+  SELECT COALESCE(SUM(p.phi_thu), 0) FROM phieu_dat_lich p WHERE p.trang_thai = 'HOAN_THANH';
+  ```
+- **Bảng `giao_dich`**: Chỉ là sổ cái ghi nhận dòng tiền đối soát qua ví (tạm giữ cọc, hoàn tiền cọc, chuyển tiền cọc cho chủ trọ). Tuyệt đối **KHÔNG dùng `giao_dich` để tính doanh thu** của hệ thống.
 
 ---
 
