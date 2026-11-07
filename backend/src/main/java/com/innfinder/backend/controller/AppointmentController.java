@@ -51,4 +51,11 @@ public class AppointmentController {
         appointmentService.huyLichHen(maDatLich, username, request);
         return ApiResponse.ok(null, "Hủy lịch hẹn thành công");
     }
+    @PostMapping("/{id}/pay-deposit")
+    @Operation(summary = "Khách hàng nộp tiền cọc giữ chân sau khi Chủ trọ đã xác nhận lịch hẹn")
+    public ApiResponse<String> nopTienCoc(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        appointmentService.nopTienCoc(maDatLich, username);
+        return ApiResponse.ok(null, "Nộp tiền cọc giữ chân thành công");
+    }
 }

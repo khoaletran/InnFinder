@@ -23,6 +23,7 @@ public class AppointmentResponse {
     private Long coc;
     private Long phiThu;
     private String liDoHuy;
+    private Boolean daNopCoc;
 
     // Thông tin tóm tắt phòng trọ để hiển thị trên thẻ card
     private String maPhongTro;
@@ -43,9 +44,16 @@ public class AppointmentResponse {
     private String sdtChuTro;
 
     /**
-     * Hàm tiện ích chuyển đổi từ Entity sang Response DTO
+     * Hàm tiện ích chuyển đổi từ Entity sang Response DTO (mặc định chưa nộp cọc hoặc null)
      */
     public static AppointmentResponse fromEntity(PhieuDatLich entity) {
+        return fromEntity(entity, false);
+    }
+
+    /**
+     * Hàm tiện ích chuyển đổi từ Entity sang Response DTO kèm trạng thái đã nộp cọc
+     */
+    public static AppointmentResponse fromEntity(PhieuDatLich entity, Boolean daNopCoc) {
         if (entity == null) return null;
         var builder = AppointmentResponse.builder()
                 .maDatLich(entity.getMaDatLich())
@@ -53,7 +61,8 @@ public class AppointmentResponse {
                 .trangThai(entity.getTrangThai())
                 .coc(entity.getCoc())
                 .phiThu(entity.getPhiThu())
-                .liDoHuy(entity.getLiDoHuy());
+                .liDoHuy(entity.getLiDoHuy())
+                .daNopCoc(daNopCoc);
 
         // Lấy thông tin khách hàng nếu có
         if (entity.getKhachHang() != null) {
