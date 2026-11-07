@@ -73,6 +73,9 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     color: "default" as any,
   };
   const reviewedRoomIds = useBookingStore((s) => s.reviewedRoomIds);
+  const paidAppointmentIds = useBookingStore((s) => s.paidAppointmentIds);
+  const isDepositPaid = !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich);
+
   const canCancel =
     item.trangThai === "CHO_XAC_NHAN" || item.trangThai === "XAC_NHAN";
   const initials = getAvatarInitials(item.tenChuTro);
@@ -109,9 +112,19 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
                 >
                   {item.tieuDePhong || `Phòng trọ #${item.maPhongTro}`}
                 </Text>
-                <Chip variant="soft" color={statusInfo.color} size="sm">
+                <Chip
+                  variant="soft"
+                  color={
+                    item.trangThai === "XAC_NHAN" && !isDepositPaid
+                      ? "danger"
+                      : statusInfo.color
+                  }
+                  size="sm"
+                >
                   <Chip.Label className="text-[10px] font-bold">
-                    {statusInfo.label}
+                    {item.trangThai === "XAC_NHAN" && !isDepositPaid
+                      ? "Chờ nộp cọc"
+                      : statusInfo.label}
                   </Chip.Label>
                 </Chip>
               </View>
@@ -169,6 +182,33 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
 
           <View className="flex-row items-center gap-2">
+            {/* Nút Nộp cọc khi chủ trọ đã xác nhận nhưng khách chưa nộp cọc */}
+            {item.trangThai === "XAC_NHAN" && !isDepositPaid && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-teal-600 rounded-xl px-3.5 py-1.5"
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/deposit-payment",
+                    params: {
+                      appointmentId: item.maDatLich,
+                      roomId: item.maPhongTro,
+                      roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                      roomImage: item.hinhAnh || "",
+                      depositAmount: String(item.coc || 0),
+                      ngayHen: item.ngayHen,
+                    },
+                  })
+                }
+              >
+                <Button.Label className="text-xs font-bold text-white">
+                  Nộp cọc
+                </Button.Label>
+              </Button>
+            )}
+
+            {/* Nút Đánh giá / Xem đánh giá khi lịch hẹn đã Hoàn tất */}
             {item.trangThai === "HOAN_THANH" &&
               (reviewedRoomIds.includes(item.maPhongTro) ? (
                 <Button
