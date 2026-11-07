@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFilterStore } from "../store/useFilterStore";
 import { roomService } from "../services/room.service";
-import { RoomSummaryResponse } from "../types/room.types";
+import { CategoryResponse, RoomSummaryResponse } from "../types/room.types";
 import { RoomCard } from "../components/room/RoomCard";
 import { FilterModal } from "../components/room/FilterModal";
 
@@ -22,6 +22,7 @@ export default function SearchScreen() {
   const { filter, setFilter, resetFilter, getActiveFilterCount } =
     useFilterStore();
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [keywordInput, setKeywordInput] = useState<string>(
@@ -30,16 +31,23 @@ export default function SearchScreen() {
   const [viewMode, setViewMode] = useState<string>("list");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
 
-  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài (ví dụ bấm chip khu vực ở Trang chủ)
+  // Load danh mục loại phòng để lấy tên hiển thị lên Chip
+  useEffect(() => {
+    roomService.getRoomTypes().then((res) => setCategories(res || []));
+  }, []);
+
+  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài
   useEffect(() => {
     setKeywordInput(filter.keyword || "");
   }, [filter.keyword]);
 
-  // Debounce 400ms tự động lọc phòng khi người dùng gõ
+  //fix tu dong tim
+  // Debounce 400ms: Tự động tìm kiếm sau khi ngừng gõ
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (keywordInput !== (filter.keyword || "")) {
-        setFilter({ keyword: keywordInput });
+      const trimmed = keywordInput.trim();
+      if (trimmed !== (filter.keyword || "")) {
+        setFilter({ keyword: trimmed });
       }
     }, 400);
     return () => clearTimeout(timer);
@@ -79,6 +87,11 @@ export default function SearchScreen() {
     }
   };
 
+  // Lấy tên loại phòng từ mã
+  const selectedCategoryName = categories.find(
+    (c) => c.maLpt === filter.maLpt,
+  )?.tenLoaiPhongTro;
+
   return (
     <View className="flex-1 pt-safe bg-white">
       {/* 1. Header Search Bar */}
@@ -94,10 +107,9 @@ export default function SearchScreen() {
           <TextInput
             value={keywordInput}
             onChangeText={setKeywordInput}
-            onSubmitEditing={() => setFilter({ keyword: keywordInput })}
-            placeholder="Tìm theo khu vực, tên đường..."
+            onSubmitEditing={() => setFilter({ keyword: keywordInput.trim() })}
+            placeholder="Tìm theo địa chỉ, mô tả, tiện ích..."
             placeholderTextColor="#94A3B8"
-            autoFocus={true}
             returnKeyType="search"
             className="flex-1 ml-2 text-sm text-slate-800 p-0"
           />
@@ -124,14 +136,36 @@ export default function SearchScreen() {
         </Pressable>
       </View>
 
-      {/* 2. Filter Active Chips Bar Động (Cuộn ngang linh hoạt) */}
+      {/* 2. Filter Active Chips Bar Động (Cuộn ngang) */}
       <View className="py-2 border-b border-slate-100">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="px-4"
-          contentContainerStyle={{ gap: 8, alignItems: "center" }}
+          // sua chip khong bi mat khi scroll ngang
+          bounces={true}
+          overScrollMode="always"
+          contentContainerStyle={{
+            paddingLeft: 16,
+            paddingRight: 30, // Tạo khoảng đệm rộng rãi để chip Tiện ích kéo vào trọn vẹn
+            gap: 8,
+            alignItems: "center",
+          }}
         >
+          {/* Nút Xoá tất cả: Chỉ hiện khi có bất kỳ bộ lọc nào */}
+          {/* {getActiveFilterCount() > 0 && (
+            <Pressable
+              onPress={() => {
+                setKeywordInput("");
+                resetFilter();
+              }}
+              className="px-2.5 py-1.5 rounded-full bg-red-50 border border-red-200"
+            >
+              <Text className="text-red-600 text-xs font-bold">
+                Xóa tất cả ✕
+              </Text>
+            </Pressable>
+          )} */}
+
           {/* Chip Từ khóa */}
           {filter.keyword ? (
             <Chip
@@ -150,8 +184,8 @@ export default function SearchScreen() {
             </Chip>
           ) : null}
 
-          {/* Chip Khoảng Giá */}
-          {filter.minGia !== undefined || filter.maxGia !== undefined ? (
+          {/* Chip Giá cả */}
+          {filter.maxGia !== undefined ? (
             <Chip
               variant="primary"
               color="default"
@@ -162,7 +196,7 @@ export default function SearchScreen() {
               }
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                ≤ {((filter.maxGia || 8000000) / 1_000_000).toFixed(1)} tr ✕
+                ≤ {(filter.maxGia / 1_000_000).toFixed(1)} tr ✕
               </Chip.Label>
             </Chip>
           ) : (
@@ -175,9 +209,8 @@ export default function SearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Diện Tích */}
-          {filter.minDienTich !== undefined ||
-          filter.maxDienTich !== undefined ? (
+          {/* Chip Diện tích */}
+          {filter.maxDienTich !== undefined ? (
             <Chip
               variant="primary"
               color="default"
@@ -188,7 +221,7 @@ export default function SearchScreen() {
               }
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                ≤ {filter.maxDienTich || 45} m² ✕
+                ≤ {filter.maxDienTich} m² ✕
               </Chip.Label>
             </Chip>
           ) : (
@@ -203,7 +236,7 @@ export default function SearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Loại Phòng */}
+          {/* Chip Loại phòng (Hiển thị tên thật của loại phòng) */}
           {filter.maLpt ? (
             <Chip
               variant="primary"
@@ -213,7 +246,7 @@ export default function SearchScreen() {
               onPress={() => setFilter({ maLpt: undefined })}
             >
               <Chip.Label className="text-xs font-semibold text-white">
-                Loại: {filter.maLpt} ✕
+                {selectedCategoryName || filter.maLpt} ✕
               </Chip.Label>
             </Chip>
           ) : (
@@ -228,7 +261,7 @@ export default function SearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Số Người */}
+          {/* Chip Số người */}
           {filter.soNguoi !== undefined ? (
             <Chip
               variant="primary"
@@ -253,8 +286,8 @@ export default function SearchScreen() {
             </Chip>
           )}
 
-          {/* Chip Tiện Ích */}
-          {filter.dsTienIch && filter.dsTienIch.length > 0 && (
+          {/* Chip Tiện ích */}
+          {filter.dsTienIch && filter.dsTienIch.length > 0 ? (
             <Chip
               variant="primary"
               color="default"
@@ -264,6 +297,16 @@ export default function SearchScreen() {
             >
               <Chip.Label className="text-xs font-semibold text-white">
                 {filter.dsTienIch.length} tiện ích ✕
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              variant="secondary"
+              size="sm"
+              onPress={() => setIsFilterModalOpen(true)}
+            >
+              <Chip.Label className="text-xs text-slate-600">
+                Tiện ích
               </Chip.Label>
             </Chip>
           )}
