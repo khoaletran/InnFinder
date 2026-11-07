@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,13 +23,35 @@ import java.util.UUID;
 public class TransactionService {
     private final GiaoDichRepository giaoDichRepository;
     private final NguoiDungRepository nguoiDungRepository;
+    private synchronized String generateMaGiaoDich() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "GD" + datePart;
+        String maxId = giaoDichRepository.findMaxMaGiaoDichByPrefix(prefix);
+
+        int nextSequence = 1;
+        if (maxId != null && maxId.length() == 13 && maxId.startsWith(prefix)) {
+            try {
+                String suffix = maxId.substring(10);
+                nextSequence = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSequence = 1;
+            }
+        }
+
+        String candidate = String.format("%s%03d", prefix, nextSequence);
+        while (giaoDichRepository.existsById(candidate)) {
+            nextSequence++;
+            candidate = String.format("%s%03d", prefix, nextSequence);
+        }
+        return candidate;
+    }
     /**
      * Hàm phụ trợ ghi nhận giao dịch vào CSDL
      */
     @Transactional
     public GiaoDich taoGiaoDich(NguoiDung nguoiDung, Long soTien, String loaiGiaoDich, String noiDung, TrangThaiGD trangThai) {
         GiaoDich gd = GiaoDich.builder()
-                .maGiaoDich("GD_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .maGiaoDich(generateMaGiaoDich())
                 .nguoiDung(nguoiDung)
                 .soTien(soTien)
                 .loaiGiaoDich(loaiGiaoDich)

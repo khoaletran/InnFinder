@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich,String> {
+    @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
+    String findMaxMaDatLichByPrefix(@Param("prefix") String prefix);
     /**
      * 1. Lấy danh sách lịch hẹn của một khách hàng (sắp xếp ngày hẹn mới nhất lên đầu)
      * Dùng cho endpoint: GET /api/appointments/my-appointments
