@@ -56,7 +56,7 @@ export default function LandlordDashboardScreen() {
     loadData();
   };
 
-  const displayName = user?.tenDangNhap || 'Minh Anh';
+  const displayName = user?.hoVaTen || 'bạn';
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-slate-50" edges={['top']}>
