@@ -112,6 +112,8 @@ export const landlordService = {
             id: a.maDatLich,
             khachHangTen: a.tenKhachHang || 'Khách xem phòng',
             sdt: a.sdtKhachHang || '0901234567',
+            emailKhachHang: a.emailKhachHang,
+            maKhachHang: a.maKhachHang,
             phongTen: a.tieuDePhong || `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
             thoiGian: a.ngayHen
               ? new Date(a.ngayHen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

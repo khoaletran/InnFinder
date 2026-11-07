@@ -32,6 +32,8 @@ export interface LandlordAppointmentItem {
   id: string;
   khachHangTen: string;
   sdt: string;
+  emailKhachHang?: string;
+  maKhachHang?: string;
   phongTen: string;
   thoiGian: string;
   ngayHen: string;
