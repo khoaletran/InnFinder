@@ -1,5 +1,5 @@
 // mobile/src/app/room/[id].tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,13 @@ import {
   Linking,
   Share,
   ActivityIndicator,
+  FlatList,
+  Modal,
+  Dimensions,
+  PanResponder,
+  Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Avatar, Button, Card, Spinner } from "heroui-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, router } from "expo-router";
@@ -19,11 +25,109 @@ import { useFilterStore } from "../../store/useFilterStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { AmenityGrid } from "../../components/room/AmenityGrid";
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
 export default function RoomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [room, setRoom] = useState<RoomDetailResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
+
+  // States cho modal xem ảnh toàn màn hình
+  const [viewerVisible, setViewerVisible] = useState<boolean>(false);
+  const [viewerIndex, setViewerIndex] = useState<number>(0);
+  const bannerRef = useRef<FlatList>(null);
+  const viewerRef = useRef<FlatList>(null);
+
+  // Animation states cho cử chỉ kéo ảnh thu nhỏ & biến mất
+  const panY = useRef(new Animated.Value(0)).current;
+
+  const openViewer = (index: number) => {
+    panY.setValue(0);
+    setViewerIndex(index);
+    setViewerVisible(true);
+  };
+
+  const closeViewer = () => {
+    Animated.timing(panY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setViewerVisible(false);
+      panY.setValue(0);
+    });
+  };
+
+  // PanResponder bắt cử chỉ kéo ảnh lên hoặc xuống
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Chỉ kích hoạt khi kéo theo phương dọc rõ rệt để không cản trở vuốt ảnh ngang
+        return (
+          Math.abs(gestureState.dy) > 12 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5
+        );
+      },
+      onPanResponderMove: (_, gestureState) => {
+        panY.setValue(gestureState.dy);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // Nếu kéo xuống quá 80px hoặc vuốt xuống nhanh
+        if (gestureState.dy > 80 || gestureState.vy > 0.5) {
+          Animated.timing(panY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            setViewerVisible(false);
+            panY.setValue(0);
+          });
+        }
+        // Nếu kéo lên quá 80px hoặc vuốt lên nhanh
+        else if (gestureState.dy < -80 || gestureState.vy < -0.5) {
+          Animated.timing(panY, {
+            toValue: -SCREEN_HEIGHT,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            setViewerVisible(false);
+            panY.setValue(0);
+          });
+        }
+        // Kéo nhẹ chưa đủ ngưỡng thì nảy đàn hồi về ban đầu
+        else {
+          Animated.spring(panY, {
+            toValue: 0,
+            friction: 7,
+            tension: 40,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Hiệu ứng co nhỏ ảnh (scale từ 1 xuống 0.5) khi kéo lên hoặc xuống
+  const imageScale = panY.interpolate({
+    inputRange: [-SCREEN_HEIGHT, 0, SCREEN_HEIGHT],
+    outputRange: [0.5, 1, 0.5],
+    extrapolate: "clamp",
+  });
+
+  // Hiệu ứng mờ dần của ảnh khi kéo
+  const imageOpacity = panY.interpolate({
+    inputRange: [-SCREEN_HEIGHT * 0.45, 0, SCREEN_HEIGHT * 0.45],
+    outputRange: [0, 1, 0],
+    extrapolate: "clamp",
+  });
+
+  // Hiệu ứng mờ dần của nền đen
+  const backdropOpacity = panY.interpolate({
+    inputRange: [-SCREEN_HEIGHT * 0.5, 0, SCREEN_HEIGHT * 0.5],
+    outputRange: [0, 1, 0],
+    extrapolate: "clamp",
+  });
 
   const { user, activeMode } = useAuthStore();
   const isLandlordView =
@@ -109,16 +213,36 @@ export default function RoomDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* 1. Image Carousel & Floating Actions */}
         <View className="relative w-full h-80 bg-slate-900">
-          <Image
-            source={{ uri: images[activeImageIndex]?.url }}
-            style={{ width: "100%", height: "100%" }}
-            contentFit="cover"
+          <FlatList
+            ref={bannerRef}
+            data={images}
+            keyExtractor={(_, index) => `banner-${index}`}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setActiveImageIndex(newIndex);
+            }}
+            renderItem={({ item, index }) => (
+              <Pressable
+                onPress={() => openViewer(index)}
+                style={{ width: SCREEN_WIDTH, height: 320 }}
+                className="active:opacity-95"
+              >
+                <Image
+                  source={{ uri: item.url }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              </Pressable>
+            )}
           />
 
-          <View className="absolute top-12 left-0 right-0 flex-row justify-between px-4">
+          <View className="absolute top-12 left-0 right-0 flex-row justify-between px-4 pointer-events-box-none">
             <Pressable
               onPress={() => router.back()}
-              className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md"
+              className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md active:bg-white"
             >
               <Ionicons name="arrow-back" size={20} color="#1E293B" />
             </Pressable>
@@ -126,14 +250,14 @@ export default function RoomDetailScreen() {
             <View className="flex-row gap-2.5">
               <Pressable
                 onPress={() => Share.share({ message: room.diaChi })}
-                className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md"
+                className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md active:bg-white"
               >
                 <Ionicons name="share-outline" size={20} color="#1E293B" />
               </Pressable>
               {!isLandlordView && (
                 <Pressable
                   onPress={handleFavorite}
-                  className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md"
+                  className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md active:bg-white"
                 >
                   <Ionicons
                     name={isFavorite ? "heart" : "heart-outline"}
@@ -145,11 +269,16 @@ export default function RoomDetailScreen() {
             </View>
           </View>
 
-          <View className="absolute bottom-3 right-3 bg-black/60 px-2.5 py-1 rounded-md">
+          {/* Badge đếm số ảnh - Bấm vào sẽ mở xem full ảnh */}
+          <Pressable
+            onPress={() => openViewer(activeImageIndex)}
+            className="absolute bottom-3 right-3 bg-black/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 active:bg-black/80"
+          >
+            <Ionicons name="images-outline" size={14} color="#ffffff" />
             <Text className="text-white text-xs font-semibold">
               {activeImageIndex + 1}/{images.length}
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* 2. Tiêu đề, Giá & Đặt cọc */}
@@ -323,6 +452,76 @@ export default function RoomDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* 7. Modal Xem ảnh Toàn màn hình (Chỉ hiển thị ảnh, vuốt lên/xuống thu nhỏ và biến mất) */}
+      <Modal
+        visible={viewerVisible}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeViewer}
+      >
+        <View className="flex-1">
+          {/* Nền đen mờ dần theo chuyển động kéo */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "#000000",
+              opacity: backdropOpacity,
+            }}
+          />
+
+          {/* Container ảnh có hiệu ứng translateY, scale và opacity */}
+          <Animated.View
+            {...panResponder.panHandlers}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              transform: [{ translateY: panY }, { scale: imageScale }],
+              opacity: imageOpacity,
+            }}
+          >
+            {/* Danh sách ảnh vuốt ngang full màn hình */}
+            <FlatList
+              ref={viewerRef}
+              data={images}
+              keyExtractor={(_, index) => `viewer-${index}`}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={viewerIndex}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
+                index,
+              })}
+              onMomentumScrollEnd={(e) => {
+                const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                setViewerIndex(newIndex);
+                setActiveImageIndex(newIndex);
+                bannerRef.current?.scrollToIndex({ index: newIndex, animated: false });
+              }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={closeViewer}
+                  style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+                  className="items-center justify-center"
+                >
+                  <Image
+                    source={{ uri: item.url }}
+                    style={{ width: SCREEN_WIDTH, height: "100%" }}
+                    contentFit="contain"
+                  />
+                </Pressable>
+              )}
+            />
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
