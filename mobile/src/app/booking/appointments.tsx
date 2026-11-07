@@ -3,14 +3,15 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Button } from "heroui-native";
 
 import { AppointmentCard } from "../../components/booking/AppointmentCard";
 import { CancelReasonModal } from "../../components/booking/CancelReasonModal";
@@ -41,8 +42,8 @@ export default function AppointmentsScreen() {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("");
   const [isCanceling, setIsCanceling] = useState(false);
+
   useEffect(() => {
-    // Nếu có truyền param tab (ví dụ: HOAN_THANH), tự động chọn tab đó
     if (tab) {
       setActiveTab(tab);
     }
@@ -82,61 +83,83 @@ export default function AppointmentsScreen() {
   const renderEmpty = () => {
     if (isLoading) return null;
     return (
-      <View className="flex-1 justify-center items-center pt-24 px-8">
-        <Ionicons name="calendar-outline" size={56} color="#94A3B8" />
-        <Text className="text-base font-bold text-slate-800 mt-4 mb-1">
-          Chưa có lịch hẹn
+      <View className="items-center justify-center py-24 px-6">
+        <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+          <Ionicons name="calendar-outline" size={32} color="#94A3B8" />
+        </View>
+        <Text className="text-sm font-semibold text-slate-700">
+          Chưa có lịch hẹn xem phòng
         </Text>
-        <Text className="text-xs text-slate-500 text-center leading-5">
+        <Text className="text-xs text-slate-400 mt-1 text-center">
           {activeTab === "ALL"
-            ? "Bạn chưa đặt lịch xem phòng nào. Tìm phòng và đặt lịch ngay!"
-            : "Không có lịch hẹn nào trong trạng thái này."}
+            ? "Bạn chưa đặt lịch xem phòng nào. Hãy khám phá phòng và đặt lịch ngay!"
+            : "Không tìm thấy lịch hẹn nào trong trạng thái này."}
         </Text>
+        <Button
+          variant="primary"
+          size="md"
+          onPress={() => router.push("/(tenant)/index")}
+          className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
+        >
+          <Button.Label className="text-white font-bold text-xs">
+            Khám phá phòng ngay
+          </Button.Label>
+        </Button>
       </View>
     );
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#FAFAFA]">
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3.5 bg-white">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={8}
-          className="mr-3"
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-        <Text className="text-[19px] font-bold text-slate-900 tracking-tight">
-          Lịch xem phòng
-        </Text>
-      </View>
+    <View className="flex-1 pt-safe bg-slate-50">
+      {/* 1. Header chuẩn InnFinder đồng bộ 100% với Phòng yêu thích */}
+      <View className="px-4 py-3 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text className="text-xl font-bold text-slate-900">
+              Lịch xem phòng
+            </Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              Theo dõi & quản lý các cuộc hẹn xem phòng
+            </Text>
+          </View>
+          <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+            <Text className="text-xs font-bold text-teal-700">
+              {filteredList.length} lịch hẹn
+            </Text>
+          </View>
+        </View>
 
-      {/* Underline Tabs Bar */}
-      <View className="bg-white border-b border-slate-200 flex-row">
-        {TAB_ITEMS.map((tab) => {
-          const isSelected = activeTab === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              activeOpacity={0.8}
-              className="flex-1 items-center pt-3 pb-2.5 relative"
-            >
-              <Text
-                className={`text-[13px] font-medium tracking-tight ${
-                  isSelected ? "text-[#008080] font-bold" : "text-slate-600"
+        {/* 2. Dải Pills lọc trạng thái bo tròn mượt mà */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {TAB_ITEMS.map((tabItem) => {
+            const isSelected = activeTab === tabItem.key;
+            return (
+              <Pressable
+                key={tabItem.key}
+                onPress={() => setActiveTab(tabItem.key)}
+                className={`px-3.5 py-1.5 rounded-full border ${
+                  isSelected
+                    ? "bg-teal-700 border-teal-700"
+                    : "bg-white border-slate-200"
                 }`}
               >
-                {tab.label}
-              </Text>
-
-              {isSelected && (
-                <View className="absolute bottom-0 left-2 right-2 h-[2.5px] bg-[#008080] rounded-full" />
-              )}
-            </TouchableOpacity>
-          );
-        })}
+                <Text
+                  className={`text-xs ${
+                    isSelected
+                      ? "font-semibold text-white"
+                      : "font-medium text-slate-700"
+                  }`}
+                >
+                  {tabItem.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Thông báo lỗi nếu có */}
@@ -147,10 +170,10 @@ export default function AppointmentsScreen() {
         </View>
       )}
 
-      {/* Danh sách */}
+      {/* Danh sách thẻ lịch hẹn */}
       {isLoading && appointments.length === 0 ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#008080" />
+          <ActivityIndicator size="large" color="#0D9488" />
           <Text className="mt-3 text-xs text-slate-400">
             Đang tải lịch hẹn...
           </Text>
@@ -168,16 +191,17 @@ export default function AppointmentsScreen() {
           )}
           contentContainerStyle={{
             padding: 16,
-            paddingBottom: 32,
+            paddingBottom: 100,
             flexGrow: 1,
           }}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmpty}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
               onRefresh={fetchAppointments}
-              colors={["#008080"]}
-              tintColor="#008080"
+              colors={["#0D9488"]}
+              tintColor="#0D9488"
             />
           }
         />
@@ -190,6 +214,6 @@ export default function AppointmentsScreen() {
         onClose={() => setCancelModalVisible(false)}
         onConfirm={handleConfirmCancel}
       />
-    </SafeAreaView>
+    </View>
   );
 }

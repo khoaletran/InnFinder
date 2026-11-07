@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { BackHandler, Alert, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 
 export default function AdminTabLayout() {
+  // Ngăn chặn phím cứng Back trên Android quay lại màn hình khách hàng (tenant)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onBackPress = () => {
+      Alert.alert('Thoát InnFinder', 'Bạn có muốn đóng ứng dụng không?', [
+        { text: 'Ở lại', style: 'cancel', onPress: () => null },
+        { text: 'Thoát', style: 'destructive', onPress: () => BackHandler.exitApp() },
+      ]);
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
