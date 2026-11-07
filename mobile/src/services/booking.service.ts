@@ -32,6 +32,16 @@ export const bookingService = {
   },
 
   /**
+   * Khach nop tien coc giu chan sau khi chu tro da xac nhan lich hen
+   * Endpoint: POST /api/appointments/{id}/pay-deposit
+   */
+  payDeposit: async (maDatLich: string): Promise<string> => {
+    return axiosClient.post<any, string>(
+      `/api/appointments/${maDatLich}/pay-deposit`,
+    );
+  },
+
+  /**
    * Khach huy lich hen kem ly do
    * Endpoint: PATCH /api/appointments/{id}/cancel
    */
