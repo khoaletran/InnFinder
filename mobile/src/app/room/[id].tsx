@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { roomService } from "../../services/room.service";
 import { RoomDetailResponse } from "../../types/room.types";
 import { useFilterStore } from "../../store/useFilterStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { AmenityGrid } from "../../components/room/AmenityGrid";
 
 export default function RoomDetailScreen() {
@@ -23,6 +24,11 @@ export default function RoomDetailScreen() {
   const [room, setRoom] = useState<RoomDetailResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
+
+  const { user, activeMode } = useAuthStore();
+  const isLandlordView =
+    activeMode === "LANDLORD" ||
+    (user?.maNguoiDung && room?.chuTro?.maChuTro === user.maNguoiDung);
 
   const { favoriteIds, toggleFavoriteLocal } = useFilterStore();
   const isFavorite = id ? favoriteIds.includes(id) : false;
@@ -124,16 +130,18 @@ export default function RoomDetailScreen() {
               >
                 <Ionicons name="share-outline" size={20} color="#1E293B" />
               </Pressable>
-              <Pressable
-                onPress={handleFavorite}
-                className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md"
-              >
-                <Ionicons
-                  name={isFavorite ? "heart" : "heart-outline"}
-                  size={20}
-                  color={isFavorite ? "#0D9488" : "#1E293B"}
-                />
-              </Pressable>
+              {!isLandlordView && (
+                <Pressable
+                  onPress={handleFavorite}
+                  className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md"
+                >
+                  <Ionicons
+                    name={isFavorite ? "heart" : "heart-outline"}
+                    size={20}
+                    color={isFavorite ? "#0D9488" : "#1E293B"}
+                  />
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -233,45 +241,88 @@ export default function RoomDetailScreen() {
       </ScrollView>
 
       {/* 6. Fixed Bottom Action Bar */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex-row gap-3 pb-safe shadow-lg">
-        <View className="flex-1">
-          <Button
-            variant="outline"
-            size="lg"
-            onPress={handleCall}
-            className="w-full rounded-full"
-          >
-            <Button.Label className="font-bold text-slate-800">
-              Gọi điện
-            </Button.Label>
-          </Button>
-        </View>
+      {isLandlordView ? (
+        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex-row items-center gap-3 pb-safe shadow-lg">
+          <View className="flex-1">
+            <Text className="text-xs text-slate-500 font-medium">Trạng thái phòng</Text>
+            <View className="flex-row items-center mt-1">
+              <View
+                className={`w-2 h-2 rounded-full mr-2 ${
+                  room.trangThai === 'HOAN_THANH'
+                    ? 'bg-emerald-500'
+                    : room.trangThai === 'DA_DUYET'
+                    ? 'bg-teal-600'
+                    : room.trangThai === 'CHO_DUYET'
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500'
+                }`}
+              />
+              <Text className="text-sm font-bold text-slate-800">
+                {room.trangThai === 'HOAN_THANH'
+                  ? 'Đang cho thuê'
+                  : room.trangThai === 'DA_DUYET'
+                  ? 'Đang hoạt động'
+                  : room.trangThai === 'CHO_DUYET'
+                  ? 'Chờ duyệt'
+                  : 'Bị từ chối'}
+              </Text>
+            </View>
+          </View>
 
-        <View className="flex-1">
-          <Button
-            variant="primary"
-            size="lg"
-            onPress={() =>
-              router.push({
-                pathname: "/booking/schedule-modal" as any,
-                params: {
-                  roomId: room.maPhongTro,
-                  title: room.moTa
-                    ? room.moTa.slice(0, 40)
-                    : `Phòng trọ #${room.maPhongTro}`,
-                  price: room.giaThue,
-                  image: room.dsHinhAnh?.[0]?.url || "",
-                },
-              })
-            }
-            className="w-full rounded-full bg-teal-600"
-          >
-            <Button.Label className="font-bold text-white">
-              Đặt lịch xem
-            </Button.Label>
-          </Button>
+          <View className="flex-1">
+            <Button
+              variant="primary"
+              size="lg"
+              onPress={() => router.back()}
+              className="w-full rounded-full bg-teal-700"
+            >
+              <Button.Label className="font-bold text-white">
+                Quay lại
+              </Button.Label>
+            </Button>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex-row gap-3 pb-safe shadow-lg">
+          <View className="flex-1">
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={handleCall}
+              className="w-full rounded-full"
+            >
+              <Button.Label className="font-bold text-slate-800">
+                Gọi điện
+              </Button.Label>
+            </Button>
+          </View>
+
+          <View className="flex-1">
+            <Button
+              variant="primary"
+              size="lg"
+              onPress={() =>
+                router.push({
+                  pathname: "/booking/schedule-modal" as any,
+                  params: {
+                    roomId: room.maPhongTro,
+                    title: room.moTa
+                      ? room.moTa.slice(0, 40)
+                      : `Phòng trọ #${room.maPhongTro}`,
+                    price: room.giaThue,
+                    image: room.dsHinhAnh?.[0]?.url || "",
+                  },
+                })
+              }
+              className="w-full rounded-full bg-teal-600"
+            >
+              <Button.Label className="font-bold text-white">
+                Đặt lịch xem
+              </Button.Label>
+            </Button>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

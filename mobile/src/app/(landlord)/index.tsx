@@ -118,35 +118,38 @@ export default function LandlordDashboardScreen() {
           </View>
 
           {recentPosts.map((post) => (
-            <Card
+            <Pressable
               key={post.id}
-              className="p-3 bg-white rounded-2xl border border-gray-100 mb-2.5 shadow-sm"
+              onPress={() => router.push(`/room/${post.id}` as any)}
+              className="active:opacity-90"
             >
-              <View className="flex-row items-center gap-3">
-                <Image
-                  source={{
-                    uri:
-                      post.hinhAnhUrl ||
-                      'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600',
-                  }}
-                  className="w-14 h-14 rounded-xl"
-                  resizeMode="cover"
-                />
-                <View className="flex-1">
-                  <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
-                    {post.tenPhong}
-                  </Text>
-                  <View className="flex-row items-center justify-between mt-1">
-                    <Text className="text-xs font-semibold text-teal-700">
-                      {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+              <Card className="p-3 bg-white rounded-2xl border border-gray-100 mb-2.5 shadow-sm">
+                <View className="flex-row items-center gap-3">
+                  <Image
+                    source={{
+                      uri:
+                        post.hinhAnhUrl ||
+                        'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600',
+                    }}
+                    className="w-14 h-14 rounded-xl"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
+                      {post.tenPhong}
                     </Text>
-                    <View className="px-2 py-0.5 rounded-full bg-emerald-100">
-                      <Text className="text-[10px] font-bold text-emerald-700">Đang hiển thị</Text>
+                    <View className="flex-row items-center justify-between mt-1">
+                      <Text className="text-xs font-semibold text-teal-700">
+                        {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+                      </Text>
+                      <View className="px-2 py-0.5 rounded-full bg-emerald-100">
+                        <Text className="text-[10px] font-bold text-emerald-700">Đang hiển thị</Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
