@@ -69,7 +69,6 @@ export default function LandlordDashboardScreen() {
 
         <Pressable className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100">
           <Ionicons name="notifications-outline" size={20} color="#374151" />
-          {/* Notification badge only when count > 0 */}
         </Pressable>
       </View>
 
@@ -85,14 +84,16 @@ export default function LandlordDashboardScreen() {
         {/* 3. Lịch xem sắp tới */}
         <View className="mt-6 mb-2">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-base font-bold text-gray-900">Lịch xem sắp tới</Text>
+            <Text className="text-base font-bold text-gray-900">
+              Lịch xem sắp tới ({appointments.length})
+            </Text>
             <Pressable onPress={() => router.push('/(landlord)/appointments')}>
               <Text className="text-xs font-semibold text-teal-700">Xem tất cả &gt;</Text>
             </Pressable>
           </View>
 
           {appointments.length > 0 ? (
-            appointments.map((apt) => (
+            appointments.slice(0, 2).map((apt) => (
               <LandlordAppointmentCard
                 key={apt.id}
                 appointment={apt}
@@ -111,7 +112,7 @@ export default function LandlordDashboardScreen() {
         <View className="mt-4 mb-8">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-base font-bold text-gray-900">Tin đăng gần đây</Text>
-            <Pressable onPress={() => router.push('/(landlord)/my-posts')}>
+            <Pressable onPress={() => router.push('/(landlord)/my-rooms')}>
               <Text className="text-xs font-semibold text-teal-700">Quản lý &gt;</Text>
             </Pressable>
           </View>
