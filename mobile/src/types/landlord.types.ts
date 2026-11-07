@@ -72,6 +72,7 @@ export interface CreateRoomStep1Data {
   cocPhong: number;
   dienTich: number;
   soNguoi: number;
+  diaChi?: string;
 }
 
 export interface CreateRoomStep2Data {

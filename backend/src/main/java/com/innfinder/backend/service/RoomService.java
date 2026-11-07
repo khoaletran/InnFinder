@@ -127,6 +127,69 @@ public class RoomService {
         log.info("Chủ trọ {} đã tạo phòng trọ thành công: {}", currentLandlord.getMaChuTro(), savedRoom.getMaPhongTro());
         return RoomDetailResponse.fromEntity(savedRoom);
     }
+
+    /**
+     * Chủ trọ đăng tin phòng trọ mới từ dữ liệu JSON (kèm danh sách URL ảnh)
+     */
+    @Transactional
+    public RoomDetailResponse createRoomFromJson(RoomCreateRequest request) {
+        ChuTro currentLandlord = getAuthenticatedLandlord();
+
+        // 1. Kiểm tra loại phòng
+        LoaiPhongTro loaiPhong = loaiPhongTroRepository.findById(request.getMaLpt())
+                .orElseGet(() -> loaiPhongTroRepository.findAll().stream().findFirst()
+                        .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND)));
+
+        // 2. Lấy danh sách tiện ích
+        List<TienIch> dsTienIch = Collections.emptyList();
+        if (request.getDsTienIch() != null && !request.getDsTienIch().isEmpty()) {
+            dsTienIch = tienIchRepository.findAllById(request.getDsTienIch());
+        }
+
+        // 3. Sinh mã phòng tự động theo quy tắc: PTDDMMYYHHmmSS (14 ký tự)
+        String maPhongTro = generateRoomCode();
+
+        // 4. Khởi tạo đối tượng phòng trọ (Trạng thái mặc định: CHO_DUYET)
+        PhongTro phongTro = PhongTro.builder()
+                .maPhongTro(maPhongTro)
+                .chuPhongTro(currentLandlord)
+                .loaiPhong(loaiPhong)
+                .giaThue(request.getGiaThue())
+                .dienTich(request.getDienTich())
+                .moTa(request.getMoTa())
+                .soNguoi(request.getSoNguoi())
+                .thoiGianDang(LocalDateTime.now())
+                .trangThai(TrangThaiPhongTro.CHO_DUYET)
+                .diaChi(request.getDiaChi())
+                .kinhDo(request.getKinhDo() != null ? request.getKinhDo() : "10.8231")
+                .viDo(request.getViDo() != null ? request.getViDo() : "106.6297")
+                .cocPhong(request.getCoc() != null ? request.getCoc() : 0L)
+                .dsTienIch(dsTienIch)
+                .build();
+
+        // 5. Liên kết danh sách ảnh
+        List<HinhAnh> listHinhAnh = new ArrayList<>();
+        List<String> urls = request.getHinhAnhUrls();
+        if (urls == null || urls.isEmpty()) {
+            urls = List.of("https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600");
+        }
+
+        for (int i = 0; i < urls.size(); i++) {
+            HinhAnh hinhAnh = HinhAnh.builder()
+                    .maHinhAnh("HA" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase())
+                    .phongTro(phongTro)
+                    .url(urls.get(i))
+                    .thuTuAnh(i)
+                    .laDaiDien(i == 0)
+                    .build();
+            listHinhAnh.add(hinhAnh);
+        }
+
+        phongTro.setHinhAnh(listHinhAnh);
+        PhongTro savedRoom = phongTroRepository.save(phongTro);
+        log.info("Chủ trọ {} đã tạo phòng trọ thành công (JSON): {}", currentLandlord.getMaChuTro(), savedRoom.getMaPhongTro());
+        return RoomDetailResponse.fromEntity(savedRoom);
+    }
     /**
      * Chủ trọ chỉnh sửa thông tin phòng trọ của mình
      */

@@ -43,4 +43,7 @@ public class RoomCreateRequest {
     private Long coc = 0L;
     // Danh sách mã tiện ích (ví dụ: ["TI0001", "TI0002"])
     private List<String> dsTienIch;
+
+    // Danh sách URL hình ảnh (hỗ trợ request dạng JSON)
+    private List<String> hinhAnhUrls;
 }

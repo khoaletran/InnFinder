@@ -35,13 +35,22 @@ import java.util.List;
 @Tag(name = "Chủ trọ - Quản lý phòng", description = "APIs dành riêng cho Chủ trọ quản lý các phòng trọ của mình")
 public class LandlordRoomController {
     private final RoomService roomService;
-    @Operation(summary = "Đăng tin phòng trọ mới", description = "Chủ trọ gửi form thông tin phòng và tải lên danh sách ảnh (tối thiểu 1 ảnh). Tự động upload lên Cloudinary.")
+    @Operation(summary = "Đăng tin phòng trọ mới (Multipart)", description = "Chủ trọ gửi form thông tin phòng và tải lên danh sách ảnh (tối thiểu 1 ảnh). Tự động upload lên Cloudinary.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<RoomDetailResponse> createRoom(
             @RequestPart("data") @Valid RoomCreateRequest request,
             @RequestPart("images") List<MultipartFile> images
     ) {
         RoomDetailResponse data = roomService.createRoom(request, images);
+        return ApiResponse.ok(data, "Đăng tin phòng trọ mới thành công, đang chờ Admin kiểm duyệt");
+    }
+
+    @Operation(summary = "Đăng tin phòng trọ mới (JSON)", description = "Chủ trọ gửi form thông tin phòng dạng JSON kèm danh sách URL hình ảnh")
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ApiResponse<RoomDetailResponse> createRoomJson(
+            @RequestBody @Valid RoomCreateRequest request
+    ) {
+        RoomDetailResponse data = roomService.createRoomFromJson(request);
         return ApiResponse.ok(data, "Đăng tin phòng trọ mới thành công, đang chờ Admin kiểm duyệt");
     }
     @Operation(summary = "Chỉnh sửa thông tin phòng trọ", description = "Chủ trọ cập nhật giá, diện tích, tiện ích, mô tả của phòng trọ do mình sở hữu.")
