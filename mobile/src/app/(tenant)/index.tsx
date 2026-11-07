@@ -1,5 +1,5 @@
 // mobile/src/app/(tenant)/index.tsx
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,49 @@ import { InnFinderLogo } from "../../components/common/InnFinderLogo";
 import { FilterModal } from "../../components/room/FilterModal";
 
 const PAGE_SIZE = 10;
+// Danh sách các khu vực trọng điểm tìm trọ
+const POPULAR_DISTRICTS = [
+  {
+    id: "binh-thanh",
+    name: "Bình Thạnh",
+    keyword: "Bình Thạnh",
+    imageUrl:
+      "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=500",
+  },
+  {
+    id: "quan-10",
+    name: "Quận 10",
+    keyword: "Quận 10",
+    imageUrl: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=500",
+  },
+  {
+    id: "thu-duc",
+    name: "TP. Thủ Đức",
+    keyword: "Thủ Đức",
+    imageUrl:
+      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=500",
+  },
+  {
+    id: "go-vap",
+    name: "Gò Vấp",
+    keyword: "Gò Vấp",
+    imageUrl:
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500",
+  },
+  {
+    id: "quan-5",
+    name: "Quận 5",
+    keyword: "Quận 5",
+    imageUrl:
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500",
+  },
+  {
+    id: "quan-1",
+    name: "Quận 1",
+    keyword: "Quận 1",
+    imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=500",
+  },
+];
 
 export default function TenantHomeScreen() {
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
@@ -31,6 +74,18 @@ export default function TenantHomeScreen() {
   const [page, setPage] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+
+  const sortedDistricts = useMemo(() => {
+    return [...POPULAR_DISTRICTS].sort((a, b) => {
+      const countA = rooms.filter((r) =>
+        r.diaChi?.toLowerCase().includes(a.keyword.toLowerCase()),
+      ).length;
+      const countB = rooms.filter((r) =>
+        r.diaChi?.toLowerCase().includes(b.keyword.toLowerCase()),
+      ).length;
+      return countB - countA;
+    });
+  }, [rooms]);
 
   const { setFilter } = useFilterStore();
   const { user, token } = useAuthStore();
@@ -132,8 +187,8 @@ export default function TenantHomeScreen() {
   const ListHeader = (
     <>
       {/* 1. Header: Logo & Avatar */}
-      <View className="flex-row items-center justify-between px-4 py-2.5">
-        <InnFinderLogo variant="horizontal" size="sm" />
+      <View className="flex-row items-center justify-between px-4 py-1">
+        <InnFinderLogo variant="horizontal" size="md" />
 
         <View className="flex-row items-center gap-3">
           <Pressable
@@ -159,36 +214,30 @@ export default function TenantHomeScreen() {
         </View>
       </View>
 
-      {/* 3. Thanh tìm kiếm */}
-      {/* <View className="px-4 mt-3">
-        <Pressable
-          onPress={() => router.push("/search")}
-          className="flex-row items-center bg-slate-50 border border-slate-200 px-4 py-3 rounded-full"
-        >
-          <Ionicons name="search" size={20} color="#94A3B8" />
-          <Text className="text-slate-400 ml-2.5 text-sm">
-            Bạn muốn tìm phòng ở đâu?
-          </Text>
-        </Pressable>
-      </View> */}
-
-      {/* ===== CÁCH 3: FLOATING SEARCH CARD (KIỂU AIRBNB) ===== */}
+      {/* ===== FLOATING SEARCH CARD (BẢN CẢI TIẾN) ===== */}
       <View className="px-4 mt-3">
         <View className="bg-white rounded-3xl p-4 border border-slate-100 shadow-lg shadow-slate-200">
-          {/* Hàng 1: Chọn Địa điểm */}
+          {/* HÀNG 1: KHU VỰC -> BẤM VÀO MỞ THẲNG BẢN ĐỒ MAP-SEARCH */}
           <Pressable
-            onPress={() => router.push("/search")}
-            className="flex-row items-center py-2"
+            onPress={() => router.push("/room/map-search")}
+            className="flex-row items-center py-2 active:opacity-80"
           >
-            <View className="w-10 h-10 rounded-full bg-teal-50 items-center justify-center mr-3">
-              <Ionicons name="location-outline" size={20} color="#0D9488" />
+            <View className="w-10 h-10 rounded-full bg-teal-50 items-center justify-center mr-3 border border-teal-100">
+              <Ionicons name="map-outline" size={20} color="#0D9488" />
             </View>
             <View className="flex-1">
-              <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Khu vực bạn muốn ở
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Khu vực bạn muốn ở
+                </Text>
+                <View className="bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200">
+                  <Text className="text-[10px] font-bold text-teal-700">
+                    Bản đồ
+                  </Text>
+                </View>
+              </View>
               <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                Bất kỳ đâu tại TP.HCM, Hà Nội...
+                Xem vị trí phòng trên bản đồ
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
@@ -197,26 +246,29 @@ export default function TenantHomeScreen() {
           {/* Vạch ngăn cách mảnh */}
           <View className="h-px bg-slate-100 my-2" />
 
-          {/* Hàng 2: Chọn Ngân sách & Nút Tìm kiếm */}
+          {/* HÀNG 2: TIÊU CHÍ & NGÂN SÁCH -> BẤM VÀO MỞ TRANG TÌM KIẾM SEARCH */}
           <View className="flex-row items-center justify-between pt-1">
             <Pressable
               onPress={() => router.push("/search")}
-              className="flex-1 flex-row items-center"
+              className="flex-1 flex-row items-center active:opacity-80"
             >
-              <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center mr-3">
-                <Ionicons name="wallet-outline" size={20} color="#D97706" />
+              <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center mr-3 border border-amber-100">
+                <Ionicons name="options-outline" size={20} color="#D97706" />
               </View>
-              <View>
-                <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Ngân sách
+              <View className="flex-1 pr-2">
+                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Mức giá & Tiện ích
                 </Text>
-                <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                  Dưới 5 triệu
+                <Text
+                  numberOfLines={1}
+                  className="text-sm font-bold text-slate-800 mt-0.5"
+                >
+                  Linh hoạt, phù hợp
                 </Text>
               </View>
             </Pressable>
 
-            {/* Nút Tìm phòng to bản */}
+            {/* Nút Tìm phòng nổi bật */}
             <Pressable
               onPress={() => router.push("/search")}
               className="flex-row items-center bg-teal-700 px-4 py-2.5 rounded-full shadow-md active:bg-teal-800"
@@ -230,59 +282,17 @@ export default function TenantHomeScreen() {
         </View>
       </View>
 
-      {/* 4. Pills lọc nhanh */}
-      {/* <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mt-3 px-4"
-        contentContainerStyle={{ gap: 8 }}
-      >
-        <Chip
-          variant="primary"
-          color="default"
-          size="md"
-          onPress={() => setIsFilterModalOpen(true)}
-          className="bg-teal-700"
-        >
-          <Chip.Label className="text-xs font-semibold text-white">
-            Khu vực
-          </Chip.Label>
-        </Chip>
-        <Chip
-          variant="secondary"
-          size="md"
-          onPress={() => setIsFilterModalOpen(true)}
-        >
-          <Chip.Label className="text-xs font-medium text-slate-700">
-            Giá cả
-          </Chip.Label>
-        </Chip>
-        <Chip
-          variant="secondary"
-          size="md"
-          onPress={() => setIsFilterModalOpen(true)}
-        >
-          <Chip.Label className="text-xs font-medium text-slate-700">
-            Diện tích
-          </Chip.Label>
-        </Chip>
-        <Chip
-          variant="secondary"
-          size="md"
-          onPress={() => setIsFilterModalOpen(true)}
-        >
-          <Chip.Label className="text-xs font-medium text-slate-700">
-            Loại phòng
-          </Chip.Label>
-        </Chip>
-      </ScrollView> */}
-
-      {/* 5. Section Khu vực phổ biến */}
+      {/* 5. Section Khu vực phổ biến (Đếm phòng động từ Backend) */}
       <View className="mt-6 px-4">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-lg font-bold text-slate-900">
-            Khu vực phổ biến
-          </Text>
+          <View>
+            <Text className="text-lg font-bold text-slate-900">
+              Khu vực phổ biến
+            </Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              Các quận phổ biến nhất
+            </Text>
+          </View>
           <Pressable onPress={() => router.push("/search")}>
             <Text className="text-teal-700 text-xs font-semibold">
               Xem tất cả →
@@ -290,25 +300,29 @@ export default function TenantHomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <PopularAreaCard
-            name="TP. Hồ Chí Minh"
-            roomCount="12,480 phòng"
-            imageUrl="https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=500"
-            onPress={() => handleAreaPress("Hồ Chí Minh")}
-          />
-          <PopularAreaCard
-            name="Hà Nội"
-            roomCount="8,250 phòng"
-            imageUrl="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=500"
-            onPress={() => handleAreaPress("Hà Nội")}
-          />
-          <PopularAreaCard
-            name="Đà Nẵng"
-            roomCount="3,120 phòng"
-            imageUrl="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=500"
-            onPress={() => handleAreaPress("Đà Nẵng")}
-          />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+        >
+          {sortedDistricts.map((area) => {
+            // Đếm số lượng phòng thực tế khớp với tên quận
+            const count = rooms.filter((r) =>
+              r.diaChi?.toLowerCase().includes(area.keyword.toLowerCase()),
+            ).length;
+            const countText =
+              count > 0 ? `${count} phòng sẵn có` : "Đang cập nhật";
+
+            return (
+              <PopularAreaCard
+                key={area.id}
+                name={area.name}
+                roomCount={countText}
+                imageUrl={area.imageUrl}
+                onPress={() => handleAreaPress(area.keyword)}
+              />
+            );
+          })}
         </ScrollView>
       </View>
 
