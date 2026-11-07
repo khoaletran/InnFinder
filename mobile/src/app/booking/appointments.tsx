@@ -26,6 +26,7 @@ const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
   { key: "CHO_XAC_NHAN", label: "Chờ xác nhận" },
   { key: "XAC_NHAN", label: "Đã xác nhận" },
   { key: "HOAN_THANH", label: "Hoàn tất" },
+  { key: "HUY", label: "Đã hủy" },
 ];
 
 export default function AppointmentsScreen() {
@@ -38,7 +39,10 @@ export default function AppointmentsScreen() {
     setActiveTab,
     fetchAppointments,
     cancelAppointment,
+    refundWallet,
+    paidAppointmentIds,
   } = useBookingStore();
+
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("");
   const [isCanceling, setIsCanceling] = useState(false);
@@ -62,12 +66,23 @@ export default function AppointmentsScreen() {
 
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
+    const targetItem = appointments.find((a) => a.maDatLich === selectedId);
+    const wasPaid =
+      !!targetItem?.daNopCoc || paidAppointmentIds.includes(selectedId);
     const result = await cancelAppointment(selectedId, reason);
     setIsCanceling(false);
     setCancelModalVisible(false);
 
     if (result.success) {
-      Alert.alert("Thành công", "Đã hủy lịch hẹn xem phòng.");
+      if (targetItem?.coc && wasPaid) {
+        await refundWallet(targetItem.coc);
+        Alert.alert(
+          "Thành công",
+          "Đã hủy lịch hẹn xem phòng và hoàn trả cọc vào ví của bạn.",
+        );
+      } else {
+        Alert.alert("Thành công", "Đã hủy lịch hẹn xem phòng thành công.");
+      }
     } else {
       Alert.alert(
         "Lỗi",
