@@ -32,10 +32,21 @@ public class PhongTroSpecification {
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }
-            // 2. Lọc theo từ khóa địa chỉ (keyword)
+            // 2. Lọc theo từ khóa (keyword) không phân biệt hoa thường trong Địa chỉ, Mô tả bài đăng và Loại phòng
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
                 String searchPattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
-                predicates.add(cb.like(cb.lower(root.get("diaChi")), searchPattern));
+
+                // Khớp địa chỉ (không phân biệt hoa thường)
+                Predicate matchDiaChi = cb.like(cb.lower(root.get("diaChi")), searchPattern);
+
+                // Khớp mô tả chi tiết bài đăng (không phân biệt hoa thường)
+                Predicate matchMoTa = cb.like(cb.lower(root.get("moTa")), searchPattern);
+
+                // Khớp tên loại phòng (ví dụ: Ký túc xá, Căn hộ mini, Studio...)
+                Predicate matchLoaiPhong = cb.like(cb.lower(root.get("loaiPhong").get("tenLoaiPhongTro")), searchPattern);
+
+                // Kết hợp bằng điều kiện HOẶC (OR)
+                predicates.add(cb.or(matchDiaChi, matchMoTa, matchLoaiPhong));
             }
             // 3. Lọc theo khoảng giá thuê
             if (filter.getMinGia() != null && filter.getMinGia() >= 0) {
