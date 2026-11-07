@@ -116,7 +116,12 @@ export default function TenantProfileScreen() {
               <ProfileMenuRow
                 icon="star-outline"
                 label="Đánh giá phòng"
-                onPress={() => router.push('/booking/review')}
+                 onPress={() =>
+                  router.push({
+                    pathname: "/booking/appointments",
+                    params: { tab: "HOAN_THANH" },
+                  })
+                }
               />
               <ProfileMenuRow
                 icon="warning-outline"
