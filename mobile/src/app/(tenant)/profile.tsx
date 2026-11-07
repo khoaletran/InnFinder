@@ -87,7 +87,7 @@ export default function TenantProfileScreen() {
               />
             </View>
 
-            {/* Nhóm 2: Lịch & Thuê phòng */}
+            {/* Nhóm 2: Lịch & Giao dịch */}
             <View className="bg-white rounded-2xl overflow-hidden border border-slate-200 mb-4 divide-y divide-slate-100">
               <ProfileMenuRow
                 icon="heart-outline"
@@ -97,12 +97,7 @@ export default function TenantProfileScreen() {
               <ProfileMenuRow
                 icon="calendar-outline"
                 label="Lịch xem phòng"
-                onPress={() => router.push('/booking/appointments')}
-              />
-              <ProfileMenuRow
-                icon="document-text-outline"
-                label="Yêu cầu thuê"
-                onPress={() => router.push('/booking/rental-requests')}
+                onPress={() => router.push('/(tenant)/appointments')}
               />
               <ProfileMenuRow
                 icon="receipt-outline"
@@ -116,9 +111,9 @@ export default function TenantProfileScreen() {
               <ProfileMenuRow
                 icon="star-outline"
                 label="Đánh giá phòng"
-                 onPress={() =>
+                onPress={() =>
                   router.push({
-                    pathname: "/booking/appointments",
+                    pathname: "/(tenant)/appointments",
                     params: { tab: "HOAN_THANH" },
                   })
                 }

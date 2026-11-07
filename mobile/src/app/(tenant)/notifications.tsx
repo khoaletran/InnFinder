@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from 'heroui-native';
+import { Button, Card } from 'heroui-native';
+import { router } from 'expo-router';
 import { Colors } from '../../constants/theme';
 import { useNotificationStore } from '../../store/useNotificationStore';
 
@@ -14,9 +15,14 @@ export interface NotificationItem {
   chuaDoc: boolean;
 }
 
+const FILTER_TABS: Array<{ key: 'ALL' | 'LICH_HEN' | 'GIAO_DICH'; label: string }> = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'LICH_HEN', label: 'Lịch xem phòng' },
+  { key: 'GIAO_DICH', label: 'Cọc & Giao dịch' },
+];
+
 export default function TenantNotificationsScreen() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
-  // Danh sách thông báo thực tế (Ban đầu để trống, nạp từ API)
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filterType, setFilterType] = useState<'ALL' | 'LICH_HEN' | 'GIAO_DICH'>('ALL');
   const [refreshing, setRefreshing] = useState(false);
@@ -45,7 +51,6 @@ export default function TenantNotificationsScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    // Khi kết nối API thông báo thật: fetchNotifications()
     setTimeout(() => {
       setRefreshing(false);
     }, 600);
@@ -54,146 +59,192 @@ export default function TenantNotificationsScreen() {
   const getIconConfig = (type: NotificationItem['loai']) => {
     switch (type) {
       case 'LICH_HEN':
-        return { name: 'calendar-outline' as const, color: '#0D9488', bg: 'bg-teal-50' };
+        return {
+          name: 'calendar-outline' as const,
+          color: '#0D9488',
+          bg: 'bg-teal-50',
+          border: 'border-teal-200',
+          tag: 'Lịch hẹn',
+        };
       case 'GIAO_DICH':
-        return { name: 'wallet-outline' as const, color: '#16A34A', bg: 'bg-green-50' };
+        return {
+          name: 'wallet-outline' as const,
+          color: '#16A34A',
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          tag: 'Giao dịch',
+        };
       case 'HE_THONG':
       default:
-        return { name: 'notifications-outline' as const, color: '#2563EB', bg: 'bg-blue-50' };
+        return {
+          name: 'notifications-outline' as const,
+          color: '#2563EB',
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          tag: 'Hệ thống',
+        };
     }
   };
 
   return (
     <View className="flex-1 pt-safe bg-slate-50">
-      {/* Header */}
-      <View className="px-5 py-4 bg-white border-b border-slate-200">
+      {/* 1. Header chuẩn InnFinder đồng bộ 100% */}
+      <View className="px-4 py-3 bg-white border-b border-slate-200/80">
         <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text className="text-xl font-bold text-slate-900">Thông báo</Text>
+            <Text className="text-xs text-slate-500 mt-0.5">
+              Cập nhật tin tức lịch hẹn & biến động giao dịch
+            </Text>
+          </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-2xl font-bold text-slate-900">Thông báo</Text>
-            {unreadCount > 0 && (
-              <View className="bg-rose-500 px-2 py-0.5 rounded-full">
-                <Text className="text-xs font-bold text-white">{unreadCount}</Text>
+            {unreadCount > 0 ? (
+              <View className="px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200">
+                <Text className="text-xs font-bold text-rose-600">{unreadCount} mới</Text>
+              </View>
+            ) : (
+              <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+                <Text className="text-xs font-bold text-teal-700">{filteredList.length} thông báo</Text>
               </View>
             )}
           </View>
+        </View>
+
+        {/* 2. Dải Pills lọc trạng thái bo tròn + Nút Đánh dấu đã đọc */}
+        <View className="flex-row items-center justify-between">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {FILTER_TABS.map((tab) => {
+              const isSelected = filterType === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  onPress={() => setFilterType(tab.key)}
+                  className={`px-3.5 py-1.5 rounded-full border ${
+                    isSelected
+                      ? 'bg-teal-700 border-teal-700'
+                      : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs ${
+                      isSelected
+                        ? 'font-semibold text-white'
+                        : 'font-medium text-slate-700'
+                    }`}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           {unreadCount > 0 && (
-            <Pressable onPress={handleMarkAllAsRead} className="active:opacity-70">
-              <Text className="text-xs font-semibold text-teal-600">
-                Đánh dấu đã đọc
-              </Text>
+            <Pressable onPress={handleMarkAllAsRead} className="ml-2 active:opacity-70">
+              <Text className="text-xs font-semibold text-teal-700">Đã đọc tất cả</Text>
             </Pressable>
           )}
         </View>
-
-        {/* Bộ lọc Chips */}
-        <View className="flex-row gap-2">
-          <Pressable
-            onPress={() => setFilterType('ALL')}
-            className={`px-3 py-1.5 rounded-full border ${
-              filterType === 'ALL'
-                ? 'bg-teal-600 border-teal-600'
-                : 'bg-slate-100 border-slate-200'
-            }`}
-          >
-            <Text
-              className={`text-xs font-medium ${
-                filterType === 'ALL' ? 'text-white' : 'text-slate-600'
-              }`}
-            >
-              Tất cả
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setFilterType('LICH_HEN')}
-            className={`px-3 py-1.5 rounded-full border ${
-              filterType === 'LICH_HEN'
-                ? 'bg-teal-600 border-teal-600'
-                : 'bg-slate-100 border-slate-200'
-            }`}
-          >
-            <Text
-              className={`text-xs font-medium ${
-                filterType === 'LICH_HEN' ? 'text-white' : 'text-slate-600'
-              }`}
-            >
-              Lịch xem phòng
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setFilterType('GIAO_DICH')}
-            className={`px-3 py-1.5 rounded-full border ${
-              filterType === 'GIAO_DICH'
-                ? 'bg-teal-600 border-teal-600'
-                : 'bg-slate-100 border-slate-200'
-            }`}
-          >
-            <Text
-              className={`text-xs font-medium ${
-                filterType === 'GIAO_DICH' ? 'text-white' : 'text-slate-600'
-              }`}
-            >
-              Cọc & Giao dịch
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
-      {/* Danh sách thông báo (Hiển thị EmptyState chuẩn khi chưa có dữ liệu) */}
+      {/* 3. Danh sách thông báo (Hiển thị EmptyState chuẩn khi chưa có dữ liệu) */}
       <FlatList
         data={filteredList}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 100, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
         }
         ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-24">
-            <View className="size-16 rounded-full bg-slate-100 items-center justify-center mb-3">
-              <Ionicons name="notifications-off-outline" size={32} color={Colors.textMuted} />
+          <View className="items-center justify-center py-24 px-6">
+            <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+              <Ionicons name="notifications-outline" size={32} color="#94A3B8" />
             </View>
-            <Text className="text-base font-bold text-slate-800">Không có thông báo mới</Text>
-            <Text className="text-xs text-slate-500 text-center mt-1 px-8">
-              Khi có xác nhận lịch hẹn, hoàn trả tiền cọc hoặc phản hồi từ ban quản trị, thông báo sẽ xuất hiện tại đây.
+            <Text className="text-sm font-semibold text-slate-700">
+              Chưa có thông báo mới
             </Text>
+            <Text className="text-xs text-slate-400 mt-1 text-center leading-5">
+              Khi có xác nhận lịch hẹn xem phòng, biến động số dư hoặc tin tức hệ thống, thông báo sẽ hiển thị tại đây.
+            </Text>
+            <Button
+              variant="primary"
+              size="md"
+              onPress={() => router.push('/(tenant)/index')}
+              className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
+            >
+              <Button.Label className="text-white font-bold text-xs">
+                Khám phá phòng ngay
+              </Button.Label>
+            </Button>
           </View>
         }
         renderItem={({ item }) => {
           const icon = getIconConfig(item.loai);
           return (
-            <Pressable onPress={() => handleItemPress(item.id)} className="active:opacity-80">
+            <Pressable
+              onPress={() => handleItemPress(item.id)}
+              className="mb-3 active:opacity-95"
+            >
               <Card
-                className={`p-4 border ${
+                className={`p-3.5 rounded-2xl border ${
                   item.chuaDoc
-                    ? 'bg-white border-teal-200 shadow-sm'
-                    : 'bg-slate-50/80 border-slate-200'
+                    ? 'bg-white border-teal-200 shadow-xs'
+                    : 'bg-white border-slate-200/90 shadow-2xs'
                 }`}
               >
-                <View className="flex-row gap-3">
-                  <View className={`size-10 rounded-full ${icon.bg} items-center justify-center`}>
+                <View className="flex-row">
+                  <View
+                    className={`w-11 h-11 rounded-xl ${icon.bg} border ${icon.border} items-center justify-center mr-3`}
+                  >
                     <Ionicons name={icon.name} size={20} color={icon.color} />
                   </View>
 
-                  <View className="flex-1">
-                    <View className="flex-row items-center justify-between mb-1">
+                  <View className="flex-1 justify-between">
+                    <View>
+                      <View className="flex-row items-center justify-between gap-1 mb-1">
+                        <Text
+                          numberOfLines={1}
+                          className={`text-sm flex-1 mr-1.5 ${
+                            item.chuaDoc
+                              ? 'font-bold text-slate-900'
+                              : 'font-semibold text-slate-700'
+                          }`}
+                        >
+                          {item.tieuDe}
+                        </Text>
+                        {item.chuaDoc && (
+                          <View className="w-2 h-2 rounded-full bg-teal-600" />
+                        )}
+                      </View>
+
                       <Text
-                        className={`text-sm ${
-                          item.chuaDoc ? 'font-bold text-slate-900' : 'font-medium text-slate-700'
-                        }`}
+                        className="text-xs text-slate-600 leading-relaxed"
+                        numberOfLines={2}
                       >
-                        {item.tieuDe}
+                        {item.noiDung}
                       </Text>
-                      {item.chuaDoc && (
-                        <View className="size-2 rounded-full bg-teal-500" />
-                      )}
                     </View>
-                    <Text className="text-xs text-slate-600 leading-relaxed">
-                      {item.noiDung}
-                    </Text>
-                    <Text className="text-[10px] text-slate-400 mt-2 font-medium">
-                      {item.thoiGian}
-                    </Text>
+
+                    <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                      <Text className="text-[10px] text-slate-400 font-medium">
+                        {item.thoiGian}
+                      </Text>
+                      <View className="px-2 py-0.5 rounded-full bg-slate-100">
+                        <Text className="text-[9px] font-bold text-slate-500">
+                          {icon.tag}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
               </Card>

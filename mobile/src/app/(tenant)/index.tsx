@@ -118,7 +118,7 @@ export default function TenantHomeScreen() {
 
   const handleAreaPress = (areaName: string) => {
     setFilter({ keyword: areaName });
-    router.push("/(tenant)/search");
+    router.push("/search");
   };
 
   const onRefresh = () => {
@@ -160,7 +160,7 @@ export default function TenantHomeScreen() {
       {/* 3. Thanh tìm kiếm */}
       <View className="px-4 mt-3">
         <Pressable
-          onPress={() => router.push("/(tenant)/search")}
+          onPress={() => router.push("/search")}
           className="flex-row items-center bg-slate-50 border border-slate-200 px-4 py-3 rounded-full"
         >
           <Ionicons name="search" size={20} color="#94A3B8" />
@@ -223,7 +223,7 @@ export default function TenantHomeScreen() {
           <Text className="text-lg font-bold text-slate-900">
             Khu vực phổ biến
           </Text>
-          <Pressable onPress={() => router.push("/(tenant)/search")}>
+          <Pressable onPress={() => router.push("/search")}>
             <Text className="text-teal-700 text-xs font-semibold">
               Xem tất cả →
             </Text>
@@ -255,7 +255,7 @@ export default function TenantHomeScreen() {
       {/* 6. Tiêu đề section Phòng gần bạn */}
       <View className="mt-6 px-4 mb-3 flex-row items-center justify-between">
         <Text className="text-lg font-bold text-slate-900">Phòng gần bạn</Text>
-        <Pressable onPress={() => router.push("/(tenant)/search")}>
+        <Pressable onPress={() => router.push("/search")}>
           <Text className="text-teal-700 text-xs font-semibold">Xem thêm</Text>
         </Pressable>
       </View>

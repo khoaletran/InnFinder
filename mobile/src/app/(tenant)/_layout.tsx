@@ -35,6 +35,7 @@ export default function TenantTabLayout() {
         },
       }}
     >
+      {/* 1. Trang chủ */}
       <Tabs.Screen
         name="index"
         options={{
@@ -44,15 +45,8 @@ export default function TenantTabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Tìm kiếm',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color as string} />
-          ),
-        }}
-      />
+
+      {/* 2. Yêu thích (Trái tim sang thứ 2) */}
       <Tabs.Screen
         name="favorites"
         options={{
@@ -62,6 +56,19 @@ export default function TenantTabLayout() {
           ),
         }}
       />
+
+      {/* 3. Lịch hẹn (Ở chính giữa) */}
+      <Tabs.Screen
+        name="appointments"
+        options={{
+          title: 'Lịch hẹn',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color as string} />
+          ),
+        }}
+      />
+
+      {/* 4. Thông báo */}
       <Tabs.Screen
         name="notifications"
         options={{
@@ -78,6 +85,8 @@ export default function TenantTabLayout() {
           ),
         }}
       />
+
+      {/* 5. Cá nhân */}
       <Tabs.Screen
         name="profile"
         options={{

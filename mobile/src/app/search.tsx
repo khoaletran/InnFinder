@@ -1,4 +1,4 @@
-// mobile/src/app/(tenant)/search.tsx
+// mobile/src/app/search.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -12,12 +12,12 @@ import {
 import { Chip, Tabs } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useFilterStore } from "../../store/useFilterStore";
-import { roomService } from "../../services/room.service";
-import { RoomSummaryResponse } from "../../types/room.types";
-import { RoomCard } from "../../components/room/RoomCard";
+import { useFilterStore } from "../store/useFilterStore";
+import { roomService } from "../services/room.service";
+import { RoomSummaryResponse } from "../types/room.types";
+import { RoomCard } from "../components/room/RoomCard";
 
-export default function TenantSearchScreen() {
+export default function SearchScreen() {
   const { filter, setFilter, resetFilter, getActiveFilterCount } =
     useFilterStore();
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
@@ -27,6 +27,21 @@ export default function TenantSearchScreen() {
     filter.keyword || "",
   );
   const [viewMode, setViewMode] = useState<string>("list");
+
+  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài (ví dụ bấm chip khu vực ở Trang chủ)
+  useEffect(() => {
+    setKeywordInput(filter.keyword || "");
+  }, [filter.keyword]);
+
+  // Debounce 400ms tự động lọc phòng khi người dùng gõ
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (keywordInput !== (filter.keyword || "")) {
+        setFilter({ keyword: keywordInput });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
 
   useEffect(() => {
     fetchRooms();
@@ -54,22 +69,34 @@ export default function TenantSearchScreen() {
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tenant)");
+    }
+  };
+
   return (
     <View className="flex-1 pt-safe bg-white">
       {/* 1. Header Search Bar */}
       <View className="flex-row items-center px-4 py-2 gap-2.5">
-        <Pressable onPress={() => router.back()} className="p-1">
+        <Pressable onPress={handleGoBack} className="p-1">
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </Pressable>
 
         <View className="flex-1 flex-row items-center bg-slate-100 rounded-full px-3.5 py-2">
-          <Ionicons name="search" size={18} color="#64748B" />
+          <Pressable onPress={() => setFilter({ keyword: keywordInput })}>
+            <Ionicons name="search" size={18} color="#0D9488" />
+          </Pressable>
           <TextInput
             value={keywordInput}
             onChangeText={setKeywordInput}
             onSubmitEditing={() => setFilter({ keyword: keywordInput })}
-            placeholder="Tìm theo khu vực, đường..."
+            placeholder="Tìm theo khu vực, tên đường..."
             placeholderTextColor="#94A3B8"
+            autoFocus={true}
+            returnKeyType="search"
             className="flex-1 ml-2 text-sm text-slate-800 p-0"
           />
           {keywordInput !== "" && (
@@ -103,21 +130,6 @@ export default function TenantSearchScreen() {
           className="px-4"
           contentContainerStyle={{ gap: 8, alignItems: "center" }}
         >
-          {/* Nút Xoá tất cả (chỉ hiện khi có lọc)
-          {getActiveFilterCount() > 0 && (
-            <Pressable
-              onPress={() => {
-                setKeywordInput("");
-                resetFilter();
-              }}
-              className="px-2.5 py-1.5 rounded-full bg-red-50 border border-red-200"
-            >
-              <Text className="text-red-600 text-xs font-bold">
-                Xóa tất cả ✕
-              </Text>
-            </Pressable>
-          )} */}
-
           {/* Chip Từ khóa */}
           {filter.keyword ? (
             <Chip
