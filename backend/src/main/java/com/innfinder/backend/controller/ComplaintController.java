@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/complaints")
 @RequiredArgsConstructor
@@ -27,5 +29,13 @@ public class ComplaintController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(result, "Gửi khiếu nại thành công, vui lòng chờ Quản trị viên xử lý"));
+    }
+
+    @GetMapping("/my-complaints")
+    @Operation(summary = "Xem danh sách khiếu nại liên quan đến tài khoản đang đăng nhập (gửi đến tôi hoặc do tôi gửi)")
+    public ResponseEntity<ApiResponse<List<ComplaintResponseDTO>>> getMyComplaints(
+            @RequestParam(value = "type", defaultValue = "RECEIVED") String type) {
+        List<ComplaintResponseDTO> result = complaintService.getMyComplaints(type);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách khiếu nại thành công"));
     }
 }

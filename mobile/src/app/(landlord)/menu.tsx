@@ -127,8 +127,8 @@ export default function LandlordAccountScreen() {
           />
           <ProfileMenuRow
             icon="warning-outline"
-            label="Gửi khiếu nại"
-            onPress={() => router.push('/user/complaint')}
+            label="Khiếu nại"
+            onPress={() => router.push('/(landlord)/complaints' as any)}
           />
         </View>
 

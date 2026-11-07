@@ -241,4 +241,14 @@ export const landlordService = {
   createRoom: async (payload: any): Promise<any> => {
     return await axiosClient.post('/api/landlord/rooms', payload);
   },
+
+  // 9. Quản lý khiếu nại (GET /api/complaints/my-complaints)
+  getMyComplaints: async (type: 'RECEIVED' | 'SENT' = 'RECEIVED'): Promise<any[]> => {
+    try {
+      const res: any = await axiosClient.get(`/api/complaints/my-complaints?type=${type}`);
+      return Array.isArray(res) ? res : res?.data || [];
+    } catch {
+      return [];
+    }
+  },
 };
