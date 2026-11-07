@@ -1,6 +1,6 @@
 // mobile/src/store/useFilterStore.ts
-import { create } from 'zustand';
-import { RoomFilterRequest } from '../types/room.types';
+import { create } from "zustand";
+import { RoomFilterRequest } from "../types/room.types";
 
 interface FilterState {
   filter: RoomFilterRequest;
@@ -8,12 +8,12 @@ interface FilterState {
   setFilter: (newFilter: Partial<RoomFilterRequest>) => void;
   resetFilter: () => void;
   setFavoriteIds: (ids: string[]) => void;
-  toggleFavoriteLocal: (roomId: string) => boolean; // trả về trạng thái mới (true = đã thích)
+  toggleFavoriteLocal: (roomId: string) => boolean;
   getActiveFilterCount: () => number;
 }
 
 const defaultFilter: RoomFilterRequest = {
-  keyword: '',
+  keyword: "",
   minGia: undefined,
   maxGia: undefined,
   minDienTich: undefined,
@@ -23,8 +23,8 @@ const defaultFilter: RoomFilterRequest = {
   dsTienIch: [],
   page: 0,
   size: 20,
-  sortBy: 'thoiGianDang',
-  sortDirection: 'DESC',
+  sortBy: "thoiGianDang",
+  sortDirection: "DESC",
 };
 
 export const useFilterStore = create<FilterState>((set, get) => ({
@@ -52,15 +52,17 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     }
   },
 
+  //sua them loc
   getActiveFilterCount: () => {
     const f = get().filter;
     let count = 0;
-    if (f.keyword && f.keyword.trim() !== '') count++;
+    if (f.keyword && f.keyword.trim() !== "") count++;
     if (f.minGia !== undefined || f.maxGia !== undefined) count++;
     if (f.minDienTich !== undefined || f.maxDienTich !== undefined) count++;
     if (f.soNguoi !== undefined) count++;
-    if (f.maLpt) count++;
-    if (f.dsTienIch && f.dsTienIch.length > 0) count += f.dsTienIch.length;
+    if (f.maLpt && f.maLpt.trim() !== "") count++;
+    // Tiện ích chỉ tính là 1 tiêu chí bộ lọc
+    if (f.dsTienIch && f.dsTienIch.length > 0) count++;
     return count;
   },
 }));
