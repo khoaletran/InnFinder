@@ -30,7 +30,7 @@ export default function MapSearchScreen() {
 
   const mapRef = useRef<MapView>(null);
   const hasCenteredUser = useRef<boolean>(false);
-
+  //can cai them npx expo install expo-location, khong push node module
   // 1. Tự động xin quyền GPS của Android ngay khi mở màn hình
   useEffect(() => {
     const requestLocation = async () => {
