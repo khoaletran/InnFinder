@@ -37,6 +37,12 @@ export interface LandlordAppointmentItem {
   ngayHen: string;
   ghiChu?: string;
   trangThai: 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY';
+  maPhongTro?: string;
+  diaChiPhong?: string;
+  giaThue?: number;
+  coc?: number;
+  phiThu?: number;
+  hinhAnh?: string;
 }
 
 export interface LandlordRentalRequestItem {

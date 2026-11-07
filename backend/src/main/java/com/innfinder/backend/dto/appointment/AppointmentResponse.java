@@ -56,8 +56,11 @@ public class AppointmentResponse {
 
         // Lấy thông tin khách hàng nếu có
         if (entity.getKhachHang() != null) {
+            String tenHienThi = (entity.getKhachHang().getHoVaTen() != null && !entity.getKhachHang().getHoVaTen().isBlank())
+                    ? entity.getKhachHang().getHoVaTen()
+                    : entity.getKhachHang().getTenDangNhap();
             builder.maKhachHang(entity.getKhachHang().getMaNguoiDung())
-                    .tenKhachHang(entity.getKhachHang().getTenDangNhap())
+                    .tenKhachHang(tenHienThi)
                     .sdtKhachHang(entity.getKhachHang().getSdt());
         }
 

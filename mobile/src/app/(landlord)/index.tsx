@@ -45,15 +45,43 @@ export default function LandlordDashboardScreen() {
   };
 
   const handleConfirm = async (id: string) => {
-    await landlordService.confirmAppointment(id);
-    alert('Đã xác nhận lịch xem phòng của khách thành công!');
-    loadData();
+    try {
+      await landlordService.confirmAppointment(id);
+      alert('Đã xác nhận lịch xem phòng của khách thành công!');
+      loadData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi xác nhận');
+    }
   };
 
   const handleReject = async (id: string) => {
-    await landlordService.rejectAppointment(id);
-    alert('Đã từ chối lịch xem phòng.');
-    loadData();
+    try {
+      await landlordService.rejectAppointment(id);
+      alert('Đã từ chối lịch xem phòng.');
+      loadData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi từ chối');
+    }
+  };
+
+  const handleComplete = async (id: string) => {
+    try {
+      await landlordService.completeAppointment(id);
+      alert('Đã chốt hợp đồng thuê phòng thành công!');
+      loadData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi chốt thuê');
+    }
+  };
+
+  const handleCancelRental = async (id: string) => {
+    try {
+      await landlordService.cancelAppointmentByLandlord(id);
+      alert('Đã ghi nhận khách không thuê và hoàn cọc.');
+      loadData();
+    } catch (e: any) {
+      alert(e.message || 'Lỗi xử lý');
+    }
   };
 
   const displayName = user?.hoVaTen || 'bạn';
@@ -99,6 +127,8 @@ export default function LandlordDashboardScreen() {
                 appointment={apt}
                 onConfirm={handleConfirm}
                 onReject={handleReject}
+                onComplete={handleComplete}
+                onCancelRental={handleCancelRental}
               />
             ))
           ) : (

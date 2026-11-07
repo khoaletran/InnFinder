@@ -112,13 +112,19 @@ export const landlordService = {
             id: a.maDatLich,
             khachHangTen: a.tenKhachHang || 'Khách xem phòng',
             sdt: a.sdtKhachHang || '0901234567',
-            phongTen: `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
+            phongTen: a.tieuDePhong || `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
             thoiGian: a.ngayHen
               ? new Date(a.ngayHen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : '10:00 - 10:30',
             ngayHen: a.ngayHen ? a.ngayHen.substring(0, 10) : '2026-11-07',
-            ghiChu: a.liDoHuy || 'Hẹn xem phòng trực tiếp',
+            ghiChu: a.liDoHuy || undefined,
             trangThai: a.trangThai || 'CHO_XAC_NHAN',
+            maPhongTro: a.maPhongTro,
+            diaChiPhong: a.diaChiPhong,
+            giaThue: Number(a.giaThue) || 0,
+            coc: Number(a.coc) || 0,
+            phiThu: Number(a.phiThu) || 0,
+            hinhAnh: a.hinhAnh,
           }))
         : [];
 
@@ -140,6 +146,18 @@ export const landlordService = {
   rejectAppointment: async (id: string, reason?: string): Promise<void> => {
     await axiosClient.patch(`/api/landlord/appointments/${id}/reject`, {
       liDoHuy: reason || 'Chủ trọ bận lịch vào khung giờ này',
+    });
+  },
+
+  // Chủ trọ chốt cho thuê phòng thành công sau khi xem (hoàn cọc khách, cộng tiền chủ trọ, đóng phòng)
+  completeAppointment: async (id: string): Promise<void> => {
+    await axiosClient.patch(`/api/landlord/appointments/${id}/complete`);
+  },
+
+  // Chủ trọ hủy hoặc xác nhận khách không thuê sau khi xem (hoàn cọc cho khách, giữ lại phòng)
+  cancelAppointmentByLandlord: async (id: string, reason?: string): Promise<void> => {
+    await axiosClient.patch(`/api/landlord/appointments/${id}/cancel`, {
+      liDoHuy: reason || 'Không thuê sau khi xem phòng',
     });
   },
 
