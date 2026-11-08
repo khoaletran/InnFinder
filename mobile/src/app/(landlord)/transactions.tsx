@@ -374,7 +374,19 @@ export default function TransactionsScreen() {
               </View>
 
               {/* Lựa chọn tài khoản nhận tiền */}
-              <Text className="text-xs font-bold text-gray-800 mb-2">Tài khoản ngân hàng nhận</Text>
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-xs font-bold text-gray-800">Tài khoản ngân hàng nhận</Text>
+                <Pressable
+                  onPress={() => {
+                    setWithdrawModalVisible(false);
+                    router.push('/user/bank-accounts' as any);
+                  }}
+                  className="flex-row items-center gap-1 active:opacity-70"
+                >
+                  <Ionicons name="settings-outline" size={12} color="#0f766e" />
+                  <Text className="text-xs font-bold text-teal-700">Quản lý thẻ</Text>
+                </Pressable>
+              </View>
 
               {wallet?.dsTaiKhoanNganHang && wallet.dsTaiKhoanNganHang.length > 0 ? (
                 <View className="mb-4 gap-2">

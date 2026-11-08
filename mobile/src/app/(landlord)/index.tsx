@@ -59,34 +59,73 @@ export default function LandlordDashboardScreen() {
     }
   };
 
-  const handleReject = async (id: string) => {
-    try {
-      await landlordService.rejectAppointment(id);
-      Alert.alert('Thành công', 'Đã từ chối lịch xem phòng.');
-      loadData();
-    } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Lỗi từ chối');
-    }
+  const handleReject = (id: string) => {
+    Alert.alert(
+      'Từ chối lịch hẹn',
+      'Xác nhận từ chối lịch hẹn xem phòng này? Tiền cọc giữ chân sẽ được hoàn trả lại cho khách.',
+      [
+        { text: 'Quay lại', style: 'cancel' },
+        {
+          text: 'Từ chối lịch',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await landlordService.rejectAppointment(id, 'Chủ trọ bận lịch vào khung giờ này');
+              Alert.alert('Thành công', 'Đã từ chối lịch xem phòng và hoàn cọc cho khách.');
+              loadData();
+            } catch (e: any) {
+              Alert.alert('Lỗi', e?.response?.data?.message || e.message || 'Lỗi từ chối');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleComplete = async (id: string) => {
-    try {
-      await landlordService.completeAppointment(id);
-      Alert.alert('Thành công', 'Đã chốt hợp đồng thuê phòng thành công!');
-      loadData();
-    } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Lỗi chốt thuê');
-    }
+  const handleComplete = (id: string) => {
+    Alert.alert(
+      'Xác nhận cho thuê phòng',
+      'Xác nhận bạn đồng ý cho khách thuê phòng này? Tiền cọc (sau khi trừ phí sàn) sẽ được chuyển vào ví của bạn khi cả 2 bên cùng bấm Xác nhận thuê.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đồng ý cho thuê',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await landlordService.submitLandlordDecision(id, true);
+              Alert.alert('Thành công', 'Đã gửi quyết định cho thuê phòng!');
+              loadData();
+            } catch (e: any) {
+              Alert.alert('Lỗi', e?.response?.data?.message || e.message || 'Không thể chốt thuê lúc này.');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleCancelRental = async (id: string) => {
-    try {
-      await landlordService.cancelAppointmentByLandlord(id);
-      Alert.alert('Thành công', 'Đã ghi nhận khách không thuê và hoàn cọc.');
-      loadData();
-    } catch (e: any) {
-      Alert.alert('Lỗi', e.message || 'Lỗi xử lý');
-    }
+  const handleCancelRental = (id: string) => {
+    Alert.alert(
+      'Từ chối cho thuê',
+      'Xác nhận không cho thuê phòng này? Tiền cọc sẽ được hoàn trả lại cho bạn.',
+      [
+        { text: 'Quay lại', style: 'cancel' },
+        {
+          text: 'Không cho thuê',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await landlordService.submitLandlordDecision(id, false, 'Chủ trọ từ chối cho thuê sau khi xem');
+              Alert.alert('Thành công', 'Đã ghi nhận không cho thuê phòng.');
+              loadData();
+            } catch (e: any) {
+              Alert.alert('Lỗi', e?.response?.data?.message || e.message || 'Không thể xử lý lúc này.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (

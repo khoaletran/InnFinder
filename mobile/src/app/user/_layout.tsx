@@ -7,6 +7,7 @@ export default function UserLayout() {
       <Stack.Screen name="register-landlord" />
       <Stack.Screen name="change-password" />
       <Stack.Screen name="complaint" />
+      <Stack.Screen name="bank-accounts" />
     </Stack>
   );
 }

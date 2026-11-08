@@ -13,6 +13,7 @@ import {
   Dimensions,
   PanResponder,
   Animated,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Avatar, Button, Card, Spinner } from "heroui-native";
@@ -20,6 +21,7 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { roomService } from "../../services/room.service";
+import { landlordService } from "../../services/landlord.service";
 import { RoomDetailResponse } from "../../types/room.types";
 import { useFilterStore } from "../../store/useFilterStore";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -133,6 +135,53 @@ export default function RoomDetailScreen() {
   const isLandlordView =
     activeMode === "LANDLORD" ||
     (user?.maNguoiDung && room?.chuTro?.maChuTro === user.maNguoiDung);
+
+  const handleToggleRoomStatus = () => {
+    if (!room) return;
+    if (room.trangThai === "DA_DUYET") {
+      Alert.alert(
+        "Đánh dấu đã cho thuê",
+        "Xác nhận phòng này đã có người thuê? Phòng sẽ chuyển sang trạng thái ĐÃ CHO THUÊ và tạm ẩn khỏi danh sách tìm kiếm của khách hàng.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Xác nhận đã thuê",
+            style: "default",
+            onPress: async () => {
+              try {
+                await landlordService.updateRoomStatus(room.maPhongTro, "HOAN_THANH");
+                Alert.alert("Thành công", "Đã chuyển phòng sang trạng thái Đã cho thuê.");
+                loadDetail(room.maPhongTro);
+              } catch (err: any) {
+                Alert.alert("Thất bại", err?.message || "Không thể cập nhật trạng thái phòng.");
+              }
+            },
+          },
+        ]
+      );
+    } else if (room.trangThai === "HOAN_THANH") {
+      Alert.alert(
+        "Mở cho thuê lại",
+        "Xác nhận mở cho thuê lại phòng này? Phòng sẽ được hiển thị công khai trên ứng dụng để khách hàng tìm kiếm.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Mở cho thuê",
+            style: "default",
+            onPress: async () => {
+              try {
+                await landlordService.updateRoomStatus(room.maPhongTro, "DA_DUYET");
+                Alert.alert("Thành công", "Đã mở phòng hiển thị công khai trên ứng dụng.");
+                loadDetail(room.maPhongTro);
+              } catch (err: any) {
+                Alert.alert("Thất bại", err?.message || "Không thể cập nhật trạng thái phòng.");
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
 
   const { favoriteIds, toggleFavoriteLocal } = useFilterStore();
   const isFavorite = id ? favoriteIds.includes(id) : false;
@@ -403,6 +452,32 @@ export default function RoomDetailScreen() {
           </View>
 
           <View className="flex-row items-center gap-2">
+            {room.trangThai === "DA_DUYET" && (
+              <Button
+                variant="outline"
+                size="md"
+                onPress={handleToggleRoomStatus}
+                className="rounded-full px-3.5 border-emerald-300 bg-emerald-50"
+              >
+                <Button.Label className="font-semibold text-emerald-700">
+                  Đã thuê
+                </Button.Label>
+              </Button>
+            )}
+
+            {room.trangThai === "HOAN_THANH" && (
+              <Button
+                variant="outline"
+                size="md"
+                onPress={handleToggleRoomStatus}
+                className="rounded-full px-3.5 border-sky-300 bg-sky-50"
+              >
+                <Button.Label className="font-semibold text-sky-700">
+                  Cho thuê lại
+                </Button.Label>
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="md"

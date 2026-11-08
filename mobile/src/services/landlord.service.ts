@@ -10,6 +10,7 @@ import {
   LandlordTransactionItem,
   LandlordWalletInfo,
   WithdrawPayload,
+  BankAccountItem,
 } from '../types/landlord.types';
 
 export const landlordService = {
@@ -277,6 +278,26 @@ export const landlordService = {
     return await axiosClient.post('/api/landlord/wallet/withdraw', payload);
   },
 
+  // 6.3. Lấy danh sách tài khoản ngân hàng của tôi (GET /api/users/bank-accounts)
+  getMyBankAccounts: async (): Promise<BankAccountItem[]> => {
+    try {
+      const res: any = await axiosClient.get('/api/users/bank-accounts');
+      return Array.isArray(res) ? res : res?.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  // 6.4. Thêm mới tài khoản ngân hàng liên kết (POST /api/users/bank-accounts)
+  addBankAccount: async (payload: { soTaiKhoan: string; tenNganHang: string }): Promise<any> => {
+    return await axiosClient.post('/api/users/bank-accounts', payload);
+  },
+
+  // 6.5. Hủy liên kết tài khoản ngân hàng (DELETE /api/users/bank-accounts/{id})
+  deleteBankAccount: async (id: number | string): Promise<any> => {
+    return await axiosClient.delete(`/api/users/bank-accounts/${id}`);
+  },
+
   // 7. Lấy danh mục Loại phòng & Tiện ích từ Backend
   getRoomTypes: async (): Promise<any[]> => {
     try {
@@ -304,6 +325,11 @@ export const landlordService = {
   // 8.0. Cập nhật thông tin phòng trọ (PUT /api/landlord/rooms/{id})
   updateRoom: async (id: string, payload: any): Promise<any> => {
     return await axiosClient.put(`/api/landlord/rooms/${id}`, payload);
+  },
+
+  // 8.0.1. Cập nhật trạng thái phòng trọ (PATCH /api/landlord/rooms/{id}/status)
+  updateRoomStatus: async (id: string, trangThai: 'DA_DUYET' | 'HOAN_THANH'): Promise<any> => {
+    return await axiosClient.patch(`/api/landlord/rooms/${id}/status`, { trangThai });
   },
 
   // 8.1. Upload danh sách ảnh lên Cloudinary qua API Backend (POST /api/upload/images)

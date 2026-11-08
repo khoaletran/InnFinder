@@ -83,6 +83,11 @@ export default function LandlordAccountScreen() {
             onPress={() => router.push('/user/edit-profile')}
           />
           <ProfileMenuRow
+            icon="card-outline"
+            label="Tài khoản ngân hàng"
+            onPress={() => router.push('/user/bank-accounts' as any)}
+          />
+          <ProfileMenuRow
             icon="lock-closed-outline"
             label="Đổi mật khẩu"
             onPress={() => router.push('/user/change-password')}

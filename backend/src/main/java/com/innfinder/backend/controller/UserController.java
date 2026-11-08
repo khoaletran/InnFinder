@@ -52,6 +52,19 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.getMyBankAccounts(), "Lấy danh sách ngân hàng thành công"));
     }
 
+    @PostMapping("/bank-accounts")
+    @Operation(summary = "Thêm tài khoản ngân hàng liên kết mới")
+    public ResponseEntity<ApiResponse<BankAccountResponse>> addBankAccount(@Valid @RequestBody CreateBankAccountRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(userService.addBankAccount(request), "Thêm tài khoản ngân hàng thành công"));
+    }
+
+    @DeleteMapping("/bank-accounts/{id}")
+    @Operation(summary = "Hủy liên kết tài khoản ngân hàng")
+    public ResponseEntity<ApiResponse<Void>> deleteBankAccount(@PathVariable("id") Long id) {
+        userService.deleteBankAccount(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Hủy liên kết tài khoản ngân hàng thành công"));
+    }
+
     @GetMapping("/my-landlord-request")
     @Operation(summary = "Xem trạng thái hồ sơ đăng ký Chủ trọ của tôi")
     public ResponseEntity<ApiResponse<com.innfinder.backend.dto.response.LandlordRequestResponseDTO>> getMyLandlordRequest() {

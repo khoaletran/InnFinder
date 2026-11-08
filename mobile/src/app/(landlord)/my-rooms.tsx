@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl } from 'react-native';
+import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -41,6 +41,52 @@ export default function MyRoomsScreen() {
     setRefreshing(true);
     await loadRooms();
     setRefreshing(false);
+  };
+
+  const handleToggleRoomStatus = (room: LandlordRoomItem) => {
+    if (room.trangThai === 'DA_DUYET') {
+      Alert.alert(
+        'Đánh dấu đã cho thuê',
+        'Xác nhận phòng này đã có người thuê? Phòng sẽ chuyển sang trạng thái "Đã cho thuê" và tạm ẩn khỏi danh sách tìm kiếm của khách hàng.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xác nhận đã thuê',
+            style: 'default',
+            onPress: async () => {
+              try {
+                await landlordService.updateRoomStatus(room.id, 'HOAN_THANH');
+                Alert.alert('Thành công', 'Đã chuyển phòng sang trạng thái Đã cho thuê.');
+                loadRooms();
+              } catch (err: any) {
+                Alert.alert('Thất bại', err?.message || 'Không thể đổi trạng thái phòng lúc này.');
+              }
+            },
+          },
+        ]
+      );
+    } else if (room.trangThai === 'HOAN_THANH') {
+      Alert.alert(
+        'Mở cho thuê lại',
+        'Xác nhận mở cho thuê lại phòng này? Phòng sẽ được hiển thị công khai trên ứng dụng để khách hàng tìm kiếm và đặt lịch xem.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Mở cho thuê',
+            style: 'default',
+            onPress: async () => {
+              try {
+                await landlordService.updateRoomStatus(room.id, 'DA_DUYET');
+                Alert.alert('Thành công', 'Đã mở phòng hiển thị công khai trên ứng dụng.');
+                loadRooms();
+              } catch (err: any) {
+                Alert.alert('Thất bại', err?.message || 'Không thể đổi trạng thái phòng lúc này.');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   // Tính toán phân trang
@@ -96,27 +142,56 @@ export default function MyRoomsScreen() {
 
         {/* Thông tin phòng */}
         <View className="p-3.5">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-bold text-gray-900 flex-1 mr-2" numberOfLines={1}>
-              {room.tenPhong}
-            </Text>
-            <Pressable
-              className="flex-row items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 active:bg-teal-100"
-              onPress={(e) => {
-                e.stopPropagation();
-                router.push(`/(landlord)/edit-room?id=${room.id}` as any);
-              }}
-            >
-              <Ionicons name="create-outline" size={13} color="#0f766e" />
-              <Text className="text-[11px] font-bold text-teal-800">Sửa</Text>
-            </Pressable>
-          </View>
+          <Text className="text-sm font-bold text-gray-900 mb-1" numberOfLines={1}>
+            {room.tenPhong}
+          </Text>
 
-          <View className="flex-row items-center justify-between mt-2">
-            <Text className="text-sm font-bold text-teal-700">
-              {formatVNDShort(room.giaThue)}
-            </Text>
-            <Text className="text-xs font-medium text-gray-400">{room.dienTich} m²</Text>
+          <View className="flex-row items-center justify-between mt-1 pt-2 border-t border-gray-100">
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-sm font-bold text-teal-700">
+                {formatVNDShort(room.giaThue)}
+              </Text>
+              <Text className="text-xs font-medium text-gray-400">• {room.dienTich} m²</Text>
+            </View>
+
+            <View className="flex-row items-center gap-1.5">
+              {room.trangThai === 'DA_DUYET' && (
+                <Pressable
+                  className="flex-row items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 active:bg-emerald-100"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleToggleRoomStatus(room);
+                  }}
+                >
+                  <Ionicons name="checkmark-done" size={13} color="#059669" />
+                  <Text className="text-[11px] font-bold text-emerald-800">Đã thuê</Text>
+                </Pressable>
+              )}
+
+              {room.trangThai === 'HOAN_THANH' && (
+                <Pressable
+                  className="flex-row items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 active:bg-sky-100"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleToggleRoomStatus(room);
+                  }}
+                >
+                  <Ionicons name="refresh" size={13} color="#0284c7" />
+                  <Text className="text-[11px] font-bold text-sky-800">Cho thuê lại</Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                className="flex-row items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 active:bg-teal-100"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  router.push(`/(landlord)/edit-room?id=${room.id}` as any);
+                }}
+              >
+                <Ionicons name="create-outline" size={13} color="#0f766e" />
+                <Text className="text-[11px] font-bold text-teal-800">Sửa</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Card>

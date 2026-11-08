@@ -98,10 +98,47 @@ public class UserService {
         NguoiDung user = getCurrentUser();
         return taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung()).stream()
                 .map(tk -> BankAccountResponse.builder()
+                        .id(tk.getId())
                         .soTaiKhoan(tk.getSoTaiKhoan())
                         .tenNganHang(tk.getTenNganHang())
                         .build())
                 .toList();
+    }
+
+    // 4.1. Thêm mới tài khoản ngân hàng liên kết
+    @Transactional
+    public BankAccountResponse addBankAccount(CreateBankAccountRequest request) {
+        NguoiDung user = getCurrentUser();
+        boolean exists = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
+                .stream()
+                .anyMatch(tk -> tk.getSoTaiKhoan().equals(request.getSoTaiKhoan()));
+        if (exists) {
+            throw new RuntimeException("Số tài khoản ngân hàng này đã được liên kết trong tài khoản của bạn!");
+        }
+
+        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
+                .nguoiDung(user)
+                .soTaiKhoan(request.getSoTaiKhoan())
+                .tenNganHang(request.getTenNganHang())
+                .build();
+        TaiKhoanNganHang saved = taiKhoanNganHangRepository.save(tk);
+        return BankAccountResponse.builder()
+                .id(saved.getId())
+                .soTaiKhoan(saved.getSoTaiKhoan())
+                .tenNganHang(saved.getTenNganHang())
+                .build();
+    }
+
+    // 4.2. Hủy liên kết tài khoản ngân hàng
+    @Transactional
+    public void deleteBankAccount(Long id) {
+        NguoiDung user = getCurrentUser();
+        TaiKhoanNganHang tk = taiKhoanNganHangRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản ngân hàng này!"));
+        if (!tk.getNguoiDung().getMaNguoiDung().equals(user.getMaNguoiDung())) {
+            throw new RuntimeException("Bạn không có quyền xóa tài khoản ngân hàng này!");
+        }
+        taiKhoanNganHangRepository.delete(tk);
     }
 
     // 5. Khách hàng nộp hồ sơ xin nâng cấp lên Chủ trọ
