@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
@@ -139,7 +141,9 @@ export default function ScheduleModalScreen() {
 
   // Chọn ngày từ DateTimePicker
   const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
     if (event.type === "set" && date) {
       const updated = new Date(selectedDateTime);
       updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
@@ -482,15 +486,71 @@ export default function ScheduleModalScreen() {
         </View>
       </ScrollView>
 
-      {/* DateTimePicker native */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDateTime}
-          mode="date"
-          display="default"
-          minimumDate={new Date()}
-          onChange={handleDateChange}
-        />
+      {/* DateTimePicker chuẩn đa nền tảng (iOS Modal tờ lịch & Android Dialog) */}
+      {Platform.OS === 'ios' ? (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View className="flex-1 bg-black/50 justify-center items-center px-4">
+            <Pressable
+              className="absolute inset-0"
+              onPress={() => setShowDatePicker(false)}
+            />
+            <View className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10">
+              {/* Header Modal */}
+              <View className="flex-row items-center justify-between pb-3 border-b border-slate-100 mb-2">
+                <View className="flex-row items-center gap-2">
+                  <View className="w-8 h-8 rounded-full bg-teal-50 items-center justify-center">
+                    <Ionicons name="calendar-outline" size={18} color="#0D9488" />
+                  </View>
+                  <Text className="text-base font-bold text-slate-900">
+                    Chọn ngày xem phòng
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  className="p-1 rounded-full bg-slate-100"
+                >
+                  <Ionicons name="close" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Tờ lịch Apple xịn xò hiển thị trực tiếp */}
+              <DateTimePicker
+                value={selectedDateTime}
+                mode="date"
+                display="inline"
+                minimumDate={new Date()}
+                onChange={handleDateChange}
+                themeVariant="light"
+                accentColor="#0D9488"
+              />
+
+              {/* Nút chốt ngày */}
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(false)}
+                className="mt-3 bg-teal-600 py-3 rounded-xl items-center active:bg-teal-700"
+              >
+                <Text className="text-white font-bold text-sm">
+                  Xác nhận ngày này
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      ) : (
+        showDatePicker && (
+          <DateTimePicker
+            value={selectedDateTime}
+            mode="date"
+            display="default"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+          />
+        )
       )}
 
       {/* Modal chọn giờ riêng biệt chuẩn UI InnFinder (hỗ trợ cả iOS & Android) */}
