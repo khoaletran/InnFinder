@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Card, Chip } from 'heroui-native';
 import { adminService } from '../../../services/admin.service';
 import { AdminLandlordRequestItem } from '../../../types/admin.types';
+import { VIETNAM_BANKS } from '../../../constants/banks';
 
 export default function AdminLandlordRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -274,9 +275,23 @@ export default function AdminLandlordRequestDetailScreen() {
         {/* Thông tin tài khoản ngân hàng thụ hưởng (AGENTS.md mục 3.3) */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Tài khoản ngân hàng thụ hưởng</Text>
         <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
-          <View className="flex-row justify-between py-2.5">
+          <View className="flex-row justify-between items-center py-2.5">
             <Text className="text-xs text-slate-500 font-medium">Ngân hàng thụ hưởng</Text>
-            <Text className="text-xs font-bold text-teal-700">{request.tenNganHang}</Text>
+            <View className="flex-row items-center gap-2">
+              {(() => {
+                const matchedBank = VIETNAM_BANKS.find(
+                  (b) =>
+                    b.shortName.toLowerCase() === (request.tenNganHang || '').toLowerCase() ||
+                    b.code.toLowerCase() === (request.tenNganHang || '').toLowerCase()
+                );
+                return matchedBank?.logoUrl ? (
+                  <View className="w-10 h-6 rounded bg-white border border-slate-200 overflow-hidden items-center justify-center p-0.5">
+                    <Image source={{ uri: matchedBank.logoUrl }} className="w-full h-full" resizeMode="contain" />
+                  </View>
+                ) : null;
+              })()}
+              <Text className="text-xs font-bold text-teal-700">{request.tenNganHang}</Text>
+            </View>
           </View>
           <View className="flex-row justify-between py-2.5">
             <Text className="text-xs text-slate-500 font-medium">Số tài khoản ngân hàng</Text>

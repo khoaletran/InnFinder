@@ -43,6 +43,8 @@ export default function RegisterLandlordScreen() {
     loadExistingRequest();
   }, []);
 
+  const selectedBankObj = VIETNAM_BANKS.find((b) => b.shortName === tenNganHang);
+
   const filteredBanks = VIETNAM_BANKS.filter((b) => {
     const q = bankSearchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -376,15 +378,32 @@ export default function RegisterLandlordScreen() {
                   className="flex-row items-center justify-between px-3.5 py-3 rounded-xl border border-slate-200 bg-white active:bg-slate-50"
                 >
                   <View className="flex-row items-center gap-2.5 flex-1 pr-2">
-                    <View className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 items-center justify-center">
-                      <Ionicons name="business" size={16} color="#0D9488" />
+                    {selectedBankObj?.logoUrl ? (
+                      <View className="w-10 h-7 rounded-lg bg-white border border-slate-200 items-center justify-center p-0.5 overflow-hidden">
+                        <Image
+                          source={{ uri: selectedBankObj.logoUrl }}
+                          className="w-full h-full"
+                          resizeMode="contain"
+                        />
+                      </View>
+                    ) : (
+                      <View className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 items-center justify-center">
+                        <Ionicons name="business" size={16} color="#0D9488" />
+                      </View>
+                    )}
+                    <View className="flex-1">
+                      <Text
+                        numberOfLines={1}
+                        className={`text-sm ${tenNganHang ? 'font-bold text-slate-900' : 'text-slate-400'}`}
+                      >
+                        {tenNganHang || 'Chọn ngân hàng trong danh sách...'}
+                      </Text>
+                      {selectedBankObj ? (
+                        <Text numberOfLines={1} className="text-[10px] text-slate-400">
+                          {selectedBankObj.fullName}
+                        </Text>
+                      ) : null}
                     </View>
-                    <Text
-                      numberOfLines={1}
-                      className={`text-sm ${tenNganHang ? 'font-bold text-slate-900' : 'text-slate-400'}`}
-                    >
-                      {tenNganHang || 'Chọn ngân hàng trong danh sách...'}
-                    </Text>
                   </View>
                   <Ionicons name="chevron-down" size={18} color="#94A3B8" />
                 </Pressable>
@@ -492,8 +511,12 @@ export default function RegisterLandlordScreen() {
                     }`}
                   >
                     <View className="flex-row items-center gap-3 flex-1 pr-2">
-                      <View className="w-11 h-11 rounded-xl bg-teal-600/10 items-center justify-center border border-teal-600/20">
-                        <Text className="text-xs font-black text-teal-800 font-mono">{item.code}</Text>
+                      <View className="w-14 h-9 rounded-xl bg-white items-center justify-center border border-slate-200 p-1 shadow-xs overflow-hidden">
+                        <Image
+                          source={{ uri: item.logoUrl }}
+                          className="w-full h-full"
+                          resizeMode="contain"
+                        />
                       </View>
                       <View className="flex-1">
                         <Text className="text-xs font-bold text-slate-900">{item.shortName}</Text>
