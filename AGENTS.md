@@ -1352,8 +1352,8 @@ sequenceDiagram
 | 6 | `trangThai` | TrangThaiGD | `CHO_THANH_TOAN`, `THANH_CONG`, `THAT_BAI`, `HOAN_TIEN` | Trạng thái giao dịch |
 
  (Đúng 12 số) | Số CCCD thẩm định |
-| 4 | `anhCccdTruoc` | String | URL ảnh Cloudinary hợp lệ | Ảnh CCCD mặt trước |
-| 5 | `anhCccdSau` | String | URL ảnh Cloudinary hợp lệ | Ảnh CCCD mặt sau |
+| 4 | `anhCccdTruoc` | String | URL ảnh Cloudinary hợp lệ (bắt buộc chụp trực tiếp từ camera) | Ảnh CCCD mặt trước |
+| 5 | `anhCccdSau` | String | URL ảnh Cloudinary hợp lệ (bắt buộc chụp trực tiếp từ camera) | Ảnh CCCD mặt sau |
 | 6 | `tenNganHang` | String | Không được rỗng | Tên ngân hàng nhận tiền |
 | 7 | `soTaiKhoan` | String | `^\d{6,20}# INNFINDER - HỆ THỐNG QUY TẮC, ĐẶC TẢ NGHIỆP VỤ & CLASS DIAGRAM CHUẨN
 ### TÀI LIỆU DÀNH CHO TẤT CẢ AI AGENT & THÀNH VIÊN NHÓM PHÁT TRIỂN

@@ -77,17 +77,20 @@ export default function RegisterLandlordScreen() {
     }
   };
 
-  const pickImage = async (type: 'TRUOC' | 'SAU') => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // Bắt buộc chụp trực tiếp qua Camera thiết bị, không cho phép tải ảnh từ thư viện
+  const takePhotoDirectly = async (type: 'TRUOC' | 'SAU') => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để tải ảnh CCCD.');
+      Alert.alert(
+        'Quyền truy cập máy ảnh',
+        'InnFinder yêu cầu chụp trực tiếp thẻ CCCD bằng camera thiết bị để đảm bảo tính xác thực định danh. Vui lòng cấp quyền camera trong phần Cài đặt.'
+      );
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+    const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      quality: 0.8,
+      quality: 0.85,
     });
 
     if (!result.canceled && result.assets?.[0]?.uri) {
@@ -320,25 +323,43 @@ export default function RegisterLandlordScreen() {
                 />
               </TextField>
 
-              {/* Upload ảnh CCCD 2 mặt */}
+              {/* Chụp ảnh CCCD 2 mặt trực tiếp bằng camera */}
               <View className="pt-1">
-                <Text className="text-xs font-semibold text-slate-700 mb-2">
-                  Ảnh chụp CCCD 2 mặt <Text className="text-rose-500">*</Text>
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-xs font-semibold text-slate-700">
+                    Chụp ảnh CCCD 2 mặt <Text className="text-rose-500">*</Text>
+                  </Text>
+                  <View className="flex-row items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <Ionicons name="videocam-outline" size={12} color="#D97706" />
+                    <Text className="text-[10px] font-bold text-amber-800">Chụp trực tiếp</Text>
+                  </View>
+                </View>
+                <Text className="text-[11px] text-slate-400 mb-2.5 leading-tight">
+                  Chỉ chấp nhận ảnh chụp thẻ CCCD thật trực tiếp từ camera (không dùng ảnh thư viện).
                 </Text>
+
                 <View className="flex-row gap-3">
                   {/* Mặt trước */}
                   <View className="flex-1">
                     <Pressable
-                      onPress={() => pickImage('TRUOC')}
-                      className="h-28 rounded-xl border border-dashed border-slate-300 bg-slate-50 items-center justify-center overflow-hidden active:bg-slate-100"
+                      onPress={() => takePhotoDirectly('TRUOC')}
+                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50"
                     >
                       {anhCccdTruoc ? (
-                        <Image source={{ uri: anhCccdTruoc }} className="w-full h-full" resizeMode="cover" />
+                        <View className="w-full h-full relative">
+                          <Image source={{ uri: anhCccdTruoc }} className="w-full h-full" resizeMode="cover" />
+                          <View className="absolute bottom-1.5 inset-x-1.5 py-1 rounded-lg bg-black/60 items-center flex-row justify-center gap-1">
+                            <Ionicons name="camera-reverse" size={13} color="#fff" />
+                            <Text className="text-[10px] font-bold text-white">Chụp lại mặt trước</Text>
+                          </View>
+                        </View>
                       ) : (
                         <View className="items-center p-2">
-                          <Ionicons name="camera" size={24} color="#0D9488" />
-                          <Text className="text-[11px] font-bold text-slate-700 mt-1">Mặt trước CCCD</Text>
-                          <Text className="text-[10px] text-slate-400">Bấm để chọn ảnh</Text>
+                          <View className="w-10 h-10 rounded-full bg-teal-100 items-center justify-center mb-1">
+                            <Ionicons name="camera" size={20} color="#0D9488" />
+                          </View>
+                          <Text className="text-[11px] font-bold text-slate-800">Mặt trước CCCD</Text>
+                          <Text className="text-[10px] text-teal-700 font-medium mt-0.5">Mở Camera chụp</Text>
                         </View>
                       )}
                     </Pressable>
@@ -347,16 +368,24 @@ export default function RegisterLandlordScreen() {
                   {/* Mặt sau */}
                   <View className="flex-1">
                     <Pressable
-                      onPress={() => pickImage('SAU')}
-                      className="h-28 rounded-xl border border-dashed border-slate-300 bg-slate-50 items-center justify-center overflow-hidden active:bg-slate-100"
+                      onPress={() => takePhotoDirectly('SAU')}
+                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50"
                     >
                       {anhCccdSau ? (
-                        <Image source={{ uri: anhCccdSau }} className="w-full h-full" resizeMode="cover" />
+                        <View className="w-full h-full relative">
+                          <Image source={{ uri: anhCccdSau }} className="w-full h-full" resizeMode="cover" />
+                          <View className="absolute bottom-1.5 inset-x-1.5 py-1 rounded-lg bg-black/60 items-center flex-row justify-center gap-1">
+                            <Ionicons name="camera-reverse" size={13} color="#fff" />
+                            <Text className="text-[10px] font-bold text-white">Chụp lại mặt sau</Text>
+                          </View>
+                        </View>
                       ) : (
                         <View className="items-center p-2">
-                          <Ionicons name="camera" size={24} color="#0D9488" />
-                          <Text className="text-[11px] font-bold text-slate-700 mt-1">Mặt sau CCCD</Text>
-                          <Text className="text-[10px] text-slate-400">Bấm để chọn ảnh</Text>
+                          <View className="w-10 h-10 rounded-full bg-teal-100 items-center justify-center mb-1">
+                            <Ionicons name="camera" size={20} color="#0D9488" />
+                          </View>
+                          <Text className="text-[11px] font-bold text-slate-800">Mặt sau CCCD</Text>
+                          <Text className="text-[10px] text-teal-700 font-medium mt-0.5">Mở Camera chụp</Text>
                         </View>
                       )}
                     </Pressable>
