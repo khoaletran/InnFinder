@@ -79,12 +79,33 @@
 ### 2.3. Đặt lịch xem phòng, Cọc giữ chân, Hoàn cọc & Thu phí hoa hồng (Quy trình Swimlane cốt lõi)
 - **Mục đích**: Đảm bảo quyền lợi giữa Khách thuê và Chủ trọ, hạn chế tình trạng "bỏ bom" lịch hẹn thông qua cơ chế cọc giữ chân linh hoạt theo loại phòng.
 - **Actor chính**: Khách hàng (`NguoiDung`), Chủ trọ (`ChuTro`), Hệ thống trung gian InnFinder.
-- **Bản chất kinh tế**:
+- **Bản chất kinh tế & Ranh giới quản lý của Sàn**:
+  - **SÀN CHỈ QUẢN LÝ HOA HỒNG (`phiThu`) VÀ CỌC GIỮ CHÂN LỊCH XEM (`coc`)**: Sàn InnFinder **TUYỆT ĐỐI KHÔNG QUẢN LÝ TIỀN CỌC HỢP ĐỒNG PHÒNG (`cocPhong`) HAY TIỀN GIÁ THUÊ PHÒNG (`giaThue`)**. Tiền thuê phòng và tiền cọc hợp đồng là thỏa thuận thanh toán trực tiếp giữa Khách thuê và Chủ trọ ngoài đời thực.
   - Mức cọc giữ chân xem phòng (`Coc.soTienCoc`) được quy định **động theo từng loại phòng** (`LoaiPhongTro`).
-  - Phí dịch vụ hệ thống (`PhiThu.phi`) là khoản hoa hồng hệ thống trích lại từ tiền cọc khi giao dịch thuê phòng thành công.
+  - Phí dịch vụ hệ thống (`PhiThu.phi`) là khoản hoa hồng hệ thống trích lại từ tiền cọc giữ chân khi giao dịch thuê phòng thành công.
   - **QUY TẮC BẤT KHẢ XÂM PHẠM VỀ DOANH THU SÀN (PLATFORM REVENUE RULE)**:
     - Sàn InnFinder vận hành theo cơ chế thu phí hoa hồng môi giới thành công. Doanh thu của hệ thống **BẮT BUỘC ĐƯỢC TÍNH TỪ TỔNG `phiThu` CỦA CÁC PHIẾU ĐẶT LỊCH ĐÃ HOÀN TẤT** (`PhieuDatLich.trangThai = HOAN_THANH`).
-    - **NGHIÊM CẤM TÍNH DOANH THU TỪ BẢNG `GiaoDich`**: Bảng `GiaoDich` chỉ đóng vai trò là sổ cái ghi nhận biến động dòng tiền (tiền cọc tạm giữ, hoàn cọc cho khách, thanh toán cho chủ trọ, rút tiền). Việc tính tổng số tiền giao dịch làm sai lệch hoàn toàn bản chất tài chính của sàn.
+    - **NGHIÊM CẤM TÍNH DOANH THU TỪ BẢNG `GiaoDich`**: Bảng `GiaoDich` chỉ đóng vai trò là sổ cái ghi nhận biến động dòng tiền (tiền cọc tạm giữ, hoàn cọc cho chủ trọ, thanh toán hoa hồng cho sàn, rút tiền). Việc tính tổng số tiền giao dịch làm sai lệch hoàn toàn bản chất tài chính của sàn.
+  - **Cơ chế Thu phí Hoa hồng thông qua Thế chân cọc (Landlord Deposit Advance Workflow)**:
+    1. **Đặt lịch & Nộp cọc cho Hệ thống**: Khách hàng xem phòng, gửi yêu cầu đặt lịch hẹn và nộp tiền cọc giữ chân (`coc`, ví dụ 200.000 VNĐ) cho Hệ thống. Hệ thống tạo `PhieuDatLich` (trạng thái `CHO_XAC_NHAN`) và tạm giữ khoản tiền cọc này.
+    2. **Xác nhận lịch**: Chủ trọ nhận thông báo và bấm "Xác nhận lịch xem" (trạng thái đổi sang `XAC_NHAN`).
+    3. **Dẫn xem & Hoàn cọc trực tiếp**: Đến giờ hẹn, Chủ trọ dẫn khách xem phòng thực tế. Tại buổi gặp, **Chủ trọ trực tiếp trả lại 100% tiền cọc (200.000 VNĐ) cho Khách hàng** (bằng tiền mặt hoặc chuyển khoản ngoài).
+    4. **Xác nhận đã nhận cọc**: Khách hàng bấm xác nhận trên app (hoặc quét mã) là "Đã nhận lại cọc từ Chủ trọ". Khi đó, quyền sở hữu khoản cọc 200.000 VNĐ đang do Hệ thống InnFinder tạm giữ chính thức chuyển dịch sang cho Chủ trọ ("thế chân").
+    5. **Hai bên xác nhận độc lập trên ứng dụng**:
+       - Khách hàng bấm: `[Xác nhận thuê]` (`khachHangDongY = true`) HOẶC `[Xác nhận không thuê]` (`khachHangDongY = false`).
+       - Chủ trọ bấm: `[Xác nhận thuê]` (`chuTroDongY = true`) HOẶC `[Xác nhận không thuê]` (`chuTroDongY = false`).
+    6. **Xử lý tài chính và trạng thái theo ma trận quyết định**:
+       - **Kịch bản 1: CẢ 2 BÊN CÙNG BẤM [XÁC NHẬN THUÊ]** (`khachHangDongY = true` VÀ `chuTroDongY = true`):
+         - Hệ thống trích thu phí hoa hồng = `phiThu` (ví dụ: 20.000 VNĐ).
+         - Chủ trọ nhận khoản tiền `(coc - phiThu)` từ Hệ thống vào ví (ví dụ: 200.000 - 20.000 = 180.000 VNĐ). *(Như vậy Chủ trọ thực tế đã chi trả đúng khoản phí hoa hồng 20.000 VNĐ cho sàn)*.
+         - Khách hàng không bị trừ thêm phí nào từ sàn.
+         - Cập nhật `PhieuDatLich` -> `HOAN_THANH`.
+         - Cập nhật `PhongTro` -> `HOAN_THANH` (tự động ẩn khỏi tìm kiếm).
+       - **Kịch bản 2: CÓ ÍT NHẤT 1 BÊN BẤM [KHÔNG THUÊ]** (Khách từ chối thuê HOẶC Chủ trọ từ chối cho thuê):
+         - Hệ thống hoàn trả đủ 100% cọc `coc` (ví dụ 200.000 VNĐ) từ Hệ thống vào ví của Chủ trọ (để bù lại khoản 200k chủ trọ đã ứng trả trước cho khách).
+         - Sàn thu phí hoa hồng = 0 VNĐ.
+         - Cập nhật `PhieuDatLich` -> `HUY` (ghi nhận lý do hủy vào `liDoHuy`).
+         - Giữ nguyên `PhongTro` -> `DA_DUYET` (vẫn hiển thị tìm kiếm để đón khách khác).
 
 ```mermaid
 sequenceDiagram
@@ -94,33 +115,28 @@ sequenceDiagram
     actor CT as Chủ trọ (ChuTro)
 
     KH->>HT: Xem phòng trọ (Trạng thái: DA_DUYET)
-    KH->>HT: Bấm "Đặt lịch xem" -> Chọn ngày giờ, nhập SĐT, ghi chú
-    HT-->>HT: Tạo PhieuDatLich (Trạng thái: CHO_XAC_NHAN)
+    KH->>HT: Gửi yêu cầu đặt lịch xem & nộp cọc giữ chân cho Hệ thống (coc)
+    HT-->>HT: Tạo PhieuDatLich (Trạng thái: CHO_XAC_NHAN), tạm giữ cọc
     HT->>CT: Gửi thông báo có lịch hẹn mới
     
     CT->>HT: Bấm "Xác nhận lịch xem" (Trạng thái đổi thành: XAC_NHAN)
-    HT->>KH: Thông báo yêu cầu nộp cọc giữ chân
-    
-    Note over KH,HT: Tiền cọc (coc) lấy từ Coc.soTienCoc theo Loại phòng
-    KH->>HT: Thanh toán tiền cọc giữ chân (Ví dụ: 200.000 VNĐ)
-    HT-->>HT: Tạm giữ tiền trên Ví trung gian hệ thống
     
     Note over KH,CT: Đến lịch hẹn - Gặp mặt dẫn xem thực tế
-    CT->>KH: Dẫn xem phòng thực tế
-    KH->>HT: Xác nhận đã đến xem phòng thực tế
-    HT->>KH: Hoàn trả lại 100% cọc giữ chân (200.000 VNĐ) vào ví khách
+    CT->>KH: Dẫn khách xem phòng và trả cọc trực tiếp cho khách (tiền mặt / CK)
+    KH->>HT: Bấm xác nhận "Đã nhận lại cọc từ Chủ trọ" (Quyền nhận cọc tại HT chuyển sang CT)
     
-    alt Kịch bản 1: CẢ 2 BÊN CÙNG BẤM [XÁC NHẬN THUÊ]
-        KH->>HT: Bấm [Xác nhận Thuê]
-        CT->>HT: Bấm [Xác nhận Thuê]
-        HT->>CT: Chuyển tiền (coc - phiThu) vào ví chủ trọ (Ví dụ: 200k - 20k = 180.000 VNĐ)
-        HT->>HT: Thu phí hoa hồng hệ thống = phiThu (20.000 VNĐ)
+    Note over KH,CT: Hai bên độc lập đưa ra quyết định trên App
+    KH->>HT: Chọn [Xác nhận thuê] HOẶC [Không thuê] (khachHangDongY)
+    CT->>HT: Chọn [Xác nhận thuê] HOẶC [Không thuê] (chuTroDongY)
+    
+    alt Kịch bản 1: CẢ 2 BÊN CÙNG BẤM [XÁC NHẬN THUÊ] (khachHangDongY = true && chuTroDongY = true)
+        HT->>HT: Thu phí hoa hồng sàn = phiThu (Ví dụ: 20.000 VNĐ)
+        HT->>CT: Chuyển (coc - phiThu) từ Hệ thống vào ví Chủ trọ (Ví dụ: 180.000 VNĐ)
         HT-->>HT: Cập nhật PhieuDatLich -> HOAN_THANH
         HT-->>HT: Cập nhật PhongTro -> HOAN_THANH (Tự động ẩn khỏi tìm kiếm)
-    else Kịch bản 2: CÓ BÊN BẤM [KHÔNG THUÊ]
-        KH->>HT: Bấm [Không thuê] (hoặc Chủ trọ bấm Không thuê)
-        HT->>KH: Đảm bảo khách đã nhận trọn cọc giữ chân, không trừ phí
-        HT->>CT: Nhận lại phòng trọ
+    else Kịch bản 2: CÓ BÊN BẤM [KHÔNG THUÊ] (Ít nhất 1 bên chọn false)
+        HT->>CT: Hoàn trả đủ 100% cọc (coc) từ Hệ thống vào ví Chủ trọ (Ví dụ: 200.000 VNĐ)
+        HT-->>HT: Sàn thu phí = 0 VNĐ
         HT-->>HT: Cập nhật PhieuDatLich -> HUY (Lưu lý do vào liDoHuy)
         HT-->>HT: Giữ nguyên PhongTro -> DA_DUYET (Vẫn hiển thị tìm kiếm)
     end
@@ -333,10 +349,12 @@ sequenceDiagram
 | 5 | `trangThai` | TrangThaiDatLich | `CHO_XAC_NHAN`, `HUY`, `XAC_NHAN`, `HOAN_THANH` | Trạng thái lịch |
 | 6 | `coc` | long | `> 0` | Lấy từ `Coc.soTienCoc` theo `LoaiPhongTro` |
 | 7 | `phiThu` | long | `>= 0` | Lấy từ `PhiThu.phi` tương ứng |
-| 8 | `liDoHuy` | String | Cho phép rỗng, bắt buộc khi hủy lịch | Lý do hủy lịch |
+| 8 | `khachHangDongY`| Boolean | `null` (chưa chọn), `true` (thuê), `false` (không thuê) | Quyết định thuê của Khách hàng |
+| 9 | `chuTroDongY` | Boolean | `null` (chưa chọn), `true` (đồng ý), `false` (từ chối) | Quyết định cho thuê của Chủ trọ |
+| 10| `liDoHuy` | String | Cho phép rỗng, bắt buộc khi hủy lịch | Lý do hủy lịch |
 
 - **Phương thức**:
-  - `+ phieuDatLich(maDatLich, khachHang, phongTro, ngayHen, trangThai, liDoHuy, coc, phiThu)`
+  - `+ phieuDatLich(maDatLich, khachHang, phongTro, ngayHen, trangThai, liDoHuy, coc, phiThu, khachHangDongY, chuTroDongY)`
   - `+ toString(): String`
 
 ---
