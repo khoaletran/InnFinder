@@ -70,6 +70,8 @@ export interface RoomDetailResponse {
   chuTro: LandlordSummaryResponse;
   diemDanhGiaTrungBinh: number;
   tongSoDanhGia: number;
+  liDoHuy?: string;
+  tenPhong?: string;
 }
 
 // 7. DTO Đánh giá phòng trọ

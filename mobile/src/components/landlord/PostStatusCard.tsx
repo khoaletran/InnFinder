@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
 import { useRouter } from 'expo-router';
 import { LandlordPostItem } from '../../types/landlord.types';
@@ -71,6 +72,19 @@ export const PostStatusCard: React.FC<Props> = ({ post }) => {
           </Text>
         </View>
       )}
+      {/* Nút Chỉnh sửa bài đăng */}
+      <View className="mt-3 pt-2.5 border-t border-gray-100 flex-row justify-end items-center gap-2">
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            router.push(`/(landlord)/edit-room?id=${post.id}` as any);
+          }}
+          className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200 active:bg-teal-100"
+        >
+          <Ionicons name="create-outline" size={14} color="#0f766e" />
+          <Text className="text-xs font-bold text-teal-800">Chỉnh sửa</Text>
+        </Pressable>
+      </View>
     </Card>
     </Pressable>
   );

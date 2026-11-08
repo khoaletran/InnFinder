@@ -100,8 +100,15 @@ export default function MyRoomsScreen() {
             <Text className="text-sm font-bold text-gray-900 flex-1 mr-2" numberOfLines={1}>
               {room.tenPhong}
             </Text>
-            <Pressable className="p-1" onPress={(e) => e.stopPropagation()}>
-              <Ionicons name="ellipsis-vertical" size={16} color="#6b7280" />
+            <Pressable
+              className="flex-row items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 active:bg-teal-100"
+              onPress={(e) => {
+                e.stopPropagation();
+                router.push(`/(landlord)/edit-room?id=${room.id}` as any);
+              }}
+            >
+              <Ionicons name="create-outline" size={13} color="#0f766e" />
+              <Text className="text-[11px] font-bold text-teal-800">Sửa</Text>
             </Pressable>
           </View>
 

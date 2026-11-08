@@ -43,4 +43,5 @@ public class RoomUpdateRequest {
     @Min(value = 0, message = "Tiền cọc phòng phải lớn hơn hoặc bằng 0")
     private Long coc;
     private List<String> dsTienIch;
+    private List<String> hinhAnhUrls;
 }
