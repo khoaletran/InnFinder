@@ -555,7 +555,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                     <TextField isRequired isInvalid={!!loginError && !loginUser}>
                       <Label>Tên đăng nhập</Label>
                       <Input
-                        placeholder="Nhập tên đăng nhập"
+                        placeholder="Tên tài khoản hoặc email"
                         autoCapitalize="none"
                         value={loginUser}
                         onChangeText={setLoginUser}
@@ -576,7 +576,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                       </View>
                       <View className="relative justify-center">
                         <Input
-                          placeholder="Nhập mật khẩu (tối thiểu 8 ký tự)"
+                          placeholder="Tối thiểu 8 ký tự"
                           secureTextEntry={!showLoginPass}
                           value={loginPass}
                           onChangeText={setLoginPass}
@@ -700,7 +700,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                       <Label>Xác nhận mật khẩu</Label>
                       <View className="relative justify-center">
                         <Input
-                          placeholder="Nhập lại mật khẩu vừa nhập"
+                          placeholder="Nhập lại mật khẩu"
                           secureTextEntry={!showRegConfirmPass}
                           value={regConfirmPass}
                           onChangeText={setRegConfirmPass}

@@ -1,7 +1,7 @@
 // mobile/src/components/room/RoomCard.tsx
 import React from "react";
 import { View, Text, Pressable } from "react-native";
-import { Card, Chip } from "heroui-native";
+import { Card } from "heroui-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -150,8 +150,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             numberOfLines={1}
             className="text-base font-bold text-slate-900 mb-1"
           >
-            {room.tenLoaiPhong ? `${room.tenLoaiPhong} - ` : ""}
-            {room.diaChi}
+            {room.tenLoaiPhong || "Phòng trọ cho thuê"}
           </Card.Title>
 
           <View className="flex-row items-center justify-between mb-1.5">
@@ -174,16 +173,15 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           </View>
 
           <View className="flex-row items-center gap-1.5">
-            <Chip variant="soft" color="default" size="sm">
-              <Chip.Label className="text-xs text-slate-600">
-                Phòng {room.soNguoi} người
-              </Chip.Label>
-            </Chip>
-            <Chip variant="soft" color="accent" size="sm">
-              <Chip.Label className="text-xs text-teal-800">
-                Uy tín {room.diemUyTinChuTro ?? 100}đ
-              </Chip.Label>
-            </Chip>
+            <Ionicons name="people-outline" size={13} color="#0D9488" />
+            <Text className="text-xs text-slate-600 font-medium">
+              {room.soNguoi} người
+            </Text>
+            <Text className="text-xs text-slate-300">•</Text>
+            <Ionicons name="star" size={12} color="#F59E0B" />
+            <Text className="text-xs text-slate-600 font-medium">
+              {room.diemUyTinChuTro ?? 100}đ uy tín
+            </Text>
           </View>
         </Card.Body>
       </Card>

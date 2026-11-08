@@ -257,15 +257,15 @@ export default function RentalDetailScreen() {
           </View>
         </View>
 
-        {/* 3. THẺ TRẠNG THÁI TIỀN CỌC GIỮ CHÂN (BƯỚC 5 & 6) */}
+        {/* 3. THẺ TRẠNG THÁI TIỀN CỌC GIỮ CHÂN */}
         <View className="bg-slate-50 border border-slate-200 p-4 rounded-2xl my-4">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Tiền cọc giữ chân (Bước 5 & 6)
+              Tiền cọc giữ chân
             </Text>
             {item.trangThai === "HOAN_THANH" ? (
               <Chip size="sm" variant="soft" color="success">
-                <Chip.Label>✓ Đã hoàn 100%</Chip.Label>
+                <Chip.Label>Đã hoàn 100%</Chip.Label>
               </Chip>
             ) : item.trangThai === "HUY" ? (
               <Chip size="sm" variant="soft" color="danger">

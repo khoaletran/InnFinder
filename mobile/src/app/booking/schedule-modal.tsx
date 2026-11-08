@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { Button, Chip } from "heroui-native";
+import { Button } from "heroui-native";
 
 import { bookingService } from "../../services/booking.service";
 import { roomService } from "../../services/room.service";
@@ -376,13 +376,10 @@ export default function ScheduleModalScreen() {
 
         {/* 3. THÔNG TIN CỌC GIỮ CHÂN (Theo Loại phòng từ DB) */}
         <View className="bg-teal-50/60 border border-teal-200 p-4 rounded-2xl mb-5">
-          <View className="flex-row justify-between items-center mb-1">
+          <View className="mb-1">
             <Text className="text-xs font-bold text-teal-900 uppercase tracking-wide">
               Mức cọc xem phòng (Dự kiến)
             </Text>
-            <Chip size="sm" variant="soft" color="accent">
-              <Chip.Label>{categoryName}</Chip.Label>
-            </Chip>
           </View>
 
           <View className="flex-row justify-between items-baseline my-1">
