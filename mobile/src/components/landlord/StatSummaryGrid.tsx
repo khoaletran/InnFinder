@@ -85,7 +85,7 @@ export const StatSummaryGrid: React.FC<Props> = ({ stats }) => {
               <Text className="text-2xl font-extrabold text-slate-900 tracking-tight">
                 {stats.diemDanhGia}
               </Text>
-              <Text className="text-xs font-bold text-amber-500">⭐</Text>
+              <Ionicons name="star" size={14} color="#f59e0b" />
             </View>
             <Text className="text-[11px] font-semibold text-amber-600 mt-0.5" numberOfLines={1}>
               {stats.tongDanhGia} đánh giá

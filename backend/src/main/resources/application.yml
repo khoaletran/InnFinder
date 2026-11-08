@@ -42,3 +42,7 @@ cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mi38qjmj}
   api-key: ${CLOUDINARY_API_KEY:997424842973844}
   api-secret: ${CLOUDINARY_API_SECRET:KnHe5z8pP-D7I-TvgepMCvXMeY0}
+
+# Cấu hình Google Gemini AI Embedding
+gemini:
+  api-key: ${GEMINI_API_KEY:}

@@ -333,7 +333,7 @@ export default function EditRoomScreen() {
             </View>
             <Text className="text-xs text-rose-700 leading-4">{originalRoom.liDoHuy}</Text>
             <Text className="text-[11px] text-rose-600 font-medium mt-2">
-              💡 Sau khi sửa xong và bấm lưu, bài đăng sẽ tự động chuyển về "Chờ duyệt" để Admin kiểm tra lại.
+              Lưu ý: Sau khi sửa xong và bấm lưu, bài đăng sẽ tự động chuyển về "Chờ duyệt" để Admin kiểm tra lại.
             </Text>
           </View>
         )}
@@ -685,13 +685,13 @@ export default function EditRoomScreen() {
               {originalRoom?.trangThai === 'HUY' ? (
                 <View className="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-3">
                   <Text className="text-xs text-amber-800 font-medium leading-4">
-                    ⚠️ <Text className="font-bold">Lưu ý kiểm duyệt:</Text> Phòng này từng bị Admin từ chối. Khi bạn bấm xác nhận lưu, phòng sẽ tự động chuyển sang trạng thái <Text className="font-bold">"Chờ duyệt"</Text> để Ban quản trị xét duyệt lại.
+                    <Text className="font-bold">Lưu ý kiểm duyệt:</Text> Phòng này từng bị Admin từ chối. Khi bạn bấm xác nhận lưu, phòng sẽ tự động chuyển sang trạng thái <Text className="font-bold">"Chờ duyệt"</Text> để Ban quản trị xét duyệt lại.
                   </Text>
                 </View>
               ) : (
                 <View className="p-3 bg-blue-50 border border-blue-100 rounded-xl mb-3">
                   <Text className="text-xs text-blue-800 font-medium leading-4">
-                    ℹ️ <Text className="font-bold">Thông báo:</Text> Các thay đổi sẽ được cập nhật và hiển thị công khai ngay lập tức trên hệ thống.
+                    <Text className="font-bold">Thông báo:</Text> Các thay đổi sẽ được cập nhật và hiển thị công khai ngay lập tức trên hệ thống.
                   </Text>
                 </View>
               )}

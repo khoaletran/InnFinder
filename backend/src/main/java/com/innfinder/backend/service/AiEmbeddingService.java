@@ -30,18 +30,35 @@ public class AiEmbeddingService {
     }
 
     /**
-     * Sinh Vector Embedding từ đoạn văn bản (Sử dụng Google Gemini text-embedding-004)
-     * Có cơ chế tự động Fallback sang Semantic N-gram Vector nếu chưa cấu hình API Key.
+     * Chuẩn hóa từ khóa tìm kiếm và sửa các lỗi gõ Telex phổ biến
+     */
+    public String normalizeQuery(String text) {
+        if (text == null) return "";
+        String normalized = text.trim();
+        normalized = normalized.replaceAll("(?i)\\bphongf\\b", "phòng")
+                .replaceAll("(?i)\\btroj\\b", "trọ")
+                .replaceAll("(?i)\\bgias\\b", "giá")
+                .replaceAll("(?i)\\brer\\b", "rẻ")
+                .replaceAll("(?i)\\bddepj\\b", "đẹp")
+                .replaceAll("(?i)\\bxepx\\b", "xép");
+        return normalized;
+    }
+
+    /**
+     * Sinh Vector Embedding từ đoạn văn bản (Sử dụng Google Gemini gemini-embedding-001)
+     * Có cơ chế tự động Fallback sang Semantic N-gram Vector nếu chưa cấu hình API Key hoặc gặp lỗi mạng.
      */
     public List<Double> getEmbedding(String text) {
         if (text == null || text.isBlank()) {
             return Collections.nCopies(EMBEDDING_DIMENSION, 0.0);
         }
 
-        // 1. Thử gọi Google Gemini text-embedding-004 nếu có API Key
+        String cleanedText = normalizeQuery(text);
+
+        // 1. Gọi Google Gemini gemini-embedding-001 nếu có API Key
         if (geminiApiKey != null && !geminiApiKey.trim().isEmpty() && !geminiApiKey.contains("your_gemini_api_key")) {
             try {
-                List<Double> geminiVector = fetchGeminiEmbedding(text.trim());
+                List<Double> geminiVector = fetchGeminiEmbedding(cleanedText);
                 if (geminiVector != null && !geminiVector.isEmpty()) {
                     return geminiVector;
                 }
@@ -51,17 +68,18 @@ public class AiEmbeddingService {
         }
 
         // 2. Fallback: Sinh Semantic N-gram Vector 768 chiều (Không phụ thuộc mạng ngoài)
-        return generateDeterministicSemanticVector(text.trim());
+        return generateDeterministicSemanticVector(cleanedText);
     }
 
     private List<Double> fetchGeminiEmbedding(String text) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=" + geminiApiKey.trim();
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + geminiApiKey.trim();
 
         Map<String, Object> part = Map.of("text", text);
         Map<String, Object> content = Map.of("parts", List.of(part));
         Map<String, Object> payload = Map.of(
-                "model", "models/text-embedding-004",
-                "content", content
+                "model", "models/gemini-embedding-001",
+                "content", content,
+                "outputDimensionality", EMBEDDING_DIMENSION
         );
 
         String jsonResponse = restClient.post()

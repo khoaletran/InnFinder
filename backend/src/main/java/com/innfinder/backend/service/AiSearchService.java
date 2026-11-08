@@ -45,6 +45,13 @@ public class AiSearchService {
         if (room.getGiaThue() != null) {
             double giaTrieu = room.getGiaThue() / 1_000_000.0;
             sb.append("Mức giá thuê ").append(String.format("%.1f", giaTrieu)).append(" triệu/tháng. ");
+            if (room.getGiaThue() <= 2_500_000) {
+                sb.append("Giá rẻ, phòng trọ bình dân, giá sinh viên, chi phí thấp, tiết kiệm. ");
+            } else if (room.getGiaThue() <= 4_500_000) {
+                sb.append("Giá tầm trung, vừa túi tiền, giá cả hợp lý. ");
+            } else {
+                sb.append("Phòng cao cấp, tiện nghi sang trọng, chung cư mini cao cấp. ");
+            }
         }
         if (room.getDienTich() != null) {
             sb.append("Diện tích rộng ").append(room.getDienTich()).append(" mét vuông. ");
@@ -106,7 +113,7 @@ public class AiSearchService {
 
             for (PhongTro room : approvedRooms) {
                 String text = buildRoomText(room);
-                String hash = computeHash(text);
+                String hash = computeHash("gemini_v2:" + text);
 
                 PhongTroVector existing = existingVectors.get(room.getMaPhongTro());
                 if (existing != null && hash.equals(existing.getContentHash())) {
@@ -127,7 +134,7 @@ public class AiSearchService {
 
             if (!toSave.isEmpty()) {
                 vectorRepository.saveAllAndFlush(toSave);
-                log.info("Đã đánh chỉ mục AI Vector thành công cho {} phòng trọ.", toSave.size());
+                log.info("Đã đánh chỉ mục AI Vector Google Gemini thành công cho {} phòng trọ.", toSave.size());
             }
         } catch (Exception e) {
             log.error("Lỗi khi đánh chỉ mục Vector phòng trọ: {}", e.getMessage(), e);
@@ -149,7 +156,7 @@ public class AiSearchService {
             return Collections.emptyList();
         }
 
-        // 2. Sinh vector cho câu truy vấn của người dùng
+        // 2. Sinh vector cho câu truy vấn của người dùng (tự động chuẩn hóa lỗi telex)
         List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
 
         // 3. Tính độ tương đồng Cosine Similarity cho từng phòng
@@ -183,14 +190,31 @@ public class AiSearchService {
         Map<String, PhongTro> roomEntityMap = rooms.stream()
                 .collect(Collectors.toMap(PhongTro::getMaPhongTro, r -> r));
 
-        List<RoomSummaryResponse> result = new ArrayList<>();
+        // Nhận diện ý định người dùng (Intent Recognition)
+        String promptLower = prompt.toLowerCase();
+        boolean isLookingForCheap = promptLower.contains("rẻ")
+                || promptLower.contains("re")
+                || promptLower.contains("sinh viên")
+                || promptLower.contains("sinh vien")
+                || promptLower.contains("bình dân")
+                || promptLower.contains("binh dan")
+                || promptLower.contains("tiết kiệm");
+
+        List<PhongTro> matchedRooms = new ArrayList<>();
         for (String id : sortedRoomIds) {
             PhongTro r = roomEntityMap.get(id);
             if (r != null && r.getTrangThai() == TrangThaiPhongTro.DA_DUYET) {
-                result.add(RoomSummaryResponse.fromEntity(r));
+                matchedRooms.add(r);
             }
         }
 
-        return result;
+        // Nếu người dùng tìm kiếm theo ý định giá rẻ: ưu tiên hiển thị phòng có giá thuê thấp nhất lên trước
+        if (isLookingForCheap) {
+            matchedRooms.sort(Comparator.comparing(PhongTro::getGiaThue, Comparator.nullsLast(Long::compareTo)));
+        }
+
+        return matchedRooms.stream()
+                .map(RoomSummaryResponse::fromEntity)
+                .toList();
     }
 }

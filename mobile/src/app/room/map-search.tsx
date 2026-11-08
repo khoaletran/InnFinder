@@ -217,7 +217,7 @@ export default function MapSearchScreen() {
                 zIndex={isSelected ? 99 : 1}
                 onPress={(e) => {
                   e?.stopPropagation?.();
-                  setSelectedRoom(room); // ✅ Bấm vào cờ phòng hiện ngay Card thông tin!
+                  setSelectedRoom(room); // Bấm vào cờ phòng hiện ngay Card thông tin!
                 }}
               >
                 <PriceMapMarker price={room.giaThue} isSelected={isSelected} />

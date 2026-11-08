@@ -218,7 +218,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           {/* Hướng dẫn nhanh nổi */}
           <View className="absolute top-4 left-4 bg-black/60 px-3 py-1.5 rounded-full">
             <Text className="text-[11px] text-white font-medium">
-              💡 Chạm vào bản đồ để đổi vị trí ghim
+              Chạm vào bản đồ để đổi vị trí ghim
             </Text>
           </View>
         </View>
