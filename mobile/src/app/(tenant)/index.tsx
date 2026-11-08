@@ -117,9 +117,14 @@ export default function TenantHomeScreen() {
         if (token) {
           const favRes = await roomService.getMyFavorites().catch(() => []);
           if (favRes && Array.isArray(favRes)) {
+            const backendIds = favRes.map((r) => r.maPhongTro);
+            const currentIds = useFilterStore.getState().favoriteIds;
+            // Gộp thêm ID từ backend vào ID đang có trong máy (không ghi đè làm mất)
             useFilterStore
               .getState()
-              .setFavoriteIds(favRes.map((r) => r.maPhongTro));
+              .setFavoriteIds(
+                Array.from(new Set([...currentIds, ...backendIds])),
+              );
           }
         }
       } catch (error) {
