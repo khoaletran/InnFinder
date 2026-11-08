@@ -24,6 +24,7 @@ import { useBookingStore } from "../../store/useBookingStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { AppointmentCreateRequest } from "../../types/booking.types";
 import { RoomDetailResponse } from "../../types/room.types";
+import { CustomTimePickerModal } from "../../components/booking/CustomTimePickerModal";
 import {
   TimeSlotPicker,
   TIME_SLOTS,
@@ -176,15 +177,11 @@ export default function ScheduleModalScreen() {
     }
   };
 
-  // Chọn giờ tuỳ biến từ DateTimePicker
-  const handleTimeChange = (event: DateTimePickerEvent, time?: Date) => {
-    setShowTimePicker(Platform.OS === "ios");
-    if (event.type === "set" && time) {
-      const updated = new Date(selectedDateTime);
-      updated.setHours(time.getHours(), time.getMinutes(), 0, 0);
-      setSelectedDateTime(updated);
-      setSelectedQuickTime(""); // Bỏ chọn khung giờ nhanh
-    }
+  // Chọn giờ tuỳ biến từ CustomTimePickerModal (hỗ trợ mượt mà cả iOS & Android)
+  const handleCustomTimeConfirm = (newDateTime: Date) => {
+    setSelectedDateTime(newDateTime);
+    setSelectedQuickTime(""); // Bỏ chọn khung giờ nhanh
+    setShowTimePicker(false);
   };
 
   // Chọn khung giờ nhanh từ component TimeSlotPicker
@@ -437,15 +434,13 @@ export default function ScheduleModalScreen() {
         />
       )}
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={selectedDateTime}
-          mode="time"
-          display="default"
-          is24Hour={true}
-          onChange={handleTimeChange}
-        />
-      )}
+      {/* Modal chọn giờ riêng biệt chuẩn UI InnFinder (hỗ trợ cả iOS & Android) */}
+      <CustomTimePickerModal
+        visible={showTimePicker}
+        selectedDateTime={selectedDateTime}
+        onClose={() => setShowTimePicker(false)}
+        onConfirm={handleCustomTimeConfirm}
+      />
 
       {/* 8. Nút Gửi yêu cầu đặt lịch HeroUI Native */}
       <View className="px-5 py-3.5 border-t border-slate-100 bg-white">
