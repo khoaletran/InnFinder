@@ -41,6 +41,9 @@ interface BookingState {
     maDatLich: string,
     liDoHuy: string,
   ) => Promise<{ success: boolean; message?: string }>;
+  confirmRental: (
+    maDatLich: string,
+  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -175,6 +178,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
   },
 
+  // Hủy lịch hẹn hoặc từ chối thuê sau khi xem thực tế
   cancelAppointment: async (maDatLich: string, liDoHuy: string) => {
     try {
       await bookingService.cancelAppointment(maDatLich, liDoHuy);
@@ -204,6 +208,43 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           err.response?.data?.message ||
           err.message ||
           "Hủy lịch hẹn không thành công",
+      };
+    }
+  },
+
+  // Khách hàng xác nhận thuê phòng (Kịch bản 1: CẢ 2 BÊN CÙNG BẤM XÁC NHẬN THUÊ)
+  confirmRental: async (maDatLich: string) => {
+    try {
+      await bookingService.confirmRental(maDatLich);
+      const target = get().appointments.find((a) => a.maDatLich === maDatLich);
+      const wasPaid =
+        !!target?.daNopCoc || get().paidAppointmentIds.includes(maDatLich);
+      if (wasPaid && target?.coc) {
+        await get().refundWallet(target.coc);
+      }
+      const remainingPaid = get().paidAppointmentIds.filter(
+        (id) => id !== maDatLich,
+      );
+      set({
+        paidAppointmentIds: remainingPaid,
+        appointments: get().appointments.map((item) =>
+          item.maDatLich === maDatLich
+            ? { ...item, trangThai: "HOAN_THANH" as TrangThaiDatLich }
+            : item,
+        ),
+      });
+      await SecureStore.setItemAsync(
+        PAID_APPOINTMENTS_KEY,
+        JSON.stringify(remainingPaid),
+      );
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          "Xác nhận thuê phòng thất bại",
       };
     }
   },

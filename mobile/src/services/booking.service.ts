@@ -42,6 +42,16 @@ export const bookingService = {
   },
 
   /**
+   * Khach hang xac nhan thue phong sau khi xem thuc te
+   * Endpoint: PATCH /api/appointments/{id}/confirm-rental
+   */
+  confirmRental: async (maDatLich: string): Promise<string> => {
+    return axiosClient.patch<any, string>(
+      `/api/appointments/${maDatLich}/confirm-rental`,
+    );
+  },
+
+  /**
    * Khach huy lich hen kem ly do
    * Endpoint: PATCH /api/appointments/{id}/cancel
    */
