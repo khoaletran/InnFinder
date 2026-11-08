@@ -214,7 +214,7 @@ export default function TenantHomeScreen() {
         </View>
       </View>
 
-      {/* ===== FLOATING SEARCH BAR (1 HÀNG DUY NHẤT) ===== */}
+      {/* ===== FLOATING SEARCH BAR (1 HÀNG DUY NHẤT) da cai tien ===== */}
       <View className="px-4 mt-2">
         <View className="bg-white rounded-full px-3 py-2 border border-slate-100 shadow-md shadow-slate-200 flex-row items-center">
           {/* VÙNG BẤM TÌM KIẾM */}
