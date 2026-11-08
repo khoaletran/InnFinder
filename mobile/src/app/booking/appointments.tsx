@@ -155,7 +155,8 @@ export default function AppointmentsScreen() {
             Đăng nhập để xem lịch hẹn
           </Text>
           <Text className="text-xs text-slate-400 mt-1 text-center leading-5 max-w-xs">
-            Vui lòng đăng nhập để theo dõi trạng thái các cuộc hẹn xem phòng, nộp cọc giữ chân và liên hệ với chủ trọ.
+            Vui lòng đăng nhập để theo dõi trạng thái các cuộc hẹn xem phòng,
+            nộp cọc giữ chân và liên hệ với chủ trọ.
           </Text>
           <Button
             variant="primary"
@@ -163,7 +164,7 @@ export default function AppointmentsScreen() {
             onPress={() => router.push("/(auth)/login")}
             className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
           >
-            <Button.Label className="text-white font-bold text-xs">
+            <Button.Label className="text-white font-bold text-xs p-2">
               Đăng nhập ngay
             </Button.Label>
           </Button>
