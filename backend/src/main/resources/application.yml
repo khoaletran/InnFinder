@@ -4,11 +4,10 @@ server:
 spring:
   application:
     name: innfinder-backend
-  datasource:
-    url: jdbc:mariadb://localhost:3307/innfinder_db?useUnicode=true&characterEncoding=utf8mb4
-    username: innfinder_user
-    password: innfinder_password
-    driver-class-name: org.mariadb.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
   jpa:
     hibernate:
       ddl-auto: validate
@@ -21,11 +20,19 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-#    cấu hình tham số cho phép upload nhiều file ảnh, đọc từ biến môi trường
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 50MB
+# Cấu hình DataSource Failover: Ưu tiên Cloud, tự động fallback sang Docker Local khi mất mạng
+innfinder:
+  datasource:
+    cloud:
+      host: ${INNFINDER_CLOUD_DB_HOST:gateway01.ap-southeast-1.prod.aws.tidbcloud.com}
+      port: ${INNFINDER_CLOUD_DB_PORT:4000}
+      url: ${INNFINDER_CLOUD_DB_URL:jdbc:mariadb://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/innfinder_db?sslMode=verify-full&useUnicode=true&characterEncoding=utf8mb4}
+      username: ${INNFINDER_CLOUD_DB_USER:2M9hAfunUGrqrV1.root}
+      password: ${INNFINDER_CLOUD_DB_PASSWORD:g5DgMsD2U5TDKvhk}
+    local:
+      url: ${INNFINDER_LOCAL_DB_URL:jdbc:mariadb://localhost:3307/innfinder_db?useUnicode=true&characterEncoding=utf8mb4}
+      username: ${INNFINDER_LOCAL_DB_USER:innfinder_user}
+      password: ${INNFINDER_LOCAL_DB_PASSWORD:innfinder_password}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mi38qjmj}
