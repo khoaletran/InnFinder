@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Button, Card, Input, Label, TextField } from 'heroui-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { authUserService } from '../../services/authUser.service';
+import { uploadService } from '../../services/upload.service';
 import { Colors } from '../../constants/theme';
 
 export default function RegisterLandlordScreen() {
@@ -38,6 +39,8 @@ export default function RegisterLandlordScreen() {
   const [currentRequest, setCurrentRequest] = useState<any>(null);
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [uploadingFront, setUploadingFront] = useState(false);
+  const [uploadingBack, setUploadingBack] = useState(false);
 
   useEffect(() => {
     loadExistingRequest();
@@ -77,7 +80,7 @@ export default function RegisterLandlordScreen() {
     }
   };
 
-  // Bắt buộc chụp trực tiếp qua Camera thiết bị, không cho phép tải ảnh từ thư viện
+  // Bắt buộc chụp trực tiếp qua Camera thiết bị và tự động tải lên Cloudinary ngay lập tức
   const takePhotoDirectly = async (type: 'TRUOC' | 'SAU') => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
@@ -94,10 +97,33 @@ export default function RegisterLandlordScreen() {
     });
 
     if (!result.canceled && result.assets?.[0]?.uri) {
+      const localUri = result.assets[0].uri;
       if (type === 'TRUOC') {
-        setAnhCccdTruoc(result.assets[0].uri);
+        setAnhCccdTruoc(localUri);
+        try {
+          setUploadingFront(true);
+          const cloudUrl = await uploadService.uploadSingleImage(localUri);
+          if (cloudUrl) {
+            setAnhCccdTruoc(cloudUrl);
+          }
+        } catch (err: any) {
+          Alert.alert('Lỗi tải ảnh', 'Không thể tải ảnh mặt trước lên Cloudinary: ' + err.message);
+        } finally {
+          setUploadingFront(false);
+        }
       } else {
-        setAnhCccdSau(result.assets[0].uri);
+        setAnhCccdSau(localUri);
+        try {
+          setUploadingBack(true);
+          const cloudUrl = await uploadService.uploadSingleImage(localUri);
+          if (cloudUrl) {
+            setAnhCccdSau(cloudUrl);
+          }
+        } catch (err: any) {
+          Alert.alert('Lỗi tải ảnh', 'Không thể tải ảnh mặt sau lên Cloudinary: ' + err.message);
+        } finally {
+          setUploadingBack(false);
+        }
       }
     }
   };
@@ -121,10 +147,22 @@ export default function RegisterLandlordScreen() {
 
     try {
       setLoading(true);
+
+      // Đảm bảo cả 2 ảnh đã được upload lên Cloudinary
+      let finalFrontUrl = anhCccdTruoc.trim();
+      let finalBackUrl = anhCccdSau.trim();
+
+      if (!finalFrontUrl.startsWith('http://') && !finalFrontUrl.startsWith('https://')) {
+        finalFrontUrl = await uploadService.uploadSingleImage(finalFrontUrl);
+      }
+      if (!finalBackUrl.startsWith('http://') && !finalBackUrl.startsWith('https://')) {
+        finalBackUrl = await uploadService.uploadSingleImage(finalBackUrl);
+      }
+
       await authUserService.upgradeToLandlord({
         cccd: cccd.trim(),
-        anhCccdTruoc: anhCccdTruoc.trim(),
-        anhCccdSau: anhCccdSau.trim(),
+        anhCccdTruoc: finalFrontUrl,
+        anhCccdSau: finalBackUrl,
         tenNganHang: tenNganHang.trim(),
         soTaiKhoan: soTaiKhoan.trim(),
         tenChuTaiKhoan: tenChuTaiKhoan.trim().toUpperCase(),
@@ -343,11 +381,25 @@ export default function RegisterLandlordScreen() {
                   <View className="flex-1">
                     <Pressable
                       onPress={() => takePhotoDirectly('TRUOC')}
-                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50"
+                      disabled={uploadingFront}
+                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50 relative"
                     >
-                      {anhCccdTruoc ? (
+                      {uploadingFront ? (
+                        <View className="items-center justify-center p-2">
+                          <ActivityIndicator size="small" color="#0D9488" />
+                          <Text className="text-[10px] text-teal-800 font-bold mt-1.5 text-center">
+                            Đang tải lên Cloudinary...
+                          </Text>
+                        </View>
+                      ) : anhCccdTruoc ? (
                         <View className="w-full h-full relative">
                           <Image source={{ uri: anhCccdTruoc }} className="w-full h-full" resizeMode="cover" />
+                          {anhCccdTruoc.startsWith('http') ? (
+                            <View className="absolute top-1.5 right-1.5 bg-emerald-600/90 px-1.5 py-0.5 rounded flex-row items-center gap-0.5">
+                              <Ionicons name="cloud-done" size={11} color="#fff" />
+                              <Text className="text-[9px] font-bold text-white">Cloudinary</Text>
+                            </View>
+                          ) : null}
                           <View className="absolute bottom-1.5 inset-x-1.5 py-1 rounded-lg bg-black/60 items-center flex-row justify-center gap-1">
                             <Ionicons name="camera-reverse" size={13} color="#fff" />
                             <Text className="text-[10px] font-bold text-white">Chụp lại mặt trước</Text>
@@ -369,11 +421,25 @@ export default function RegisterLandlordScreen() {
                   <View className="flex-1">
                     <Pressable
                       onPress={() => takePhotoDirectly('SAU')}
-                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50"
+                      disabled={uploadingBack}
+                      className="h-32 rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/40 items-center justify-center overflow-hidden active:bg-teal-50 relative"
                     >
-                      {anhCccdSau ? (
+                      {uploadingBack ? (
+                        <View className="items-center justify-center p-2">
+                          <ActivityIndicator size="small" color="#0D9488" />
+                          <Text className="text-[10px] text-teal-800 font-bold mt-1.5 text-center">
+                            Đang tải lên Cloudinary...
+                          </Text>
+                        </View>
+                      ) : anhCccdSau ? (
                         <View className="w-full h-full relative">
                           <Image source={{ uri: anhCccdSau }} className="w-full h-full" resizeMode="cover" />
+                          {anhCccdSau.startsWith('http') ? (
+                            <View className="absolute top-1.5 right-1.5 bg-emerald-600/90 px-1.5 py-0.5 rounded flex-row items-center gap-0.5">
+                              <Ionicons name="cloud-done" size={11} color="#fff" />
+                              <Text className="text-[9px] font-bold text-white">Cloudinary</Text>
+                            </View>
+                          ) : null}
                           <View className="absolute bottom-1.5 inset-x-1.5 py-1 rounded-lg bg-black/60 items-center flex-row justify-center gap-1">
                             <Ionicons name="camera-reverse" size={13} color="#fff" />
                             <Text className="text-[10px] font-bold text-white">Chụp lại mặt sau</Text>
