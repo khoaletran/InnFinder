@@ -42,6 +42,16 @@ public class PhieuDatLich {
     @Builder.Default
     private Long phiThu = 0L;
 
+    @Column(name = "da_nhan_lai_coc", nullable = false)
+    @Builder.Default
+    private Boolean daNhanLaiCoc = false;
+
+    @Column(name = "khach_hang_dong_y")
+    private Boolean khachHangDongY;
+
+    @Column(name = "chu_tro_dong_y")
+    private Boolean chuTroDongY;
+
     @Column(name = "li_do_huy", columnDefinition = "TEXT")
     private String liDoHuy;
 }

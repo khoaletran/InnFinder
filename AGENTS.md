@@ -349,12 +349,13 @@ sequenceDiagram
 | 5 | `trangThai` | TrangThaiDatLich | `CHO_XAC_NHAN`, `HUY`, `XAC_NHAN`, `HOAN_THANH` | Trạng thái lịch |
 | 6 | `coc` | long | `> 0` | Lấy từ `Coc.soTienCoc` theo `LoaiPhongTro` |
 | 7 | `phiThu` | long | `>= 0` | Lấy từ `PhiThu.phi` tương ứng |
-| 8 | `khachHangDongY`| Boolean | `null` (chưa chọn), `true` (thuê), `false` (không thuê) | Quyết định thuê của Khách hàng |
-| 9 | `chuTroDongY` | Boolean | `null` (chưa chọn), `true` (đồng ý), `false` (từ chối) | Quyết định cho thuê của Chủ trọ |
-| 10| `liDoHuy` | String | Cho phép rỗng, bắt buộc khi hủy lịch | Lý do hủy lịch |
+| 8 | `daNhanLaiCoc` | Boolean | True / False, mặc định `false` | Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ |
+| 9 | `khachHangDongY`| Boolean | `null` (chưa chọn), `true` (thuê), `false` (không thuê) | Quyết định thuê của Khách hàng |
+| 10| `chuTroDongY` | Boolean | `null` (chưa chọn), `true` (đồng ý), `false` (từ chối) | Quyết định cho thuê của Chủ trọ |
+| 11| `liDoHuy` | String | Cho phép rỗng, bắt buộc khi hủy lịch | Lý do hủy lịch |
 
 - **Phương thức**:
-  - `+ phieuDatLich(maDatLich, khachHang, phongTro, ngayHen, trangThai, liDoHuy, coc, phiThu, khachHangDongY, chuTroDongY)`
+  - `+ phieuDatLich(maDatLich, khachHang, phongTro, ngayHen, trangThai, liDoHuy, coc, phiThu, daNhanLaiCoc, khachHangDongY, chuTroDongY)`
   - `+ toString(): String`
 
 ---
