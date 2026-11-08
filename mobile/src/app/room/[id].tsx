@@ -131,7 +131,7 @@ export default function RoomDetailScreen() {
     extrapolate: "clamp",
   });
 
-  const { user, activeMode } = useAuthStore();
+  const { user, activeMode, isAuthenticated } = useAuthStore();
   const isLandlordView =
     activeMode === "LANDLORD" ||
     (user?.maNguoiDung && room?.chuTro?.maChuTro === user.maNguoiDung);
@@ -149,15 +149,24 @@ export default function RoomDetailScreen() {
             style: "default",
             onPress: async () => {
               try {
-                await landlordService.updateRoomStatus(room.maPhongTro, "HOAN_THANH");
-                Alert.alert("Thành công", "Đã chuyển phòng sang trạng thái Đã cho thuê.");
+                await landlordService.updateRoomStatus(
+                  room.maPhongTro,
+                  "HOAN_THANH",
+                );
+                Alert.alert(
+                  "Thành công",
+                  "Đã chuyển phòng sang trạng thái Đã cho thuê.",
+                );
                 loadDetail(room.maPhongTro);
               } catch (err: any) {
-                Alert.alert("Thất bại", err?.message || "Không thể cập nhật trạng thái phòng.");
+                Alert.alert(
+                  "Thất bại",
+                  err?.message || "Không thể cập nhật trạng thái phòng.",
+                );
               }
             },
           },
-        ]
+        ],
       );
     } else if (room.trangThai === "HOAN_THANH") {
       Alert.alert(
@@ -170,20 +179,29 @@ export default function RoomDetailScreen() {
             style: "default",
             onPress: async () => {
               try {
-                await landlordService.updateRoomStatus(room.maPhongTro, "DA_DUYET");
-                Alert.alert("Thành công", "Đã mở phòng hiển thị công khai trên ứng dụng.");
+                await landlordService.updateRoomStatus(
+                  room.maPhongTro,
+                  "DA_DUYET",
+                );
+                Alert.alert(
+                  "Thành công",
+                  "Đã mở phòng hiển thị công khai trên ứng dụng.",
+                );
                 loadDetail(room.maPhongTro);
               } catch (err: any) {
-                Alert.alert("Thất bại", err?.message || "Không thể cập nhật trạng thái phòng.");
+                Alert.alert(
+                  "Thất bại",
+                  err?.message || "Không thể cập nhật trạng thái phòng.",
+                );
               }
             },
           },
-        ]
+        ],
       );
     }
   };
 
-  const { favoriteIds, toggleFavoriteLocal } = useFilterStore();
+  const { favoriteIds, toggleFavorite } = useFilterStore();
   const isFavorite = id ? favoriteIds.includes(id) : false;
 
   useEffect(() => {
@@ -205,13 +223,39 @@ export default function RoomDetailScreen() {
   };
 
   const handleFavorite = async () => {
-    if (!id) return;
-    const next = toggleFavoriteLocal(id);
-    try {
-      if (next) await roomService.addFavorite(id);
-      else await roomService.removeFavorite(id);
-    } catch {
-      toggleFavoriteLocal(id);
+    if (!room) return;
+    // Chuyển đổi dữ liệu phòng sang RoomSummaryResponse để lưu vào AsyncStorage
+    const summaryRoom = {
+      maPhongTro: room.maPhongTro,
+      diaChi: room.diaChi,
+      giaThue: room.giaThue,
+      dienTich: room.dienTich,
+      soNguoi: room.soNguoi,
+      maLpt: room.loaiPhong?.maLpt || "",
+      tenLoaiPhong: room.loaiPhong?.tenLoaiPhongTro || "",
+      anhDaiDien:
+        room.dsHinhAnh?.find((img) => img.laDaiDien)?.url ||
+        room.dsHinhAnh?.[0]?.url ||
+        "",
+      kinhDo: room.kinhDo,
+      viDo: room.viDo,
+      diemUyTinChuTro: room.chuTro?.diemUyTin ?? 100,
+      thoiGianDang: room.thoiGianDang,
+      trangThai: room.trangThai,
+    };
+    // 1. Cập nhật State + Lưu vào AsyncStorage (dù chưa đăng nhập vẫn lưu thành công)
+    const nextState = await toggleFavorite(summaryRoom, isAuthenticated);
+    // 2. CHỈ KHI ĐÃ ĐĂNG NHẬP MỚI ĐỒNG BỘ THÊM XUỐNG DB BACKEND
+    if (isAuthenticated) {
+      try {
+        if (nextState) {
+          await roomService.addFavorite(room.maPhongTro);
+        } else {
+          await roomService.removeFavorite(room.maPhongTro);
+        }
+      } catch (err) {
+        console.warn("Lỗi sync yêu thích lên backend:", err);
+      }
     }
   };
 
@@ -491,7 +535,11 @@ export default function RoomDetailScreen() {
             <Button
               variant="primary"
               size="md"
-              onPress={() => router.push(`/(landlord)/edit-room?id=${room.maPhongTro}` as any)}
+              onPress={() =>
+                router.push(
+                  `/(landlord)/edit-room?id=${room.maPhongTro}` as any,
+                )
+              }
               className="rounded-full px-4 bg-teal-700"
             >
               <Button.Label className="font-bold text-white">
