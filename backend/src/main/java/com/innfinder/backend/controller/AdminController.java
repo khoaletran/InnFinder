@@ -1,6 +1,7 @@
 package com.innfinder.backend.controller;
 
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
+import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.response.*;
 import com.innfinder.backend.service.AdminService;
@@ -82,5 +83,39 @@ public class AdminController {
     public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics() {
         AdminStatisticsResponseDTO result = adminService.getStatistics();
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thống kê số liệu thành công"));
+    }
+
+    // ==========================================
+    // QUẢN LÝ ĐƠN ĐĂNG KÝ LÀM CHỦ TRỌ
+    // ==========================================
+
+    @GetMapping("/landlord-requests")
+    @Operation(summary = "Lấy danh sách các đơn đăng ký/nâng cấp lên Chủ trọ")
+    public ResponseEntity<ApiResponse<List<LandlordRequestResponseDTO>>> getLandlordRequests() {
+        List<LandlordRequestResponseDTO> result = adminService.getLandlordRequests();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách đơn đăng ký chủ trọ thành công"));
+    }
+
+    @GetMapping("/landlord-requests/{id}")
+    @Operation(summary = "Xem chi tiết một đơn đăng ký làm Chủ trọ")
+    public ResponseEntity<ApiResponse<LandlordRequestResponseDTO>> getLandlordRequestById(@PathVariable String id) {
+        LandlordRequestResponseDTO result = adminService.getLandlordRequestById(id);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thông tin chi tiết đơn đăng ký thành công"));
+    }
+
+    @PatchMapping("/landlord-requests/{id}/approve")
+    @Operation(summary = "Phê duyệt đơn đăng ký làm Chủ trọ")
+    public ResponseEntity<ApiResponse<LandlordRequestResponseDTO>> approveLandlordRequest(@PathVariable String id) {
+        LandlordRequestResponseDTO result = adminService.approveLandlordRequest(id);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt đơn đăng ký chủ trọ thành công"));
+    }
+
+    @PatchMapping("/landlord-requests/{id}/reject")
+    @Operation(summary = "Từ chối đơn đăng ký làm Chủ trọ kèm lý do")
+    public ResponseEntity<ApiResponse<LandlordRequestResponseDTO>> rejectLandlordRequest(
+            @PathVariable String id,
+            @RequestBody(required = false) RejectLandlordRequestDTO request) {
+        LandlordRequestResponseDTO result = adminService.rejectLandlordRequest(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Từ chối đơn đăng ký chủ trọ thành công"));
     }
 }

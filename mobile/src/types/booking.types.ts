@@ -12,6 +12,9 @@ export interface AppointmentResponse {
   trangThai: TrangThaiDatLich;
   coc: number;
   phiThu: number;
+  daNhanLaiCoc?: boolean; // Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực
+  khachHangDongY?: boolean | null; // Quyết định thuê của khách hàng (true: thuê, false: không thuê)
+  chuTroDongY?: boolean | null; // Quyết định cho thuê của chủ trọ (true: đồng ý, false: từ chối)
   liDoHuy?: string;
   daNopCoc?: boolean; // Cờ xác định khách đã nộp tiền cọc xem phòng hay chưa
 

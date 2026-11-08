@@ -7,12 +7,18 @@ import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.TaiKhoanNganHangRepository;
+import com.innfinder.backend.dto.response.LandlordRequestResponseDTO;
+import com.innfinder.backend.entity.YeuCauChuTro;
+import com.innfinder.backend.entity.enums.TrangThaiYeuCauChuTro;
+import com.innfinder.backend.repository.YeuCauChuTroRepository;
 import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -21,6 +27,7 @@ public class UserService {
 
     private final NguoiDungRepository nguoiDungRepository;
     private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
+    private final YeuCauChuTroRepository yeuCauChuTroRepository;
     private final PasswordEncoder passwordEncoder;
 
     private NguoiDung getCurrentUser() {
@@ -106,19 +113,36 @@ public class UserService {
             throw new RuntimeException("Tài khoản của bạn đã là Chủ trọ rồi!");
         }
 
-        // Lưu CCCD
-        user.setCccd(request.getCccd());
+        if (yeuCauChuTroRepository.existsByNguoiDung_MaNguoiDungAndTrangThai(
+                user.getMaNguoiDung(), TrangThaiYeuCauChuTro.CHO_DUYET)) {
+            throw new RuntimeException("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Admin xét duyệt!");
+        }
 
-        // Tạo tài khoản ngân hàng liên kết
-        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
-                .soTaiKhoan(request.getSoTaiKhoan())
-                .tenNganHang(request.getTenNganHang())
+        String maYeuCau = "YC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyyHHmmss"));
+
+        YeuCauChuTro yeuCau = YeuCauChuTro.builder()
+                .maYeuCau(maYeuCau)
                 .nguoiDung(user)
+                .cccd(request.getCccd())
+                .anhCccdTruoc(request.getAnhCccdTruoc())
+                .anhCccdSau(request.getAnhCccdSau())
+                .tenNganHang(request.getTenNganHang())
+                .soTaiKhoan(request.getSoTaiKhoan())
+                .tenChuTaiKhoan(request.getTenChuTaiKhoan())
+                .trangThai(TrangThaiYeuCauChuTro.CHO_DUYET)
+                .ngayGui(LocalDateTime.now())
                 .build();
-        taiKhoanNganHangRepository.save(tk);
 
-        nguoiDungRepository.save(user);
+        yeuCauChuTroRepository.save(yeuCau);
 
         return "Đã gửi hồ sơ lên Admin xét duyệt trở thành Chủ trọ thành công!";
+    }
+
+    // 6. Lấy hồ sơ đăng ký Chủ trọ gần nhất của người dùng
+    public LandlordRequestResponseDTO getMyLandlordRequest() {
+        NguoiDung user = getCurrentUser();
+        return yeuCauChuTroRepository.findTopByNguoiDung_MaNguoiDungOrderByNgayGuiDesc(user.getMaNguoiDung())
+                .map(LandlordRequestResponseDTO::fromEntity)
+                .orElse(null);
     }
 }

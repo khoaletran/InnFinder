@@ -22,6 +22,9 @@ public class AppointmentResponse {
     private TrangThaiDatLich trangThai;
     private Long coc;
     private Long phiThu;
+    private Boolean daNhanLaiCoc;
+    private Boolean khachHangDongY;
+    private Boolean chuTroDongY;
     private String liDoHuy;
     private Boolean daNopCoc;
 
@@ -61,6 +64,9 @@ public class AppointmentResponse {
                 .trangThai(entity.getTrangThai())
                 .coc(entity.getCoc())
                 .phiThu(entity.getPhiThu())
+                .daNhanLaiCoc(entity.getDaNhanLaiCoc())
+                .khachHangDongY(entity.getKhachHangDongY())
+                .chuTroDongY(entity.getChuTroDongY())
                 .liDoHuy(entity.getLiDoHuy())
                 .daNopCoc(daNopCoc);
 

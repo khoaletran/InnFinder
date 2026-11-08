@@ -51,4 +51,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<List<BankAccountResponse>>> getMyBankAccounts() {
         return ResponseEntity.ok(ApiResponse.ok(userService.getMyBankAccounts(), "Lấy danh sách ngân hàng thành công"));
     }
+
+    @GetMapping("/my-landlord-request")
+    @Operation(summary = "Xem trạng thái hồ sơ đăng ký Chủ trọ của tôi")
+    public ResponseEntity<ApiResponse<com.innfinder.backend.dto.response.LandlordRequestResponseDTO>> getMyLandlordRequest() {
+        return ResponseEntity.ok(ApiResponse.ok(userService.getMyLandlordRequest(), "Lấy thông tin hồ sơ Chủ trọ thành công"));
+    }
 }

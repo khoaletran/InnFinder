@@ -18,6 +18,7 @@ interface FilterState {
     room: RoomSummaryResponse,
     isAuthenticated: boolean,
   ) => Promise<boolean>;
+  toggleFavoriteLocal: (roomId: string) => boolean;
   getActiveFilterCount: () => number;
 }
 
@@ -88,6 +89,18 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       console.warn("Lỗi ghi AsyncStorage:", e);
     }
     return !isFav;
+  },
+
+  toggleFavoriteLocal: (roomId: string) => {
+    const list = get().favoriteIds;
+    const isFav = list.includes(roomId);
+    if (isFav) {
+      set({ favoriteIds: list.filter((id) => id !== roomId) });
+      return false;
+    } else {
+      set({ favoriteIds: [...list, roomId] });
+      return true;
+    }
   },
 
   //sua them loc

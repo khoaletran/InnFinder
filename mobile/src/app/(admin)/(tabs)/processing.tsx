@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   RefreshControl,
-  Image,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Chip } from 'heroui-native';
 import { adminService } from '../../../services/admin.service';
@@ -28,9 +27,13 @@ export default function AdminProcessingScreen() {
     (params.tab as ProcessingSection) || 'landlords'
   );
 
+  // Sub-filter tab for each section
+  const [subFilter, setSubFilter] = useState('Chờ duyệt');
+
   useEffect(() => {
     if (params.tab && ['landlords', 'posts', 'complaints'].includes(params.tab)) {
       setSection(params.tab as ProcessingSection);
+      setSubFilter(params.tab === 'complaints' ? 'Chờ xử lý' : 'Chờ duyệt');
     }
   }, [params.tab]);
 
@@ -39,9 +42,6 @@ export default function AdminProcessingScreen() {
   const [posts, setPosts] = useState<AdminPostItem[]>([]);
   const [complaints, setComplaints] = useState<AdminComplaintItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Sub-filter tab for each section
-  const [subFilter, setSubFilter] = useState('Chờ duyệt');
 
   const loadData = async () => {
     const [lList, pList, cList] = await Promise.all([
@@ -57,6 +57,12 @@ export default function AdminProcessingScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -333,8 +339,17 @@ export default function AdminProcessingScreen() {
                     </View>
                   </View>
 
+                  {/* Dòng Xem hồ sơ chi tiết */}
+                  <View className="flex-row items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                    <Text className="text-[11px] text-slate-400 font-medium">{item.ngayGui}</Text>
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-xs font-semibold text-teal-600">Xem hồ sơ chi tiết</Text>
+                      <Ionicons name="chevron-forward" size={13} color="#0D9488" />
+                    </View>
+                  </View>
+
                   {item.trangThai === 'CHO_DUYET' ? (
-                    <View className="flex-row gap-2 mt-3 pt-2.5 border-t border-slate-100">
+                    <View className="flex-row gap-2 mt-2.5 pt-2 border-t border-slate-100">
                       <Pressable
                         onPress={() => handleRejectLandlord(item.maYeuCau)}
                         className="flex-1 py-2 rounded-lg border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"

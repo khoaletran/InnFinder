@@ -53,8 +53,8 @@ export const TransactionItemCard: React.FC<TransactionItemCardProps> = ({ transa
             {transaction.soTien.toLocaleString('vi-VN')} đ
           </Text>
           <View className="flex-row items-center gap-1">
-            <Ionicons name="time-outline" size={12} color="#94A3B8" />
-            <Text className="text-[11px] text-slate-400 font-medium">{transaction.thoiGian}</Text>
+            <Text className="text-xs font-semibold text-teal-600">Xem chi tiết</Text>
+            <Ionicons name="chevron-forward" size={13} color="#0D9488" />
           </View>
         </View>
       </Card>

@@ -2,6 +2,7 @@ package com.innfinder.backend.service;
 
 import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
+import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.GiaoDich;
@@ -68,7 +69,7 @@ public class AppointmentService {
     /**
      * Kiểm tra xem khách hàng đã nộp cọc giữ chân cho lịch hẹn này chưa
      */
-    private boolean daNopCocChoLichHen(String maKhachHang, String maDatLich) {
+    public boolean daNopCocChoLichHen(String maKhachHang, String maDatLich) {
         return giaoDichRepository.findByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(maKhachHang)
                 .stream()
                 .anyMatch(gd -> "COC_XEM_PHONG".equals(gd.getLoaiGiaoDich()) &&
@@ -115,6 +116,9 @@ public class AppointmentService {
                 .trangThai(TrangThaiDatLich.CHO_XAC_NHAN)
                 .coc(tienCoc)
                 .phiThu(phiThu)
+                .daNhanLaiCoc(false)
+                .khachHangDongY(null)
+                .chuTroDongY(null)
                 .build();
 
         PhieuDatLich savedPhieu = phieuDatLichRepository.save(phieu);
@@ -133,7 +137,7 @@ public class AppointmentService {
 
         // 1. Kiểm tra quyền sở hữu lịch hẹn
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
-            throw new AppException(ErrorCode.ACCESS_DENIED  );
+            throw new AppException(ErrorCode.ACCESS_DENIED);
         }
 
         // 2. Chỉ được nộp cọc khi Chủ trọ đã xác nhận lịch (XAC_NHAN)
@@ -198,7 +202,7 @@ public class AppointmentService {
     }
 
     /**
-     * 5. Chủ trọ xác nhận đồng ý lịch hẹn
+     * 5. Chủ trọ xác nhận đồng ý lịch hẹn (CHO_XAC_NHAN -> XAC_NHAN)
      */
     @Transactional
     public void xacNhanLichHen(String maDatLich, String username) {
@@ -241,116 +245,187 @@ public class AppointmentService {
     }
 
     /**
-     * 7. Chủ trọ xác nhận khách đã đến xem xong (Hoàn tất & Hoàn cọc cho khách, thu hoa hồng)
+     * 7. BƯỚC 4 SWIMLANE MỚI: Khách hàng bấm xác nhận "Đã nhận lại cọc từ Chủ trọ ngoài đời thực"
+     * Quyền thụ hưởng số tiền cọc tại Hệ thống chính thức chuyển sang cho Chủ trọ ("thế chân").
      */
     @Transactional
-    public void hoanThanhLichHen(String maDatLich, String username) {
+    public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username) {
+        NguoiDung khachHang = getNguoiDungByUsername(username);
+        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+
+        if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
+        }
+
+        phieu.setDaNhanLaiCoc(true);
+        PhieuDatLich saved = phieuDatLichRepository.save(phieu);
+
+        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
+        return AppointmentResponse.fromEntity(saved, daNop);
+    }
+
+    /**
+     * 8. BƯỚC 5a SWIMLANE MỚI: Khách hàng đưa ra quyết định độc lập (Thuê / Không thuê)
+     * Ràng buộc: Bắt buộc daNhanLaiCoc = true.
+     */
+    @Transactional
+    public AppointmentResponse khachHangDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
+        NguoiDung khachHang = getNguoiDungByUsername(username);
+        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+
+        if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // Bắt buộc khách đã nhận lại cọc trực tiếp ngoài đời mới được ra quyết định
+        if (!Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            throw new AppException(ErrorCode.DEPOSIT_NOT_REFUNDED_YET);
+        }
+
+        phieu.setKhachHangDongY(request.getDongY());
+        if (Boolean.FALSE.equals(request.getDongY()) && request.getLiDoTuChoi() != null && !request.getLiDoTuChoi().isBlank()) {
+            phieu.setLiDoHuy("Khách hàng không thuê: " + request.getLiDoTuChoi());
+        }
+
+        xuLyKetQuaLichHen(phieu);
+
+        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
+        return AppointmentResponse.fromEntity(phieu, daNop);
+    }
+
+    /**
+     * 9. BƯỚC 5b SWIMLANE MỚI: Chủ trọ đưa ra quyết định độc lập (Đồng ý cho thuê / Từ chối cho thuê)
+     * Ràng buộc: Bắt buộc daNhanLaiCoc = true.
+     */
+    @Transactional
+    public AppointmentResponse chuTroDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
         PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
-        // 1. Cập nhật phiếu đặt lịch sang HOAN_THANH
-        phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
-        phieuDatLichRepository.save(phieu);
-
-        boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-
-        // 2. Hoàn trả 100% cọc giữ chân cho khách hàng (nếu khách đã nộp cọc)
-        if (daNop && phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    phieu.getCoc(),
-                    "HOAN_COC",
-                    "Hoàn 100% cọc giữ chân xem phòng " + phieu.getPhongTro().getMaPhongTro(),
-                    TrangThaiGD.HOAN_TIEN
-            );
+        // Bắt buộc khách đã xác nhận nhận lại cọc
+        if (!Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            throw new AppException(ErrorCode.DEPOSIT_NOT_REFUNDED_YET);
         }
 
-        // 3. Nếu hai bên chốt thuê thành công:
-        // Cập nhật trạng thái phòng trọ sang HOAN_THANH (ẩn khỏi tìm kiếm)
+        phieu.setChuTroDongY(request.getDongY());
+        if (Boolean.FALSE.equals(request.getDongY()) && request.getLiDoTuChoi() != null && !request.getLiDoTuChoi().isBlank()) {
+            phieu.setLiDoHuy("Chủ trọ từ chối cho thuê: " + request.getLiDoTuChoi());
+        }
+
+        xuLyKetQuaLichHen(phieu);
+
+        boolean daNop = phieu.getKhachHang() != null &&
+                daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+        return AppointmentResponse.fromEntity(phieu, daNop);
+    }
+
+    /**
+     * 10. MA TRẬN XỬ LÝ TỰ ĐỘNG THEO QUY TRÌNH SWIMLANE (BƯỚC 6):
+     * - Nếu cả 2 cùng đồng ý: HOAN_THANH, giải ngân (coc - phiThu) cho chủ trọ, thu hoa hồng sàn phiThu.
+     * - Nếu có ít nhất 1 bên từ chối: HUY, hoàn 100% coc cho chủ trọ (bù tiền đã ứng), thu phí = 0 VNĐ.
+     */
+    private void xuLyKetQuaLichHen(PhieuDatLich phieu) {
+        // Nếu 1 bên chưa đưa ra quyết định (còn null), tiếp tục chờ
+        if (phieu.getKhachHangDongY() == null || phieu.getChuTroDongY() == null) {
+            phieuDatLichRepository.save(phieu);
+            return;
+        }
+
+        long coc = phieu.getCoc() != null ? phieu.getCoc() : 0L;
+        long phiThu = phieu.getPhiThu() != null ? phieu.getPhiThu() : 0L;
         PhongTro phongTro = phieu.getPhongTro();
-        phongTro.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
-        phongTroRepository.save(phongTro);
+        ChuTro chuTro = (phongTro != null) ? phongTro.getChuPhongTro() : null;
 
-        // Chuyển tiền (tiền cọc - phí hoa hồng hệ thống) vào ví chủ trọ (nếu khách đã nộp cọc)
-        long thucNhanChuTro = phieu.getCoc() - phieu.getPhiThu();
-        if (daNop && thucNhanChuTro > 0 && phongTro.getChuPhongTro() != null) {
-            ChuTro chuTro = phongTro.getChuPhongTro();
-            chuTro.setSoDu(chuTro.getSoDu() + thucNhanChuTro);
-            chuTroRepository.save(chuTro);
+        // KỊCH BẢN 1: CẢ 2 BÊN CÙNG ĐỒNG Ý THUÊ (true && true)
+        if (Boolean.TRUE.equals(phieu.getKhachHangDongY()) && Boolean.TRUE.equals(phieu.getChuTroDongY())) {
+            phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
+            phieuDatLichRepository.save(phieu);
 
-            transactionService.taoGiaoDich(
-                    chuTro.getNguoiDung(),
-                    thucNhanChuTro,
-                    "CONG_TIEN_COC",
-                    "Tiền cọc thuê phòng từ khách (đã trừ phí hoa hồng " + phieu.getPhiThu() + " VNĐ)",
-                    TrangThaiGD.THANH_CONG
-            );
+            // Phòng trọ hoàn tất thuê, tự động ẩn khỏi tìm kiếm
+            if (phongTro != null) {
+                phongTro.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
+                phongTroRepository.save(phongTro);
+            }
+
+            // Giải ngân (coc - phiThu) vào ví chủ trọ (Chủ trọ đã ứng coc tiền mặt cho khách, thực tế chỉ chịu phí phiThu)
+            long thucNhanChuTro = Math.max(0L, coc - phiThu);
+            if (chuTro != null && thucNhanChuTro > 0) {
+                chuTro.setSoDu(chuTro.getSoDu() + thucNhanChuTro);
+                chuTroRepository.save(chuTro);
+
+                transactionService.taoGiaoDich(
+                        chuTro.getNguoiDung(),
+                        thucNhanChuTro,
+                        "CONG_TIEN_COC",
+                        "Tiền cọc thuê phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
+                                " (Đã trừ hoa hồng sàn " + phiThu + " VNĐ)",
+                        TrangThaiGD.THANH_CONG
+                );
+            }
+        }
+        // KỊCH BẢN 2: CÓ ÍT NHẤT 1 BÊN TỪ CHỐI (false)
+        else {
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            if (phieu.getLiDoHuy() == null || phieu.getLiDoHuy().isBlank()) {
+                phieu.setLiDoHuy("Lịch hẹn kết thúc: Có bên xác nhận không thuê phòng");
+            }
+            phieuDatLichRepository.save(phieu);
+
+            // Giữ nguyên trạng thái phòng trọ DA_DUYET để tiếp tục hiển thị đón khách khác
+            if (phongTro != null) {
+                phongTro.setTrangThai(TrangThaiPhongTro.DA_DUYET);
+                phongTroRepository.save(phongTro);
+            }
+
+            // Sàn hoàn trả đủ 100% cọc (coc) vào ví Chủ trọ (để bù lại khoản tiền mặt chủ trọ đã ứng trả trước cho khách)
+            if (chuTro != null && coc > 0) {
+                chuTro.setSoDu(chuTro.getSoDu() + coc);
+                chuTroRepository.save(chuTro);
+
+                transactionService.taoGiaoDich(
+                        chuTro.getNguoiDung(),
+                        coc,
+                        "HOAN_COC",
+                        "Hoàn 100% cọc thế chân xem phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
+                                " (Không thuê sau khi xem thực tế)",
+                        TrangThaiGD.THANH_CONG
+                );
+            }
         }
     }
 
     /**
-     * 7b. Khách hàng xác nhận thuê phòng sau khi xem thực tế (Hoàn tất & Hoàn cọc cho khách, thu hoa hồng)
+     * Backward-compatible legacy endpoints
      */
     @Transactional
+    public void hoanThanhLichHen(String maDatLich, String username) {
+        chuTroDuaRaQuyetDinh(maDatLich, username, new AppointmentDecisionRequest(true, null));
+    }
+
+    @Transactional
     public void khachHangXacNhanThue(String maDatLich, String username) {
-        NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
-                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
-
-        // 1. Kiểm tra quyền sở hữu của Khách hàng
-        if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
-            throw new AppException(ErrorCode.ACCESS_DENIED);
-        }
-
-        // 2. Chỉ được xác nhận khi lịch hẹn đang ở trạng thái XAC_NHAN
-        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
-            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
-        }
-
-        // 3. Cập nhật phiếu đặt lịch sang HOAN_THANH
-        phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
-        phieuDatLichRepository.save(phieu);
-
-        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
-
-        // 4. Hoàn trả 100% cọc giữ chân cho khách hàng (nếu khách đã nộp cọc)
-        if (daNop && phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
-                    khachHang,
-                    phieu.getCoc(),
-                    "HOAN_COC",
-                    "Hoàn 100% cọc giữ chân khi chốt thuê phòng " + phieu.getPhongTro().getMaPhongTro(),
-                    TrangThaiGD.HOAN_TIEN
-            );
-        }
-
-        // 5. Cập nhật trạng thái phòng trọ sang HOAN_THANH (ẩn khỏi tìm kiếm)
-        PhongTro phongTro = phieu.getPhongTro();
-        phongTro.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
-        phongTroRepository.save(phongTro);
-
-        // 6. Chuyển tiền (tiền cọc - phí hoa hồng hệ thống) vào ví chủ trọ (nếu khách đã nộp cọc)
-        long thucNhanChuTro = phieu.getCoc() - phieu.getPhiThu();
-        if (daNop && thucNhanChuTro > 0 && phongTro.getChuPhongTro() != null) {
-            ChuTro chuTro = phongTro.getChuPhongTro();
-            chuTro.setSoDu(chuTro.getSoDu() + thucNhanChuTro);
-            chuTroRepository.save(chuTro);
-
-            transactionService.taoGiaoDich(
-                    chuTro.getNguoiDung(),
-                    thucNhanChuTro,
-                    "CONG_TIEN_COC",
-                    "Tiền cọc thuê phòng từ khách (đã trừ phí hoa hồng " + phieu.getPhiThu() + " VNĐ)",
-                    TrangThaiGD.THANH_CONG
-            );
-        }
+        khachHangDuaRaQuyetDinh(maDatLich, username, new AppointmentDecisionRequest(true, null));
     }
 
     /**
-     * 8. Hủy lịch hẹn (Dành cho Khách hàng hoặc Chủ trọ hủy)
+     * 11. HỦY LỊCH HẸN TRƯỚC GIỜ HẸN HOẶC TRONG QUÁ TRÌNH
      */
     @Transactional
     public void huyLichHen(String maDatLich, String username, AppointmentCancelRequest request) {
@@ -378,16 +453,33 @@ public class AppointmentService {
         phieu.setLiDoHuy(nguoiHuy + ": " + request.getLiDoHuy());
         phieuDatLichRepository.save(phieu);
 
-        // Chỉ hoàn cọc nếu khách hàng đã thực sự nộp cọc trước đó
-        boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-        if (daNop && phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    phieu.getCoc(),
-                    "HOAN_COC",
-                    nguoiHuy + " lịch hẹn " + maDatLich,
-                    TrangThaiGD.HOAN_TIEN
-            );
+        // Xử lý dòng tiền hoàn cọc dựa trên cờ daNhanLaiCoc
+        if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            // Khách đã nhận lại cọc từ chủ trọ ngoài đời -> tiền cọc trên sàn hoàn về ví Chủ trọ
+            if (phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
+                ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
+                chuTro.setSoDu(chuTro.getSoDu() + phieu.getCoc());
+                chuTroRepository.save(chuTro);
+                transactionService.taoGiaoDich(
+                        chuTro.getNguoiDung(),
+                        phieu.getCoc(),
+                        "HOAN_COC",
+                        "Hoàn cọc thế chân xem phòng " + phieu.getPhongTro().getMaPhongTro() + " (Lịch bị hủy sau khi xem)",
+                        TrangThaiGD.THANH_CONG
+                );
+            }
+        } else {
+            // Khách chưa gặp hoặc chưa nhận cọc ngoài đời -> hoàn tiền trực tiếp cho Khách hàng từ ví sàn
+            boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+            if (daNop && phieu.getCoc() > 0) {
+                transactionService.taoGiaoDich(
+                        phieu.getKhachHang(),
+                        phieu.getCoc(),
+                        "HOAN_COC",
+                        nguoiHuy + " lịch hẹn " + maDatLich,
+                        TrangThaiGD.HOAN_TIEN
+                );
+            }
         }
     }
 
