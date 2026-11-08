@@ -647,6 +647,11 @@ export default function RoomDetailScreen() {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               initialScrollIndex={viewerIndex}
+              onScrollToIndexFailed={(info) => {
+                setTimeout(() => {
+                  viewerRef.current?.scrollToIndex({ index: info.index, animated: false });
+                }, 50);
+              }}
               getItemLayout={(_, index) => ({
                 length: SCREEN_WIDTH,
                 offset: SCREEN_WIDTH * index,

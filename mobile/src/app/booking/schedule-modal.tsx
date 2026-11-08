@@ -395,9 +395,9 @@ export default function ScheduleModalScreen() {
           <View className="flex-row items-center gap-1.5 mt-2 pt-2 border-t border-teal-100">
             <Ionicons name="information-circle" size={16} color="#0D9488" />
             <Text className="text-[11px] text-teal-800 flex-1 leading-4">
-              Lưu ý: Bạn chưa cần nộp tiền lúc này. Sau khi Chủ trọ xác nhận
-              lịch hẹn, bạn mới tiến hành nộp cọc giữ chân. InnFinder cam kết
-              hoàn trả 100% khi đi xem phòng.
+              Lưu ý: Bạn sẽ tiến hành nộp cọc giữ chân ở bước tiếp theo để hệ thống gửi phiếu hẹn tới Chủ trọ xét duyệt. InnFinder cam kết hoàn trả 100% sau buổi xem phòng.
+
+
             </Text>
           </View>
         </View>
@@ -574,7 +574,7 @@ export default function ScheduleModalScreen() {
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Button.Label className="font-bold text-white text-base">
-              Gửi yêu cầu đặt lịch xem phòng
+              Gửi yêu cầu & Nộp cọc xem phòng
             </Button.Label>
           )}
         </Button>

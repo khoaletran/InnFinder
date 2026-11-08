@@ -66,7 +66,7 @@ export default function AppointmentsScreen() {
       // 2. Chạy polling ngầm mỗi 3 giây
       const interval = setInterval(() => {
         fetchAppointments(true);
-      }, 3000);
+      }, 8000);
 
       return () => {
         clearInterval(interval);

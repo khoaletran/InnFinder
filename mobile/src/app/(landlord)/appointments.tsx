@@ -70,7 +70,7 @@ export default function AppointmentsScreen() {
 
       const interval = setInterval(() => {
         loadAppointments(false, true);
-      }, 3000);
+      }, 8000);
 
       return () => {
         clearInterval(interval);

@@ -72,25 +72,31 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     try {
       const data = await bookingService.getMyAppointments();
 
-      // Đọc danh sách phòng đã đánh giá đã lưu trong máy
-      const storedReviewed =
-        await SecureStore.getItemAsync(REVIEWED_STORAGE_KEY);
-      const parsedReviewed = storedReviewed ? JSON.parse(storedReviewed) : [];
+      // Khi polling ngầm: Tận dụng cache RAM để không truy xuất Keychain/ổ đĩa liên tục
+      let parsedReviewed = get().reviewedRoomIds;
+      let parsedPaid = get().paidAppointmentIds;
+      let balance = get().walletBalance;
 
-      // Đọc danh sách lịch hẹn đã nộp cọc giữ chân từ cache cục bộ
-      const storedPaid = await SecureStore.getItemAsync(PAID_APPOINTMENTS_KEY);
-      const parsedPaid: string[] = storedPaid ? JSON.parse(storedPaid) : [];
+      if (!silent) {
+        try {
+          const storedReviewed = await SecureStore.getItemAsync(REVIEWED_STORAGE_KEY);
+          if (storedReviewed) parsedReviewed = JSON.parse(storedReviewed);
+
+          const storedPaid = await SecureStore.getItemAsync(PAID_APPOINTMENTS_KEY);
+          if (storedPaid) parsedPaid = JSON.parse(storedPaid);
+
+          const storedBalance = await SecureStore.getItemAsync(WALLET_BALANCE_KEY);
+          if (storedBalance !== null) balance = Number(storedBalance);
+        } catch {
+          // Bỏ qua lỗi đọc bộ nhớ cục bộ
+        }
+      }
 
       // Đồng bộ thêm các lịch hẹn mà backend trả về cờ daNopCoc = true
       const backendPaidIds = (data || [])
         .filter((item) => item.daNopCoc)
         .map((item) => item.maDatLich);
       const mergedPaid = Array.from(new Set([...parsedPaid, ...backendPaidIds]));
-
-      // Đọc số dư ví đã lưu trong máy
-      const storedBalance = await SecureStore.getItemAsync(WALLET_BALANCE_KEY);
-      const balance =
-        storedBalance !== null ? Number(storedBalance) : DEFAULT_WALLET_BALANCE;
 
       set({
         appointments: data || [],
