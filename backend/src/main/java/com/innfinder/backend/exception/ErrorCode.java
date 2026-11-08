@@ -44,7 +44,11 @@ public enum ErrorCode {
     // --- GIAO DỊCH & KHO TIỀN HỆ THỐNG ---
     TRANSACTION_NOT_FOUND("Không tìm thấy thông tin giao dịch", HttpStatus.NOT_FOUND),
     TRANSACTION_ALREADY_PROCESSED("Giao dịch này đã được xử lý bởi Quản trị viên khác", HttpStatus.BAD_REQUEST),
-    INSUFFICIENT_SYSTEM_TREASURY("Kho tiền hệ thống không đủ số dư khả dụng để giải ngân giao dịch này", HttpStatus.BAD_REQUEST);
+    INSUFFICIENT_SYSTEM_TREASURY("Kho tiền hệ thống không đủ số dư khả dụng để giải ngân giao dịch này", HttpStatus.BAD_REQUEST),
+
+    // --- BIỂU PHÍ CỌC & HOA HỒNG SÀN ---
+    ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng trọ", HttpStatus.NOT_FOUND),
+    INVALID_DEPOSIT_FEE("Mức phí thu sàn phải nhỏ hơn số tiền cọc", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

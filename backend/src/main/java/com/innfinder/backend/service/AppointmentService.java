@@ -194,22 +194,23 @@ public class AppointmentService {
         NguoiDung chuTro = getNguoiDungByUsername(username);
         return phieuDatLichRepository.findAppointmentsByLandlordId(chuTro.getMaNguoiDung())
                 .stream()
-                .filter(phieu -> {
-                    // Nếu phòng yêu cầu cọc và lịch đang chờ xét duyệt (CHO_XAC_NHAN),
-                    // thì BẮT BUỘC khách đã nộp cọc giữ chân mới gửi sang cho Chủ trọ xét duyệt
-                    boolean coYeuCauCoc = phieu.getCoc() != null && phieu.getCoc() > 0;
-                    if (coYeuCauCoc && phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN) {
-                        return phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich());
-                    }
-                    return true;
-                })
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
                             || phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN
                             || phieu.getTrangThai() == TrangThaiDatLich.HOAN_THANH
                             || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich()));
-                    return AppointmentResponse.fromEntity(phieu, daNop);
+                    return java.util.Map.entry(phieu, daNop);
                 })
+                .filter(entry -> {
+                    PhieuDatLich phieu = entry.getKey();
+                    boolean daNop = entry.getValue();
+                    boolean coYeuCauCoc = phieu.getCoc() != null && phieu.getCoc() > 0;
+                    if (coYeuCauCoc && phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN) {
+                        return daNop;
+                    }
+                    return true;
+                })
+                .map(entry -> AppointmentResponse.fromEntity(entry.getKey(), entry.getValue()))
                 .toList();
     }
 

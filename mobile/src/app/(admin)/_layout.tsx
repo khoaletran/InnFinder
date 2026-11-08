@@ -76,6 +76,12 @@ export default function AdminLayout() {
           animation: 'slide_from_right',
         }}
       />
+      <Stack.Screen
+        name="deposit-fees/index"
+        options={{
+          animation: 'slide_from_right',
+        }}
+      />
     </Stack>
   );
 }

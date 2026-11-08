@@ -1,9 +1,13 @@
 package com.innfinder.backend.controller;
 
+import com.innfinder.backend.dto.request.CategoryUpdateRequest;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
+import com.innfinder.backend.dto.request.UpdateDepositFeeRequest;
 import com.innfinder.backend.dto.response.*;
+import com.innfinder.backend.dto.room.AmenityResponse;
+import com.innfinder.backend.dto.room.CategoryResponse;
 import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AdminService;
 import com.innfinder.backend.service.ComplaintService;
@@ -15,6 +19,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import java.util.Map;
 
 @RestController
@@ -49,9 +56,20 @@ public class AdminController {
 
     @GetMapping("/users")
     @Operation(summary = "Lấy danh sách tất cả tài khoản người dùng")
-    public ResponseEntity<ApiResponse<List<UserResponseDTO>>> getAllUsers() {
-        List<UserResponseDTO> result = adminService.getAllUsers();
-        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách người dùng thành công"));
+    public ResponseEntity<ApiResponse<Page<UserResponseDTO>>> searchUsers(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserResponseDTO> result = adminService.searchUsers(keyword, pageable);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Tra cứu danh sách người dùng thành công"));
+    }
+
+    @GetMapping("/users/{id}")
+    @Operation(summary = "Xem chi tiết thông tin một người dùng theo mã")
+    public ResponseEntity<ApiResponse<UserResponseDTO>> getUserById(@PathVariable String id) {
+        UserResponseDTO result = adminService.getUserById(id);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thông tin người dùng thành công"));
     }
 
     @PatchMapping("/users/{id}/toggle-lock")
@@ -104,9 +122,10 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/transactions")
-    @Operation(summary = "Lấy danh sách toàn bộ giao dịch trên hệ thống")
-    public ResponseEntity<ApiResponse<List<AdminTransactionResponseDTO>>> getAllTransactions() {
-        List<AdminTransactionResponseDTO> result = adminService.getAllTransactions();
+    @Operation(summary = "Quản lý giao dịch: mặc định chỉ hiển thị giao dịch chờ xử lý, tra cứu toàn bộ giao dịch khi tìm theo thông tin người dùng")
+    public ResponseEntity<ApiResponse<List<AdminTransactionResponseDTO>>> getTransactions(
+            @RequestParam(required = false) String keyword) {
+        List<AdminTransactionResponseDTO> result = adminService.getTransactions(keyword);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách giao dịch thành công"));
     }
 
@@ -168,5 +187,43 @@ public class AdminController {
             @RequestBody(required = false) RejectLandlordRequestDTO request) {
         LandlordRequestResponseDTO result = adminService.rejectLandlordRequest(id, request);
         return ResponseEntity.ok(ApiResponse.ok(result, "Từ chối đơn đăng ký chủ trọ thành công"));
+    }
+
+    // ==========================================
+    // QUẢN LÝ BIỂU PHÍ CỌC & HOA HỒNG SÀN THEO LOẠI PHÒNG
+    // ==========================================
+
+    @GetMapping("/room-types/deposit-fees")
+    @Operation(summary = "Admin lấy danh sách loại phòng kèm mức cọc và phí hoa hồng sàn")
+    public ResponseEntity<ApiResponse<List<RoomTypeDepositFeeResponseDTO>>> getRoomTypeDepositFees() {
+        List<RoomTypeDepositFeeResponseDTO> result = adminService.getRoomTypeDepositFees();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách biểu phí cọc & sàn thành công"));
+    }
+
+    @PutMapping("/room-types/{maLpt}/deposit-fee")
+    @Operation(summary = "Admin cập nhật mức tiền cọc và phí thu sàn cho một loại phòng")
+    public ResponseEntity<ApiResponse<RoomTypeDepositFeeResponseDTO>> updateDepositFee(
+            @PathVariable String maLpt,
+            @Valid @RequestBody UpdateDepositFeeRequest request) {
+        RoomTypeDepositFeeResponseDTO result = adminService.updateDepositFee(maLpt, request);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Cập nhật biểu phí cọc & sàn thành công"));
+    }
+
+    @PutMapping("/room-types/{maLpt}")
+    @Operation(summary = "Admin chỉnh sửa tên và mô tả loại phòng")
+    public ResponseEntity<ApiResponse<CategoryResponse>> updateRoomType(
+            @PathVariable String maLpt,
+            @Valid @RequestBody CategoryUpdateRequest request) {
+        CategoryResponse result = adminService.updateRoomType(maLpt, request);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Cập nhật loại phòng thành công"));
+    }
+
+    @PutMapping("/amenities/{maTienIch}")
+    @Operation(summary = "Admin chỉnh sửa tên và mô tả tiện ích")
+    public ResponseEntity<ApiResponse<AmenityResponse>> updateAmenity(
+            @PathVariable String maTienIch,
+            @Valid @RequestBody CategoryUpdateRequest request) {
+        AmenityResponse result = adminService.updateAmenity(maTienIch, request);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Cập nhật tiện ích thành công"));
     }
 }

@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   Pressable,
   Modal,
   TextInput,
@@ -19,7 +20,7 @@ import { LandlordAppointmentCard } from '../../components/landlord/LandlordAppoi
 import { landlordService } from '../../services/landlord.service';
 import { LandlordAppointmentItem } from '../../types/landlord.types';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const DAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function AppointmentsScreen() {
@@ -33,7 +34,8 @@ export default function AppointmentsScreen() {
   const [allAppointments, setAllAppointments] = useState<LandlordAppointmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [visibleLimit, setVisibleLimit] = useState<number>(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
   // Modal từ chối / không thuê kèm lý do
   const [reasonModalVisible, setReasonModalVisible] = useState<boolean>(false);
@@ -82,21 +84,21 @@ export default function AppointmentsScreen() {
     if (params.status) {
       setStatusFilter(params.status as any);
       setViewMode('ALL');
-      setCurrentPage(1);
+      setVisibleLimit(PAGE_SIZE);
     }
     if (params.appointmentId && allAppointments.length > 0) {
       const targetApt = allAppointments.find((a) => a.id === params.appointmentId);
       if (targetApt?.trangThai) {
         setStatusFilter(targetApt.trangThai);
         setViewMode('ALL');
-        setCurrentPage(1);
+        setVisibleLimit(PAGE_SIZE);
       }
     }
   }, [params.status, params.appointmentId, allAppointments]);
 
-  // Reset trang khi đổi bộ lọc
+  // Reset trang / danh sách hiển thị khi đổi bộ lọc
   useEffect(() => {
-    setCurrentPage(1);
+    setVisibleLimit(PAGE_SIZE);
   }, [selectedDate, viewMode, statusFilter]);
 
   // Xác nhận lịch hẹn xem phòng
@@ -237,13 +239,20 @@ export default function AppointmentsScreen() {
     return list;
   }, [allAppointments, viewMode, selectedDate, statusFilter, params.appointmentId]);
 
-  // Phân trang
+  // Phân trang cuộn vô tận (Infinite Scroll)
   const totalAppointments = filteredAppointments.length;
-  const totalPages = Math.max(1, Math.ceil(totalAppointments / PAGE_SIZE));
-  const paginatedList = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredAppointments.slice(start, start + PAGE_SIZE);
-  }, [filteredAppointments, currentPage]);
+  const visibleAppointments = useMemo(() => {
+    return filteredAppointments.slice(0, visibleLimit);
+  }, [filteredAppointments, visibleLimit]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || visibleLimit >= totalAppointments) return;
+    setLoadingMore(true);
+    setTimeout(() => {
+      setVisibleLimit((prev) => Math.min(prev + PAGE_SIZE, totalAppointments));
+      setLoadingMore(false);
+    }, 250);
+  }, [loadingMore, visibleLimit, totalAppointments]);
 
   const formattedDateTitle = useMemo(() => {
     if (!selectedDate) return '';
@@ -340,11 +349,21 @@ export default function AppointmentsScreen() {
         </ScrollView>
       </View>
 
-      {/* 5. Danh sách lịch hẹn */}
-      <ScrollView
-        style={{ flex: 1 }}
-        className="px-4 py-4"
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
+      {/* 5. Danh sách lịch hẹn dạng FlatList với Infinite Scroll */}
+      <FlatList
+        data={visibleAppointments}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <LandlordAppointmentCard
+            appointment={item}
+            autoOpenDetail={item.id === params.appointmentId}
+            onConfirm={handleConfirm}
+            onReject={handleOpenReject}
+            onComplete={handleComplete}
+            onCancelRental={handleOpenCancelRental}
+          />
+        )}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -353,100 +372,55 @@ export default function AppointmentsScreen() {
             colors={['#0D9488']}
           />
         }
-      >
-        {/* Tiêu đề thông tin */}
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            {viewMode === 'BY_DATE' ? formattedDateTitle : `Danh sách (${totalAppointments})`}
-          </Text>
-          {totalAppointments > 0 && (
-            <Text className="text-xs text-gray-400">
-              Trang {currentPage} / {totalPages}
+        ListHeaderComponent={
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              {viewMode === 'BY_DATE' ? formattedDateTitle : `Danh sách (${totalAppointments})`}
             </Text>
-          )}
-        </View>
-
-        {loading ? (
-          <View className="py-16 items-center justify-center">
-            <ActivityIndicator size="large" color="#0D9488" />
-            <Text className="text-xs text-gray-400 mt-3 font-medium">Đang tải lịch hẹn...</Text>
+            {totalAppointments > 0 && (
+              <Text className="text-xs text-gray-400">
+                Hiển thị {Math.min(visibleLimit, totalAppointments)} / {totalAppointments}
+              </Text>
+            )}
           </View>
-        ) : totalAppointments === 0 ? (
-          <Card className="p-8 bg-white rounded-2xl items-center justify-center my-4 border border-gray-100 shadow-sm">
-            <Ionicons name="calendar-outline" size={44} color="#94A3B8" />
-            <Text className="text-sm font-semibold text-gray-700 mt-3">
-              Không có lịch xem phòng nào
-            </Text>
-            <Text className="text-xs text-gray-400 text-center mt-1">
-              Chưa có cuộc hẹn nào phù hợp với bộ lọc hiện tại.
-            </Text>
-          </Card>
-        ) : (
-          paginatedList.map((apt) => (
-            <LandlordAppointmentCard
-              key={apt.id}
-              appointment={apt}
-              autoOpenDetail={apt.id === params.appointmentId}
-              onConfirm={handleConfirm}
-              onReject={handleOpenReject}
-              onComplete={handleComplete}
-              onCancelRental={handleOpenCancelRental}
-            />
-          ))
-        )}
-
-        {/* Phân trang */}
-        {totalPages > 1 && (
-          <View className="mt-4 pt-3 border-t border-gray-200">
-            <View className="flex-row items-center justify-center gap-2">
-              <Pressable
-                onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-1 ${
-                  currentPage === 1
-                    ? 'bg-gray-100 border-gray-200 opacity-50'
-                    : 'bg-white border-gray-300 active:bg-gray-50'
-                }`}
-              >
-                <Ionicons name="chevron-back" size={14} color="#374151" />
-                <Text className="text-xs font-semibold text-gray-700">Trước</Text>
-              </Pressable>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                const isActive = pageNum === currentPage;
-                return (
-                  <Pressable
-                    key={pageNum}
-                    onPress={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-xl items-center justify-center border ${
-                      isActive
-                        ? 'bg-teal-700 border-teal-700'
-                        : 'bg-white border-gray-200 active:bg-gray-50'
-                    }`}
-                  >
-                    <Text className={`text-xs font-bold ${isActive ? 'text-white' : 'text-gray-700'}`}>
-                      {pageNum}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-
-              <Pressable
-                onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-1 ${
-                  currentPage === totalPages
-                    ? 'bg-gray-100 border-gray-200 opacity-50'
-                    : 'bg-white border-gray-300 active:bg-gray-50'
-                }`}
-              >
-                <Text className="text-xs font-semibold text-gray-700">Sau</Text>
-                <Ionicons name="chevron-forward" size={14} color="#374151" />
-              </Pressable>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View className="py-16 items-center justify-center">
+              <ActivityIndicator size="large" color="#0D9488" />
+              <Text className="text-xs text-gray-400 mt-3 font-medium">Đang tải lịch hẹn...</Text>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          ) : (
+            <Card className="p-8 bg-white rounded-2xl items-center justify-center my-4 border border-gray-100 shadow-sm">
+              <Ionicons name="calendar-outline" size={44} color="#94A3B8" />
+              <Text className="text-sm font-semibold text-gray-700 mt-3">
+                Không có lịch xem phòng nào
+              </Text>
+              <Text className="text-xs text-gray-400 text-center mt-1">
+                Chưa có cuộc hẹn nào phù hợp với bộ lọc hiện tại.
+              </Text>
+            </Card>
+          )
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          loadingMore ? (
+            <View className="py-4 items-center flex-row justify-center gap-2">
+              <ActivityIndicator size="small" color="#0D9488" />
+              <Text className="text-xs text-gray-500 font-medium">Đang tải thêm lịch hẹn...</Text>
+            </View>
+          ) : totalAppointments > PAGE_SIZE && visibleLimit >= totalAppointments ? (
+            <View className="py-4 items-center">
+              <Text className="text-xs text-gray-400 font-medium">
+                Đã hiển thị tất cả {totalAppointments} cuộc hẹn
+              </Text>
+            </View>
+          ) : (
+            <View className="h-6" />
+          )
+        }
+      />
 
       {/* 6. Modal Nhập Lý Do Từ Chối / Không Thuê */}
       <Modal
