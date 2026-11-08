@@ -550,7 +550,7 @@ export default function RoomDetailScreen() {
         </View>
       ) : (
         <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex-row gap-3 pb-safe shadow-lg">
-          <View className="flex-1">
+          {/* <View className="flex-1">
             <Button
               variant="outline"
               size="lg"
@@ -561,7 +561,7 @@ export default function RoomDetailScreen() {
                 Gọi điện
               </Button.Label>
             </Button>
-          </View>
+          </View> */}
 
           <View className="flex-1">
             <Button
