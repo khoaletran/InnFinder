@@ -10,3 +10,10 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+# AI Agent & Tools
+.agents/
+.cursor/
+skills-lock.json
+mobile/AGENTS.md
+plan/
