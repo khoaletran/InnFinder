@@ -1,3 +1,4 @@
+import { uploadService } from './upload.service';
 import { axiosClient, tokenStorage, BASE_URL } from '../api/axiosClient';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -334,57 +335,7 @@ export const landlordService = {
 
   // 8.1. Upload danh sách ảnh lên Cloudinary qua API Backend (POST /api/upload/images)
   uploadImages: async (imageUris: string[]): Promise<string[]> => {
-    if (!imageUris || imageUris.length === 0) return [];
-
-    const remoteUrls: string[] = [];
-    const localUris: string[] = [];
-
-    imageUris.forEach((uri) => {
-      if (uri.startsWith('http://') || uri.startsWith('https://')) {
-        remoteUrls.push(uri);
-      } else {
-        localUris.push(uri);
-      }
-    });
-
-    if (localUris.length === 0) {
-      return remoteUrls;
-    }
-
-    const formData = new FormData();
-    localUris.forEach((uri, idx) => {
-      const fileName = uri.split('/').pop() || `room_${Date.now()}_${idx}.jpg`;
-      const match = /\.([a-zA-Z0-9]+)$/.exec(fileName);
-      const ext = match ? match[1].toLowerCase() : 'jpg';
-      const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-
-      const fileUri = Platform.OS === 'android' ? uri : uri.replace('file://', '');
-      formData.append('files', {
-        uri: fileUri,
-        name: fileName,
-        type: mimeType,
-      } as any);
-    });
-
-    const token = await SecureStore.getItemAsync('innfinder_jwt_token');
-    const response = await fetch(`${BASE_URL}/api/upload/images`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.warn('Lỗi phản hồi upload ảnh:', response.status, text);
-      throw new Error(`Upload ảnh thất bại (HTTP ${response.status})`);
-    }
-
-    const json = await response.json();
-    const newUrls: string[] = json?.data || [];
-    return [...remoteUrls, ...newUrls];
+    return uploadService.uploadMultipleImages(imageUris);
   },
 
   // 9. Quản lý khiếu nại (GET /api/complaints/my-complaints)
