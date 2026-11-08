@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Card, Chip, Input, Label, TextField } from 'heroui-native';
+import { Avatar, Button, Card, Chip, Input, Label, TextField } from 'heroui-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/useAuthStore';
 import { authUserService } from '../../services/authUser.service';
+import { uploadService } from '../../services/upload.service';
 import { Colors } from '../../constants/theme';
 
 export default function EditProfileScreen() {
@@ -31,6 +33,80 @@ export default function EditProfileScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [cccdInput, setCccdInput] = useState('');
   const [loadingVerify, setLoadingVerify] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleChangeAvatar = () => {
+    Alert.alert(
+      'Cập nhật ảnh đại diện',
+      'Chọn hình thức tải ảnh đại diện lên hệ thống:',
+      [
+        {
+          text: 'Chụp ảnh mới',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền camera', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh đại diện.');
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]?.uri) {
+              await processUploadAvatar(res.assets[0].uri);
+            }
+          },
+        },
+        {
+          text: 'Chọn từ thư viện',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền thư viện', 'Vui lòng cấp quyền truy cập thư viện ảnh.');
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]?.uri) {
+              await processUploadAvatar(res.assets[0].uri);
+            }
+          },
+        },
+        { text: 'Hủy', style: 'cancel' },
+      ]
+    );
+  };
+
+  const processUploadAvatar = async (localUri: string) => {
+    try {
+      setUploadingAvatar(true);
+      const cloudUrl = await uploadService.uploadSingleImage(localUri, 'avatars');
+      if (!cloudUrl) {
+        throw new Error('Không nhận được URL từ máy chủ Cloudinary');
+      }
+
+      const updated = await authUserService.updateProfile({
+        email: email.trim() || user?.email || '',
+        sdt: sdt.trim() || user?.sdt || '',
+        hoVaTen: hoVaTen.trim() || user?.hoVaTen,
+        hinhDaiDien: cloudUrl,
+        avatarUrl: cloudUrl,
+      });
+
+      setUser(updated);
+      Alert.alert('Thành công', 'Ảnh đại diện đã được cập nhật thành công!');
+    } catch (err: any) {
+      console.error('Lỗi khi đổi avatar:', err);
+      Alert.alert('Lỗi cập nhật ảnh đại diện', err?.message || 'Không thể tải ảnh đại diện lên.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   // Gọi API lấy hồ sơ thật mới nhất khi mở trang
   useEffect(() => {
@@ -137,6 +213,36 @@ export default function EditProfileScreen() {
         className="flex-1"
       >
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
+          {/* Avatar với nút sửa ảnh ở góc dưới bên phải */}
+          <View className="items-center py-4 mb-2">
+            <View className="relative">
+              <Avatar size="lg" color="accent" className="size-24 border-2 border-teal-600">
+                {user?.avatarUrl || user?.hinhDaiDien ? (
+                  <Avatar.Image source={{ uri: user.avatarUrl || user.hinhDaiDien }} />
+                ) : null}
+                <Avatar.Fallback className="bg-teal-100">
+                  <Text className="text-2xl font-extrabold text-teal-700">
+                    {(hoVaTen || user?.tenDangNhap || 'ND').slice(0, 2).toUpperCase()}
+                  </Text>
+                </Avatar.Fallback>
+              </Avatar>
+
+              <Pressable
+                onPress={handleChangeAvatar}
+                disabled={uploadingAvatar}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                className="absolute bottom-0 right-0 size-8 rounded-full bg-teal-600 border-2 border-white items-center justify-center shadow-md active:bg-teal-700"
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="camera" size={16} color="#FFFFFF" />
+                )}
+              </Pressable>
+            </View>
+            <Text className="text-xs text-slate-500 mt-2">Chạm vào máy ảnh để thay đổi ảnh đại diện</Text>
+          </View>
+
           <Card className="p-4 mb-4">
             <Card.Body className="gap-3.5">
               <View className="pb-2 border-b border-slate-100">

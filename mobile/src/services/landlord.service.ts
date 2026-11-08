@@ -335,7 +335,7 @@ export const landlordService = {
 
   // 8.1. Upload danh sách ảnh lên Cloudinary qua API Backend (POST /api/upload/images)
   uploadImages: async (imageUris: string[]): Promise<string[]> => {
-    return uploadService.uploadMultipleImages(imageUris);
+    return uploadService.uploadMultipleImages(imageUris, 'rooms');
   },
 
   // 9. Quản lý khiếu nại (GET /api/complaints/my-complaints)
