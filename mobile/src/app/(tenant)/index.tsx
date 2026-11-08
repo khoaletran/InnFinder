@@ -214,71 +214,38 @@ export default function TenantHomeScreen() {
         </View>
       </View>
 
-      {/* ===== FLOATING SEARCH CARD (BẢN CẢI TIẾN) ===== */}
-      <View className="px-4 mt-3">
-        <View className="bg-white rounded-3xl p-4 border border-slate-100 shadow-lg shadow-slate-200">
-          {/* HÀNG 1: KHU VỰC -> BẤM VÀO MỞ THẲNG BẢN ĐỒ MAP-SEARCH */}
+      {/* ===== FLOATING SEARCH BAR (1 HÀNG DUY NHẤT) ===== */}
+      <View className="px-4 mt-2">
+        <View className="bg-white rounded-full px-3 py-2 border border-slate-100 shadow-md shadow-slate-200 flex-row items-center">
+          {/* VÙNG BẤM TÌM KIẾM */}
           <Pressable
-            onPress={() => router.push("/room/map-search")}
-            className="flex-row items-center py-2 active:opacity-80"
+            onPress={() => router.push("/search")}
+            className="flex-1 flex-row items-center pl-1 active:opacity-70"
           >
-            <View className="w-10 h-10 rounded-full bg-teal-50 items-center justify-center mr-3 border border-teal-100">
-              <Ionicons name="map-outline" size={20} color="#0D9488" />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Khu vực bạn muốn ở
-                </Text>
-                <View className="bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200">
-                  <Text className="text-[10px] font-bold text-teal-700">
-                    Bản đồ
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                Xem vị trí phòng trên bản đồ
+            <Ionicons name="search" size={18} color="#0D9488" />
+            <View className="ml-2.5 flex-1">
+              <Text
+                className="text-xs font-bold text-slate-800"
+                numberOfLines={1}
+              >
+                Bạn muốn tìm phòng ở đâu?
+              </Text>
+              <Text className="text-[10px] text-slate-400" numberOfLines={1}>
+                Mức giá · Diện tích · Tiện ích
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </Pressable>
 
-          {/* Vạch ngăn cách mảnh */}
-          <View className="h-px bg-slate-100 my-2" />
+          {/* VẠCH NGĂN NHẸ */}
+          <View className="w-px h-6 bg-slate-200 mx-2" />
 
-          {/* HÀNG 2: TIÊU CHÍ & NGÂN SÁCH -> BẤM VÀO MỞ TRANG TÌM KIẾM SEARCH */}
-          <View className="flex-row items-center justify-between pt-1">
-            <Pressable
-              onPress={() => router.push("/search")}
-              className="flex-1 flex-row items-center active:opacity-80"
-            >
-              <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center mr-3 border border-amber-100">
-                <Ionicons name="options-outline" size={20} color="#D97706" />
-              </View>
-              <View className="flex-1 pr-2">
-                <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Mức giá & Tiện ích
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  className="text-sm font-bold text-slate-800 mt-0.5"
-                >
-                  Linh hoạt, phù hợp
-                </Text>
-              </View>
-            </Pressable>
-
-            {/* Nút Tìm phòng nổi bật */}
-            <Pressable
-              onPress={() => router.push("/search")}
-              className="flex-row items-center bg-teal-700 px-4 py-2.5 rounded-full shadow-md active:bg-teal-800"
-            >
-              <Ionicons name="search" size={16} color="#FFFFFF" />
-              <Text className="text-white font-bold text-xs ml-1.5">
-                Tìm phòng
-              </Text>
-            </Pressable>
-          </View>
+          {/* NÚT MỞ BẢN ĐỒ NHANH */}
+          <Pressable
+            onPress={() => router.push("/room/map-search")}
+            className="w-9 h-9 rounded-full bg-teal-50 items-center justify-center border border-teal-100 active:bg-teal-100"
+          >
+            <Ionicons name="map-outline" size={18} color="#0D9488" />
+          </Pressable>
         </View>
       </View>
 
