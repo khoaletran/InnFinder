@@ -156,7 +156,7 @@ export const adminService = {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/landlord-requests');
       const list = Array.isArray(res) ? res : (res?.data || []);
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         return list.map((r: any) => ({
           maYeuCau: r.maYeuCau || `YC${r.maNguoiDung || ''}`,
           maNguoiDung: r.maNguoiDung || '',
@@ -164,35 +164,19 @@ export const adminService = {
           email: r.email || '',
           sdt: r.sdt || '',
           cccd: r.cccd || '',
+          anhCccdTruoc: r.anhCccdTruoc,
+          anhCccdSau: r.anhCccdSau,
           tenNganHang: r.tenNganHang || '',
           soTaiKhoan: r.soTaiKhoan || '',
           tenChuTaiKhoan: r.tenChuTaiKhoan || r.hoVaTen || '',
           ngayGui: r.ngayGui ? new Date(r.ngayGui).toLocaleString('vi-VN') : '',
           trangThai: r.trangThai || 'CHO_DUYET',
+          lyDoTuChoi: r.lyDoTuChoi,
           avatarUrl: r.avatarUrl,
           diemUyTin: 100,
         }));
       }
-
-      // Nếu backend chưa có endpoint riêng cho landlord-requests, lọc người dùng có CCCD nhưng chưa kích hoạt chuTro
-      const users = await adminService.getUsers();
-      return users
-        .filter((u) => u.cccd && !u.chuTro && u.vaiTro !== 'QUAN_TRI')
-        .map((u) => ({
-          maYeuCau: `YC${u.maNguoiDung}`,
-          maNguoiDung: u.maNguoiDung,
-          hoVaTen: u.hoVaTen,
-          email: u.email,
-          sdt: u.sdt,
-          cccd: u.cccd || '',
-          tenNganHang: 'Vietcombank',
-          soTaiKhoan: '1023456789',
-          tenChuTaiKhoan: u.hoVaTen,
-          ngayGui: u.ngayTao,
-          trangThai: 'CHO_DUYET' as const,
-          avatarUrl: u.avatarUrl,
-          diemUyTin: 100,
-        }));
+      return [];
     } catch {
       return [];
     }
@@ -200,8 +184,30 @@ export const adminService = {
 
   getLandlordRequestById: async (id: string): Promise<AdminLandlordRequestItem | null> => {
     try {
+      const res = await axiosClient.get<any, any>(`/api/admin/landlord-requests/${id}`);
+      const r = res?.data || res;
+      if (r && r.maYeuCau) {
+        return {
+          maYeuCau: r.maYeuCau,
+          maNguoiDung: r.maNguoiDung || '',
+          hoVaTen: r.hoVaTen || r.tenDangNhap || 'Người dùng',
+          email: r.email || '',
+          sdt: r.sdt || '',
+          cccd: r.cccd || '',
+          anhCccdTruoc: r.anhCccdTruoc,
+          anhCccdSau: r.anhCccdSau,
+          tenNganHang: r.tenNganHang || '',
+          soTaiKhoan: r.soTaiKhoan || '',
+          tenChuTaiKhoan: r.tenChuTaiKhoan || r.hoVaTen || '',
+          ngayGui: r.ngayGui ? new Date(r.ngayGui).toLocaleString('vi-VN') : '',
+          trangThai: r.trangThai || 'CHO_DUYET',
+          lyDoTuChoi: r.lyDoTuChoi,
+          avatarUrl: r.avatarUrl,
+          diemUyTin: 100,
+        };
+      }
       const list = await adminService.getLandlordRequests();
-      return list.find((r) => r.maYeuCau === id || r.maNguoiDung === id) || null;
+      return list.find((item) => item.maYeuCau === id || item.maNguoiDung === id) || null;
     } catch {
       return null;
     }

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ export default function AdminLandlordRequestDetailScreen() {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -225,6 +227,50 @@ export default function AdminLandlordRequestDetailScreen() {
           </View>
         </Card>
 
+        {/* Ảnh chụp CCCD 2 mặt phục vụ thẩm định danh tính */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Ảnh CCCD 2 mặt (Thẩm định định danh)</Text>
+        <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 shadow-xs">
+          <View className="flex-row gap-3">
+            {/* Mặt trước */}
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-slate-700 mb-1.5 text-center">Mặt trước CCCD</Text>
+              <Pressable
+                onPress={() => setPreviewImage(request.anhCccdTruoc || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600')}
+                className="h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 items-center justify-center active:opacity-80"
+              >
+                <Image
+                  source={{ uri: request.anhCccdTruoc || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+                <View className="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                  <Ionicons name="expand-outline" size={12} color="#fff" />
+                  <Text className="text-[10px] text-white font-medium">Phóng to</Text>
+                </View>
+              </Pressable>
+            </View>
+
+            {/* Mặt sau */}
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-slate-700 mb-1.5 text-center">Mặt sau CCCD</Text>
+              <Pressable
+                onPress={() => setPreviewImage(request.anhCccdSau || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600')}
+                className="h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 items-center justify-center active:opacity-80"
+              >
+                <Image
+                  source={{ uri: request.anhCccdSau || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600' }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+                <View className="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                  <Ionicons name="expand-outline" size={12} color="#fff" />
+                  <Text className="text-[10px] text-white font-medium">Phóng to</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </Card>
+
         {/* Thông tin tài khoản ngân hàng thụ hưởng (AGENTS.md mục 3.3) */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Tài khoản ngân hàng thụ hưởng</Text>
         <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
@@ -237,12 +283,40 @@ export default function AdminLandlordRequestDetailScreen() {
             <Text className="text-xs font-bold text-slate-900 font-mono">{request.soTaiKhoan}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Chủ tài khoản (Đối chiếu CCCD)</Text>
-            <Text className="text-xs font-semibold text-slate-800">
+            <Text className="text-xs text-slate-500 font-medium">Chủ tài khoản (Khai báo)</Text>
+            <Text className="text-xs font-bold text-slate-900 uppercase">
               {request.tenChuTaiKhoan || request.hoVaTen}
             </Text>
           </View>
+          <View className="flex-row justify-between items-center py-2.5">
+            <Text className="text-xs text-slate-500 font-medium">Đối chiếu tên với CCCD</Text>
+            {request.tenChuTaiKhoan && request.hoVaTen &&
+            request.tenChuTaiKhoan.trim().toLowerCase() === request.hoVaTen.trim().toLowerCase() ? (
+              <View className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 flex-row items-center gap-1">
+                <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                <Text className="text-[10px] font-bold text-emerald-700">Trùng khớp 100%</Text>
+              </View>
+            ) : (
+              <View className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 flex-row items-center gap-1">
+                <Ionicons name="alert-circle" size={12} color="#D97706" />
+                <Text className="text-[10px] font-bold text-amber-700">Tên chưa khớp hoàn toàn</Text>
+              </View>
+            )}
+          </View>
         </Card>
+
+        {/* Khối hiển thị lý do nếu bị từ chối */}
+        {request.trangThai === 'TU_CHOI' && request.lyDoTuChoi ? (
+          <Card className="bg-rose-50 rounded-2xl border border-rose-200 p-4 mb-4 shadow-xs">
+            <View className="flex-row items-center gap-2 mb-1.5">
+              <Ionicons name="close-circle" size={18} color="#E11D48" />
+              <Text className="text-xs font-bold text-rose-800">Lý do từ chối hồ sơ</Text>
+            </View>
+            <Text className="text-xs text-rose-700 leading-relaxed font-medium">
+              {request.lyDoTuChoi}
+            </Text>
+          </Card>
+        ) : null}
 
         {/* Khởi tạo Chủ trọ theo quy chuẩn AGENTS.md mục 3.2 */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Quy chuẩn kích hoạt Chủ trọ</Text>
@@ -287,6 +361,25 @@ export default function AdminLandlordRequestDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Modal phóng to ảnh CCCD để soi chi tiết */}
+      <Modal visible={Boolean(previewImage)} transparent animationType="fade">
+        <View className="flex-1 bg-black/90 items-center justify-center p-4">
+          <Pressable
+            onPress={() => setPreviewImage(null)}
+            className="absolute top-12 right-6 w-10 h-10 rounded-full bg-white/20 items-center justify-center z-50 active:bg-white/40"
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </Pressable>
+          {previewImage ? (
+            <Image
+              source={{ uri: previewImage }}
+              className="w-full h-80 rounded-2xl"
+              resizeMode="contain"
+            />
+          ) : null}
+        </View>
+      </Modal>
 
       {/* Modal từ chối đơn đăng ký chủ trọ */}
       <Modal visible={rejectModalVisible} transparent animationType="fade">

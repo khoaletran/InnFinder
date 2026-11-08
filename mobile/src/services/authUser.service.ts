@@ -37,8 +37,19 @@ export const authUserService = {
     return axiosClient.get<any, BankAccountResponse[]>('/api/users/bank-accounts');
   },
 
-  upgradeToLandlord: (data: { cccd: string; soTaiKhoan: string; tenNganHang: string }) => {
+  upgradeToLandlord: (data: {
+    cccd: string;
+    anhCccdTruoc: string;
+    anhCccdSau: string;
+    tenNganHang: string;
+    soTaiKhoan: string;
+    tenChuTaiKhoan: string;
+  }) => {
     return axiosClient.post<any, string>('/api/users/upgrade-to-landlord', data);
+  },
+
+  getMyLandlordRequest: () => {
+    return axiosClient.get<any, any>('/api/users/my-landlord-request');
   },
 
   // 3. Khiếu nại (ComplaintController)

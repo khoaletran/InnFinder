@@ -17,8 +17,18 @@ import com.innfinder.backend.repository.PhieuDatLichRepository;
 import com.innfinder.backend.repository.PhongTroRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
+import com.innfinder.backend.dto.response.LandlordRequestResponseDTO;
+import com.innfinder.backend.entity.ChuTro;
+import com.innfinder.backend.entity.TaiKhoanNganHang;
+import com.innfinder.backend.entity.YeuCauChuTro;
+import com.innfinder.backend.entity.enums.TrangThaiYeuCauChuTro;
+import com.innfinder.backend.repository.ChuTroRepository;
+import com.innfinder.backend.repository.TaiKhoanNganHangRepository;
+import com.innfinder.backend.repository.YeuCauChuTroRepository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +39,9 @@ public class AdminService {
     private final PhongTroRepository phongTroRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final PhieuDatLichRepository phieuDatLichRepository;
+    private final YeuCauChuTroRepository yeuCauChuTroRepository;
+    private final ChuTroRepository chuTroRepository;
+    private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
 
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
@@ -163,5 +176,83 @@ public class AdminService {
                 .chuTro(u.getChuTro())
                 .trangThaiKhoa(u.getTrangThaiKhoa())
                 .build();
+    }
+
+    // ==========================================
+    // QUẢN LÝ ĐƠN ĐĂNG KÝ CHỦ TRỌ
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public List<LandlordRequestResponseDTO> getLandlordRequests() {
+        return yeuCauChuTroRepository.findAllByOrderByNgayGuiDesc()
+                .stream()
+                .map(LandlordRequestResponseDTO::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public LandlordRequestResponseDTO getLandlordRequestById(String id) {
+        YeuCauChuTro yc = yeuCauChuTroRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));
+        return LandlordRequestResponseDTO.fromEntity(yc);
+    }
+
+    @Transactional
+    public LandlordRequestResponseDTO approveLandlordRequest(String id) {
+        YeuCauChuTro yc = yeuCauChuTroRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));
+
+        if (yc.getTrangThai() != TrangThaiYeuCauChuTro.CHO_DUYET) {
+            throw new RuntimeException("Đơn đăng ký không ở trạng thái chờ duyệt!");
+        }
+
+        // 1. Cập nhật trạng thái đơn
+        yc.setTrangThai(TrangThaiYeuCauChuTro.DA_DUYET);
+        yc.setNgayDuyet(LocalDateTime.now());
+        yc = yeuCauChuTroRepository.save(yc);
+
+        // 2. Kích hoạt vai trò Chủ trọ cho người dùng
+        NguoiDung user = yc.getNguoiDung();
+        user.setCccd(yc.getCccd());
+        user.setChuTro(true);
+        nguoiDungRepository.save(user);
+
+        // 3. Khởi tạo bản ghi ChuTro nếu chưa có (100 điểm uy tín, số dư = 0)
+        chuTroRepository.findById(user.getMaNguoiDung())
+                .orElseGet(() -> chuTroRepository.save(ChuTro.builder()
+                        .maChuTro(user.getMaNguoiDung())
+                        .nguoiDung(user)
+                        .diemUyTin(100)
+                        .soDu(0L)
+                        .build()));
+
+        // 4. Lưu tài khoản ngân hàng thụ hưởng
+        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
+                .soTaiKhoan(yc.getSoTaiKhoan())
+                .tenNganHang(yc.getTenNganHang())
+                .nguoiDung(user)
+                .build();
+        taiKhoanNganHangRepository.save(tk);
+
+        return LandlordRequestResponseDTO.fromEntity(yc);
+    }
+
+    @Transactional
+    public LandlordRequestResponseDTO rejectLandlordRequest(String id, RejectLandlordRequestDTO request) {
+        YeuCauChuTro yc = yeuCauChuTroRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));
+
+        if (yc.getTrangThai() != TrangThaiYeuCauChuTro.CHO_DUYET) {
+            throw new RuntimeException("Đơn đăng ký không ở trạng thái chờ duyệt!");
+        }
+
+        yc.setTrangThai(TrangThaiYeuCauChuTro.TU_CHOI);
+        yc.setNgayDuyet(LocalDateTime.now());
+        yc.setLyDoTuChoi(request != null && request.getLyDo() != null && !request.getLyDo().isBlank()
+                ? request.getLyDo()
+                : "Hồ sơ không đáp ứng tiêu chuẩn xét duyệt");
+
+        yc = yeuCauChuTroRepository.save(yc);
+        return LandlordRequestResponseDTO.fromEntity(yc);
     }
 }

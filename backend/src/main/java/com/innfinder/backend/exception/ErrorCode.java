@@ -33,7 +33,8 @@ public enum ErrorCode {
     CANNOT_BOOK_OWN_ROOM("Bạn không thể tự đặt lịch xem phòng trọ của chính mình", HttpStatus.BAD_REQUEST),
     INVALID_APPOINTMENT_STATUS("Trạng thái lịch hẹn không hợp lệ để thực hiện thao tác này", HttpStatus.BAD_REQUEST),
     NOT_APPOINTMENT_OWNER("Bạn không có quyền thao tác trên lịch hẹn này", HttpStatus.FORBIDDEN),
-    INSUFFICIENT_BALANCE("Số dư ví không đủ để thực hiện yêu cầu rút tiền", HttpStatus.BAD_REQUEST);
+    INSUFFICIENT_BALANCE("Số dư ví không đủ để thực hiện yêu cầu rút tiền", HttpStatus.BAD_REQUEST),
+    LANDLORD_REQUEST_NOT_FOUND("Không tìm thấy đơn đăng ký chủ trọ", HttpStatus.NOT_FOUND);
 
     private final String message;
     private final HttpStatus statusCode;

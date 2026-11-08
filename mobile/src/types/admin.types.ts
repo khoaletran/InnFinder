@@ -86,6 +86,8 @@ export interface AdminLandlordRequestItem {
   email: string;
   sdt: string;
   cccd: string;
+  anhCccdTruoc?: string;
+  anhCccdSau?: string;
   tenNganHang: string;
   soTaiKhoan: string;
   tenChuTaiKhoan?: string;
