@@ -120,9 +120,10 @@ export default function DepositPaymentScreen() {
         [
           {
             text: "Xem lịch hẹn",
-            onPress: () => router.replace("/booking/appointments"),
+            onPress: () => router.replace("/(tenant)/appointments"),
           },
         ],
+        { cancelable: false },
       );
     } catch (err: any) {
       setIsSubmitting(false);
