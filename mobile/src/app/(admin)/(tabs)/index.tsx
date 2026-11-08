@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
 import { adminService } from '../../../services/admin.service';
@@ -23,6 +23,12 @@ export default function AdminDashboardScreen() {
     loadData();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -32,6 +38,18 @@ export default function AdminDashboardScreen() {
   const displayName = user?.hoVaTen || user?.tenDangNhap || 'Admin';
   const pendingAlertCount =
     (stats?.hangDoi.tinMoi || 0) + (stats?.hangDoi.baoCaoViPham || 0);
+
+  const handleBellPress = () => {
+    if ((stats?.hangDoi.tinMoi || 0) > 0) {
+      router.push({ pathname: '/(admin)/processing', params: { tab: 'posts' } } as any);
+    } else if ((stats?.hangDoi.baoCaoViPham || 0) > 0) {
+      router.push({ pathname: '/(admin)/processing', params: { tab: 'complaints' } } as any);
+    } else if ((stats?.hangDoi.xacMinhChuTro || 0) > 0) {
+      router.push({ pathname: '/(admin)/processing', params: { tab: 'landlords' } } as any);
+    } else {
+      router.push({ pathname: '/(admin)/processing', params: { tab: 'posts' } } as any);
+    }
+  };
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
@@ -48,7 +66,7 @@ export default function AdminDashboardScreen() {
         {/* 2. Actions: Chuông thông báo & Avatar */}
         <View className="flex-row items-center gap-2.5">
           <Pressable
-            onPress={() => router.push({ pathname: '/(admin)/processing', params: { tab: 'complaints' } } as any)}
+            onPress={handleBellPress}
             className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center relative active:bg-slate-200"
           >
             <Ionicons name="notifications-outline" size={19} color="#334155" />

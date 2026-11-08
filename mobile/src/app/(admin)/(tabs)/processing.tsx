@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   RefreshControl,
-  Image,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Chip } from 'heroui-native';
 import { adminService } from '../../../services/admin.service';
@@ -28,9 +27,13 @@ export default function AdminProcessingScreen() {
     (params.tab as ProcessingSection) || 'landlords'
   );
 
+  // Sub-filter tab for each section
+  const [subFilter, setSubFilter] = useState('Chờ duyệt');
+
   useEffect(() => {
     if (params.tab && ['landlords', 'posts', 'complaints'].includes(params.tab)) {
       setSection(params.tab as ProcessingSection);
+      setSubFilter(params.tab === 'complaints' ? 'Chờ xử lý' : 'Chờ duyệt');
     }
   }, [params.tab]);
 
@@ -39,9 +42,6 @@ export default function AdminProcessingScreen() {
   const [posts, setPosts] = useState<AdminPostItem[]>([]);
   const [complaints, setComplaints] = useState<AdminComplaintItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Sub-filter tab for each section
-  const [subFilter, setSubFilter] = useState('Chờ duyệt');
 
   const loadData = async () => {
     const [lList, pList, cList] = await Promise.all([
@@ -57,6 +57,12 @@ export default function AdminProcessingScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -1,10 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BackHandler, Alert, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/theme';
+import { adminService } from '../../../services/admin.service';
 
 export default function AdminTabsLayout() {
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const fetchBadge = async () => {
+    try {
+      const stats = await adminService.getDashboardStats();
+      const count =
+        (stats?.hangDoi?.tinMoi || 0) + (stats?.hangDoi?.baoCaoViPham || 0);
+      setPendingCount(count);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchBadge();
+    const interval = setInterval(fetchBadge, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Ngăn chặn phím cứng Back trên Android thoát khỏi Admin ngoài ý muốn
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -56,6 +76,12 @@ export default function AdminTabsLayout() {
         name="processing"
         options={{
           title: 'Xử lý',
+          tabBarBadge: pendingCount > 0 ? (pendingCount > 99 ? '99+' : pendingCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#E11D48',
+            fontSize: 10,
+            fontWeight: 'bold',
+          },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="construct-outline" size={size} color={color as string} />
           ),

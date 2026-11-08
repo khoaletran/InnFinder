@@ -9,9 +9,15 @@ interface PostApprovalCardProps {
   onPress: () => void;
 }
 
+const DEFAULT_ROOM_IMAGE = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267';
+
 export const PostApprovalCard: React.FC<PostApprovalCardProps> = ({ post, onPress }) => {
   const isPending = post.trangThai === 'CHO_DUYET';
   const isApproved = post.trangThai === 'DA_DUYET';
+  const imageUrl =
+    post.hinhAnh && post.hinhAnh.length > 0 && post.hinhAnh[0]
+      ? post.hinhAnh[0]
+      : DEFAULT_ROOM_IMAGE;
 
   const formatPrice = (price: number) => {
     if (!price) return '0 đ/tháng';
@@ -26,7 +32,7 @@ export const PostApprovalCard: React.FC<PostApprovalCardProps> = ({ post, onPres
     <Pressable onPress={onPress} className="mb-3 active:opacity-90">
       <Card className="flex-row p-3 bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         <Image
-          source={{ uri: post.hinhAnh[0] }}
+          source={{ uri: imageUrl }}
           className="w-24 h-24 rounded-xl bg-slate-100"
           resizeMode="cover"
         />

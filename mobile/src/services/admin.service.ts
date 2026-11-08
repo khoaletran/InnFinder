@@ -2,13 +2,13 @@ import { axiosClient } from '../api/axiosClient';
 import {
   AdminDashboardStats,
   AdminUserItem,
+  AdminLandlordRequestItem,
   AdminPostItem,
   AdminComplaintItem,
   AdminTransactionItem,
   AdminReviewItem,
   AdminAppointmentItem,
   AdminCategoryItem,
-  AdminLandlordRequestItem,
 } from '../types/admin.types';
 
 export const adminService = {
@@ -16,14 +16,15 @@ export const adminService = {
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/statistics');
-      const d = res?.data;
+      const d = res?.data !== undefined ? res.data : res;
 
       // Tra cứu số khiếu nại đang chờ xử lý từ API khiếu nại
       let soKhieuNai = 0;
       try {
         const cRes = await axiosClient.get<any, any>('/api/admin/complaints');
-        if (Array.isArray(cRes?.data)) {
-          soKhieuNai = cRes.data.filter(
+        const cList = Array.isArray(cRes) ? cRes : (cRes?.data || []);
+        if (Array.isArray(cList)) {
+          soKhieuNai = cList.filter(
             (c: any) => c.trangThai === 'CHO_XU_LY' || c.trangThai === 'CHO_DUYET'
           ).length;
         }
@@ -80,7 +81,7 @@ export const adminService = {
   getUsers: async (role?: string): Promise<AdminUserItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/users', { params: { role } });
-      const list = res?.data;
+      const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((u: any) => ({
           maNguoiDung: u.maNguoiDung || '',
@@ -140,8 +141,9 @@ export const adminService = {
   getLandlordRequests: async (): Promise<AdminLandlordRequestItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/landlord-requests');
-      if (Array.isArray(res?.data)) {
-        return res.data.map((r: any) => ({
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map((r: any) => ({
           maYeuCau: r.maYeuCau || `YC${r.maNguoiDung || ''}`,
           maNguoiDung: r.maNguoiDung || '',
           hoVaTen: r.hoVaTen || r.tenDangNhap || 'Người dùng',
@@ -209,11 +211,11 @@ export const adminService = {
   getPosts: async (_status?: string): Promise<AdminPostItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/rooms/pending');
-      const list = res?.data;
+      const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((r: any) => ({
           maPhongTro: r.maPhongTro || '',
-          tieuDe: r.tieuDe || 'Phòng trọ cho thuê',
+          tieuDe: r.tieuDe || `${r.tenLoaiPhong || 'Phòng trọ'} - ${r.diaChi || 'Cho thuê'}`,
           diaChi: r.diaChi || '',
           giaThue: r.giaThue || 0,
           dienTich: r.dienTich || 0,
@@ -225,7 +227,10 @@ export const adminService = {
             : '',
           tenChuTro: r.tenChuTro || 'Chủ trọ',
           sdtChuTro: r.sdtChuTro || '',
-          hinhAnh: Array.isArray(r.hinhAnhUrls) ? r.hinhAnhUrls : [],
+          hinhAnh:
+            Array.isArray(r.hinhAnhUrls) && r.hinhAnhUrls.length > 0
+              ? r.hinhAnhUrls
+              : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'],
           moTa: r.moTa || '',
           tienIch: [],
           cocPhong: r.coc || 0,
@@ -246,11 +251,11 @@ export const adminService = {
 
       // 2. Nếu không có trong pending, thử lấy chi tiết từ public room endpoint
       const res = await axiosClient.get<any, any>(`/api/rooms/${id}`);
-      const r = res?.data;
-      if (r) {
+      const r = res?.data !== undefined ? res.data : res;
+      if (r && r.maPhongTro) {
         return {
           maPhongTro: r.maPhongTro || id,
-          tieuDe: r.tieuDe || 'Phòng trọ cho thuê',
+          tieuDe: r.tieuDe || `${r.tenLoaiPhong || 'Phòng trọ'} - ${r.diaChi || 'Cho thuê'}`,
           diaChi: r.diaChi || '',
           giaThue: r.giaThue || 0,
           dienTich: r.dienTich || 0,
@@ -262,9 +267,12 @@ export const adminService = {
             : '',
           tenChuTro: r.tenChuTro || 'Chủ trọ',
           sdtChuTro: r.sdtChuTro || '',
-          hinhAnh: Array.isArray(r.hinhAnhUrls) ? r.hinhAnhUrls : [],
+          hinhAnh:
+            Array.isArray(r.hinhAnhUrls) && r.hinhAnhUrls.length > 0
+              ? r.hinhAnhUrls
+              : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'],
           moTa: r.moTa || '',
-          tienIch: Array.isArray(r.tienIch) ? r.tienIch : [],
+          tienIch: [],
           cocPhong: r.coc || 0,
         };
       }
@@ -296,7 +304,7 @@ export const adminService = {
   getComplaints: async (_status?: string): Promise<AdminComplaintItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/complaints');
-      const list = res?.data;
+      const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((c: any) => ({
           maKhieuNai: c.maKhieuNai || '',
@@ -339,7 +347,7 @@ export const adminService = {
   getTransactions: async (): Promise<AdminTransactionItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/transactions/my-history');
-      const list = res?.data;
+      const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((t: any) => ({
           maGiaoDich: t.maGiaoDich || '',
@@ -393,8 +401,9 @@ export const adminService = {
   getReviews: async (): Promise<AdminReviewItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/landlord/reviews');
-      if (Array.isArray(res?.data)) {
-        return res.data.map((r: any) => ({
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      if (Array.isArray(list)) {
+        return list.map((r: any) => ({
           maDanhGia: r.maDanhGia || String(r.id || ''),
           phongTroId: r.maPhongTro || '',
           tenPhongTro: r.tenPhongTro || 'Phòng trọ',
@@ -415,8 +424,9 @@ export const adminService = {
   getReviewsByRoom: async (roomId: string): Promise<AdminReviewItem[]> => {
     try {
       const res = await axiosClient.get<any, any>(`/api/rooms/${roomId}/reviews`);
-      if (Array.isArray(res?.data)) {
-        return res.data.map((r: any) => ({
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      if (Array.isArray(list)) {
+        return list.map((r: any) => ({
           maDanhGia: r.maDanhGia || String(r.id || ''),
           phongTroId: roomId,
           tenPhongTro: r.tenPhongTro || 'Phòng trọ',
@@ -447,7 +457,7 @@ export const adminService = {
   getAppointments: async (): Promise<AdminAppointmentItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/appointments/my-appointments');
-      const list = res?.data;
+      const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((a: any) => ({
           maDatLich: a.maDatLich || '',
@@ -482,8 +492,9 @@ export const adminService = {
     try {
       if (type === 'TIEN_ICH') {
         const res = await axiosClient.get<any, any>('/api/categories/amenities');
-        if (Array.isArray(res?.data)) {
-          return res.data.map((a: any) => ({
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (Array.isArray(list)) {
+          return list.map((a: any) => ({
             ma: a.maTienIch,
             ten: a.tenTienIch,
             loai: 'TIEN_ICH',
@@ -492,8 +503,9 @@ export const adminService = {
         }
       } else if (type === 'LOAI_PHONG') {
         const res = await axiosClient.get<any, any>('/api/categories/room-types');
-        if (Array.isArray(res?.data)) {
-          return res.data.map((c: any) => ({
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (Array.isArray(list)) {
+          return list.map((c: any) => ({
             ma: c.maLpt || c.maLPT,
             ten: c.tenLoaiPhongTro,
             loai: 'LOAI_PHONG',
