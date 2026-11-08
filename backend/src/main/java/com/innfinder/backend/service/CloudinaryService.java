@@ -134,10 +134,13 @@ public class CloudinaryService {
             log.warn("File vượt quá kích thước 10MB cho phép: {} bytes", file.getSize());
             throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
         }
-        // Kiểm tra Content-Type
+        // Kiểm tra Content-Type hoặc phần mở rộng của file
         String contentType = file.getContentType();
-        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
-            log.warn("File không phải định dạng hình ảnh hợp lệ: {}", contentType);
+        String originalFilename = file.getOriginalFilename();
+        boolean isImageByExt = originalFilename != null &&
+                originalFilename.toLowerCase().matches(".*\\.(jpg|jpeg|png|webp|gif|bmp|heic)$");
+        if ((contentType == null || !contentType.toLowerCase().startsWith("image/")) && !isImageByExt) {
+            log.warn("File không phải định dạng hình ảnh hợp lệ: {}, tên file: {}", contentType, originalFilename);
             throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
         }
     }
