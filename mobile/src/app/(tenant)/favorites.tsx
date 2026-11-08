@@ -113,7 +113,7 @@ export default function TenantFavoritesScreen() {
               <Button
                 variant="primary"
                 size="md"
-                onPress={() => router.push("/(tenant)/index")}
+                onPress={() => router.push("/(tenant)" as any)}
                 className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
               >
                 <Button.Label className="text-white font-bold text-xs">
