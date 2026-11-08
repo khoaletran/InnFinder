@@ -39,6 +39,7 @@ public enum ErrorCode {
     LANDLORD_REQUEST_NOT_FOUND("Không tìm thấy đơn đăng ký chủ trọ", HttpStatus.NOT_FOUND),
     DEPOSIT_NOT_REFUNDED_YET("Khách hàng cần xác nhận đã nhận lại cọc từ Chủ trọ trước khi đưa ra quyết định thuê", HttpStatus.BAD_REQUEST),
     DEPOSIT_ALREADY_REFUNDED("Khách hàng đã xác nhận nhận lại cọc cho lịch hẹn này rồi", HttpStatus.BAD_REQUEST),
+    DEPOSIT_NOT_PAID_YET("Khách hàng chưa nộp tiền cọc giữ chân cho lịch hẹn này", HttpStatus.BAD_REQUEST),
 
     // --- GIAO DỊCH & KHO TIỀN HỆ THỐNG ---
     TRANSACTION_NOT_FOUND("Không tìm thấy thông tin giao dịch", HttpStatus.NOT_FOUND),

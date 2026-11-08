@@ -157,6 +157,7 @@ export const landlordService = {
             phiThu: Number(a.phiThu) || 0,
             hinhAnh: a.hinhAnh,
             daNhanLaiCoc: !!a.daNhanLaiCoc,
+            daNopCoc: !!a.daNopCoc,
             khachHangDongY: a.khachHangDongY,
             chuTroDongY: a.chuTroDongY,
           }))

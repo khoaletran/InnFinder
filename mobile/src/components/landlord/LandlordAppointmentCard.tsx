@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, Linking, Modal, ScrollView } from 'react-native';
+import { View, Text, Pressable, Linking, Modal, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button } from 'heroui-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -171,27 +171,49 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
 
           {/* Các nút hành động chính */}
           {appointment.trangThai === 'CHO_XAC_NHAN' && (
-            <View className="flex-row gap-2 mt-3 pt-2.5 border-t border-gray-100">
-              <View className="flex-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() => onReject(appointment.id)}
-                  className="w-full border-rose-200 active:bg-rose-50"
-                >
-                  <Button.Label className="text-rose-600 text-xs font-medium">Từ chối</Button.Label>
-                </Button>
-              </View>
+            <View className="mt-3 pt-2.5 border-t border-gray-100">
+              {cocAmount > 0 && !appointment.daNopCoc && (
+                <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex-row items-center gap-2 mb-2.5">
+                  <Ionicons name="time-outline" size={16} color="#D97706" />
+                  <Text className="text-xs text-amber-800 flex-1 leading-4">
+                    Khách chưa nộp cọc giữ chân. Vui lòng chờ khách nộp cọc trước khi xác nhận.
+                  </Text>
+                </View>
+              )}
 
-              <View className="flex-1">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onPress={() => onConfirm(appointment.id)}
-                  className="w-full bg-teal-700"
-                >
-                  <Button.Label className="text-white text-xs font-bold">Xác nhận lịch xem</Button.Label>
-                </Button>
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => onReject(appointment.id)}
+                    className="w-full border-rose-200 active:bg-rose-50"
+                  >
+                    <Button.Label className="text-rose-600 text-xs font-medium">Từ chối</Button.Label>
+                  </Button>
+                </View>
+
+                <View className="flex-1">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onPress={() => {
+                      if (cocAmount > 0 && !appointment.daNopCoc) {
+                        Alert.alert(
+                          'Chưa thể xác nhận',
+                          'Khách hàng chưa hoàn tất nộp cọc giữ chân cho lịch hẹn này. Bạn chỉ có thể xác nhận sau khi khách hàng đã nộp cọc thành công.'
+                        );
+                        return;
+                      }
+                      onConfirm(appointment.id);
+                    }}
+                    className={`w-full ${cocAmount > 0 && !appointment.daNopCoc ? 'bg-slate-300' : 'bg-teal-700'}`}
+                  >
+                    <Button.Label className={`text-xs font-bold ${cocAmount > 0 && !appointment.daNopCoc ? 'text-slate-600' : 'text-white'}`}>
+                      {cocAmount > 0 && !appointment.daNopCoc ? 'Chờ khách nộp cọc' : 'Xác nhận lịch xem'}
+                    </Button.Label>
+                  </Button>
+                </View>
               </View>
             </View>
           )}
@@ -456,33 +478,53 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
 
             {/* Các nút hành động bên trong modal */}
             {appointment.trangThai === 'CHO_XAC_NHAN' && (
-              <View className="flex-row gap-2 mt-2">
-                <View className="flex-1">
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onPress={() => {
-                      setDetailVisible(false);
-                      onReject(appointment.id);
-                    }}
-                    className="w-full border-rose-200 active:bg-rose-50"
-                  >
-                    <Button.Label className="text-rose-600 text-xs font-bold">Từ chối lịch</Button.Label>
-                  </Button>
-                </View>
+              <View className="mt-2">
+                {cocAmount > 0 && !appointment.daNopCoc && (
+                  <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex-row items-center gap-2 mb-2">
+                    <Ionicons name="time-outline" size={16} color="#D97706" />
+                    <Text className="text-xs text-amber-800 flex-1 leading-4">
+                      Khách chưa nộp cọc giữ chân. Vui lòng chờ khách nộp cọc trước khi xác nhận.
+                    </Text>
+                  </View>
+                )}
 
-                <View className="flex-1">
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onPress={() => {
-                      setDetailVisible(false);
-                      onConfirm(appointment.id);
-                    }}
-                    className="w-full bg-teal-700"
-                  >
-                    <Button.Label className="text-white text-xs font-bold">Xác nhận lịch xem</Button.Label>
-                  </Button>
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onPress={() => {
+                        setDetailVisible(false);
+                        onReject(appointment.id);
+                      }}
+                      className="w-full border-rose-200 active:bg-rose-50"
+                    >
+                      <Button.Label className="text-rose-600 text-xs font-bold">Từ chối lịch</Button.Label>
+                    </Button>
+                  </View>
+
+                  <View className="flex-1">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onPress={() => {
+                        if (cocAmount > 0 && !appointment.daNopCoc) {
+                          Alert.alert(
+                            'Chưa thể xác nhận',
+                            'Khách hàng chưa hoàn tất nộp cọc giữ chân cho lịch hẹn này. Bạn chỉ có thể xác nhận sau khi khách hàng đã nộp cọc thành công.'
+                          );
+                          return;
+                        }
+                        setDetailVisible(false);
+                        onConfirm(appointment.id);
+                      }}
+                      className={`w-full ${cocAmount > 0 && !appointment.daNopCoc ? 'bg-slate-300' : 'bg-teal-700'}`}
+                    >
+                      <Button.Label className={`text-xs font-bold ${cocAmount > 0 && !appointment.daNopCoc ? 'text-slate-600' : 'text-white'}`}>
+                        {cocAmount > 0 && !appointment.daNopCoc ? 'Chờ khách nộp cọc' : 'Xác nhận lịch xem'}
+                      </Button.Label>
+                    </Button>
+                  </View>
                 </View>
               </View>
             )}

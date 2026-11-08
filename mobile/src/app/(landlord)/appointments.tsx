@@ -101,6 +101,15 @@ export default function AppointmentsScreen() {
 
   // Xác nhận lịch hẹn xem phòng
   const handleConfirm = (id: string) => {
+    const apt = allAppointments.find((a) => a.id === id);
+    if (apt && (apt.coc || 0) > 0 && !apt.daNopCoc) {
+      Alert.alert(
+        'Chưa thể xác nhận',
+        'Khách hàng chưa hoàn tất nộp cọc giữ chân cho lịch hẹn này. Bạn chỉ có thể xác nhận sau khi khách hàng đã nộp cọc thành công.'
+      );
+      return;
+    }
+
     Alert.alert(
       'Xác nhận lịch hẹn',
       'Bạn có chắc chắn muốn xác nhận lịch hẹn xem phòng này?',

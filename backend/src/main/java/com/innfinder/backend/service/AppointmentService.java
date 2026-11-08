@@ -213,6 +213,15 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
+        // RÀNG BUỘC SWIMLANE: Nếu lịch hẹn yêu cầu cọc thì khách hàng bắt buộc phải nộp cọc trước khi chủ trọ xác nhận
+        if (phieu.getCoc() != null && phieu.getCoc() > 0) {
+            boolean daNop = phieu.getKhachHang() != null &&
+                    daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+            if (!daNop) {
+                throw new AppException(ErrorCode.DEPOSIT_NOT_PAID_YET);
+            }
+        }
+
         phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
         phieuDatLichRepository.save(phieu);
     }

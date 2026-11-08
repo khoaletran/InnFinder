@@ -50,6 +50,15 @@ export default function LandlordDashboardScreen() {
   };
 
   const handleConfirm = async (id: string) => {
+    const apt = appointments.find((a) => a.id === id);
+    if (apt && (apt.coc || 0) > 0 && !apt.daNopCoc) {
+      Alert.alert(
+        'Chưa thể xác nhận',
+        'Khách hàng chưa hoàn tất nộp cọc giữ chân cho lịch hẹn này. Bạn chỉ có thể xác nhận sau khi khách hàng đã nộp cọc thành công.'
+      );
+      return;
+    }
+
     try {
       await landlordService.confirmAppointment(id);
       Alert.alert('Thành công', 'Đã xác nhận lịch xem phòng của khách thành công!');
