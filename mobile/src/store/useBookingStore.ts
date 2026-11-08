@@ -90,12 +90,15 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         isLoading: false,
       });
     } catch (err: any) {
+      const isAuthError =
+        err.response?.status === 401 || err.response?.status === 403;
       set({
         appointments: [],
-        error:
-          err.response?.data?.message ||
-          err.message ||
-          "Không thể tải lịch hẹn",
+        error: isAuthError
+          ? null
+          : err.response?.data?.message ||
+            err.message ||
+            "Không thể tải lịch hẹn",
         isLoading: false,
       });
     }
