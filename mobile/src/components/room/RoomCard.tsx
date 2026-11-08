@@ -8,6 +8,7 @@ import { router } from "expo-router";
 import { RoomSummaryResponse } from "../../types/room.types";
 import { useFilterStore } from "../../store/useFilterStore";
 import { roomService } from "../../services/room.service";
+import { useAuthStore } from "../../store/useAuthStore";
 
 interface RoomCardProps {
   room: RoomSummaryResponse;
@@ -20,7 +21,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   variant = "vertical",
   isHighlighted = false,
 }) => {
-  const { favoriteIds, toggleFavoriteLocal } = useFilterStore();
+  const { favoriteIds, toggleFavorite } = useFilterStore();
+  const { isAuthenticated } = useAuthStore();
   const isFavorite = favoriteIds.includes(room.maPhongTro);
 
   const formatPrice = (price?: number) => {
@@ -33,16 +35,20 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   };
 
   const handleFavoritePress = async (e: any) => {
-    e.stopPropagation();
-    const nextState = toggleFavoriteLocal(room.maPhongTro);
-    try {
-      if (nextState) {
-        await roomService.addFavorite(room.maPhongTro);
-      } else {
-        await roomService.removeFavorite(room.maPhongTro);
+    e?.stopPropagation?.();
+    const nextState = await toggleFavorite(room, isAuthenticated);
+
+    // Nếu ĐÃ ĐĂNG NHẬP thì đồng bộ thêm lên Backend
+    if (isAuthenticated) {
+      try {
+        if (nextState) {
+          await roomService.addFavorite(room.maPhongTro);
+        } else {
+          await roomService.removeFavorite(room.maPhongTro);
+        }
+      } catch (err) {
+        console.warn("Lỗi sync yêu thích lên backend:", err);
       }
-    } catch {
-      toggleFavoriteLocal(room.maPhongTro);
     }
   };
 

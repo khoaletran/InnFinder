@@ -2,15 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PostStatusCard } from '../../components/landlord/PostStatusCard';
 import { landlordService } from '../../services/landlord.service';
 import { LandlordPostItem } from '../../types/landlord.types';
 
 export default function MyPostsScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED'>('ALL');
+  const params = useLocalSearchParams<{ status?: 'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED'; postId?: string }>();
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED'>(params.status || 'ALL');
   const [posts, setPosts] = useState<LandlordPostItem[]>([]);
+
+  useEffect(() => {
+    if (params.status) {
+      setActiveTab(params.status);
+    }
+  }, [params.status]);
 
   useEffect(() => {
     loadPosts();

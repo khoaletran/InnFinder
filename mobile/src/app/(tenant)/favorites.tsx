@@ -1,43 +1,65 @@
 // mobile/src/app/(tenant)/favorites.tsx
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import { Button } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { roomService } from "../../services/room.service";
 import { RoomSummaryResponse } from "../../types/room.types";
 import { useFilterStore } from "../../store/useFilterStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { RoomCard } from "../../components/room/RoomCard";
 
 export default function TenantFavoritesScreen() {
-  const [favorites, setFavorites] = useState<RoomSummaryResponse[]>([]);
+  const { favoriteIds, localFavoriteRooms, loadFavoritesFromStorage } =
+    useFilterStore();
+  const { isAuthenticated } = useAuthStore();
+  const [backendFavorites, setBackendFavorites] = useState<
+    RoomSummaryResponse[]
+  >([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const { favoriteIds } = useFilterStore();
 
   useEffect(() => {
-    fetchFavorites();
-  }, [favoriteIds.length]);
+    loadData();
+  }, [isAuthenticated]);
 
-  const fetchFavorites = async () => {
-    try {
-      setLoading(true);
-      const data = await roomService.getMyFavorites();
-      setFavorites(data || []);
-      useFilterStore
-        .getState()
-        .setFavoriteIds((data || []).map((r) => r.maPhongTro));
-    } catch (error) {
-      console.warn("Lỗi lấy phòng yêu thích:", error);
-    } finally {
-      setLoading(false);
+  const loadData = async () => {
+    setLoading(true);
+    // 1. Luôn đọc các phòng từ AsyncStorage trong máy trước
+    await loadFavoritesFromStorage();
+
+    // 2. Nếu đã đăng nhập: chỉ tải thêm danh sách của tài khoản về để hiển thị chung
+    if (isAuthenticated) {
+      try {
+        const data = await roomService.getMyFavorites();
+        setBackendFavorites(data || []);
+
+        const backendIds = (data || []).map((r) => r.maPhongTro);
+        const currentIds = useFilterStore.getState().favoriteIds;
+        // Gộp thêm ID backend vào ID trong máy
+        useFilterStore
+          .getState()
+          .setFavoriteIds(Array.from(new Set([...currentIds, ...backendIds])));
+      } catch (e) {
+        console.warn("Lỗi lấy yêu thích từ backend:", e);
+      }
     }
+    setLoading(false);
   };
 
+  // 3. Gộp cả phòng từ máy (AsyncStorage) và phòng từ Backend lại để hiển thị (bỏ trùng)
+  const combinedRooms = Array.from(
+    new Map(
+      [...localFavoriteRooms, ...backendFavorites].map((item) => [
+        item.maPhongTro,
+        item,
+      ]),
+    ).values(),
+  );
+
+  const displayFavorites = combinedRooms.filter((r) =>
+    favoriteIds.includes(r.maPhongTro),
+  );
   return (
     <View className="flex-1 pt-safe bg-slate-50">
       {/* 1. Header chuẩn phong cách InnFinder */}
@@ -53,7 +75,7 @@ export default function TenantFavoritesScreen() {
           </View>
           <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
             <Text className="text-xs font-bold text-teal-700">
-              {favorites.length} phòng
+              {favoriteIds.length} phòng
             </Text>
           </View>
         </View>
@@ -66,7 +88,7 @@ export default function TenantFavoritesScreen() {
         </View>
       ) : (
         <FlatList
-          data={favorites}
+          data={displayFavorites}
           keyExtractor={(item) => item.maPhongTro}
           renderItem={({ item }) => (
             <RoomCard room={item} variant="horizontal" />

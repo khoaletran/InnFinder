@@ -1,8 +1,18 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Card, Button } from 'heroui-native';
 import { WeekCalendarStrip, formatDateKey } from '../../components/landlord/WeekCalendarStrip';
 import { LandlordAppointmentCard } from '../../components/landlord/LandlordAppointmentCard';
@@ -13,22 +23,16 @@ const PAGE_SIZE = 5;
 const DAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export default function AppointmentsScreen() {
-  const params = useLocalSearchParams<{ status?: string }>();
+  const params = useLocalSearchParams<{ status?: string; appointmentId?: string }>();
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDateKey(new Date()));
   const [viewMode, setViewMode] = useState<'BY_DATE' | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY'>(
     (params.status as any) || 'ALL'
   );
 
-  useEffect(() => {
-    if (params.status) {
-      setStatusFilter(params.status as any);
-      setViewMode('ALL');
-    }
-  }, [params.status]);
-  
   const [allAppointments, setAllAppointments] = useState<LandlordAppointmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Modal từ chối / không thuê kèm lý do
@@ -38,17 +42,12 @@ export default function AppointmentsScreen() {
   const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'CANCEL_RENTAL'>('REJECT');
   const [submittingAction, setSubmittingAction] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  // Reset trang khi đổi bộ lọc
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedDate, viewMode, statusFilter]);
-
-  const loadAppointments = async () => {
-    setLoading(true);
+  const loadAppointments = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const list = await landlordService.getAppointments();
       setAllAppointments(list);
@@ -56,8 +55,37 @@ export default function AppointmentsScreen() {
       setAllAppointments([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
+
+  // Tự động tải lại mỗi khi màn hình được Focus / hiển thị lại
+  useFocusEffect(
+    useCallback(() => {
+      loadAppointments();
+    }, [loadAppointments])
+  );
+
+  useEffect(() => {
+    if (params.status) {
+      setStatusFilter(params.status as any);
+      setViewMode('ALL');
+      setCurrentPage(1);
+    }
+    if (params.appointmentId && allAppointments.length > 0) {
+      const targetApt = allAppointments.find((a) => a.id === params.appointmentId);
+      if (targetApt?.trangThai) {
+        setStatusFilter(targetApt.trangThai);
+        setViewMode('ALL');
+        setCurrentPage(1);
+      }
+    }
+  }, [params.status, params.appointmentId, allAppointments]);
+
+  // Reset trang khi đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate, viewMode, statusFilter]);
 
   // Xác nhận lịch hẹn xem phòng
   const handleConfirm = (id: string) => {
@@ -151,7 +179,11 @@ export default function AppointmentsScreen() {
 
   // Lọc danh sách theo Chế độ xem & Trạng thái
   const filteredAppointments = useMemo(() => {
-    return allAppointments.filter((item) => {
+    const list = allAppointments.filter((item) => {
+      // Nếu có appointmentId đích, luôn đưa vào danh sách hiển thị
+      if (params.appointmentId && item.id === params.appointmentId) {
+        return true;
+      }
       // 1. Lọc theo ngày nếu ở chế độ BY_DATE
       if (viewMode === 'BY_DATE' && item.ngayHen !== selectedDate) {
         return false;
@@ -162,7 +194,17 @@ export default function AppointmentsScreen() {
       }
       return true;
     });
-  }, [allAppointments, viewMode, selectedDate, statusFilter]);
+
+    // Nếu có appointmentId, ưu tiên đẩy item đó lên đầu trang
+    if (params.appointmentId) {
+      const target = list.find((a) => a.id === params.appointmentId);
+      if (target) {
+        return [target, ...list.filter((a) => a.id !== params.appointmentId)];
+      }
+    }
+
+    return list;
+  }, [allAppointments, viewMode, selectedDate, statusFilter, params.appointmentId]);
 
   // Phân trang
   const totalAppointments = filteredAppointments.length;
@@ -190,8 +232,16 @@ export default function AppointmentsScreen() {
           <Text className="text-lg font-bold text-gray-900">Lịch xem phòng</Text>
           <Text className="text-xs text-gray-500">Quản lý lịch hẹn & xác nhận đặt phòng</Text>
         </View>
-        <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
-          <Text className="text-xs font-bold text-teal-700">{allAppointments.length} cuộc hẹn</Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => loadAppointments(true)}
+            className="p-1.5 rounded-full bg-gray-50 active:bg-gray-100 border border-gray-200"
+          >
+            <Ionicons name="refresh-outline" size={18} color="#475569" />
+          </Pressable>
+          <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+            <Text className="text-xs font-bold text-teal-700">{allAppointments.length} cuộc hẹn</Text>
+          </View>
         </View>
       </View>
 
@@ -265,6 +315,13 @@ export default function AppointmentsScreen() {
         className="px-4 py-4"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadAppointments(true)}
+            colors={['#0D9488']}
+          />
+        }
       >
         {/* Tiêu đề thông tin */}
         <View className="flex-row items-center justify-between mb-3">
@@ -298,6 +355,7 @@ export default function AppointmentsScreen() {
             <LandlordAppointmentCard
               key={apt.id}
               appointment={apt}
+              autoOpenDetail={apt.id === params.appointmentId}
               onConfirm={handleConfirm}
               onReject={handleOpenReject}
               onComplete={handleComplete}

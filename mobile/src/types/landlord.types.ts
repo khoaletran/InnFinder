@@ -1,9 +1,13 @@
 export interface LandlordDashboardStats {
   tongPhong: number;
-  tongPhongMoi: number;
+  phongChoDuyet: number;
   dangTrong: number;
-  yeuCauMoi: number;
-  dangThue: number;
+  tongDanhGia: number;
+  diemDanhGia: number | string;
+  soDu: number;
+  tongPhongMoi?: number;
+  yeuCauMoi?: number;
+  dangThue?: number;
 }
 
 export interface LandlordRoomItem {
@@ -16,6 +20,7 @@ export interface LandlordRoomItem {
   isRented?: boolean;
   hinhAnhUrl?: string;
   diaChi: string;
+  thoiGianDang?: string;
 }
 
 export interface LandlordPostItem {
@@ -37,6 +42,7 @@ export interface LandlordAppointmentItem {
   phongTen: string;
   thoiGian: string;
   ngayHen: string;
+  rawNgayHen?: string;
   ghiChu?: string;
   trangThai: 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY';
   maPhongTro?: string;
@@ -70,7 +76,29 @@ export interface LandlordTransactionItem {
   thucNhan: number;
   trangThai: 'THANH_CONG' | 'HOAN_TIEN' | 'CHO_THANH_TOAN' | 'THAT_BAI';
   ngayGiaoDich: string;
-  loaiGiaoDich: 'DA_THU' | 'HOAN_COC';
+  thoiGianTao?: string;
+  loaiGiaoDich: 'DA_THU' | 'HOAN_COC' | 'RUT_TIEN';
+}
+
+export interface BankAccountItem {
+  id?: number;
+  soTaiKhoan: string;
+  tenNganHang: string;
+}
+
+export interface LandlordWalletInfo {
+  soDu: number;
+  diemUyTin: number;
+  dsTaiKhoanNganHang: BankAccountItem[];
+  tongDaThu: number;
+  tongDaRut: number;
+}
+
+export interface WithdrawPayload {
+  soTien: number;
+  soTaiKhoan: string;
+  tenNganHang: string;
+  ghiChu?: string;
 }
 
 export interface CreateRoomStep1Data {

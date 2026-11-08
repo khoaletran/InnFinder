@@ -19,6 +19,7 @@ import {
   useBookingStore,
   AppointmentFilterTab,
 } from "../../store/useBookingStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { AppointmentResponse } from "../../types/booking.types";
 
 const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
@@ -31,6 +32,7 @@ const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
 
 export default function AppointmentsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: AppointmentFilterTab }>();
+  const { isAuthenticated } = useAuthStore();
   const {
     appointments,
     isLoading,
@@ -51,8 +53,10 @@ export default function AppointmentsScreen() {
     if (tab) {
       setActiveTab(tab);
     }
-    fetchAppointments();
-  }, [tab]);
+    if (isAuthenticated) {
+      fetchAppointments();
+    }
+  }, [tab, isAuthenticated]);
 
   const filteredList: AppointmentResponse[] =
     activeTab === "ALL"
@@ -123,6 +127,50 @@ export default function AppointmentsScreen() {
       </View>
     );
   };
+
+  // NẾU CHƯA ĐĂNG NHẬP: Hiển thị giao diện thân thiện yêu cầu đăng nhập thay vì bắn lỗi 403
+  if (!isAuthenticated) {
+    return (
+      <View className="flex-1 pt-safe bg-slate-50">
+        {/* Header */}
+        <View className="px-4 py-3 bg-white border-b border-slate-200/80">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-bold text-slate-900">
+                Lịch xem phòng
+              </Text>
+              <Text className="text-xs text-slate-500 mt-0.5">
+                Theo dõi & quản lý các cuộc hẹn xem phòng
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Khối yêu cầu đăng nhập */}
+        <View className="items-center justify-center py-24 px-6 flex-1">
+          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+            <Ionicons name="calendar-outline" size={32} color="#94A3B8" />
+          </View>
+          <Text className="text-sm font-semibold text-slate-700 text-center">
+            Đăng nhập để xem lịch hẹn
+          </Text>
+          <Text className="text-xs text-slate-400 mt-1 text-center leading-5 max-w-xs">
+            Vui lòng đăng nhập để theo dõi trạng thái các cuộc hẹn xem phòng, nộp cọc giữ chân và liên hệ với chủ trọ.
+          </Text>
+          <Button
+            variant="primary"
+            size="md"
+            onPress={() => router.push("/(auth)/login")}
+            className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
+          >
+            <Button.Label className="text-white font-bold text-xs">
+              Đăng nhập ngay
+            </Button.Label>
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 pt-safe bg-slate-50">

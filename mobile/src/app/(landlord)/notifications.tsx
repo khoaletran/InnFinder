@@ -138,11 +138,8 @@ export default function LandlordNotificationsScreen() {
               </Text>
             </View>
 
-            {/* 3. Dấu hiệu chưa đọc & mũi tên */}
+            {/* 3. Mũi tên */}
             <View className="items-center justify-center self-center pl-1">
-              {!item.isRead ? (
-                <View className="w-2.5 h-2.5 rounded-full bg-teal-600 mb-1" />
-              ) : null}
               <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
             </View>
           </View>

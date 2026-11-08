@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Card } from 'heroui-native';
+import { InnFinderLogo } from '../../components/common/InnFinderLogo';
 import { StatSummaryGrid } from '../../components/landlord/StatSummaryGrid';
 import { LandlordAppointmentCard } from '../../components/landlord/LandlordAppointmentCard';
 import { landlordService } from '../../services/landlord.service';
@@ -12,6 +13,7 @@ import {
   LandlordAppointmentItem,
   LandlordPostItem,
 } from '../../types/landlord.types';
+import { formatVNDShort } from '../../utils/formatVND';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useLandlordNotificationStore } from '../../store/useLandlordNotificationStore';
 
@@ -22,10 +24,11 @@ export default function LandlordDashboardScreen() {
 
   const [stats, setStats] = useState<LandlordDashboardStats>({
     tongPhong: 0,
-    tongPhongMoi: 0,
+    phongChoDuyet: 0,
     dangTrong: 0,
-    yeuCauMoi: 0,
-    dangThue: 0,
+    tongDanhGia: 0,
+    diemDanhGia: '5.0',
+    soDu: 0,
   });
 
   const [appointments, setAppointments] = useState<LandlordAppointmentItem[]>([]);
@@ -86,26 +89,36 @@ export default function LandlordDashboardScreen() {
     }
   };
 
-  const displayName = user?.hoVaTen || 'bạn';
-
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-slate-50" edges={['top']}>
-      {/* 1. Header */}
-      <View className="px-4 py-3.5 bg-white flex-row items-center justify-between border-b border-gray-100">
-        <View>
-          <Text className="text-xs text-gray-400 font-medium">Bảng điều khiển</Text>
-          <Text className="text-lg font-bold text-gray-900">Xin chào, {displayName}</Text>
-        </View>
+      {/* 1. Header: Logo, Chuông & Ô bấm tài khoản (đồng bộ giao diện khách hàng) */}
+      <View className="flex-row items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
+        <InnFinderLogo variant="horizontal" size="md" />
 
-        <Pressable
-          onPress={() => router.push('/(landlord)/notifications')}
-          className="relative w-10 h-10 rounded-full bg-gray-50 items-center justify-center border border-gray-100 active:bg-gray-100"
-        >
-          <Ionicons name="notifications-outline" size={20} color="#374151" />
-          {unreadCount > 0 && (
-            <View className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 border border-white" />
-          )}
-        </Pressable>
+        <View className="flex-row items-center gap-3">
+          {/* Nút chuông thông báo */}
+          <Pressable
+            onPress={() => router.push('/(landlord)/notifications')}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center relative active:bg-slate-200"
+          >
+            <Ionicons name="notifications-outline" size={20} color="#334155" />
+            {unreadCount > 0 && (
+              <View className="w-2 h-2 rounded-full bg-rose-500 absolute top-2 right-2" />
+            )}
+          </Pressable>
+
+          {/* Ô bấm tài khoản */}
+          <Pressable
+            onPress={() => router.push('/(landlord)/menu')}
+            className="w-9 h-9 rounded-full bg-teal-700 items-center justify-center active:bg-teal-800"
+          >
+            <Text className="text-white font-bold text-xs">
+              {user?.tenDangNhap
+                ? user.tenDangNhap.substring(0, 2).toUpperCase()
+                : 'CT'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -178,7 +191,7 @@ export default function LandlordDashboardScreen() {
                     </Text>
                     <View className="flex-row items-center justify-between mt-1">
                       <Text className="text-xs font-semibold text-teal-700">
-                        {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+                        {formatVNDShort(post.giaThue)}
                       </Text>
                       <View
                         className={`px-2 py-0.5 rounded-full ${

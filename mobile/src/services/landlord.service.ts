@@ -6,33 +6,56 @@ import {
   LandlordAppointmentItem,
   LandlordRentalRequestItem,
   LandlordTransactionItem,
+  LandlordWalletInfo,
+  WithdrawPayload,
 } from '../types/landlord.types';
 
 export const landlordService = {
   // 1. Thống kê Dashboard (tính toán từ dữ liệu phòng và lịch hẹn thực tế trong DB)
   getDashboardStats: async (): Promise<LandlordDashboardStats> => {
     try {
-      const [rooms, appointments] = await Promise.all([
+      const [rooms, appointments, reviews, wallet] = await Promise.all([
         landlordService.getMyRooms(),
         landlordService.getAppointments(),
+        landlordService.getLandlordReviews(),
+        landlordService.getWalletInfo(),
       ]);
 
-      const dangTrong = rooms.filter((r) => !r.isRented).length;
-      const dangThue = rooms.filter((r) => r.isRented).length;
+      const tongPhong = rooms.length;
+      const phongChoDuyet = rooms.filter((r) => r.trangThai === 'CHO_DUYET').length;
+      const dangTrong = rooms.filter((r) => r.trangThai === 'DA_DUYET' && !r.isRented).length;
+      const dangThue = rooms.filter((r) => r.isRented || r.trangThai === 'HOAN_THANH').length;
       const yeuCauMoi = appointments.filter((a) => a.trangThai === 'CHO_XAC_NHAN').length;
 
+      const tongDanhGia = Array.isArray(reviews) ? reviews.length : 0;
+      let diemDanhGia: number | string = '5.0';
+      if (tongDanhGia > 0) {
+        const sum = reviews.reduce((acc: number, cur: any) => acc + (Number(cur.diem) || 5), 0);
+        diemDanhGia = (sum / tongDanhGia).toFixed(1);
+      }
+
+      const soDu = wallet?.soDu ?? 0;
+
       return {
-        tongPhong: rooms.length,
-        tongPhongMoi: Math.min(rooms.length, 2),
+        tongPhong,
+        phongChoDuyet,
         dangTrong,
+        tongDanhGia,
+        diemDanhGia,
+        soDu,
+        tongPhongMoi: Math.min(rooms.length, 2),
         yeuCauMoi,
         dangThue,
       };
     } catch {
       return {
         tongPhong: 0,
-        tongPhongMoi: 0,
+        phongChoDuyet: 0,
         dangTrong: 0,
+        tongDanhGia: 0,
+        diemDanhGia: '5.0',
+        soDu: 0,
+        tongPhongMoi: 0,
         yeuCauMoi: 0,
         dangThue: 0,
       };
@@ -58,6 +81,7 @@ export const landlordService = {
               r.anhDaiDien ||
               'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
             diaChi: r.diaChi || 'TP. Hồ Chí Minh',
+            thoiGianDang: r.thoiGianDang,
           }))
         : [];
 
@@ -119,6 +143,7 @@ export const landlordService = {
               ? new Date(a.ngayHen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : '10:00 - 10:30',
             ngayHen: a.ngayHen ? a.ngayHen.substring(0, 10) : '2026-11-07',
+            rawNgayHen: a.ngayHen,
             ghiChu: a.liDoHuy || undefined,
             trangThai: a.trangThai || 'CHO_XAC_NHAN',
             maPhongTro: a.maPhongTro,
@@ -193,22 +218,27 @@ export const landlordService = {
   },
 
   // 6. Giao dịch / Doanh thu ví (gọi GET /api/transactions/my-history)
-  getTransactions: async (filter?: 'DA_THU' | 'HOAN_COC'): Promise<LandlordTransactionItem[]> => {
+  getTransactions: async (filter?: 'DA_THU' | 'HOAN_COC' | 'RUT_TIEN'): Promise<LandlordTransactionItem[]> => {
     try {
       const res: any = await axiosClient.get('/api/transactions/my-history');
       const list: LandlordTransactionItem[] = Array.isArray(res)
-        ? res.map((t: any) => ({
-            id: t.maGiaoDich || String(Math.random()),
-            maGiaoDich: t.maGiaoDich || 'GD20261106',
-            khachHangTen: t.tenDoiTac || 'Khách hàng',
-            phongTen: t.noiDung || 'Giao dịch cọc phòng',
-            tienCoc: Number(t.soTien) || 0,
-            phiDichVu: Number(t.phiDichVu) || 0,
-            thucNhan: Number(t.thucNhan) || Number(t.soTien) || 0,
-            trangThai: t.trangThai || 'THANH_CONG',
-            ngayGiaoDich: t.thoiGianTao ? t.thoiGianTao.substring(0, 10) : '06/11/2026',
-            loaiGiaoDich: t.loaiGiaoDich === 'HOAN_TIEN' ? 'HOAN_COC' : 'DA_THU',
-          }))
+        ? res.map((t: any) => {
+            const isWithdraw = t.loaiGiaoDich === 'RUT_TIEN';
+            const isRefund = t.loaiGiaoDich === 'HOAN_TIEN' || t.loaiGiaoDich === 'HOAN_COC';
+            return {
+              id: t.maGiaoDich || String(Math.random()),
+              maGiaoDich: t.maGiaoDich || 'GD20261106',
+              khachHangTen: isWithdraw ? 'Rút về tài khoản ngân hàng' : (t.tenDoiTac || 'Khách hàng'),
+              phongTen: t.noiDung || (isWithdraw ? 'Yêu cầu rút tiền' : 'Giao dịch cọc phòng'),
+              tienCoc: Number(t.soTien) || 0,
+              phiDichVu: Number(t.phiDichVu) || 0,
+              thucNhan: Number(t.thucNhan) || Number(t.soTien) || 0,
+              trangThai: t.trangThai || 'THANH_CONG',
+              ngayGiaoDich: t.ngayGiaoDich ? t.ngayGiaoDich.substring(0, 10) : (t.thoiGianTao ? t.thoiGianTao.substring(0, 10) : '06/11/2026'),
+              thoiGianTao: t.ngayGiaoDich || t.thoiGianTao,
+              loaiGiaoDich: isWithdraw ? 'RUT_TIEN' : (isRefund ? 'HOAN_COC' : 'DA_THU'),
+            };
+          })
         : [];
 
       if (filter) return list.filter((item) => item.loaiGiaoDich === filter);
@@ -216,6 +246,21 @@ export const landlordService = {
     } catch {
       return [];
     }
+  },
+
+  // 6.1. Thông tin ví chủ trọ (GET /api/landlord/wallet)
+  getWalletInfo: async (): Promise<LandlordWalletInfo | null> => {
+    try {
+      const res: any = await axiosClient.get('/api/landlord/wallet');
+      return res || null;
+    } catch {
+      return null;
+    }
+  },
+
+  // 6.2. Yêu cầu rút tiền về ngân hàng (POST /api/landlord/wallet/withdraw)
+  withdrawMoney: async (payload: WithdrawPayload): Promise<any> => {
+    return await axiosClient.post('/api/landlord/wallet/withdraw', payload);
   },
 
   // 7. Lấy danh mục Loại phòng & Tiện ích từ Backend
