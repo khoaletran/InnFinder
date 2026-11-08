@@ -216,8 +216,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </Button>
             )}
 
-            {/* Nút Nộp cọc khi chủ trọ đã xác nhận nhưng khách chưa nộp cọc */}
-            {item.trangThai === "XAC_NHAN" && !isDepositPaid && (
+            {/* Nút Nộp cọc khi chưa nộp cọc (áp dụng cho cả Chờ duyệt và Đã duyệt) */}
+            {!isDepositPaid && (item.trangThai === "CHO_XAC_NHAN" || item.trangThai === "XAC_NHAN") && (
               <Button
                 variant="primary"
                 size="sm"

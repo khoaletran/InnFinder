@@ -140,8 +140,9 @@ public class AppointmentService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
 
-        // 2. Chỉ được nộp cọc khi Chủ trọ đã xác nhận lịch (XAC_NHAN)
-        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+        // 2. Cho phép nộp cọc ngay khi tạo lịch (CHO_XAC_NHAN) hoặc sau khi Chủ trọ xác nhận (XAC_NHAN)
+        if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN &&
+                phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 

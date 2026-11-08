@@ -233,20 +233,24 @@ export default function ScheduleModalScreen() {
 
     setIsSubmitting(true);
     try {
-      await bookingService.createAppointment(payload);
+      const res = await bookingService.createAppointment(payload);
       await fetchAppointments();
       setIsSubmitting(false);
 
-      Alert.alert(
-        "Gửi yêu cầu thành công!",
-        "Lịch hẹn của bạn đã được gửi tới Chủ trọ. Khi Chủ trọ xác nhận lịch hẹn, hệ thống sẽ thông báo để bạn nộp cọc giữ chân.",
-        [
-          {
-            text: "Xem lịch hẹn",
-            onPress: () => router.replace("/booking/appointments"),
-          },
-        ],
-      );
+      // Điều hướng ngay sang trang Thanh toán cọc giữ chân
+      router.replace({
+        pathname: "/booking/deposit-payment",
+        params: {
+          appointmentId: res.maDatLich,
+          roomId: roomId,
+          roomTitle: displayTitle,
+          roomImage: displayImage || "",
+          depositAmount: String(depositAmount),
+          ngayHen: isoString,
+          categoryName: categoryName,
+          phoneNumber: phoneNumber,
+        },
+      });
     } catch (err: any) {
       setIsSubmitting(false);
       Alert.alert(

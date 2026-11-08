@@ -116,11 +116,11 @@ export default function DepositPaymentScreen() {
 
       Alert.alert(
         "Nộp cọc giữ chân thành công!",
-        `Khoản cọc ${formatCurrency(amount)} đã được nộp thành công và đang được InnFinder tạm giữ an toàn. Hệ thống sẽ hoàn lại 100% sau khi hoàn tất buổi xem phòng.`,
+        `Khoản cọc ${formatCurrency(amount)} đã được nộp thành công và đang được InnFinder tạm giữ an toàn. Lịch hẹn đã được gửi tới Chủ trọ để xác nhận đón tiếp.`,
         [
           {
-            text: "Xong",
-            onPress: () => router.back(),
+            text: "Xem lịch hẹn",
+            onPress: () => router.replace("/booking/appointments"),
           },
         ],
       );
