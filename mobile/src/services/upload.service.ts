@@ -2,6 +2,8 @@ import { BASE_URL } from '../api/axiosClient';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+export type CloudinaryFolder = 'avatars' | 'rooms' | 'cccd' | 'reviews' | 'complaints' | 'banks';
+
 /**
  * Hàm phụ trợ gửi FormData an toàn tương thích cả Expo WinterCG fetch và native XHR
  */
@@ -76,11 +78,12 @@ const appendFileToFormData = async (formData: FormData, fieldName: string, uri: 
 
 export const uploadService = {
   /**
-   * Upload 1 hình ảnh lên Cloudinary qua API Backend (POST /api/upload/image)
+   * Upload 1 hình ảnh lên Cloudinary qua API Backend (POST /api/upload/image?folder=...)
    * @param uri Đường dẫn ảnh local (file://...) hoặc URL từ camera
+   * @param folder Thư mục đích trên Cloudinary (avatars, rooms, cccd, reviews, complaints, banks)
    * @returns URL Cloudinary HTTPS bảo mật
    */
-  uploadSingleImage: async (uri: string): Promise<string> => {
+  uploadSingleImage: async (uri: string, folder: CloudinaryFolder = 'rooms'): Promise<string> => {
     if (!uri) return '';
     // Nếu ảnh đã là URL Cloudinary hoặc URL remote thì giữ nguyên
     if (uri.startsWith('http://') || uri.startsWith('https://')) {
@@ -89,17 +92,22 @@ export const uploadService = {
 
     const formData = new FormData();
     await appendFileToFormData(formData, 'file', uri);
+    formData.append('folder', folder);
 
     const token = await SecureStore.getItemAsync('innfinder_jwt_token');
-    const json = await sendMultipartFormData(`${BASE_URL}/api/upload/image`, formData, token);
+    const endpoint = `${BASE_URL}/api/upload/image?folder=${encodeURIComponent(folder)}`;
+    const json = await sendMultipartFormData(endpoint, formData, token);
 
     return json?.data || '';
   },
 
   /**
-   * Upload danh sách nhiều ảnh lên Cloudinary (POST /api/upload/images)
+   * Upload danh sách nhiều ảnh lên Cloudinary (POST /api/upload/images?folder=...)
+   * @param imageUris Danh sách đường dẫn ảnh
+   * @param folder Thư mục đích trên Cloudinary (rooms, reviews, complaints...)
+   * @returns Danh sách URL Cloudinary HTTPS
    */
-  uploadMultipleImages: async (imageUris: string[]): Promise<string[]> => {
+  uploadMultipleImages: async (imageUris: string[], folder: CloudinaryFolder = 'rooms'): Promise<string[]> => {
     if (!imageUris || imageUris.length === 0) return [];
 
     const remoteUrls: string[] = [];
@@ -123,9 +131,11 @@ export const uploadService = {
         appendFileToFormData(formData, 'files', uri, `img_${Date.now()}_${idx}.jpg`)
       )
     );
+    formData.append('folder', folder);
 
     const token = await SecureStore.getItemAsync('innfinder_jwt_token');
-    const json = await sendMultipartFormData(`${BASE_URL}/api/upload/images`, formData, token);
+    const endpoint = `${BASE_URL}/api/upload/images?folder=${encodeURIComponent(folder)}`;
+    const json = await sendMultipartFormData(endpoint, formData, token);
 
     const newUrls: string[] = json?.data || [];
     return [...remoteUrls, ...newUrls];

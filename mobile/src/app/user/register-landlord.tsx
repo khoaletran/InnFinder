@@ -102,7 +102,7 @@ export default function RegisterLandlordScreen() {
         setAnhCccdTruoc(localUri);
         try {
           setUploadingFront(true);
-          const cloudUrl = await uploadService.uploadSingleImage(localUri);
+          const cloudUrl = await uploadService.uploadSingleImage(localUri, 'cccd');
           if (cloudUrl) {
             setAnhCccdTruoc(cloudUrl);
           }
@@ -115,7 +115,7 @@ export default function RegisterLandlordScreen() {
         setAnhCccdSau(localUri);
         try {
           setUploadingBack(true);
-          const cloudUrl = await uploadService.uploadSingleImage(localUri);
+          const cloudUrl = await uploadService.uploadSingleImage(localUri, 'cccd');
           if (cloudUrl) {
             setAnhCccdSau(cloudUrl);
           }
@@ -153,10 +153,10 @@ export default function RegisterLandlordScreen() {
       let finalBackUrl = anhCccdSau.trim();
 
       if (!finalFrontUrl.startsWith('http://') && !finalFrontUrl.startsWith('https://')) {
-        finalFrontUrl = await uploadService.uploadSingleImage(finalFrontUrl);
+        finalFrontUrl = await uploadService.uploadSingleImage(finalFrontUrl, 'cccd');
       }
       if (!finalBackUrl.startsWith('http://') && !finalBackUrl.startsWith('https://')) {
-        finalBackUrl = await uploadService.uploadSingleImage(finalBackUrl);
+        finalBackUrl = await uploadService.uploadSingleImage(finalBackUrl, 'cccd');
       }
 
       await authUserService.upgradeToLandlord({

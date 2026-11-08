@@ -38,6 +38,7 @@ export interface UserProfileResponse {
   cccd?: string;
   vaiTro: VaiTro;
   chuTro: boolean;
+  hinhDaiDien?: string;
   avatarUrl?: string;
   thoiGianMoTaiKhoan: string;
 }
@@ -46,6 +47,7 @@ export interface UpdateProfileRequest {
   hoVaTen?: string;
   email: string;
   sdt: string;
+  hinhDaiDien?: string;
   avatarUrl?: string;
 }
 

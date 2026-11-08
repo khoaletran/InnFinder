@@ -21,12 +21,24 @@ export const authUserService = {
   },
 
   // 2. Hồ sơ cá nhân (UserController)
-  getMyProfile: () => {
-    return axiosClient.get<any, UserProfileResponse>('/api/users/profile');
+  getMyProfile: async () => {
+    const res = await axiosClient.get<any, UserProfileResponse>('/api/users/profile');
+    if (res && res.hinhDaiDien && !res.avatarUrl) {
+      res.avatarUrl = res.hinhDaiDien;
+    }
+    return res;
   },
 
-  updateProfile: (data: UpdateProfileRequest) => {
-    return axiosClient.put<any, UserProfileResponse>('/api/users/profile', data);
+  updateProfile: async (data: UpdateProfileRequest) => {
+    const payload = {
+      ...data,
+      hinhDaiDien: data.hinhDaiDien || data.avatarUrl,
+    };
+    const res = await axiosClient.put<any, UserProfileResponse>('/api/users/profile', payload);
+    if (res && res.hinhDaiDien && !res.avatarUrl) {
+      res.avatarUrl = res.hinhDaiDien;
+    }
+    return res;
   },
 
   changePassword: (data: ChangePasswordRequest) => {
