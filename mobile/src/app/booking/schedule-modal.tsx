@@ -47,7 +47,7 @@ export default function ScheduleModalScreen() {
     depositAmount?: string;
   }>();
 
-  const user = useAuthStore((state) => state.user);
+  const { user, isAuthenticated } = useAuthStore();
   const { fetchAppointments } = useBookingStore();
 
   const [roomData, setRoomData] = useState<RoomDetailResponse | null>(null);
@@ -195,6 +195,21 @@ export default function ScheduleModalScreen() {
 
   // BƯỚC 2: Khách gửi yêu cầu đặt lịch hẹn (Chờ Chủ trọ duyệt trước khi nộp cọc)
   const handleCreateAppointment = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập tài khoản để đặt lịch xem phòng trọ.",
+        [
+          { text: "Để sau", style: "cancel" },
+          {
+            text: "Đăng nhập ngay",
+            onPress: () => router.push("/(auth)/login" as any),
+          },
+        ]
+      );
+      return;
+    }
+
     if (!phoneNumber.trim()) {
       Alert.alert("Thông báo", "Vui lòng nhập số điện thoại liên hệ.");
       return;
@@ -268,6 +283,46 @@ export default function ScheduleModalScreen() {
   const displayPrice = price
     ? formatCurrency(Number(price))
     : formatCurrency(roomData?.giaThue);
+
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={{ flex: 1 }} className="bg-white">
+        <View className="flex-row items-center justify-between px-5 py-4 border-b border-slate-100">
+          <Text className="text-xl font-bold text-slate-900">
+            Đặt lịch xem phòng
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="close" size={20} color="#64748B" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="items-center justify-center py-24 px-6 flex-1">
+          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+            <Ionicons name="lock-closed-outline" size={32} color="#94A3B8" />
+          </View>
+          <Text className="text-base font-bold text-slate-800 text-center">
+            Vui lòng đăng nhập
+          </Text>
+          <Text className="text-xs text-slate-500 mt-1.5 text-center max-w-xs leading-5">
+            Bạn cần đăng nhập tài khoản để đặt lịch xem phòng trọ và nộp cọc giữ chân.
+          </Text>
+          <Button
+            variant="primary"
+            size="md"
+            onPress={() => router.push("/(auth)/login" as any)}
+            className="mt-5 rounded-full bg-teal-600 px-6"
+          >
+            <Button.Label className="text-white font-bold text-sm">
+              Đăng nhập ngay
+            </Button.Label>
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-white">

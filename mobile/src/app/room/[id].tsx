@@ -567,7 +567,21 @@ export default function RoomDetailScreen() {
             <Button
               variant="primary"
               size="lg"
-              onPress={() =>
+              onPress={() => {
+                if (!isAuthenticated) {
+                  Alert.alert(
+                    "Yêu cầu đăng nhập",
+                    "Bạn cần đăng nhập tài khoản để đặt lịch xem phòng trọ.",
+                    [
+                      { text: "Để sau", style: "cancel" },
+                      {
+                        text: "Đăng nhập ngay",
+                        onPress: () => router.push("/(auth)/login" as any),
+                      },
+                    ]
+                  );
+                  return;
+                }
                 router.push({
                   pathname: "/booking/schedule-modal" as any,
                   params: {
@@ -580,8 +594,8 @@ export default function RoomDetailScreen() {
                     categoryName: room.loaiPhong?.tenLoaiPhongTro || "",
                     depositAmount: String(room.loaiPhong?.soTienCoc || 0),
                   },
-                })
-              }
+                });
+              }}
               className="w-full rounded-full bg-teal-600"
             >
               <Button.Label className="font-bold text-white">
