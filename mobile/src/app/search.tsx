@@ -30,70 +30,79 @@ export default function SearchScreen() {
   );
   const [viewMode, setViewMode] = useState<string>("list");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
-  const [isAiMode, setIsAiMode] = useState<boolean>(false);
 
   // Load danh mục loại phòng để lấy tên hiển thị lên Chip
   useEffect(() => {
     roomService.getRoomTypes().then((res) => setCategories(res || []));
   }, []);
 
-  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài (chỉ khi không ở chế độ AI)
+  // Đồng bộ ô input khi filter.keyword thay đổi từ bên ngoài
   useEffect(() => {
-    if (!isAiMode) {
-      setKeywordInput(filter.keyword || "");
-    }
-  }, [filter.keyword, isAiMode]);
+    setKeywordInput(filter.keyword || "");
+  }, [filter.keyword]);
 
-  // Debounce 450ms: Tự động tìm kiếm sau khi ngừng gõ
+  // Debounce 450ms: Tự động cập nhật filter.keyword sau khi ngừng gõ
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmed = keywordInput.trim();
-      if (isAiMode) {
-        if (trimmed.length > 0) {
-          fetchAiRooms(trimmed);
-        } else {
-          fetchRooms();
-        }
-      } else {
-        if (trimmed !== (filter.keyword || "")) {
-          setFilter({ keyword: trimmed });
-        }
+      if (trimmed !== (filter.keyword || "")) {
+        setFilter({ keyword: trimmed });
       }
     }, 450);
     return () => clearTimeout(timer);
-  }, [keywordInput, isAiMode]);
+  }, [keywordInput]);
 
   useEffect(() => {
-    if (!isAiMode) {
-      fetchRooms();
-    }
-  }, [filter, isAiMode]);
+    fetchRooms();
+  }, [filter]);
 
-  // 1. Tìm kiếm SQL lọc đa tiêu chí thông thường
+  // Tìm kiếm phòng: nếu có từ khóa thì tìm theo ngôn ngữ tự nhiên (AI Semantic Search), ngược lại lọc đa tiêu chí
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const res = await roomService.searchRooms(filter);
-      setRooms(res?.content || []);
-      setTotalElements(res?.totalElements || 0);
+      const prompt = filter.keyword?.trim();
+      if (prompt && prompt.length > 0) {
+        // 1. Tìm kiếm theo ngôn ngữ tự nhiên (Vector Embeddings)
+        let results = await roomService.aiSearchRooms(prompt);
+        if (!results) results = [];
+
+        // 2. Kết hợp lọc thêm các tiêu chí phụ nếu người dùng chọn trong FilterModal
+        let filtered = results;
+        if (filter.minGia !== undefined && filter.minGia >= 0) {
+          filtered = filtered.filter((r) => r.giaThue >= (filter.minGia ?? 0));
+        }
+        if (filter.maxGia !== undefined && filter.maxGia > 0) {
+          filtered = filtered.filter(
+            (r) => r.giaThue <= (filter.maxGia ?? Infinity),
+          );
+        }
+        if (filter.minDienTich !== undefined && filter.minDienTich >= 0) {
+          filtered = filtered.filter(
+            (r) => r.dienTich >= (filter.minDienTich ?? 0),
+          );
+        }
+        if (filter.maxDienTich !== undefined && filter.maxDienTich > 0) {
+          filtered = filtered.filter(
+            (r) => r.dienTich <= (filter.maxDienTich ?? Infinity),
+          );
+        }
+        if (filter.soNguoi !== undefined && filter.soNguoi > 0) {
+          filtered = filtered.filter((r) => r.soNguoi >= (filter.soNguoi ?? 0));
+        }
+        if (filter.maLpt && filter.maLpt.trim() !== "") {
+          filtered = filtered.filter((r) => r.maLpt === filter.maLpt);
+        }
+
+        setRooms(filtered);
+        setTotalElements(filtered.length);
+      } else {
+        // Tìm kiếm đa tiêu chí thông thường khi chưa nhập từ khóa
+        const res = await roomService.searchRooms(filter);
+        setRooms(res?.content || []);
+        setTotalElements(res?.totalElements || 0);
+      }
     } catch (error) {
       console.warn("Lỗi tìm kiếm phòng:", error);
-      setRooms([]);
-      setTotalElements(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 2. Tìm kiếm AI bằng ngôn ngữ tự nhiên (Vector Embeddings)
-  const fetchAiRooms = async (prompt: string) => {
-    try {
-      setLoading(true);
-      const res = await roomService.aiSearchRooms(prompt);
-      setRooms(res || []);
-      setTotalElements(res?.length || 0);
-    } catch (error) {
-      console.warn("Lỗi tìm kiếm bằng AI:", error);
       setRooms([]);
       setTotalElements(0);
     } finally {
@@ -116,16 +125,6 @@ export default function SearchScreen() {
     }
   };
 
-  const handleToggleAiMode = () => {
-    const nextMode = !isAiMode;
-    setIsAiMode(nextMode);
-    if (!nextMode) {
-      fetchRooms();
-    } else if (keywordInput.trim().length > 0) {
-      fetchAiRooms(keywordInput.trim());
-    }
-  };
-
   // Lấy tên loại phòng từ mã
   const selectedCategoryName = categories.find(
     (c) => c.maLpt === filter.maLpt,
@@ -139,46 +138,24 @@ export default function SearchScreen() {
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </Pressable>
 
-        {/* Ô nhập từ khóa (Tự động đổi màu tím khi bật AI Search) */}
-        <View
-          className={`flex-1 flex-row items-center rounded-full px-3 py-1.5 border transition-all ${
-            isAiMode
-              ? "bg-purple-50/70 border-purple-300"
-              : "bg-slate-100 border-transparent"
-          }`}
-        >
+        {/* Ô nhập từ khóa tìm kiếm theo ngôn ngữ tự nhiên */}
+        <View className="flex-1 flex-row items-center rounded-full px-3 py-1.5 bg-slate-100 border border-transparent">
           <Pressable
             onPress={() => {
-              if (isAiMode) {
-                fetchAiRooms(keywordInput.trim());
-              } else {
-                setFilter({ keyword: keywordInput.trim() });
-              }
+              setFilter({ keyword: keywordInput.trim() });
             }}
           >
-            <Ionicons
-              name={isAiMode ? "sparkles" : "search"}
-              size={17}
-              color={isAiMode ? "#7C3AED" : "#0D9488"}
-            />
+            <Ionicons name="search" size={17} color="#0D9488" />
           </Pressable>
 
           <TextInput
             value={keywordInput}
             onChangeText={setKeywordInput}
             onSubmitEditing={() => {
-              if (isAiMode) {
-                fetchAiRooms(keywordInput.trim());
-              } else {
-                setFilter({ keyword: keywordInput.trim() });
-              }
+              setFilter({ keyword: keywordInput.trim() });
             }}
-            placeholder={
-              isAiMode
-                ? "Hỏi AI: 'phòng có gác xép gần Bách Khoa...'"
-                : "Tìm theo địa chỉ, mô tả, tiện ích..."
-            }
-            placeholderTextColor={isAiMode ? "#A78BFA" : "#94A3B8"}
+            placeholder="Tìm theo ngôn ngữ tự nhiên (VD: phòng có gác xép...)"
+            placeholderTextColor="#94A3B8"
             returnKeyType="search"
             className="flex-1 ml-2 text-sm text-slate-800 p-0"
           />
@@ -187,7 +164,7 @@ export default function SearchScreen() {
             <Pressable
               onPress={() => {
                 setKeywordInput("");
-                if (!isAiMode) setFilter({ keyword: "" });
+                setFilter({ keyword: "" });
               }}
               className="p-1"
             >
@@ -195,29 +172,6 @@ export default function SearchScreen() {
             </Pressable>
           )}
         </View>
-
-        {/* Nút BẬT/TẮT AI Search Nổi Bật */}
-        <Pressable
-          onPress={handleToggleAiMode}
-          className={`px-2.5 py-1.5 rounded-full flex-row items-center border transition-all ${
-            isAiMode
-              ? "bg-purple-600 border-purple-600 shadow-sm"
-              : "bg-purple-50 border-purple-200 active:bg-purple-100"
-          }`}
-        >
-          <Ionicons
-            name="sparkles"
-            size={13}
-            color={isAiMode ? "#FFFFFF" : "#7C3AED"}
-          />
-          <Text
-            className={`text-xs font-bold ml-1 ${
-              isAiMode ? "text-white" : "text-purple-700"
-            }`}
-          >
-            AI
-          </Text>
-        </Pressable>
 
         {/* Nút Mở Modal Bộ Lọc */}
         <Pressable
@@ -230,32 +184,6 @@ export default function SearchScreen() {
           )}
         </Pressable>
       </View>
-
-      {/* BANNER THÔNG TIN KHI ĐANG DÙNG AI SEARCH */}
-      {isAiMode && (
-        <View className="mx-4 my-1.5 p-2.5 rounded-xl bg-purple-50 border border-purple-200 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2 flex-1 mr-2">
-            <View className="w-6 h-6 rounded-full bg-purple-600 items-center justify-center">
-              <Ionicons name="sparkles" size={12} color="#FFFFFF" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-[11px] font-bold text-purple-900">
-                Đang tìm kiếm bằng AI (Vector Embedding)
-              </Text>
-              <Text className="text-[10px] text-purple-700" numberOfLines={1}>
-                Tự động hiểu nghĩa: gác lửng/xép, thú cưng, nấu ăn, thoáng mát...
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => setIsAiMode(false)}
-            className="px-2 py-0.5 rounded-md bg-white border border-purple-200 active:bg-purple-100"
-          >
-            <Text className="text-[10px] font-bold text-purple-700">Tắt</Text>
-          </Pressable>
-        </View>
-      )}
 
       {/* 2. Filter Active Chips Bar Động (Cuộn ngang) */}
       <View className="py-2 border-b border-slate-100">
@@ -272,7 +200,7 @@ export default function SearchScreen() {
           }}
         >
           {/* Chip Từ khóa */}
-          {filter.keyword && !isAiMode ? (
+          {filter.keyword ? (
             <Chip
               variant="primary"
               color="default"
@@ -421,9 +349,7 @@ export default function SearchScreen() {
       {/* 3. Bar: Tổng số phòng & Tabs HeroUI */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-slate-100">
         <Text className="text-sm font-semibold text-slate-700">
-          {isAiMode
-            ? `✨ AI tìm thấy ${totalElements} phòng phù hợp`
-            : `${totalElements} phòng phù hợp`}
+          {`${totalElements} phòng phù hợp`}
         </Text>
 
         <View className="w-44">
@@ -447,15 +373,10 @@ export default function SearchScreen() {
       {/* 4. Danh sách phòng từ Backend */}
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator
-            size="large"
-            color={isAiMode ? "#7C3AED" : "#0D9488"}
-          />
-          {isAiMode && (
-            <Text className="text-xs text-purple-700 font-semibold mt-2">
-              AI đang phân tích ý định và tìm kiếm ngữ nghĩa...
-            </Text>
-          )}
+          <ActivityIndicator size="large" color="#0D9488" />
+          <Text className="text-xs text-slate-500 font-medium mt-2">
+            Đang tìm kiếm phòng trọ phù hợp...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -467,20 +388,16 @@ export default function SearchScreen() {
           ListEmptyComponent={
             <View className="items-center justify-center py-20 px-6">
               <Ionicons
-                name={isAiMode ? "sparkles-outline" : "search-outline"}
+                name="search-outline"
                 size={48}
-                color={isAiMode ? "#A78BFA" : "#94A3B8"}
+                color="#94A3B8"
               />
               <Text className="text-slate-700 font-bold mt-3 text-center text-sm">
-                {isAiMode
-                  ? "AI chưa tìm thấy phòng trọ nào khớp với yêu cầu của bạn."
-                  : "Không tìm thấy phòng trọ nào phù hợp với bộ lọc."}
+                Không tìm thấy phòng trọ nào phù hợp với yêu cầu của bạn.
               </Text>
-              {isAiMode && (
-                <Text className="text-slate-400 text-xs text-center mt-1 max-w-xs">
-                  Hãy thử gõ câu lệnh khác như: "phòng có gác lửng", "gần trường đại học", "cho nuôi mèo"...
-                </Text>
-              )}
+              <Text className="text-slate-400 text-xs text-center mt-1 max-w-xs">
+                Hãy thử tìm bằng các cụm từ như: "phòng có gác lửng", "gần trường đại học", "cho nuôi mèo", "giá rẻ"...
+              </Text>
             </View>
           }
         />

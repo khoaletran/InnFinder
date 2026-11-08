@@ -10,6 +10,8 @@ import com.innfinder.backend.repository.PhongTroRepository;
 import com.innfinder.backend.repository.PhongTroVectorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,11 +87,18 @@ public class AiSearchService {
 
     /**
      * Đánh chỉ mục Vector cho tất cả các phòng trọ đã duyệt
+     * Tự động chạy khi ứng dụng khởi động xong qua ApplicationReadyEvent
      */
+    @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void indexAllApprovedRooms() {
         try {
             List<PhongTro> approvedRooms = phongTroRepository.findByTrangThai(TrangThaiPhongTro.DA_DUYET);
+            if (approvedRooms.isEmpty()) {
+                log.info("Chưa có phòng trọ đã duyệt nào để đánh chỉ mục AI Vector.");
+                return;
+            }
+
             Map<String, PhongTroVector> existingVectors = vectorRepository.findAll().stream()
                     .collect(Collectors.toMap(PhongTroVector::getMaPhongTro, v -> v, (a, b) -> a));
 
@@ -117,7 +126,7 @@ public class AiSearchService {
             }
 
             if (!toSave.isEmpty()) {
-                vectorRepository.saveAll(toSave);
+                vectorRepository.saveAllAndFlush(toSave);
                 log.info("Đã đánh chỉ mục AI Vector thành công cho {} phòng trọ.", toSave.size());
             }
         } catch (Exception e) {
@@ -134,17 +143,14 @@ public class AiSearchService {
             return Collections.emptyList();
         }
 
-        // Tự động đảm bảo các phòng đã được đánh chỉ mục vector
-        indexAllApprovedRooms();
-
-        // 1. Sinh vector cho câu truy vấn của người dùng
-        List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
-
-        // 2. Tải tất cả các vector phòng trong cơ sở dữ liệu
+        // 1. Tải tất cả các vector phòng trong cơ sở dữ liệu
         List<PhongTroVector> allVectors = vectorRepository.findAll();
         if (allVectors.isEmpty()) {
             return Collections.emptyList();
         }
+
+        // 2. Sinh vector cho câu truy vấn của người dùng
+        List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
 
         // 3. Tính độ tương đồng Cosine Similarity cho từng phòng
         Map<String, Double> scoreMap = new HashMap<>();
@@ -160,9 +166,9 @@ public class AiSearchService {
             }
         }
 
-        // 4. Lấy top phòng có điểm tương đồng cao nhất
+        // 4. Lấy top phòng có điểm tương đồng cao nhất (ngưỡng linh hoạt > 0.0)
         List<String> sortedRoomIds = scoreMap.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0.15) // Lọc ngưỡng tương đồng
+                .filter(entry -> entry.getValue() > 0.0) // Lọc ngưỡng tương đồng linh hoạt
                 .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
                 .limit(25)
                 .map(Map.Entry::getKey)
@@ -173,7 +179,7 @@ public class AiSearchService {
         }
 
         // 5. Lấy thông tin phòng từ Repository và giữ đúng thứ tự xếp hạng của AI
-        List<PhongTro> rooms = phongTroRepository.findAllById(sortedRoomIds);
+        List<PhongTro> rooms = phongTroRepository.findByMaPhongTroIn(sortedRoomIds);
         Map<String, PhongTro> roomEntityMap = rooms.stream()
                 .collect(Collectors.toMap(PhongTro::getMaPhongTro, r -> r));
 
