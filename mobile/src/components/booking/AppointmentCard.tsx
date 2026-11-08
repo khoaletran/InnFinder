@@ -12,7 +12,7 @@ import { useBookingStore } from "../../store/useBookingStore";
 interface AppointmentCardProps {
   item: AppointmentResponse;
   onCancel: (maDatLich: string) => void;
-  onDetail: (maDatLich: string) => void;
+  onDetail?: (maDatLich: string) => void;
 }
 
 const getAvatarInitials = (name?: string): string => {
@@ -62,6 +62,19 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const getCancelledByText = (
+  liDoHuy?: string,
+  khachHangDongY?: boolean | null,
+): string => {
+  if (khachHangDongY === false) return "Bạn đã từ chối thuê";
+  if (!liDoHuy || liDoHuy.trim() === "") return "Đã hủy lịch";
+  const lower = liDoHuy.toLowerCase();
+  if (lower.includes("chủ trọ") || lower.includes("chutro")) {
+    return "Chủ trọ đã hủy";
+  }
+  return "Bạn đã hủy";
+};
+
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   item,
   onCancel,
@@ -82,13 +95,21 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     item.trangThai === "CHO_XAC_NHAN" || item.trangThai === "XAC_NHAN";
   const initials = getAvatarInitials(item.tenChuTro);
 
+  const handleCardPress = () => {
+    if (onDetail) {
+      onDetail(item.maDatLich);
+    } else {
+      router.push(`/booking/rental-detail?id=${item.maDatLich}`);
+    }
+  };
+
   return (
     <Pressable
-      onPress={() => onDetail(item.maDatLich)}
+      onPress={handleCardPress}
       className="mb-3 active:opacity-95"
     >
       <Card className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-        {/* Phần thân: Ảnh phòng bên trái + Nội dung bên phải (tương tự RoomCard horizontal) */}
+        {/* Phần thân: Ảnh phòng bên trái + Nội dung bên phải */}
         <View className="flex-row">
           {item.hinhAnh ? (
             <Image
@@ -167,23 +188,34 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         </View>
 
         {/* Hàng nút tác vụ bên dưới */}
-        <View className="flex-row items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100">
-          {canCancel ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-1"
-              onPress={() => onCancel(item.maDatLich)}
-            >
-              <Button.Label className="text-xs font-semibold text-rose-500">
-                Hủy lịch hẹn
-              </Button.Label>
-            </Button>
-          ) : (
-            <View className="flex-1" />
-          )}
+        {item.trangThai === "HUY" ? (
+          <View className="flex-row items-center justify-between pt-2 mt-2 border-t border-slate-100">
+            <Text className="text-[11px] text-slate-400">
+              Trạng thái
+            </Text>
+            <View className="flex-row items-center gap-1">
+              <Ionicons name="close-circle-outline" size={13} color="#E11D48" />
+              <Text className="text-xs text-rose-600 font-semibold">
+                {getCancelledByText(item.liDoHuy, item.khachHangDongY)}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View className="flex-row items-center justify-end gap-2 pt-2.5 mt-2.5 border-t border-slate-100">
+            {/* Nút Hủy lịch: Button bo viền nằm về phía bên trái của các nút tác vụ khác */}
+            {canCancel && !item.daNhanLaiCoc && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-rose-200 bg-rose-50/70 rounded-xl px-3 py-1.5 active:bg-rose-100"
+                onPress={() => onCancel(item.maDatLich)}
+              >
+                <Button.Label className="text-xs font-semibold text-rose-600">
+                  Hủy lịch
+                </Button.Label>
+              </Button>
+            )}
 
-          <View className="flex-row items-center gap-2">
             {/* Nút Nộp cọc khi chủ trọ đã xác nhận nhưng khách chưa nộp cọc */}
             {item.trangThai === "XAC_NHAN" && !isDepositPaid && (
               <Button
@@ -335,19 +367,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
                   </Button.Label>
                 </Button>
               ))}
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-200 rounded-xl px-4 py-1.5 bg-slate-50 active:bg-slate-100"
-              onPress={() => onDetail(item.maDatLich)}
-            >
-              <Button.Label className="text-xs font-semibold text-slate-700">
-                Chi tiết
-              </Button.Label>
-            </Button>
           </View>
-        </View>
+        )}
       </Card>
     </Pressable>
   );

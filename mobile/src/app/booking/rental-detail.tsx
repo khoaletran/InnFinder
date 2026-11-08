@@ -342,7 +342,16 @@ export default function RentalDetailScreen() {
 
         {/* 5. Dòng thời gian tiến độ xử lý */}
         <View className="py-4">
-          <RentalTimeline status={item.trangThai} ngayHen={item.ngayHen} />
+          <RentalTimeline
+            status={item.trangThai}
+            ngayHen={item.ngayHen}
+            daNopCoc={isDepositPaid}
+            daNhanLaiCoc={item.daNhanLaiCoc}
+            khachHangDongY={item.khachHangDongY}
+            chuTroDongY={item.chuTroDongY}
+            liDoHuy={item.liDoHuy}
+            coc={item.coc}
+          />
         </View>
       </ScrollView>
 
