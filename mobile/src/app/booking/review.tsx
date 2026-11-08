@@ -21,6 +21,42 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useBookingStore } from "../../store/useBookingStore";
 import { ReviewRequestDTO } from "../../types/booking.types";
 
+const RATING_MOODS: Record<number, { text: string; color: string }> = {
+  5: { text: "Tuyệt vời (5/5 sao)", color: "text-amber-600" },
+  4: { text: "Rất tốt (4/5 sao)", color: "text-emerald-600" },
+  3: { text: "Bình thường (3/5 sao)", color: "text-blue-600" },
+  2: { text: "Chưa hài lòng (2/5 sao)", color: "text-orange-600" },
+  1: { text: "Rất tệ (1/5 sao)", color: "text-rose-600" },
+};
+
+const CRITERIA = [
+  {
+    key: "chatLuong" as const,
+    label: "Chất lượng phòng",
+    icon: "bed-outline" as const,
+  },
+  {
+    key: "tienIch" as const,
+    label: "Tiện ích đi kèm",
+    icon: "wifi-outline" as const,
+  },
+  {
+    key: "viTri" as const,
+    label: "Vị trí địa lý",
+    icon: "location-outline" as const,
+  },
+  {
+    key: "chuNha" as const,
+    label: "Chủ nhà / Hỗ trợ",
+    icon: "person-outline" as const,
+  },
+  {
+    key: "dichVu" as const,
+    label: "Dịch vụ & Vệ sinh",
+    icon: "sparkles-outline" as const,
+  },
+];
+
 export default function ReviewScreen() {
   const params = useLocalSearchParams<{
     roomId?: string;
@@ -94,6 +130,10 @@ export default function ReviewScreen() {
     }
   };
 
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const handleSubmit = async () => {
     if (!user?.maNguoiDung) {
       Alert.alert("Yêu cầu đăng nhập", "Vui lòng đăng nhập để đánh giá.");
@@ -136,177 +176,205 @@ export default function ReviewScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* 1. Header */}
-      <ScrollView>
-        <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-100">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-1">
-            <Ionicons name="arrow-back" size={24} color="#0F172A" />
+    <SafeAreaView style={{ flex: 1 }} className="bg-white">
+      {/* 1. Header cố định */}
+      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-slate-900">
-            {existingReviewDate
-              ? "Chi tiết đánh giá của bạn"
-              : "Đánh giá phòng"}
+          <Text className="text-lg font-bold text-slate-900">
+            {existingReviewDate ? "Chi tiết đánh giá của bạn" : "Đánh giá phòng"}
           </Text>
         </View>
+      </View>
 
-        <View
-          className="flex-1 px-4 pt-3"
-          // showsVerticalScrollIndicator={false}
-        >
-          {/* Banner thông báo nếu đã từng đánh giá trước đó */}
-          {existingReviewDate && (
-            <View className="flex-row items-center bg-teal-50 border border-teal-200 rounded-xl p-3 mb-3 gap-2">
-              <Ionicons name="checkmark-circle" size={18} color="#0D9488" />
-              <Text className="text-xs text-teal-800 flex-1 leading-4">
-                Bạn đã đánh giá phòng này vào ngày{" "}
-                <Text className="font-bold">{existingReviewDate}</Text>. Bạn có
-                thể xem lại hoặc chỉnh sửa nhận xét bên dưới.
-              </Text>
+      {/* 2. Scrollable Body */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Banner thông báo nếu đã từng đánh giá trước đó */}
+        {existingReviewDate && (
+          <View className="flex-row items-center bg-teal-50 border border-teal-200 rounded-2xl p-3.5 mb-4 gap-2.5">
+            <Ionicons name="checkmark-circle" size={20} color="#0D9488" />
+            <Text className="text-xs text-teal-800 flex-1 leading-4">
+              Bạn đã đánh giá phòng này vào ngày{" "}
+              <Text className="font-bold">{existingReviewDate}</Text>. Bạn có
+              thể cập nhật lại cảm nhận và số sao bên dưới.
+            </Text>
+          </View>
+        )}
+
+        {/* Thẻ tóm tắt thông tin phòng trọ */}
+        <View className="flex-row items-center gap-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 mb-4 shadow-sm">
+          {params.roomImage ? (
+            <Image
+              source={{ uri: params.roomImage }}
+              className="w-16 h-16 rounded-xl bg-slate-200"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-16 h-16 rounded-xl bg-slate-200 items-center justify-center">
+              <Ionicons name="home-outline" size={24} color="#64748B" />
             </View>
           )}
-
-          {/* 2. Tóm tắt phòng */}
-          <View className="flex-row items-center gap-3 pb-4 border-b border-slate-100">
-            {params.roomImage ? (
-              <Image
-                source={{ uri: params.roomImage }}
-                className="w-16 h-16 rounded-xl bg-slate-100"
-                resizeMode="cover"
-              />
-            ) : (
-              <View className="w-16 h-16 rounded-xl bg-slate-100 items-center justify-center">
-                <Ionicons name="home-outline" size={24} color="#94A3B8" />
-              </View>
-            )}
-            <View className="flex-1">
-              <Text
-                className="text-base font-bold text-slate-900"
-                numberOfLines={1}
-              >
-                {params.roomTitle || `Phòng trọ mã #${params.roomId || ""}`}
-              </Text>
-              <Text className="text-xs text-slate-500 mt-1" numberOfLines={1}>
+          <View className="flex-1">
+            <Text
+              className="text-sm font-bold text-slate-900"
+              numberOfLines={1}
+            >
+              {params.roomTitle || `Phòng trọ mã #${params.roomId || ""}`}
+            </Text>
+            <View className="flex-row items-center gap-1 mt-1">
+              <Ionicons name="location-sharp" size={13} color="#0D9488" />
+              <Text className="text-xs text-slate-500 flex-1" numberOfLines={1}>
                 {params.roomAddress || "Địa chỉ phòng trọ"}
               </Text>
             </View>
           </View>
+        </View>
 
-          {/* 3. Điểm đánh giá chung */}
-          <View className="items-center py-5">
-            <Text className="text-base font-bold text-slate-900 mb-2.5">
-              Điểm đánh giá chung
+        {/* Card Điểm đánh giá chung */}
+        <View className="bg-amber-50/40 border border-amber-200/70 rounded-2xl p-5 items-center mb-4">
+          <Text className="text-sm font-bold text-slate-800 mb-1">
+            Điểm đánh giá chung
+          </Text>
+          <Text
+            className={`text-xs font-bold mb-3 ${
+              RATING_MOODS[overallScore]?.color || "text-amber-600"
+            }`}
+          >
+            {RATING_MOODS[overallScore]?.text || `${overallScore}/5 sao`}
+          </Text>
+          <StarRatingInput
+            value={overallScore}
+            onChange={(val) => setOverallScore(val)}
+            size={36}
+          />
+        </View>
+
+        {/* Card 5 tiêu chí phụ chi tiết */}
+        <View className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-4">
+          <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-slate-200/60">
+            <Text className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Tiêu chí đánh giá chi tiết
             </Text>
-            <StarRatingInput
-              value={overallScore}
-              onChange={(val) => setOverallScore(val)}
-              size={32}
-            />
+            <Text className="text-[11px] text-slate-400">1 - 5 sao</Text>
           </View>
-
-          {/* 4. 5 tiêu chí phụ */}
-          <View className="gap-3 pb-4 border-b border-slate-100">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-slate-700">Chất lượng phòng</Text>
-              <StarRatingInput
-                value={scores.chatLuong}
-                onChange={(val) => setScores({ ...scores, chatLuong: val })}
-                size={20}
-              />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-slate-700">Tiện ích</Text>
-              <StarRatingInput
-                value={scores.tienIch}
-                onChange={(val) => setScores({ ...scores, tienIch: val })}
-                size={20}
-              />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-slate-700">Vị trí địa lý</Text>
-              <StarRatingInput
-                value={scores.viTri}
-                onChange={(val) => setScores({ ...scores, viTri: val })}
-                size={20}
-              />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-slate-700">Chủ nhà / Hỗ trợ</Text>
-              <StarRatingInput
-                value={scores.chuNha}
-                onChange={(val) => setScores({ ...scores, chuNha: val })}
-                size={20}
-              />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm text-slate-700">Dịch vụ đi kèm</Text>
-              <StarRatingInput
-                value={scores.dichVu}
-                onChange={(val) => setScores({ ...scores, dichVu: val })}
-                size={20}
-              />
-            </View>
-          </View>
-
-          {/* 5. Trải nghiệm thực tế */}
-          <View className="mt-4">
-            <Text className="text-sm font-bold text-slate-900 mb-2">
-              Trải nghiệm thực tế của bạn
-            </Text>
-            <TextInput
-              className="border border-slate-200 rounded-2xl p-3.5 text-sm text-slate-800 bg-white min-h-[110px]"
-              placeholder="Nhập cảm nhận của bạn về phòng..."
-              placeholderTextColor="#94A3B8"
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* 6. Hình ảnh minh chứng */}
-          <View className="mt-4 mb-20">
-            <Text className="text-sm font-bold text-slate-900 mb-2.5">
-              Hình ảnh minh chứng
-            </Text>
-            <View className="flex-row flex-wrap gap-3">
-              <TouchableOpacity
-                onPress={handlePickImage}
-                className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-300 items-center justify-center bg-slate-50 active:bg-slate-100"
+          {CRITERIA.map((criterion, idx) => {
+            const isLast = idx === CRITERIA.length - 1;
+            return (
+              <View
+                key={criterion.key}
+                className={`flex-row justify-between items-center py-2.5 ${
+                  !isLast ? "border-b border-slate-200/40" : ""
+                }`}
               >
-                <Ionicons name="add" size={26} color="#64748B" />
-              </TouchableOpacity>
-              {images.map((uri, idx) => (
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name={criterion.icon} size={16} color="#64748B" />
+                  <Text className="text-xs font-semibold text-slate-700">
+                    {criterion.label}
+                  </Text>
+                </View>
+                <StarRatingInput
+                  value={scores[criterion.key]}
+                  onChange={(val) =>
+                    setScores((prev) => ({ ...prev, [criterion.key]: val }))
+                  }
+                  size={18}
+                />
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Trải nghiệm thực tế */}
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-sm font-bold text-slate-900">
+              Trải nghiệm thực tế của bạn <Text className="text-rose-500">*</Text>
+            </Text>
+            <Text className="text-[11px] text-slate-400">
+              {content.length} ký tự
+            </Text>
+          </View>
+          <TextInput
+            className="border border-slate-200 rounded-2xl p-3.5 text-sm text-slate-800 bg-white min-h-[110px]"
+            placeholder="Chia sẻ cảm nhận chân thật về phòng trọ, chủ nhà, an ninh, tiện ích..."
+            placeholderTextColor="#94A3B8"
+            value={content}
+            onChangeText={setContent}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Hình ảnh minh chứng */}
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center mb-2.5">
+            <Text className="text-sm font-bold text-slate-900">
+              Hình ảnh minh chứng thực tế
+            </Text>
+            {images.length > 0 && (
+              <Text className="text-xs text-teal-600 font-semibold">
+                Đã chọn ({images.length})
+              </Text>
+            )}
+          </View>
+          <View className="flex-row flex-wrap gap-3">
+            <TouchableOpacity
+              onPress={handlePickImage}
+              activeOpacity={0.7}
+              className="w-20 h-20 rounded-2xl border-2 border-dashed border-teal-300 items-center justify-center bg-teal-50/40 active:bg-teal-50"
+            >
+              <Ionicons name="camera-outline" size={24} color="#0D9488" />
+              <Text className="text-[11px] font-semibold text-teal-700 mt-1">
+                Thêm ảnh
+              </Text>
+            </TouchableOpacity>
+            {images.map((uri, idx) => (
+              <View key={idx} className="relative w-20 h-20">
                 <Image
-                  key={idx}
                   source={{ uri }}
-                  className="w-16 h-16 rounded-2xl bg-slate-100"
+                  className="w-20 h-20 rounded-2xl bg-slate-100"
                   resizeMode="cover"
                 />
-              ))}
-            </View>
+                <TouchableOpacity
+                  onPress={() => handleRemoveImage(idx)}
+                  activeOpacity={0.8}
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-slate-900/80 items-center justify-center border border-white shadow-sm"
+                >
+                  <Ionicons name="close" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
         </View>
-
-        {/* 7. Nút Hành động */}
-        <View className="px-4 py-3 bg-white border-t border-slate-100">
-          <Button
-            variant="primary"
-            size="lg"
-            onPress={handleSubmit}
-            isDisabled={isSubmitting || isLoadingExisting}
-            className="w-full rounded-xl bg-teal-600"
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Button.Label className="font-bold text-white text-base">
-                {existingReviewDate ? "Cập nhật đánh giá" : "Gửi đánh giá"}
-              </Button.Label>
-            )}
-          </Button>
-        </View>
       </ScrollView>
+
+      {/* 3. Nút Hành động cố định dưới chân màn hình */}
+      <View className="px-5 py-3.5 border-t border-slate-100 bg-white">
+        <Button
+          variant="primary"
+          size="lg"
+          onPress={handleSubmit}
+          isDisabled={isSubmitting || isLoadingExisting}
+          className="w-full rounded-xl bg-teal-600"
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Button.Label className="font-bold text-white text-base">
+              {existingReviewDate ? "Cập nhật đánh giá" : "Gửi đánh giá phòng"}
+            </Button.Label>
+          )}
+        </Button>
+      </View>
     </SafeAreaView>
   );
 }

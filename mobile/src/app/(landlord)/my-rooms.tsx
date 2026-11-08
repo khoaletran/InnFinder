@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Card } from 'heroui-native';
 import { landlordService } from '../../services/landlord.service';
 import { LandlordRoomItem } from '../../types/landlord.types';
+import { formatVNDShort } from '../../utils/formatVND';
 
 const PAGE_SIZE = 5;
 
@@ -106,7 +107,7 @@ export default function MyRoomsScreen() {
 
           <View className="flex-row items-center justify-between mt-2">
             <Text className="text-sm font-bold text-teal-700">
-              {(room.giaThue / 1000000).toFixed(1)} triệu/tháng
+              {formatVNDShort(room.giaThue)}
             </Text>
             <Text className="text-xs font-medium text-gray-400">{room.dienTich} m²</Text>
           </View>

@@ -107,8 +107,8 @@ export default function LandlordAccountScreen() {
             onPress={() => router.push('/(landlord)/appointments?status=XAC_NHAN' as any)}
           />
           <ProfileMenuRow
-            icon="receipt-outline"
-            label="Lịch sử giao dịch"
+            icon="wallet-outline"
+            label="Ví và giao dịch"
             onPress={() => router.push('/(landlord)/transactions')}
           />
         </View>

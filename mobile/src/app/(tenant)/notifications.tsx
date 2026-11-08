@@ -222,9 +222,6 @@ export default function TenantNotificationsScreen() {
                         >
                           {item.tieuDe}
                         </Text>
-                        {item.chuaDoc && (
-                          <View className="w-2 h-2 rounded-full bg-teal-600" />
-                        )}
                       </View>
 
                       <Text

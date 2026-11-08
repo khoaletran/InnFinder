@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { LandlordAppointmentItem } from '../../types/landlord.types';
+import { formatVND } from '../../utils/formatVND';
 
 export interface LandlordAppointmentCardProps {
   appointment: LandlordAppointmentItem;
@@ -13,6 +14,7 @@ export interface LandlordAppointmentCardProps {
   onReject: (id: string) => void | Promise<void>;
   onComplete?: (id: string) => void | Promise<void>;
   onCancelRental?: (id: string) => void | Promise<void>;
+  autoOpenDetail?: boolean;
 }
 
 export type Props = LandlordAppointmentCardProps;
@@ -57,8 +59,15 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
   onReject,
   onComplete,
   onCancelRental,
+  autoOpenDetail,
 }) => {
-  const [detailVisible, setDetailVisible] = useState<boolean>(false);
+  const [detailVisible, setDetailVisible] = useState<boolean>(!!autoOpenDetail);
+
+  React.useEffect(() => {
+    if (autoOpenDetail) {
+      setDetailVisible(true);
+    }
+  }, [autoOpenDetail]);
   const statusInfo = STATUS_CONFIG[appointment.trangThai] || STATUS_CONFIG.CHO_XAC_NHAN;
 
   const handleCall = () => {
@@ -155,7 +164,7 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
 
             {cocAmount > 0 ? (
               <Text className="text-xs font-bold text-amber-700">
-                Cọc: {cocAmount.toLocaleString('vi-VN')} đ
+                Cọc: {formatVND(cocAmount)}
               </Text>
             ) : null}
           </View>
@@ -371,7 +380,7 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
                   </Text>
                   {appointment.giaThue ? (
                     <Text className="text-xs font-bold text-teal-700">
-                      Giá thuê: {appointment.giaThue.toLocaleString('vi-VN')} đ/tháng
+                      Giá thuê: {formatVND(appointment.giaThue)}/tháng
                     </Text>
                   ) : null}
                 </View>
@@ -397,17 +406,17 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
               <View className="space-y-2">
                 <View className="flex-row items-center justify-between py-1.5 border-b border-gray-100">
                   <Text className="text-xs text-gray-600">Tiền cọc khách đã thanh toán:</Text>
-                  <Text className="text-xs font-bold text-gray-900">{cocAmount.toLocaleString('vi-VN')} đ</Text>
+                  <Text className="text-xs font-bold text-gray-900">{formatVND(cocAmount)}</Text>
                 </View>
 
                 <View className="flex-row items-center justify-between py-1.5 border-b border-gray-100">
                   <Text className="text-xs text-gray-600">Phí hoa hồng sàn InnFinder:</Text>
-                  <Text className="text-xs font-semibold text-rose-600">- {phiThuAmount.toLocaleString('vi-VN')} đ</Text>
+                  <Text className="text-xs font-semibold text-rose-600">- {formatVND(phiThuAmount)}</Text>
                 </View>
 
                 <View className="flex-row items-center justify-between py-2 bg-emerald-50/70 px-3 rounded-xl border border-emerald-200/60 mt-1">
                   <Text className="text-xs font-bold text-emerald-900">Chủ trọ thực nhận khi chốt thuê:</Text>
-                  <Text className="text-sm font-extrabold text-emerald-700">{thucNhanAmount.toLocaleString('vi-VN')} đ</Text>
+                  <Text className="text-sm font-extrabold text-emerald-700">{formatVND(thucNhanAmount)}</Text>
                 </View>
               </View>
             </View>

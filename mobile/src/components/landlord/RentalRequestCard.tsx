@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { Card, Button } from 'heroui-native';
 import { LandlordRentalRequestItem } from '../../types/landlord.types';
+import { formatVNDShort } from '../../utils/formatVND';
 
 interface Props {
   request: LandlordRentalRequestItem;
@@ -35,7 +36,7 @@ export const RentalRequestCard: React.FC<Props> = ({ request, onConfirm, onRejec
       <View className="my-1">
         <Text className="text-sm font-bold text-gray-900">{request.phongTen}</Text>
         <Text className="text-sm font-semibold text-teal-700">
-          {(request.giaThue / 1000000).toFixed(1)} triệu/tháng
+          {formatVNDShort(request.giaThue)}
         </Text>
       </View>
 

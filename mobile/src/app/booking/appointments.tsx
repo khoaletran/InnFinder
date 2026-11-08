@@ -147,23 +147,23 @@ export default function AppointmentsScreen() {
         </View>
 
         {/* Khối yêu cầu đăng nhập */}
-        <View className="flex-1 justify-center items-center px-6">
-          <View className="w-20 h-20 rounded-full bg-teal-50 border border-teal-200 items-center justify-center mb-4">
-            <Ionicons name="calendar-outline" size={38} color="#0D9488" />
+        <View className="items-center justify-center py-24 px-6 flex-1">
+          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+            <Ionicons name="calendar-outline" size={32} color="#94A3B8" />
           </View>
-          <Text className="text-xl font-bold text-slate-900 text-center">
+          <Text className="text-sm font-semibold text-slate-700 text-center">
             Đăng nhập để xem lịch hẹn
           </Text>
-          <Text className="text-xs text-slate-500 text-center mt-2 mb-6 leading-relaxed max-w-xs">
+          <Text className="text-xs text-slate-400 mt-1 text-center leading-5 max-w-xs">
             Vui lòng đăng nhập để theo dõi trạng thái các cuộc hẹn xem phòng, nộp cọc giữ chân và liên hệ với chủ trọ.
           </Text>
           <Button
             variant="primary"
-            size="lg"
+            size="md"
             onPress={() => router.push("/(auth)/login")}
-            className="w-full max-w-xs bg-teal-600 active:bg-teal-700 rounded-xl"
+            className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
           >
-            <Button.Label className="font-bold text-white text-base">
+            <Button.Label className="text-white font-bold text-xs">
               Đăng nhập ngay
             </Button.Label>
           </Button>
