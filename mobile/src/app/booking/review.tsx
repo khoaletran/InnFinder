@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Button } from "heroui-native";
 
 import { StarRatingInput } from "../../components/booking/StarRatingInput";
@@ -57,6 +58,9 @@ const CRITERIA = [
   },
 ];
 
+const getStorageKey = (userId?: string, roomId?: string) =>
+  `innfinder_review_images_${userId || "guest"}_${roomId || "unknown"}`;
+
 export default function ReviewScreen() {
   const params = useLocalSearchParams<{
     roomId?: string;
@@ -89,10 +93,26 @@ export default function ReviewScreen() {
     dichVu: 4,
   });
 
-  // Tải đánh giá đã có trước đó của người dùng trên phòng này (nếu có)
+  // Tải đánh giá đã có trước đó của người dùng trên phòng này & ảnh đã lưu trên máy
   useEffect(() => {
     if (params.roomId && user?.maNguoiDung) {
       setIsLoadingExisting(true);
+      const storageKey = getStorageKey(user.maNguoiDung, params.roomId);
+
+      // Đọc ảnh đã lưu trên bộ nhớ máy điện thoại
+      AsyncStorage.getItem(storageKey)
+        .then((savedJson) => {
+          if (savedJson) {
+            try {
+              const parsed = JSON.parse(savedJson);
+              if (Array.isArray(parsed)) {
+                setImages(parsed);
+              }
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
       bookingService
         .getRoomReviews(params.roomId)
         .then((reviews) => {
@@ -126,12 +146,30 @@ export default function ReviewScreen() {
 
     if (!result.canceled && result.assets) {
       const newUris = result.assets.map((a) => a.uri);
-      setImages((prev) => [...prev, ...newUris]);
+      setImages((prev) => {
+        const updated = [...prev, ...newUris];
+        if (params.roomId && user?.maNguoiDung) {
+          AsyncStorage.setItem(
+            getStorageKey(user.maNguoiDung, params.roomId),
+            JSON.stringify(updated),
+          ).catch(() => {});
+        }
+        return updated;
+      });
     }
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    setImages((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      if (params.roomId && user?.maNguoiDung) {
+        AsyncStorage.setItem(
+          getStorageKey(user.maNguoiDung, params.roomId),
+          JSON.stringify(updated),
+        ).catch(() => {});
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
@@ -158,6 +196,12 @@ export default function ReviewScreen() {
 
     setIsSubmitting(true);
     try {
+      if (params.roomId && user?.maNguoiDung) {
+        await AsyncStorage.setItem(
+          getStorageKey(user.maNguoiDung, params.roomId),
+          JSON.stringify(images),
+        ).catch(() => {});
+      }
       await bookingService.createReview(params.roomId, payload);
       await markRoomAsReviewed(params.roomId);
       setIsSubmitting(false);
