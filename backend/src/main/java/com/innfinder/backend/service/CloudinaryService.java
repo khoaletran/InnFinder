@@ -42,12 +42,25 @@ public class CloudinaryService {
             return BASE_FOLDER + "/rooms";
         }
         String clean = subFolder.trim().toLowerCase();
+        // Nếu có dấu phẩy do Spring ghép query param và form data (ví dụ "avatars,avatars")
+        if (clean.contains(",")) {
+            clean = clean.split(",")[0].trim();
+        }
         if (clean.startsWith("innfinder/")) {
             clean = clean.substring("innfinder/".length());
         }
-        if (ALLOWED_FOLDERS.contains(clean)) {
-            return BASE_FOLDER + "/" + clean;
+        while (clean.startsWith("/")) {
+            clean = clean.substring(1);
         }
+
+        // Hỗ trợ cả số ít và số nhiều (avatar -> avatars, room -> rooms...)
+        if (clean.startsWith("avatar")) return BASE_FOLDER + "/avatars";
+        if (clean.startsWith("room")) return BASE_FOLDER + "/rooms";
+        if (clean.startsWith("cccd")) return BASE_FOLDER + "/cccd";
+        if (clean.startsWith("review")) return BASE_FOLDER + "/reviews";
+        if (clean.startsWith("complaint")) return BASE_FOLDER + "/complaints";
+        if (clean.startsWith("bank")) return BASE_FOLDER + "/banks";
+
         return BASE_FOLDER + "/rooms";
     }
 

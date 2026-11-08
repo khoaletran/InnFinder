@@ -92,8 +92,6 @@ export const uploadService = {
 
     const formData = new FormData();
     await appendFileToFormData(formData, 'file', uri);
-    formData.append('folder', folder);
-
     const token = await SecureStore.getItemAsync('innfinder_jwt_token');
     const endpoint = `${BASE_URL}/api/upload/image?folder=${encodeURIComponent(folder)}`;
     const json = await sendMultipartFormData(endpoint, formData, token);
@@ -131,8 +129,6 @@ export const uploadService = {
         appendFileToFormData(formData, 'files', uri, `img_${Date.now()}_${idx}.jpg`)
       )
     );
-    formData.append('folder', folder);
-
     const token = await SecureStore.getItemAsync('innfinder_jwt_token');
     const endpoint = `${BASE_URL}/api/upload/images?folder=${encodeURIComponent(folder)}`;
     const json = await sendMultipartFormData(endpoint, formData, token);
