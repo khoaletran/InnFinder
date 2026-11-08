@@ -402,15 +402,25 @@ export default function RoomDetailScreen() {
             </View>
           </View>
 
-          <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              onPress={() => router.back()}
+              className="rounded-full px-3.5 border-slate-200"
+            >
+              <Button.Label className="font-semibold text-slate-700">
+                Quay lại
+              </Button.Label>
+            </Button>
             <Button
               variant="primary"
-              size="lg"
-              onPress={() => router.back()}
-              className="w-full rounded-full bg-teal-700"
+              size="md"
+              onPress={() => router.push(`/(landlord)/edit-room?id=${room.maPhongTro}` as any)}
+              className="rounded-full px-4 bg-teal-700"
             >
               <Button.Label className="font-bold text-white">
-                Quay lại
+                Chỉnh sửa
               </Button.Label>
             </Button>
           </View>

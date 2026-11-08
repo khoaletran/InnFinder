@@ -103,6 +103,13 @@ export default function LandlordTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="edit-room"
+        options={{
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
         name="my-posts"
         options={{
           tabBarItemStyle: { display: 'none' },

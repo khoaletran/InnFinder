@@ -222,6 +222,34 @@ public class RoomService {
             List<TienIch> dsTienIchMoi = tienIchRepository.findAllById(request.getDsTienIch());
             phongTro.setDsTienIch(dsTienIchMoi);
         }
+
+        // Cập nhật danh sách hình ảnh nếu có
+        if (request.getHinhAnhUrls() != null && !request.getHinhAnhUrls().isEmpty()) {
+            List<HinhAnh> listHinhAnh = new ArrayList<>();
+            List<String> urls = request.getHinhAnhUrls();
+            for (int i = 0; i < urls.size(); i++) {
+                HinhAnh hinhAnh = HinhAnh.builder()
+                        .maHinhAnh("HA" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase())
+                        .phongTro(phongTro)
+                        .url(urls.get(i))
+                        .thuTuAnh(i)
+                        .laDaiDien(i == 0)
+                        .build();
+                listHinhAnh.add(hinhAnh);
+            }
+            if (phongTro.getHinhAnh() == null) {
+                phongTro.setHinhAnh(new ArrayList<>());
+            }
+            phongTro.getHinhAnh().clear();
+            phongTro.getHinhAnh().addAll(listHinhAnh);
+        }
+
+        // Nếu bài đăng từng bị từ chối duyệt (HUY), tự động chuyển về CHO_DUYET để Admin duyệt lại
+        if (phongTro.getTrangThai() == TrangThaiPhongTro.HUY) {
+            phongTro.setTrangThai(TrangThaiPhongTro.CHO_DUYET);
+            log.info("Phòng {} từng bị từ chối, chuyển về trạng thái CHO_DUYET sau khi sửa", maPhongTro);
+        }
+
         PhongTro updatedRoom = phongTroRepository.save(phongTro);
         log.info("Chủ trọ {} đã cập nhật phòng trọ: {}", currentLandlord.getMaChuTro(), maPhongTro);
         return RoomDetailResponse.fromEntity(updatedRoom);

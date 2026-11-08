@@ -289,6 +289,11 @@ export const landlordService = {
     return await axiosClient.post('/api/landlord/rooms', payload);
   },
 
+  // 8.0. Cập nhật thông tin phòng trọ (PUT /api/landlord/rooms/{id})
+  updateRoom: async (id: string, payload: any): Promise<any> => {
+    return await axiosClient.put(`/api/landlord/rooms/${id}`, payload);
+  },
+
   // 8.1. Upload danh sách ảnh lên Cloudinary qua API Backend (POST /api/upload/images)
   uploadImages: async (imageUris: string[]): Promise<string[]> => {
     if (!imageUris || imageUris.length === 0) return [];
