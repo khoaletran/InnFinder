@@ -42,27 +42,39 @@ export default function AppointmentsScreen() {
   const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'CANCEL_RENTAL'>('REJECT');
   const [submittingAction, setSubmittingAction] = useState<boolean>(false);
 
-  const loadAppointments = useCallback(async (isRefresh = false) => {
+  const loadAppointments = useCallback(async (isRefresh = false, isSilent = false) => {
     if (isRefresh) {
       setRefreshing(true);
-    } else {
+    } else if (!isSilent) {
       setLoading(true);
     }
     try {
       const list = await landlordService.getAppointments();
       setAllAppointments(list);
     } catch {
-      setAllAppointments([]);
+      if (!isSilent) {
+        setAllAppointments([]);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!isSilent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  // Tự động tải lại mỗi khi màn hình được Focus / hiển thị lại
+  // Tự động tải lại mỗi khi màn hình được Focus / hiển thị lại và polling ngầm 8s
   useFocusEffect(
     useCallback(() => {
-      loadAppointments();
+      loadAppointments(false, false);
+
+      const interval = setInterval(() => {
+        loadAppointments(false, true);
+      }, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
     }, [loadAppointments])
   );
 
@@ -165,8 +177,18 @@ export default function AppointmentsScreen() {
           style: 'default',
           onPress: async () => {
             try {
-              await landlordService.submitLandlordDecision(id, true);
-              Alert.alert('Chúc mừng!', 'Đã chốt hợp đồng thuê thành công và cộng tiền cọc vào ví!');
+              const res: any = await landlordService.submitLandlordDecision(id, true);
+              if (res?.trangThai === 'HOAN_THANH') {
+                Alert.alert(
+                  'Thuê phòng thành công!',
+                  'Chúc mừng! Cả hai bên đã đồng ý thuê phòng. Hợp đồng đã hoàn tất và tiền cọc (sau khi trừ phí sàn) đã được cộng vào ví của bạn!'
+                );
+              } else {
+                Alert.alert(
+                  'Đã ghi nhận đồng ý cho thuê',
+                  'Bạn đã đồng ý cho khách thuê phòng! Đang chờ khách hàng bấm xác nhận thuê trên ứng dụng để hoàn tất hợp đồng.'
+                );
+              }
               loadAppointments();
             } catch (err: any) {
               Alert.alert('Lỗi', err.message || 'Không thể hoàn tất thuê phòng.');

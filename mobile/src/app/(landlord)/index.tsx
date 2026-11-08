@@ -93,8 +93,18 @@ export default function LandlordDashboardScreen() {
           style: 'default',
           onPress: async () => {
             try {
-              await landlordService.submitLandlordDecision(id, true);
-              Alert.alert('Thành công', 'Đã gửi quyết định cho thuê phòng!');
+              const res: any = await landlordService.submitLandlordDecision(id, true);
+              if (res?.trangThai === 'HOAN_THANH') {
+                Alert.alert(
+                  'Thuê phòng thành công!',
+                  'Chúc mừng! Cả hai bên đã đồng ý thuê phòng. Hợp đồng đã hoàn tất và tiền cọc (sau khi trừ phí sàn) đã được cộng vào ví của bạn!'
+                );
+              } else {
+                Alert.alert(
+                  'Đã gửi quyết định cho thuê',
+                  'Bạn đã đồng ý cho khách thuê phòng! Đang chờ khách hàng xác nhận trên ứng dụng để hoàn tất hợp đồng.'
+                );
+              }
               loadData();
             } catch (e: any) {
               Alert.alert('Lỗi', e?.response?.data?.message || e.message || 'Không thể chốt thuê lúc này.');

@@ -296,7 +296,17 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
                     onPress={async () => {
                       const res = await submitCustomerDecision(item.maDatLich, true);
                       if (res.success) {
-                        Alert.alert("Thành công", "Bạn đã chọn Thuê phòng! Đang chờ Chủ trọ xác nhận.");
+                        if (res.isCompleted) {
+                          Alert.alert(
+                            "Thuê phòng thành công!",
+                            "Chúc mừng bạn! Cả hai bên đã đồng ý thuê phòng. Hợp đồng thuê phòng đã chính thức hoàn tất thành công!"
+                          );
+                        } else {
+                          Alert.alert(
+                            "Đã ghi nhận lựa chọn!",
+                            "Bạn đã chọn Thuê phòng! Đang chờ Chủ trọ xác nhận trên ứng dụng để hoàn tất."
+                          );
+                        }
                       } else {
                         Alert.alert("Lỗi", res.message || "Gửi quyết định thất bại");
                       }

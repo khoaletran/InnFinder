@@ -35,7 +35,7 @@ interface BookingState {
   ) => Promise<boolean>;
 
   setActiveTab: (tab: AppointmentFilterTab) => void;
-  fetchAppointments: () => Promise<void>;
+  fetchAppointments: (silent?: boolean) => Promise<void>;
   markRoomAsReviewed: (roomId: string) => Promise<void>;
   cancelAppointment: (
     maDatLich: string,
@@ -51,7 +51,7 @@ interface BookingState {
     maDatLich: string,
     dongY: boolean,
     liDoTuChoi?: string,
-  ) => Promise<{ success: boolean; message?: string }>;
+  ) => Promise<{ success: boolean; isCompleted?: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -65,8 +65,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  fetchAppointments: async () => {
-    set({ isLoading: true, error: null });
+  fetchAppointments: async (silent = false) => {
+    if (!silent) {
+      set({ isLoading: true, error: null });
+    }
     try {
       const data = await bookingService.getMyAppointments();
 
@@ -100,6 +102,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (err: any) {
       const isAuthError =
         err.response?.status === 401 || err.response?.status === 403;
+      if (silent) {
+        // Trong chế độ silent polling ngầm, nếu mạng chập chờn thì không xoá dữ liệu hiện tại
+        return;
+      }
       set({
         appointments: [],
         error: isAuthError
@@ -295,6 +301,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         dongY,
         liDoTuChoi,
       );
+      const isCompleted = updated.trangThai === "HOAN_THANH";
       set((state) => ({
         appointments: state.appointments.map((item) =>
           item.maDatLich === maDatLich
@@ -307,7 +314,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
             : item,
         ),
       }));
-      return { success: true };
+      return { success: true, isCompleted };
     } catch (err: any) {
       return {
         success: false,

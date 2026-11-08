@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Chip } from "heroui-native";
 
@@ -54,11 +54,22 @@ export default function RentalDetailScreen() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isConfirmingRental, setIsConfirmingRental] = useState(false);
 
-  useEffect(() => {
-    if (appointments.length === 0) {
-      fetchAppointments();
-    }
-  }, []);
+  // Tự động tải lại khi vào màn hình và thiết lập Smart Polling mỗi 8 giây
+  useFocusEffect(
+    useCallback(() => {
+      // 1. Tải mới dữ liệu khi vào màn hình
+      fetchAppointments(false);
+
+      // 2. Polling ngầm mỗi 3 giây để cập nhật trạng thái nếu chủ trọ phê duyệt hoặc có biến động
+      const interval = setInterval(() => {
+        fetchAppointments(true);
+      }, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }, [fetchAppointments])
+  );
 
   const item = appointments.find((a) => a.maDatLich === id);
 
@@ -172,10 +183,17 @@ export default function RentalDetailScreen() {
             const res = await submitCustomerDecision(item.maDatLich, true);
             setIsConfirmingRental(false);
             if (res.success) {
-              Alert.alert(
-                "Đã gửi quyết định thuê!",
-                "Bạn đã xác nhận thuê phòng. Hệ thống đang chờ Chủ trọ đưa ra quyết định.",
-              );
+              if (res.isCompleted) {
+                Alert.alert(
+                  "Thuê phòng thành công!",
+                  "Chúc mừng bạn! Cả hai bên đã đồng ý thuê phòng. Hợp đồng thuê phòng đã chính thức hoàn tất thành công!"
+                );
+              } else {
+                Alert.alert(
+                  "Đã gửi quyết định thuê!",
+                  "Bạn đã xác nhận thuê phòng. Hệ thống đang chờ Chủ trọ đưa ra quyết định để hoàn tất."
+                );
+              }
             } else {
               Alert.alert(
                 "Lỗi",

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Card } from "heroui-native";
 
@@ -60,9 +60,20 @@ const formatDate = (isoDate: string): string => {
 export default function RentalRequestsScreen() {
   const { appointments, isLoading, fetchAppointments } = useBookingStore();
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
+  // Tự động tải lại khi màn hình được Focus và thiết lập Smart Polling mỗi 8 giây
+  useFocusEffect(
+    useCallback(() => {
+      fetchAppointments(false);
+
+      const interval = setInterval(() => {
+        fetchAppointments(true);
+      }, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }, [fetchAppointments])
+  );
 
   const renderCard = ({ item }: { item: AppointmentResponse }) => {
     const badge = getStatusBadge(item.trangThai);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
   ScrollView,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "heroui-native";
 
@@ -53,10 +53,26 @@ export default function AppointmentsScreen() {
     if (tab) {
       setActiveTab(tab);
     }
-    if (isAuthenticated) {
-      fetchAppointments();
-    }
-  }, [tab, isAuthenticated]);
+  }, [tab]);
+
+  // Tự động tải lại khi vào màn hình (Focus) và thiết lập Smart Polling mỗi 8 giây
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated) return;
+
+      // 1. Tải mới ngay lập tức
+      fetchAppointments(false);
+
+      // 2. Chạy polling ngầm mỗi 3 giây
+      const interval = setInterval(() => {
+        fetchAppointments(true);
+      }, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }, [isAuthenticated, fetchAppointments])
+  );
 
   const filteredList: AppointmentResponse[] =
     activeTab === "ALL"
