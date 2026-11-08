@@ -13,6 +13,7 @@ export interface AppointmentResponse {
   coc: number;
   phiThu: number;
   liDoHuy?: string;
+  daNopCoc?: boolean; // Cờ xác định khách đã nộp tiền cọc xem phòng hay chưa
 
   // Thong tin phong tro
   maPhongTro: string;

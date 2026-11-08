@@ -19,6 +19,7 @@ import {
   useBookingStore,
   AppointmentFilterTab,
 } from "../../store/useBookingStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { AppointmentResponse } from "../../types/booking.types";
 
 const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
@@ -26,10 +27,12 @@ const TAB_ITEMS: { key: AppointmentFilterTab; label: string }[] = [
   { key: "CHO_XAC_NHAN", label: "Chờ xác nhận" },
   { key: "XAC_NHAN", label: "Đã xác nhận" },
   { key: "HOAN_THANH", label: "Hoàn tất" },
+  { key: "HUY", label: "Đã hủy" },
 ];
 
 export default function AppointmentsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: AppointmentFilterTab }>();
+  const { isAuthenticated } = useAuthStore();
   const {
     appointments,
     isLoading,
@@ -38,7 +41,10 @@ export default function AppointmentsScreen() {
     setActiveTab,
     fetchAppointments,
     cancelAppointment,
+    refundWallet,
+    paidAppointmentIds,
   } = useBookingStore();
+
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("");
   const [isCanceling, setIsCanceling] = useState(false);
@@ -47,8 +53,10 @@ export default function AppointmentsScreen() {
     if (tab) {
       setActiveTab(tab);
     }
-    fetchAppointments();
-  }, [tab]);
+    if (isAuthenticated) {
+      fetchAppointments();
+    }
+  }, [tab, isAuthenticated]);
 
   const filteredList: AppointmentResponse[] =
     activeTab === "ALL"
@@ -62,12 +70,23 @@ export default function AppointmentsScreen() {
 
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
+    const targetItem = appointments.find((a) => a.maDatLich === selectedId);
+    const wasPaid =
+      !!targetItem?.daNopCoc || paidAppointmentIds.includes(selectedId);
     const result = await cancelAppointment(selectedId, reason);
     setIsCanceling(false);
     setCancelModalVisible(false);
 
     if (result.success) {
-      Alert.alert("Thành công", "Đã hủy lịch hẹn xem phòng.");
+      if (targetItem?.coc && wasPaid) {
+        await refundWallet(targetItem.coc);
+        Alert.alert(
+          "Thành công",
+          "Đã hủy lịch hẹn xem phòng và hoàn trả cọc vào ví của bạn.",
+        );
+      } else {
+        Alert.alert("Thành công", "Đã hủy lịch hẹn xem phòng thành công.");
+      }
     } else {
       Alert.alert(
         "Lỗi",
@@ -108,6 +127,50 @@ export default function AppointmentsScreen() {
       </View>
     );
   };
+
+  // NẾU CHƯA ĐĂNG NHẬP: Hiển thị giao diện thân thiện yêu cầu đăng nhập thay vì bắn lỗi 403
+  if (!isAuthenticated) {
+    return (
+      <View className="flex-1 pt-safe bg-slate-50">
+        {/* Header */}
+        <View className="px-4 py-3 bg-white border-b border-slate-200/80">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-bold text-slate-900">
+                Lịch xem phòng
+              </Text>
+              <Text className="text-xs text-slate-500 mt-0.5">
+                Theo dõi & quản lý các cuộc hẹn xem phòng
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Khối yêu cầu đăng nhập */}
+        <View className="flex-1 justify-center items-center px-6">
+          <View className="w-20 h-20 rounded-full bg-teal-50 border border-teal-200 items-center justify-center mb-4">
+            <Ionicons name="calendar-outline" size={38} color="#0D9488" />
+          </View>
+          <Text className="text-xl font-bold text-slate-900 text-center">
+            Đăng nhập để xem lịch hẹn
+          </Text>
+          <Text className="text-xs text-slate-500 text-center mt-2 mb-6 leading-relaxed max-w-xs">
+            Vui lòng đăng nhập để theo dõi trạng thái các cuộc hẹn xem phòng, nộp cọc giữ chân và liên hệ với chủ trọ.
+          </Text>
+          <Button
+            variant="primary"
+            size="lg"
+            onPress={() => router.push("/(auth)/login")}
+            className="w-full max-w-xs bg-teal-600 active:bg-teal-700 rounded-xl"
+          >
+            <Button.Label className="font-bold text-white text-base">
+              Đăng nhập ngay
+            </Button.Label>
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 pt-safe bg-slate-50">

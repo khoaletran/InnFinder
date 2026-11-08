@@ -444,6 +444,8 @@ export default function RoomDetailScreen() {
                       : `Phòng trọ #${room.maPhongTro}`,
                     price: room.giaThue,
                     image: room.dsHinhAnh?.[0]?.url || "",
+                    categoryName: room.loaiPhong?.tenLoaiPhongTro || "",
+                    depositAmount: String(room.loaiPhong?.soTienCoc || 0),
                   },
                 })
               }

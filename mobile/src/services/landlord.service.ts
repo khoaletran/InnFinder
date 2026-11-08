@@ -251,4 +251,14 @@ export const landlordService = {
       return [];
     }
   },
+
+  // 10. Xem tất cả đánh giá của khách thuê dành cho chủ trọ (GET /api/landlord/reviews)
+  getLandlordReviews: async (): Promise<any[]> => {
+    try {
+      const res: any = await axiosClient.get('/api/landlord/reviews');
+      return Array.isArray(res) ? res : res?.data || [];
+    } catch {
+      return [];
+    }
+  },
 };

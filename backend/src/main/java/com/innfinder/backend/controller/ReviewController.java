@@ -15,14 +15,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/rooms")
 @RequiredArgsConstructor
 @Tag(name = "Review Controller", description = "API đánh giá và xem đánh giá của phòng trọ")
 public class ReviewController {
 
     private final ReviewService reviewService;
 
-    @PostMapping("/{roomId}/reviews")
+    @PostMapping("/api/rooms/{roomId}/reviews")
     @Operation(summary = "Khách hàng gửi đánh giá và nhận xét cho phòng trọ")
     public ResponseEntity<ApiResponse<ReviewResponseDTO>> createReview(
             @PathVariable String roomId,
@@ -33,10 +32,17 @@ public class ReviewController {
                 .body(ApiResponse.ok(result, "Gửi đánh giá phòng trọ thành công"));
     }
 
-    @GetMapping("/{roomId}/reviews")
+    @GetMapping("/api/rooms/{roomId}/reviews")
     @Operation(summary = "Lấy danh sách đánh giá của một phòng trọ")
     public ResponseEntity<ApiResponse<List<ReviewResponseDTO>>> getReviewsByRoom(@PathVariable String roomId) {
         List<ReviewResponseDTO> result = reviewService.getReviewsByRoom(roomId);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách đánh giá phòng trọ thành công"));
+    }
+
+    @GetMapping("/api/landlord/reviews")
+    @Operation(summary = "Lấy tất cả đánh giá của khách thuê dành cho các phòng của chủ trọ đang đăng nhập")
+    public ResponseEntity<ApiResponse<List<ReviewResponseDTO>>> getReviewsForLandlord() {
+        List<ReviewResponseDTO> result = reviewService.getReviewsForCurrentLandlord();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách đánh giá của chủ trọ thành công"));
     }
 }

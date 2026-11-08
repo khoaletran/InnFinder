@@ -27,7 +27,7 @@ public class AppointmentController {
     }
 
     @PostMapping
-    @Operation(summary = "Khách đặt lịch xem phòng trọ (tính và tạm giữ cọc nếu có)")
+    @Operation(summary = "Khách đặt lịch xem phòng trọ (chờ chủ trọ xác nhận)")
     public ApiResponse<AppointmentResponse> taoDatLich(@Valid @RequestBody AppointmentCreateRequest request) {
         String username = getCurrentUsername();
         AppointmentResponse response = appointmentService.taoDatLich(username, request);
@@ -50,5 +50,21 @@ public class AppointmentController {
         String username = getCurrentUsername();
         appointmentService.huyLichHen(maDatLich, username, request);
         return ApiResponse.ok(null, "Hủy lịch hẹn thành công");
+    }
+
+    @PostMapping("/{id}/pay-deposit")
+    @Operation(summary = "Khách hàng nộp tiền cọc giữ chân sau khi Chủ trọ đã xác nhận lịch hẹn")
+    public ApiResponse<String> nopTienCoc(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        appointmentService.nopTienCoc(maDatLich, username);
+        return ApiResponse.ok(null, "Nộp tiền cọc giữ chân thành công");
+    }
+
+    @PatchMapping("/{id}/confirm-rental")
+    @Operation(summary = "Khách hàng xác nhận đồng ý thuê phòng sau khi xem thực tế")
+    public ApiResponse<String> khachHangXacNhanThue(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        appointmentService.khachHangXacNhanThue(maDatLich, username);
+        return ApiResponse.ok(null, "Xác nhận thuê phòng thành công");
     }
 }
