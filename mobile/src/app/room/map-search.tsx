@@ -1,14 +1,8 @@
 // mobile/src/app/room/map-search.tsx
-import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  PermissionsAndroid,
-} from "react-native";
-import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import MapView, { Marker, Circle, PROVIDER_DEFAULT } from "react-native-maps";
+import * as Location from "expo-location";
 import { Button, Card, Chip } from "heroui-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +13,53 @@ import { RoomSummaryResponse } from "../../types/room.types";
 import { PriceMapMarker } from "../../components/room/PriceMapMarker";
 import { FilterModal } from "../../components/room/FilterModal";
 
+// 1. Hàm tính khoảng cách giữa 2 tọa độ GPS theo km (Công thức Haversine)
+function getDistanceInKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371; // Bán kính trái đất (km)
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// 2. Hàm thông minh tự động chuẩn hóa tọa độ (Tự sửa nếu kinh độ và vĩ độ bị lưu ngược)
+function getValidCoords(
+  room: RoomSummaryResponse,
+): { lat: number; lng: number } | null {
+  const c1 = parseFloat(room.viDo);
+  const c2 = parseFloat(room.kinhDo);
+  if (isNaN(c1) || isNaN(c2)) return null;
+
+  let lat = c1;
+  let lng = c2;
+
+  // Ở Việt Nam: Vĩ độ (lat) luôn nằm trong khoảng [8, 24], Kinh độ (lng) nằm trong [102, 110]
+  // Nếu viDo > 90 (ví dụ 106.6297) -> rõ ràng viDo đang giữ Kinh độ, cần đảo ngược lại!
+  if (c1 > 90 && c2 <= 90) {
+    lat = c2;
+    lng = c1;
+  } else if (c2 > 90 && c1 <= 90) {
+    lat = c1;
+    lng = c2;
+  }
+
+  // Nếu vẫn ngoài phạm vi Trái Đất [-90, 90] thì bỏ qua
+  if (lat < -90 || lat > 90) return null;
+
+  return { lat, lng };
+}
+
 export default function MapSearchScreen() {
   const { filter } = useFilterStore();
   const [rooms, setRooms] = useState<RoomSummaryResponse[]>([]);
@@ -27,24 +68,44 @@ export default function MapSearchScreen() {
   );
   const [loading, setLoading] = useState<boolean>(true);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
-
+  const [isLocating, setIsLocating] = useState(false);
   const mapRef = useRef<MapView>(null);
-  const hasCenteredUser = useRef<boolean>(false);
-  //can cai them npx expo install expo-location, khong push node module
-  // 1. Tự động xin quyền GPS của Android ngay khi mở màn hình
+  const [myLocation, setMyLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // 1. Tự động xin quyền GPS và lấy tọa độ thật của bạn
   useEffect(() => {
-    const requestLocation = async () => {
-      if (Platform.OS === "android") {
-        try {
-          await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          );
-        } catch (err) {
-          console.warn("Lỗi xin quyền vị trí:", err);
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (loc?.coords) {
+            const currentCoords = {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            };
+            setMyLocation(currentCoords);
+
+            // Tự động lướt bản đồ tới vị trí GPS thật của bạn
+            mapRef.current?.animateToRegion(
+              {
+                ...currentCoords,
+                latitudeDelta: 0.04,
+                longitudeDelta: 0.04,
+              },
+              1000,
+            );
+          }
         }
+      } catch (err) {
+        console.warn("Lỗi định vị vị trí:", err);
       }
-    };
-    requestLocation();
+    })();
   }, []);
 
   // 2. Tải danh sách phòng từ Backend
@@ -58,7 +119,6 @@ export default function MapSearchScreen() {
       const res = await roomService.searchRooms({ ...filter, size: 50 });
       const list = res?.content || [];
       setRooms(list);
-      // Mới vào không chọn phòng nào cả
       setSelectedRoom(null);
     } catch (error) {
       console.warn("Lỗi tải phòng bản đồ:", error);
@@ -69,31 +129,55 @@ export default function MapSearchScreen() {
     }
   };
 
-  // Tọa độ khởi tạo mặc định (fallback nếu chưa bật GPS)
+  // Tọa độ mặc định ban đầu
   const initialRegion = {
-    latitude: 10.7769,
-    longitude: 106.6958,
-    latitudeDelta: 0.04,
-    longitudeDelta: 0.04,
+    latitude: 10.8231,
+    longitude: 106.6874,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
   };
 
-  // 3. Tự động lướt camera về vị trí hiện tại của bạn
-  const handleUserLocationChange = (event: any) => {
-    const coord = event?.nativeEvent?.coordinate;
-    if (coord?.latitude && coord?.longitude && !hasCenteredUser.current) {
-      hasCenteredUser.current = true;
+  // Nút bấm bay về lại vị trí của bạn
+  const handleRecenter = () => {
+    if (isLocating) return;
+    setIsLocating(true);
+    setSelectedRoom(null);
+
+    if (myLocation) {
       mapRef.current?.animateToRegion(
         {
-          latitude: coord.latitude,
-          longitude: coord.longitude,
+          latitude: myLocation.latitude,
+          longitude: myLocation.longitude,
           latitudeDelta: 0.03,
           longitudeDelta: 0.03,
         },
-        1000,
+        800,
       );
     }
+    setTimeout(() => setIsLocating(false), 900);
   };
 
+  // 3. LỌC CÁC PHÒNG TRONG BÁN KÍNH 5KM (TỰ ĐỘNG CHUẨN HÓA TỌA ĐỘ)
+  // 3. LỌC CHUẨN: CHỈ LẤY PHÒNG TRONG 5KM, KHÔNG CÓ THÌ ĐỂ TRỐNG
+  const filteredRooms = useMemo(() => {
+    if (!myLocation) return [];
+
+    return rooms.filter((room) => {
+      const coords = getValidCoords(room);
+      if (!coords) return false;
+
+      const distance = getDistanceInKm(
+        myLocation.latitude,
+        myLocation.longitude,
+        coords.lat,
+        coords.lng,
+      );
+
+      // Đúng trong vòng 5km mới lấy, ngoài 5km bỏ qua
+      return distance <= 5;
+    });
+  }, [rooms, myLocation]);
+  //return nearby.length > 0 ? nearby : rooms;
   return (
     <View className="flex-1 bg-white">
       {loading ? (
@@ -106,23 +190,34 @@ export default function MapSearchScreen() {
           provider={PROVIDER_DEFAULT}
           style={{ width: "100%", height: "100%" }}
           initialRegion={initialRegion}
-          showsUserLocation={true} // Hiện chấm xanh vị trí của bạn
-          showsMyLocationButton={true}
-          onUserLocationChange={handleUserLocationChange}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
         >
-          {rooms.map((room) => {
-            const lat = parseFloat(room.viDo);
-            const lng = parseFloat(room.kinhDo);
-            if (isNaN(lat) || isNaN(lng)) return null;
+          {/* VÒNG TRÒN BÁN KÍNH 5KM QUANH VỊ TRÍ GPS CỦA BẠN */}
+          {myLocation && (
+            <Circle
+              center={myLocation}
+              radius={5000} // 5000m = 5km
+              fillColor="rgba(13, 148, 136, 0.08)"
+              strokeColor="rgba(13, 148, 136, 0.45)"
+              strokeWidth={1.5}
+            />
+          )}
+
+          {/* RENDER CÁC PHÒNG ĐÃ ĐƯỢC CHUẨN HÓA TỌA ĐỘ */}
+          {filteredRooms.map((room) => {
+            const coords = getValidCoords(room);
+            if (!coords) return null;
 
             const isSelected = selectedRoom?.maPhongTro === room.maPhongTro;
             return (
               <Marker
-                key={room.maPhongTro} // Giữ key cố định để không bị giật nhả sự kiện
-                coordinate={{ latitude: lat, longitude: lng }}
+                key={room.maPhongTro}
+                coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                zIndex={isSelected ? 99 : 1}
                 onPress={(e) => {
                   e?.stopPropagation?.();
-                  setSelectedRoom(room); // ✅ Bấm phòng nào nhận ngay phòng đó
+                  setSelectedRoom(room); // ✅ Bấm vào cờ phòng hiện ngay Card thông tin!
                 }}
               >
                 <PriceMapMarker price={room.giaThue} isSelected={isSelected} />
@@ -141,19 +236,58 @@ export default function MapSearchScreen() {
           <Pressable onPress={() => router.back()} className="mr-2.5">
             <Ionicons name="arrow-back" size={22} color="#1E293B" />
           </Pressable>
-          <Text
-            numberOfLines={1}
-            className="flex-1 text-sm font-semibold text-slate-800"
-          >
-            {filter.keyword || "Bản đồ phòng trọ"}
-          </Text>
+          <View className="flex-1">
+            <Text
+              numberOfLines={1}
+              className="text-sm font-semibold text-slate-800"
+            >
+              {filter.keyword || "Bản đồ phòng trọ"}
+            </Text>
+            <Text className="text-[10px] text-teal-700 font-bold">
+              Bán kính 5km · {filteredRooms.length} phòng trọ
+            </Text>
+          </View>
           <Pressable onPress={() => setIsFilterModalOpen(true)} className="p-1">
             <Ionicons name="options-outline" size={20} color="#1E293B" />
           </Pressable>
         </Card>
       </View>
 
-      {/* Floating Bottom Preview Card: Luôn nổi trên Map nhờ zIndex và elevation */}
+      {/* Nút định vị tròn GPS */}
+      <View
+        className="absolute right-4 z-20 items-center justify-center"
+        style={{
+          bottom: selectedRoom ? 215 : 32,
+          elevation: 20,
+        }}
+      >
+        {isLocating && (
+          <View className="absolute -inset-1.5 rounded-full border-2 border-teal-400 bg-teal-400/25 animate-ping" />
+        )}
+        <Pressable
+          onPress={handleRecenter}
+          disabled={isLocating}
+          className={`w-12 h-12 rounded-full items-center justify-center shadow-2xl border transition-all active:scale-90 ${
+            isLocating
+              ? "bg-teal-600 border-teal-500 scale-105"
+              : "bg-white border-slate-200/80 active:bg-teal-50"
+          }`}
+          style={{
+            shadowColor: isLocating ? "#0D9488" : "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isLocating ? 0.45 : 0.2,
+            shadowRadius: 8,
+          }}
+        >
+          {isLocating ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons name="locate" size={24} color="#0D9488" />
+          )}
+        </Pressable>
+      </View>
+
+      {/* Floating Bottom Preview Card: Bấm vào cờ phòng sẽ bật Card này lên */}
       {selectedRoom && (
         <View
           style={{
@@ -166,7 +300,6 @@ export default function MapSearchScreen() {
           }}
         >
           <Card className="p-3 rounded-2xl shadow-2xl border border-slate-100 bg-white relative">
-            {/* Nút đóng thẻ phòng */}
             <Pressable
               onPress={() => setSelectedRoom(null)}
               className="absolute top-2 right-2 w-7 h-7 rounded-full bg-slate-100 items-center justify-center z-30 active:bg-slate-200"
