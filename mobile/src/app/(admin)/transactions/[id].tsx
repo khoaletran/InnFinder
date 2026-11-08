@@ -76,7 +76,7 @@ export default function AdminTransactionDetailScreen() {
   const isWithdraw = transaction.loaiGiaoDich === 'YEU_CAU_RUT_TIEN';
 
   const handleApprove = () => {
-    Alert.alert('Xác nhận duyệt giao dịch', 'Bạn có chắc chắn muốn duyệt yêu cầu giao dịch này?', [
+    Alert.alert('Xác nhận duyệt giao dịch', 'Bạn có chắc chắn muốn duyệt yêu cầu rút tiền này?', [
       { text: 'Huỷ', style: 'cancel' },
       {
         text: 'Duyệt chuyển tiền',
@@ -121,67 +121,114 @@ export default function AdminTransactionDetailScreen() {
           </Pressable>
           <Text className="text-base font-bold text-slate-900">Chi tiết giao dịch</Text>
         </View>
+
+        <View
+          className={`px-3 py-1 rounded-full ${
+            isSuccess
+              ? 'bg-emerald-50 border border-emerald-200'
+              : isFailed
+              ? 'bg-rose-50 border border-rose-200'
+              : 'bg-amber-50 border border-amber-200'
+          }`}
+        >
+          <Text
+            className={`text-xs font-bold ${
+              isSuccess
+                ? 'text-emerald-700'
+                : isFailed
+                ? 'text-rose-700'
+                : 'text-amber-700'
+            }`}
+          >
+            {isSuccess ? 'Thành công' : isFailed ? 'Thất bại' : 'Chờ xử lý'}
+          </Text>
+        </View>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 120 }}
+        contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Số tiền lớn */}
         <View className="items-center py-6 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
           <Text className="text-xs font-semibold text-slate-400 mb-1">
-            {isWithdraw ? 'Số tiền yêu cầu rút' : 'Số tiền thanh toán'}
+            {isWithdraw ? 'Số tiền yêu cầu rút về ngân hàng' : 'Số tiền biến động giao dịch'}
           </Text>
           <Text className="text-3xl font-black text-teal-600">
             {transaction.soTien.toLocaleString('vi-VN')} đ
           </Text>
-          <View
-            className={`px-3 py-1 rounded-full mt-2.5 ${
-              isSuccess
-                ? 'bg-emerald-50 border border-emerald-200'
-                : isFailed
-                ? 'bg-rose-50 border border-rose-200'
-                : 'bg-amber-50 border border-amber-200'
-            }`}
-          >
-            <Text
-              className={`text-xs font-bold ${
-                isSuccess
-                  ? 'text-emerald-700'
-                  : isFailed
-                  ? 'text-rose-700'
-                  : 'text-amber-700'
-              }`}
-            >
-              {isSuccess ? 'Giao dịch thành công' : isFailed ? 'Giao dịch thất bại' : 'Chờ xử lý / chuyển khoản'}
-            </Text>
-          </View>
+          <Text className="text-[11px] text-slate-400 mt-2">
+            Mã tham chiếu: {transaction.maGiaoDich}
+          </Text>
         </View>
 
         {/* Thông tin giao dịch */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin giao dịch</Text>
+        <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin chứng từ & Thời gian</Text>
         <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
           <View className="flex-row justify-between py-2.5">
             <Text className="text-xs text-slate-500 font-medium">Mã giao dịch</Text>
-            <Text className="text-xs font-bold text-slate-800">{transaction.maGiaoDich}</Text>
+            <Text className="text-xs font-bold text-slate-800 font-mono">{transaction.maGiaoDich}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Thời gian giao dịch</Text>
+            <Text className="text-xs text-slate-500 font-medium">Thời điểm giao dịch</Text>
             <Text className="text-xs font-medium text-slate-800">{transaction.thoiGian}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Loại giao dịch</Text>
+            <Text className="text-xs text-slate-500 font-medium">Loại hình giao dịch</Text>
             <Text className="text-xs font-semibold text-teal-700">
               {isWithdraw ? 'Yêu cầu rút tiền về ngân hàng' : transaction.loaiGiaoDich}
             </Text>
           </View>
+          {transaction.phongTro ? (
+            <View className="flex-row justify-between py-2.5">
+              <Text className="text-xs text-slate-500 font-medium">Phòng trọ áp dụng</Text>
+              <Text className="text-xs font-semibold text-slate-800 flex-1 text-right ml-4" numberOfLines={1}>
+                {transaction.phongTro}
+              </Text>
+            </View>
+          ) : null}
         </Card>
+
+        {/* Chi tiết khấu trừ & Doanh thu sàn (Mục 2.3 AGENTS.md) */}
+        {!isWithdraw ? (
+          <>
+            <Text className="text-sm font-bold text-slate-900 mb-2">Bản chất kinh tế & Hoa hồng hệ thống</Text>
+            <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
+              <View className="flex-row justify-between py-2">
+                <Text className="text-xs text-slate-500 font-medium">Tiền cọc giữ chân xem phòng (coc)</Text>
+                <Text className="text-xs font-bold text-slate-800">
+                  {transaction.tienCoc.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+              <View className="flex-row justify-between py-2">
+                <Text className="text-xs text-slate-500 font-medium">Phí dịch vụ trích lại cho InnFinder (phiThu)</Text>
+                <Text className="text-xs font-bold text-rose-600">
+                  - {transaction.phiDichVu.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+              <View className="flex-row justify-between py-2.5 border-t border-slate-200">
+                <Text className="text-xs font-bold text-slate-900">Chủ trọ thực nhận vào ví (coc - phiThu)</Text>
+                <Text className="text-base font-black text-teal-600">
+                  {transaction.thucNhan.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+              <View className="py-2.5">
+                <View className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex-row gap-2">
+                  <Ionicons name="information-circle" size={16} color="#64748B" style={{ marginTop: 1 }} />
+                  <Text className="text-[11px] text-slate-600 flex-1 leading-relaxed">
+                    Quy tắc bất khả xâm phạm: Doanh thu của sàn InnFinder được tính từ tổng phiThu của các phiếu đặt lịch đã HOÀN THÀNH, bảng GiaoDich chỉ đóng vai trò sổ cái dòng tiền.
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          </>
+        ) : null}
 
         {/* Thông tin ngân hàng nhận tiền (nếu là rút tiền) */}
         {isWithdraw ? (
           <>
-            <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin nhận tiền</Text>
+            <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin tài khoản nhận tiền</Text>
             <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
               <View className="flex-row justify-between py-2.5">
                 <Text className="text-xs text-slate-500 font-medium">Người yêu cầu rút</Text>
@@ -193,23 +240,25 @@ export default function AdminTransactionDetailScreen() {
               </View>
               <View className="flex-row justify-between py-2.5">
                 <Text className="text-xs text-slate-500 font-medium">Số tài khoản ngân hàng</Text>
-                <Text className="text-xs font-bold text-slate-800 font-mono">{transaction.soTaiKhoan || '1023456789'}</Text>
+                <Text className="text-xs font-bold text-slate-800 font-mono">{transaction.soTaiKhoan || 'Chưa cung cấp'}</Text>
               </View>
               {transaction.ghiChu ? (
                 <View className="py-2.5">
-                  <Text className="text-xs text-slate-500 font-medium mb-1">Nội dung ghi chú</Text>
-                  <Text className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg">{transaction.ghiChu}</Text>
+                  <Text className="text-xs text-slate-500 font-medium mb-1">Nội dung ghi chú chuyển khoản</Text>
+                  <Text className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg font-mono">
+                    {transaction.ghiChu}
+                  </Text>
                 </View>
               ) : null}
             </Card>
 
             {isPending ? (
-              <View className="flex-row gap-3 mt-2">
+              <View className="flex-row gap-3 pt-2">
                 <Pressable
                   onPress={handleReject}
                   className="flex-1 py-3.5 rounded-xl border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"
                 >
-                  <Text className="text-sm font-bold text-rose-600">Từ chối</Text>
+                  <Text className="text-sm font-bold text-rose-600">Từ chối rút tiền</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleApprove}
@@ -220,65 +269,7 @@ export default function AdminTransactionDetailScreen() {
               </View>
             ) : null}
           </>
-        ) : (
-          <>
-            {/* Hai bên tham gia */}
-            <Text className="text-sm font-bold text-slate-900 mb-2">Đối tác liên quan</Text>
-            <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
-              <View className="flex-row items-center justify-between py-2.5">
-                <View>
-                  <Text className="text-xs text-slate-400 font-medium">Khách hàng thanh toán</Text>
-                  <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                    {transaction.nguoiThucHien}
-                  </Text>
-                </View>
-                <View className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center">
-                  <Ionicons name="person-outline" size={16} color="#64748B" />
-                </View>
-              </View>
-              <View className="flex-row items-center justify-between py-2.5">
-                <View>
-                  <Text className="text-xs text-slate-400 font-medium">Chủ trọ nhận tiền</Text>
-                  <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                    {transaction.chuTro}
-                  </Text>
-                </View>
-                <View className="w-8 h-8 rounded-full bg-teal-50 items-center justify-center">
-                  <Ionicons name="business-outline" size={16} color="#0D9488" />
-                </View>
-              </View>
-              <View className="py-2.5">
-                <Text className="text-xs text-slate-400 font-medium">Phòng trọ áp dụng</Text>
-                <Text className="text-xs font-semibold text-slate-800 mt-0.5">
-                  {transaction.phongTro}
-                </Text>
-              </View>
-            </Card>
-
-            {/* Chi phí Breakdown */}
-            <Text className="text-sm font-bold text-slate-900 mb-2">Chi tiết khấu trừ & hoa hồng</Text>
-            <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
-              <View className="flex-row justify-between py-2">
-                <Text className="text-xs text-slate-500 font-medium">Tiền cọc giữ chân</Text>
-                <Text className="text-xs font-bold text-slate-800">
-                  {transaction.tienCoc.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-              <View className="flex-row justify-between py-2">
-                <Text className="text-xs text-slate-500 font-medium">Phí dịch vụ trích lại cho InnFinder</Text>
-                <Text className="text-xs font-bold text-rose-600">
-                  - {transaction.phiDichVu.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-              <View className="flex-row justify-between py-2.5 border-t border-slate-200">
-                <Text className="text-xs font-bold text-slate-900">Chủ trọ thực nhận vào ví</Text>
-                <Text className="text-base font-black text-teal-600">
-                  {transaction.thucNhan.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-            </Card>
-          </>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

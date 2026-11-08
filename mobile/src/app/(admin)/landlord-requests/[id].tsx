@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Card, Chip } from 'heroui-native';
@@ -10,6 +19,11 @@ export default function AdminLandlordRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [request, setRequest] = useState<AdminLandlordRequestItem | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Modal từ chối hồ sơ
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -49,7 +63,7 @@ export default function AdminLandlordRequestDetailScreen() {
           >
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
           </Pressable>
-          <Text className="text-base font-bold text-slate-900 ml-2.5">Chi tiết đơn đăng ký chủ trọ</Text>
+          <Text className="text-base font-bold text-slate-900 ml-2.5">Hồ sơ đăng ký chủ trọ</Text>
         </View>
         <View className="flex-1 items-center justify-center px-6">
           <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
@@ -71,38 +85,47 @@ export default function AdminLandlordRequestDetailScreen() {
   }
 
   const isPending = request.trangThai === 'CHO_DUYET';
+  const isCccdValid = request.cccd && /^\d{12}$/.test(request.cccd);
 
   const handleApprove = () => {
     Alert.alert('Xác nhận duyệt', `Cấp quyền Chủ trọ cho người dùng "${request.hoVaTen}"?`, [
       { text: 'Huỷ', style: 'cancel' },
       {
-        text: 'Duyệt hồ sơ',
+        text: 'Duyệt làm Chủ trọ',
         onPress: async () => {
           if (id) {
-            await adminService.approveLandlordRequest(id);
-            Alert.alert('Thành công', 'Đã duyệt đơn và nâng cấp tài khoản thành Chủ trọ.');
-            router.back();
+            setIsSubmitting(true);
+            const success = await adminService.approveLandlordRequest(id);
+            setIsSubmitting(false);
+            if (success) {
+              Alert.alert('Thành công', 'Đã duyệt đơn và nâng cấp tài khoản thành Chủ trọ.');
+              router.back();
+            } else {
+              Alert.alert('Lỗi', 'Không thể duyệt đơn. Vui lòng thử lại sau.');
+            }
           }
         },
       },
     ]);
   };
 
-  const handleReject = () => {
-    Alert.alert('Từ chối hồ sơ', 'Bạn có chắc muốn từ chối đơn đăng ký làm Chủ trọ này?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Từ chối',
-        style: 'destructive',
-        onPress: async () => {
-          if (id) {
-            await adminService.rejectLandlordRequest(id, 'CCCD hoặc tài khoản ngân hàng chưa hợp lệ');
-            Alert.alert('Đã từ chối', 'Đã gửi thông báo từ chối tới người dùng.');
-            router.back();
-          }
-        },
-      },
-    ]);
+  const handleConfirmReject = async () => {
+    if (!rejectReason.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập lý do từ chối để thông báo cho người nộp đơn.');
+      return;
+    }
+    if (id) {
+      setIsSubmitting(true);
+      const success = await adminService.rejectLandlordRequest(id, rejectReason.trim());
+      setIsSubmitting(false);
+      setRejectModalVisible(false);
+      if (success) {
+        Alert.alert('Đã từ chối', 'Đã từ chối đơn đăng ký chủ trọ.');
+        router.back();
+      } else {
+        Alert.alert('Lỗi', 'Không thể từ chối đơn. Vui lòng thử lại sau.');
+      }
+    }
   };
 
   return (
@@ -116,13 +139,33 @@ export default function AdminLandlordRequestDetailScreen() {
           >
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
           </Pressable>
-          <Text className="text-base font-bold text-slate-900">Chi tiết đơn đăng ký chủ trọ</Text>
+          <Text className="text-base font-bold text-slate-900">Chi tiết đơn đăng ký</Text>
         </View>
+
+        <Chip
+          variant="soft"
+          color={
+            request.trangThai === 'CHO_DUYET'
+              ? 'warning'
+              : request.trangThai === 'DA_DUYET'
+              ? 'success'
+              : 'danger'
+          }
+          size="sm"
+        >
+          <Chip.Label className="font-bold text-xs">
+            {request.trangThai === 'CHO_DUYET'
+              ? 'Chờ xét duyệt'
+              : request.trangThai === 'DA_DUYET'
+              ? 'Đã duyệt thành công'
+              : 'Đã từ chối'}
+          </Chip.Label>
+        </Chip>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 120 }}
+        contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header Profile */}
@@ -137,52 +180,54 @@ export default function AdminLandlordRequestDetailScreen() {
           </Avatar>
           <Text className="text-lg font-bold text-slate-900">{request.hoVaTen}</Text>
           <Text className="text-xs text-slate-500 mt-0.5">{request.email}</Text>
-          <View className="mt-2">
-            <Chip
-              variant="soft"
-              color={
-                request.trangThai === 'CHO_DUYET'
-                  ? 'warning'
-                  : request.trangThai === 'DA_DUYET'
-                  ? 'success'
-                  : 'danger'
-              }
-              size="sm"
-            >
-              <Chip.Label className="font-bold text-xs">
-                {request.trangThai === 'CHO_DUYET'
-                  ? 'Chờ xét duyệt'
-                  : request.trangThai === 'DA_DUYET'
-                  ? 'Đã duyệt thành công'
-                  : 'Đã từ chối'}
-              </Chip.Label>
-            </Chip>
+          <View className="px-3 py-0.5 rounded-full bg-teal-50 border border-teal-200 mt-2">
+            <Text className="text-xs font-bold text-teal-700">Yêu cầu nâng cấp Chủ trọ</Text>
           </View>
         </View>
 
-        {/* Thông tin định danh & ngân hàng */}
-        <Text className="text-sm font-bold text-slate-900 mb-2">Hồ sơ thẩm định</Text>
+        {/* Thông tin định danh & Thẩm định pháp lý */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Hồ sơ thẩm định cá nhân</Text>
         <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Mã yêu cầu</Text>
-            <Text className="text-xs font-bold text-slate-800">{request.maYeuCau}</Text>
+            <Text className="text-xs text-slate-500 font-medium">Mã yêu cầu xét duyệt</Text>
+            <Text className="text-xs font-bold text-slate-800 font-mono">{request.maYeuCau}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Mã người dùng</Text>
-            <Text className="text-xs font-semibold text-teal-700">{request.maNguoiDung}</Text>
+            <Text className="text-xs text-slate-500 font-medium">Mã tài khoản người dùng</Text>
+            <Text className="text-xs font-bold text-teal-700 font-mono">{request.maNguoiDung}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Họ và tên</Text>
+            <Text className="text-xs text-slate-500 font-medium">Họ và tên trên CCCD</Text>
             <Text className="text-xs font-semibold text-slate-800">{request.hoVaTen}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Số điện thoại</Text>
+            <Text className="text-xs text-slate-500 font-medium">Số điện thoại liên hệ</Text>
             <Text className="text-xs font-semibold text-slate-800">{request.sdt}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Số CCCD (12 chữ số)</Text>
-            <Text className="text-xs font-bold text-slate-900 font-mono">{request.cccd}</Text>
+            <Text className="text-xs text-slate-500 font-medium">Số CCCD (12 chữ số chuẩn)</Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-xs font-bold text-slate-900 font-mono">{request.cccd}</Text>
+              {isCccdValid ? (
+                <View className="px-1.5 py-0.2 rounded bg-emerald-50 border border-emerald-200">
+                  <Text className="text-[10px] font-bold text-emerald-700">Hợp lệ</Text>
+                </View>
+              ) : (
+                <View className="px-1.5 py-0.2 rounded bg-rose-50 border border-rose-200">
+                  <Text className="text-[10px] font-bold text-rose-600">Sai định dạng</Text>
+                </View>
+              )}
+            </View>
           </View>
+          <View className="flex-row justify-between py-2.5">
+            <Text className="text-xs text-slate-500 font-medium">Thời điểm nộp đơn</Text>
+            <Text className="text-xs font-medium text-slate-800">{request.ngayGui}</Text>
+          </View>
+        </Card>
+
+        {/* Thông tin tài khoản ngân hàng thụ hưởng (AGENTS.md mục 3.3) */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Tài khoản ngân hàng thụ hưởng</Text>
+        <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
           <View className="flex-row justify-between py-2.5">
             <Text className="text-xs text-slate-500 font-medium">Ngân hàng thụ hưởng</Text>
             <Text className="text-xs font-bold text-teal-700">{request.tenNganHang}</Text>
@@ -192,29 +237,95 @@ export default function AdminLandlordRequestDetailScreen() {
             <Text className="text-xs font-bold text-slate-900 font-mono">{request.soTaiKhoan}</Text>
           </View>
           <View className="flex-row justify-between py-2.5">
-            <Text className="text-xs text-slate-500 font-medium">Thời điểm nộp đơn</Text>
-            <Text className="text-xs font-medium text-slate-800">{request.ngayGui}</Text>
+            <Text className="text-xs text-slate-500 font-medium">Chủ tài khoản (Đối chiếu CCCD)</Text>
+            <Text className="text-xs font-semibold text-slate-800">
+              {request.tenChuTaiKhoan || request.hoVaTen}
+            </Text>
+          </View>
+        </Card>
+
+        {/* Khởi tạo Chủ trọ theo quy chuẩn AGENTS.md mục 3.2 */}
+        <Text className="text-sm font-bold text-slate-900 mb-2">Quy chuẩn kích hoạt Chủ trọ</Text>
+        <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
+          <View className="flex-row justify-between py-2">
+            <Text className="text-xs text-slate-500 font-medium">Điểm uy tín ban đầu</Text>
+            <Text className="text-xs font-bold text-teal-700">100 điểm (Mặc định)</Text>
+          </View>
+          <View className="flex-row justify-between py-2">
+            <Text className="text-xs text-slate-500 font-medium">Số dư ví ban đầu</Text>
+            <Text className="text-xs font-bold text-slate-800">0 VNĐ</Text>
+          </View>
+          <View className="py-2.5">
+            <View className="p-2.5 bg-amber-50/80 rounded-xl border border-amber-200 flex-row gap-2">
+              <Ionicons name="information-circle" size={16} color="#D97706" style={{ marginTop: 1 }} />
+              <Text className="text-[11px] text-amber-900 flex-1 leading-relaxed">
+                Sau khi được phê duyệt, tài khoản sẽ được gắn cờ chuTro = true và mở quyền đăng tin phòng trọ, quản lý ví và nhận cọc xem phòng.
+              </Text>
+            </View>
           </View>
         </Card>
 
         {/* Nút hành động */}
         {isPending ? (
-          <View className="flex-row gap-3 mt-2">
+          <View className="flex-row gap-3 pt-2">
             <Pressable
-              onPress={handleReject}
+              onPress={() => setRejectModalVisible(true)}
+              disabled={isSubmitting}
               className="flex-1 py-3.5 rounded-xl border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"
             >
               <Text className="text-sm font-bold text-rose-600">Từ chối đơn</Text>
             </Pressable>
             <Pressable
               onPress={handleApprove}
+              disabled={isSubmitting}
               className="flex-1 py-3.5 rounded-xl bg-teal-600 items-center justify-center active:bg-teal-700"
             >
-              <Text className="text-sm font-bold text-white">Duyệt làm Chủ trọ</Text>
+              <Text className="text-sm font-bold text-white">
+                {isSubmitting ? 'Đang duyệt...' : 'Duyệt làm Chủ trọ'}
+              </Text>
             </Pressable>
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Modal từ chối đơn đăng ký chủ trọ */}
+      <Modal visible={rejectModalVisible} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 items-center justify-center p-4">
+          <View className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-xl">
+            <View className="flex-row items-center gap-2 mb-3">
+              <Ionicons name="alert-circle" size={22} color="#E11D48" />
+              <Text className="text-base font-bold text-slate-900">Từ chối đơn làm Chủ trọ</Text>
+            </View>
+            <Text className="text-xs text-slate-500 mb-2">
+              Nhập lý do từ chối để thông báo cho người dùng bổ sung hồ sơ:
+            </Text>
+            <TextInput
+              placeholder="Ví dụ: Số CCCD không hợp lệ, thông tin tài khoản ngân hàng không chính chủ..."
+              placeholderTextColor="#94A3B8"
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              multiline
+              numberOfLines={3}
+              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs mb-4 min-h-[80px] text-slate-800"
+              textAlignVertical="top"
+            />
+            <View className="flex-row gap-2.5">
+              <Pressable
+                onPress={() => setRejectModalVisible(false)}
+                className="flex-1 py-3 rounded-xl border border-slate-200 bg-slate-50 items-center justify-center active:bg-slate-100"
+              >
+                <Text className="text-xs font-bold text-slate-700">Hủy</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmReject}
+                className="flex-1 py-3 rounded-xl bg-rose-600 items-center justify-center active:bg-rose-700"
+              >
+                <Text className="text-xs font-bold text-white">Xác nhận từ chối</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

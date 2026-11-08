@@ -79,8 +79,8 @@ export const PostApprovalCard: React.FC<PostApprovalCardProps> = ({ post, onPres
               {formatPrice(post.giaThue)}
             </Text>
             <View className="flex-row items-center gap-1">
-              <Ionicons name="time-outline" size={12} color="#94A3B8" />
-              <Text className="text-[11px] text-slate-400 font-medium">{post.thoiGianDang}</Text>
+              <Text className="text-xs font-semibold text-teal-600">Xem chi tiết</Text>
+              <Ionicons name="chevron-forward" size={13} color="#0D9488" />
             </View>
           </View>
         </View>

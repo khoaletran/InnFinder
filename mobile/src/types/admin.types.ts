@@ -28,6 +28,10 @@ export interface AdminUserItem {
   soLichHen: number;
   soGiaoDich: number;
   avatarUrl?: string;
+  diemUyTin?: number;
+  soDu?: number;
+  soTaiKhoan?: string;
+  tenNganHang?: string;
 }
 
 export interface AdminPostItem {
@@ -38,10 +42,11 @@ export interface AdminPostItem {
   dienTich: number;
   soNguoi: number;
   loaiPhong: string;
-  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI' | 'HOAN_THANH';
+  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI' | 'HUY' | 'HOAN_THANH';
   thoiGianDang: string;
   tenChuTro: string;
   sdtChuTro: string;
+  maChuTro?: string;
   avatarChuTro?: string;
   hinhAnh: string[];
   moTa: string;
@@ -50,6 +55,8 @@ export interface AdminPostItem {
   kinhDo?: string;
   viDo?: string;
   lyDoTuChoi?: string;
+  mucCocXemPhong?: number;
+  phiHoaHong?: number;
 }
 
 export interface AdminComplaintItem {
@@ -62,6 +69,7 @@ export interface AdminComplaintItem {
   thoiGian: string;
   trangThai: 'CHO_XU_LY' | 'DANG_XU_LY' | 'DA_XU_LY' | 'TU_CHOI';
   hinhAnh: string[];
+  mucDoViPham?: 'NHE' | 'TRUNG_BINH' | 'NANG';
   phongLienQuan?: {
     maPhong: string;
     tieuDe: string;
@@ -80,10 +88,13 @@ export interface AdminLandlordRequestItem {
   cccd: string;
   tenNganHang: string;
   soTaiKhoan: string;
+  tenChuTaiKhoan?: string;
   ngayGui: string;
   trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI';
   lyDoTuChoi?: string;
   avatarUrl?: string;
+  diemUyTin?: number;
+  ngayTaoTaiKhoan?: string;
 }
 
 export interface AdminTransactionItem {
@@ -102,6 +113,7 @@ export interface AdminTransactionItem {
   tenNganHang?: string;
   soTaiKhoan?: string;
   ghiChu?: string;
+  maDatLich?: string;
 }
 
 export interface AdminReviewItem {

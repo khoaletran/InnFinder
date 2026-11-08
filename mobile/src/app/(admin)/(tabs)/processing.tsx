@@ -339,8 +339,17 @@ export default function AdminProcessingScreen() {
                     </View>
                   </View>
 
+                  {/* Dòng Xem hồ sơ chi tiết */}
+                  <View className="flex-row items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                    <Text className="text-[11px] text-slate-400 font-medium">{item.ngayGui}</Text>
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-xs font-semibold text-teal-600">Xem hồ sơ chi tiết</Text>
+                      <Ionicons name="chevron-forward" size={13} color="#0D9488" />
+                    </View>
+                  </View>
+
                   {item.trangThai === 'CHO_DUYET' ? (
-                    <View className="flex-row gap-2 mt-3 pt-2.5 border-t border-slate-100">
+                    <View className="flex-row gap-2 mt-2.5 pt-2 border-t border-slate-100">
                       <Pressable
                         onPress={() => handleRejectLandlord(item.maYeuCau)}
                         className="flex-1 py-2 rounded-lg border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"

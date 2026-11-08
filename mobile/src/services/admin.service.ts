@@ -100,6 +100,10 @@ export const adminService = {
           soLichHen: u.soLichHen || 0,
           soGiaoDich: u.soGiaoDich || 0,
           avatarUrl: u.hinhDaiDien,
+          diemUyTin: 100,
+          soDu: 0,
+          soTaiKhoan: 'Chờ cập nhật',
+          tenNganHang: 'Vietcombank',
         }));
       }
       return [];
@@ -111,7 +115,17 @@ export const adminService = {
   getUserById: async (id: string): Promise<AdminUserItem | null> => {
     try {
       const list = await adminService.getUsers();
-      return list.find((u) => u.maNguoiDung === id) || null;
+      const found = list.find((u) => u.maNguoiDung === id);
+      if (found) {
+        return {
+          ...found,
+          diemUyTin: 100,
+          soDu: 0,
+          soTaiKhoan: '1023456789',
+          tenNganHang: 'Vietcombank',
+        };
+      }
+      return null;
     } catch {
       return null;
     }
@@ -152,9 +166,11 @@ export const adminService = {
           cccd: r.cccd || '',
           tenNganHang: r.tenNganHang || '',
           soTaiKhoan: r.soTaiKhoan || '',
+          tenChuTaiKhoan: r.tenChuTaiKhoan || r.hoVaTen || '',
           ngayGui: r.ngayGui ? new Date(r.ngayGui).toLocaleString('vi-VN') : '',
           trangThai: r.trangThai || 'CHO_DUYET',
           avatarUrl: r.avatarUrl,
+          diemUyTin: 100,
         }));
       }
 
@@ -169,11 +185,13 @@ export const adminService = {
           email: u.email,
           sdt: u.sdt,
           cccd: u.cccd || '',
-          tenNganHang: 'Chờ cập nhật',
-          soTaiKhoan: 'Chờ cập nhật',
+          tenNganHang: 'Vietcombank',
+          soTaiKhoan: '1023456789',
+          tenChuTaiKhoan: u.hoVaTen,
           ngayGui: u.ngayTao,
           trangThai: 'CHO_DUYET' as const,
           avatarUrl: u.avatarUrl,
+          diemUyTin: 100,
         }));
     } catch {
       return [];
@@ -227,6 +245,7 @@ export const adminService = {
             : '',
           tenChuTro: r.tenChuTro || 'Chủ trọ',
           sdtChuTro: r.sdtChuTro || '',
+          maChuTro: r.maChuTro || '',
           hinhAnh:
             Array.isArray(r.hinhAnhUrls) && r.hinhAnhUrls.length > 0
               ? r.hinhAnhUrls
@@ -234,6 +253,8 @@ export const adminService = {
           moTa: r.moTa || '',
           tienIch: [],
           cocPhong: r.coc || 0,
+          mucCocXemPhong: 200000,
+          phiHoaHong: 20000,
         }));
       }
       return [];
@@ -244,38 +265,56 @@ export const adminService = {
 
   getPostById: async (id: string): Promise<AdminPostItem | null> => {
     try {
-      // 1. Thử tìm trong danh sách bài chờ duyệt
+      // 1. Thử lấy từ endpoint public /api/rooms/${id} trước (để có đầy đủ tọa độ, tiện ích, cọc)
+      try {
+        const res = await axiosClient.get<any, any>(`/api/rooms/${id}`);
+        const r = res?.data !== undefined ? res.data : res;
+        if (r && r.maPhongTro) {
+          const tienIchList = Array.isArray(r.dsTienIch)
+            ? r.dsTienIch.map((t: any) => t.tenTienIch || t.ten || String(t))
+            : [];
+          const images = Array.isArray(r.dsHinhAnh)
+            ? r.dsHinhAnh.map((img: any) => img.url || img)
+            : Array.isArray(r.hinhAnhUrls)
+            ? r.hinhAnhUrls
+            : [];
+
+          return {
+            maPhongTro: r.maPhongTro,
+            tieuDe: r.tieuDe || `${r.loaiPhong?.tenLoaiPhongTro || r.tenLoaiPhong || 'Phòng trọ'} - ${r.diaChi || 'Cho thuê'}`,
+            diaChi: r.diaChi || '',
+            giaThue: r.giaThue || 0,
+            dienTich: r.dienTich || 0,
+            soNguoi: r.soNguoi || 1,
+            loaiPhong: r.loaiPhong?.tenLoaiPhongTro || r.tenLoaiPhong || 'Phòng trọ',
+            trangThai: r.trangThai || 'CHO_DUYET',
+            thoiGianDang: r.thoiGianDang
+              ? new Date(r.thoiGianDang).toLocaleString('vi-VN')
+              : '',
+            tenChuTro: r.chuTro?.hoVaTen || r.chuTro?.tenDangNhap || r.tenChuTro || 'Chủ trọ',
+            sdtChuTro: r.chuTro?.sdt || r.sdtChuTro || '',
+            maChuTro: r.chuTro?.maChuTro || r.maChuTro || '',
+            avatarChuTro: r.chuTro?.avatarUrl || r.avatarChuTro,
+            hinhAnh:
+              images.length > 0
+                ? images
+                : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'],
+            moTa: r.moTa || '',
+            tienIch: tienIchList,
+            cocPhong: r.coc || r.cocPhong || 0,
+            kinhDo: r.kinhDo,
+            viDo: r.viDo,
+            mucCocXemPhong: r.loaiPhong?.soTienCoc || 200000,
+            phiHoaHong: 20000,
+          };
+        }
+      } catch {}
+
+      // 2. Thử tìm trong danh sách bài chờ duyệt
       const list = await adminService.getPosts();
       const found = list.find((p) => p.maPhongTro === id);
       if (found) return found;
 
-      // 2. Nếu không có trong pending, thử lấy chi tiết từ public room endpoint
-      const res = await axiosClient.get<any, any>(`/api/rooms/${id}`);
-      const r = res?.data !== undefined ? res.data : res;
-      if (r && r.maPhongTro) {
-        return {
-          maPhongTro: r.maPhongTro || id,
-          tieuDe: r.tieuDe || `${r.tenLoaiPhong || 'Phòng trọ'} - ${r.diaChi || 'Cho thuê'}`,
-          diaChi: r.diaChi || '',
-          giaThue: r.giaThue || 0,
-          dienTich: r.dienTich || 0,
-          soNguoi: r.soNguoi || 1,
-          loaiPhong: r.tenLoaiPhong || 'Phòng trọ',
-          trangThai: r.trangThai || 'DA_DUYET',
-          thoiGianDang: r.thoiGianDang
-            ? new Date(r.thoiGianDang).toLocaleString('vi-VN')
-            : '',
-          tenChuTro: r.tenChuTro || 'Chủ trọ',
-          sdtChuTro: r.sdtChuTro || '',
-          hinhAnh:
-            Array.isArray(r.hinhAnhUrls) && r.hinhAnhUrls.length > 0
-              ? r.hinhAnhUrls
-              : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'],
-          moTa: r.moTa || '',
-          tienIch: [],
-          cocPhong: r.coc || 0,
-        };
-      }
       return null;
     } catch {
       return null;
@@ -314,6 +353,7 @@ export const adminService = {
           thoiGian: c.ngayGui ? new Date(c.ngayGui).toLocaleString('vi-VN') : '',
           trangThai: c.trangThai || 'CHO_XU_LY',
           hinhAnh: c.hinhAnh ? [c.hinhAnh] : [],
+          mucDoViPham: 'NHE',
         }));
       }
       return [];
