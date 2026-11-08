@@ -9,7 +9,11 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  FlatList,
 } from 'react-native';
+import { VIETNAM_BANKS } from '../../constants/banks';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,6 +32,9 @@ export default function RegisterLandlordScreen() {
   const [anhCccdTruoc, setAnhCccdTruoc] = useState('');
   const [anhCccdSau, setAnhCccdSau] = useState('');
 
+  const [bankModalVisible, setBankModalVisible] = useState(false);
+  const [bankSearchQuery, setBankSearchQuery] = useState('');
+
   const [currentRequest, setCurrentRequest] = useState<any>(null);
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -35,6 +42,16 @@ export default function RegisterLandlordScreen() {
   useEffect(() => {
     loadExistingRequest();
   }, []);
+
+  const filteredBanks = VIETNAM_BANKS.filter((b) => {
+    const q = bankSearchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      b.shortName.toLowerCase().includes(q) ||
+      b.code.toLowerCase().includes(q) ||
+      b.fullName.toLowerCase().includes(q)
+    );
+  });
 
   const loadExistingRequest = async () => {
     try {
@@ -349,15 +366,29 @@ export default function RegisterLandlordScreen() {
                 2. Tài khoản ngân hàng thụ hưởng
               </Text>
 
-              {/* Ngân hàng nhận tiền */}
-              <TextField isRequired>
-                <Label>Ngân hàng nhận tiền</Label>
-                <Input
-                  placeholder="Ví dụ: Vietcombank, Vietinbank, MBBank..."
-                  value={tenNganHang}
-                  onChangeText={setTenNganHang}
-                />
-              </TextField>
+              {/* Ngân hàng nhận tiền (Bộ chọn dạng Option) */}
+              <View className="mb-1">
+                <Text className="text-xs font-semibold text-slate-700 mb-1.5">
+                  Ngân hàng nhận tiền <Text className="text-rose-500">*</Text>
+                </Text>
+                <Pressable
+                  onPress={() => setBankModalVisible(true)}
+                  className="flex-row items-center justify-between px-3.5 py-3 rounded-xl border border-slate-200 bg-white active:bg-slate-50"
+                >
+                  <View className="flex-row items-center gap-2.5 flex-1 pr-2">
+                    <View className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 items-center justify-center">
+                      <Ionicons name="business" size={16} color="#0D9488" />
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      className={`text-sm ${tenNganHang ? 'font-bold text-slate-900' : 'text-slate-400'}`}
+                    >
+                      {tenNganHang || 'Chọn ngân hàng trong danh sách...'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+                </Pressable>
+              </View>
 
               {/* Số tài khoản ngân hàng */}
               <TextField isRequired>
@@ -405,6 +436,87 @@ export default function RegisterLandlordScreen() {
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal Chọn Ngân hàng thụ hưởng */}
+      <Modal visible={bankModalVisible} animationType="slide" transparent>
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl max-h-[82%] p-5 pb-8 shadow-2xl">
+            {/* Header */}
+            <View className="flex-row items-center justify-between pb-3 border-b border-slate-100">
+              <View className="flex-row items-center gap-2">
+                <View className="w-7 h-7 rounded-full bg-teal-50 items-center justify-center">
+                  <Ionicons name="card-outline" size={16} color="#0D9488" />
+                </View>
+                <Text className="text-base font-bold text-slate-900">Chọn ngân hàng thụ hưởng</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setBankModalVisible(false);
+                  setBankSearchQuery('');
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+              >
+                <Ionicons name="close" size={18} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Thanh tìm kiếm */}
+            <View className="flex-row items-center px-3 py-2 bg-slate-100 rounded-xl my-3">
+              <Ionicons name="search" size={18} color="#94A3B8" />
+              <TextInput
+                placeholder="Tìm theo tên ngân hàng, mã (VCB, MB...)"
+                placeholderTextColor="#94A3B8"
+                value={bankSearchQuery}
+                onChangeText={setBankSearchQuery}
+                className="flex-1 ml-2 text-xs text-slate-900"
+                clearButtonMode="while-editing"
+              />
+            </View>
+
+            {/* Danh sách ngân hàng */}
+            <FlatList
+              data={filteredBanks}
+              keyExtractor={(item) => item.code}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = tenNganHang === item.shortName;
+                return (
+                  <Pressable
+                    onPress={() => {
+                      setTenNganHang(item.shortName);
+                      setBankModalVisible(false);
+                      setBankSearchQuery('');
+                    }}
+                    className={`flex-row items-center justify-between p-3 rounded-2xl mb-1.5 active:bg-slate-50 ${
+                      isSelected ? 'bg-teal-50/80 border border-teal-200' : 'border border-transparent'
+                    }`}
+                  >
+                    <View className="flex-row items-center gap-3 flex-1 pr-2">
+                      <View className="w-11 h-11 rounded-xl bg-teal-600/10 items-center justify-center border border-teal-600/20">
+                        <Text className="text-xs font-black text-teal-800 font-mono">{item.code}</Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs font-bold text-slate-900">{item.shortName}</Text>
+                        <Text className="text-[11px] text-slate-500 leading-tight" numberOfLines={1}>
+                          {item.fullName}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected ? (
+                      <Ionicons name="checkmark-circle" size={20} color="#0D9488" />
+                    ) : null}
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={
+                <View className="py-8 items-center">
+                  <Text className="text-xs text-slate-400">Không tìm thấy ngân hàng phù hợp</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
