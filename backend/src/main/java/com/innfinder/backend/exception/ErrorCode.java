@@ -34,7 +34,9 @@ public enum ErrorCode {
     INVALID_APPOINTMENT_STATUS("Trạng thái lịch hẹn không hợp lệ để thực hiện thao tác này", HttpStatus.BAD_REQUEST),
     NOT_APPOINTMENT_OWNER("Bạn không có quyền thao tác trên lịch hẹn này", HttpStatus.FORBIDDEN),
     INSUFFICIENT_BALANCE("Số dư ví không đủ để thực hiện yêu cầu rút tiền", HttpStatus.BAD_REQUEST),
-    LANDLORD_REQUEST_NOT_FOUND("Không tìm thấy đơn đăng ký chủ trọ", HttpStatus.NOT_FOUND);
+    LANDLORD_REQUEST_NOT_FOUND("Không tìm thấy đơn đăng ký chủ trọ", HttpStatus.NOT_FOUND),
+    DEPOSIT_NOT_REFUNDED_YET("Khách hàng cần xác nhận đã nhận lại cọc từ Chủ trọ trước khi đưa ra quyết định thuê", HttpStatus.BAD_REQUEST),
+    DEPOSIT_ALREADY_REFUNDED("Khách hàng đã xác nhận nhận lại cọc cho lịch hẹn này rồi", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

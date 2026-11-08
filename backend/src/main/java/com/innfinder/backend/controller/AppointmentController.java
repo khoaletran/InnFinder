@@ -2,6 +2,7 @@ package com.innfinder.backend.controller;
 
 import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
+import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.security.SecurityUtils;
@@ -60,8 +61,26 @@ public class AppointmentController {
         return ApiResponse.ok(null, "Nộp tiền cọc giữ chân thành công");
     }
 
+    @PatchMapping("/{id}/confirm-received-deposit")
+    @Operation(summary = "Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực")
+    public ApiResponse<AppointmentResponse> khachHangXacNhanDaNhanCoc(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        AppointmentResponse res = appointmentService.khachHangXacNhanDaNhanCoc(maDatLich, username);
+        return ApiResponse.ok(res, "Xác nhận đã nhận lại cọc thành công");
+    }
+
+    @PatchMapping("/{id}/decision")
+    @Operation(summary = "Khách hàng đưa ra quyết định độc lập (Thuê / Không thuê)")
+    public ApiResponse<AppointmentResponse> khachHangDuaRaQuyetDinh(
+            @PathVariable("id") String maDatLich,
+            @Valid @RequestBody AppointmentDecisionRequest request) {
+        String username = getCurrentUsername();
+        AppointmentResponse res = appointmentService.khachHangDuaRaQuyetDinh(maDatLich, username, request);
+        return ApiResponse.ok(res, "Gửi quyết định thuê phòng thành công");
+    }
+
     @PatchMapping("/{id}/confirm-rental")
-    @Operation(summary = "Khách hàng xác nhận đồng ý thuê phòng sau khi xem thực tế")
+    @Operation(summary = "Khách hàng xác nhận đồng ý thuê phòng sau khi xem thực tế (Legacy)")
     public ApiResponse<String> khachHangXacNhanThue(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
         appointmentService.khachHangXacNhanThue(maDatLich, username);

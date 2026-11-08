@@ -1,6 +1,7 @@
 package com.innfinder.backend.controller;
 
 import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
+import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.security.SecurityUtils;
@@ -51,8 +52,18 @@ public class LandlordAppointmentController {
         return ApiResponse.ok(null, "Từ chối lịch hẹn thành công");
     }
 
+    @PatchMapping("/{id}/decision")
+    @Operation(summary = "Chủ trọ đưa ra quyết định độc lập (Đồng ý cho thuê / Từ chối cho thuê)")
+    public ApiResponse<AppointmentResponse> chuTroDuaRaQuyetDinh(
+            @PathVariable("id") String maDatLich,
+            @Valid @RequestBody AppointmentDecisionRequest request) {
+        String username = getCurrentUsername();
+        AppointmentResponse res = appointmentService.chuTroDuaRaQuyetDinh(maDatLich, username, request);
+        return ApiResponse.ok(res, "Gửi quyết định cho thuê thành công");
+    }
+
     @PatchMapping("/{id}/complete")
-    @Operation(summary = "Chủ trọ xác nhận khách đã đến xem xong (hoàn cọc cho khách)")
+    @Operation(summary = "Chủ trọ xác nhận khách đã đến xem xong (Legacy)")
     public ApiResponse<String> hoanThanhLichHen(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
         appointmentService.hoanThanhLichHen(maDatLich, username);
