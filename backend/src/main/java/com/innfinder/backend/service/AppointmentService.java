@@ -292,6 +292,64 @@ public class AppointmentService {
     }
 
     /**
+     * 7b. Khách hàng xác nhận thuê phòng sau khi xem thực tế (Hoàn tất & Hoàn cọc cho khách, thu hoa hồng)
+     */
+    @Transactional
+    public void khachHangXacNhanThue(String maDatLich, String username) {
+        NguoiDung khachHang = getNguoiDungByUsername(username);
+        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+
+        // 1. Kiểm tra quyền sở hữu của Khách hàng
+        if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 2. Chỉ được xác nhận khi lịch hẹn đang ở trạng thái XAC_NHAN
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // 3. Cập nhật phiếu đặt lịch sang HOAN_THANH
+        phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
+        phieuDatLichRepository.save(phieu);
+
+        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
+
+        // 4. Hoàn trả 100% cọc giữ chân cho khách hàng (nếu khách đã nộp cọc)
+        if (daNop && phieu.getCoc() > 0) {
+            transactionService.taoGiaoDich(
+                    khachHang,
+                    phieu.getCoc(),
+                    "HOAN_COC",
+                    "Hoàn 100% cọc giữ chân khi chốt thuê phòng " + phieu.getPhongTro().getMaPhongTro(),
+                    TrangThaiGD.HOAN_TIEN
+            );
+        }
+
+        // 5. Cập nhật trạng thái phòng trọ sang HOAN_THANH (ẩn khỏi tìm kiếm)
+        PhongTro phongTro = phieu.getPhongTro();
+        phongTro.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
+        phongTroRepository.save(phongTro);
+
+        // 6. Chuyển tiền (tiền cọc - phí hoa hồng hệ thống) vào ví chủ trọ (nếu khách đã nộp cọc)
+        long thucNhanChuTro = phieu.getCoc() - phieu.getPhiThu();
+        if (daNop && thucNhanChuTro > 0 && phongTro.getChuPhongTro() != null) {
+            ChuTro chuTro = phongTro.getChuPhongTro();
+            chuTro.setSoDu(chuTro.getSoDu() + thucNhanChuTro);
+            chuTroRepository.save(chuTro);
+
+            transactionService.taoGiaoDich(
+                    chuTro.getNguoiDung(),
+                    thucNhanChuTro,
+                    "CONG_TIEN_COC",
+                    "Tiền cọc thuê phòng từ khách (đã trừ phí hoa hồng " + phieu.getPhiThu() + " VNĐ)",
+                    TrangThaiGD.THANH_CONG
+            );
+        }
+    }
+
+    /**
      * 8. Hủy lịch hẹn (Dành cho Khách hàng hoặc Chủ trọ hủy)
      */
     @Transactional
