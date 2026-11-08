@@ -15,6 +15,7 @@ import com.innfinder.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +33,7 @@ public class AdminService {
     private final ChuTroRepository chuTroRepository;
     private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
     private final GiaoDichRepository giaoDichRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
@@ -352,4 +354,12 @@ public class AdminService {
         yc = yeuCauChuTroRepository.save(yc);
         return LandlordRequestResponseDTO.fromEntity(yc);
     }
+    @Transactional
+    public void resetUserPassword(String userId, String matKhauMoi) {
+        NguoiDung user = nguoiDungRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        user.setMatKhau(passwordEncoder.encode(matKhauMoi));
+        nguoiDungRepository.save(user);
+    }
+
 }

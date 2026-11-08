@@ -342,16 +342,42 @@ public class AppointmentService {
      * - Nếu có ít nhất 1 bên từ chối: HUY, hoàn 100% coc cho chủ trọ (bù tiền đã ứng), thu phí = 0 VNĐ.
      */
     private void xuLyKetQuaLichHen(PhieuDatLich phieu) {
-        // Nếu 1 bên chưa đưa ra quyết định (còn null), tiếp tục chờ
-        if (phieu.getKhachHangDongY() == null || phieu.getChuTroDongY() == null) {
-            phieuDatLichRepository.save(phieu);
-            return;
-        }
-
         long coc = phieu.getCoc() != null ? phieu.getCoc() : 0L;
         long phiThu = phieu.getPhiThu() != null ? phieu.getPhiThu() : 0L;
         PhongTro phongTro = phieu.getPhongTro();
         ChuTro chuTro = (phongTro != null) ? phongTro.getChuPhongTro() : null;
+
+        // KỊCH BẢN 2: CÓ ÍT NHẤT 1 BÊN TỪ CHỐI (false) - Quyết toán ngay lập tức không để kẹt deadlock
+        boolean coBenTuChoi = Boolean.FALSE.equals(phieu.getKhachHangDongY()) || Boolean.FALSE.equals(phieu.getChuTroDongY());
+        if (coBenTuChoi) {
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            if (phieu.getLiDoHuy() == null || phieu.getLiDoHuy().isBlank()) {
+                phieu.setLiDoHuy("Lịch hẹn kết thúc: Có bên xác nhận không thuê phòng");
+            }
+            phieuDatLichRepository.save(phieu);
+
+            // Giữ nguyên trạng thái phòng trọ DA_DUYET để tiếp tục hiển thị đón khách khác
+            if (phongTro != null) {
+                phongTro.setTrangThai(TrangThaiPhongTro.DA_DUYET);
+                phongTroRepository.save(phongTro);
+            }
+
+            // Sàn hoàn trả đủ 100% cọc (coc) vào ví Chủ trọ (để bù lại khoản tiền mặt chủ trọ đã ứng trả trước cho khách)
+            if (chuTro != null && coc > 0) {
+                chuTro.setSoDu(chuTro.getSoDu() + coc);
+                chuTroRepository.save(chuTro);
+
+                transactionService.taoGiaoDich(
+                        chuTro.getNguoiDung(),
+                        coc,
+                        "HOAN_COC",
+                        "Hoàn 100% cọc thế chân xem phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
+                                " (Không thuê sau khi xem thực tế)",
+                        TrangThaiGD.THANH_CONG
+                );
+            }
+            return;
+        }
 
         // KỊCH BẢN 1: CẢ 2 BÊN CÙNG ĐỒNG Ý THUÊ (true && true)
         if (Boolean.TRUE.equals(phieu.getKhachHangDongY()) && Boolean.TRUE.equals(phieu.getChuTroDongY())) {
@@ -379,47 +405,24 @@ public class AppointmentService {
                         TrangThaiGD.THANH_CONG
                 );
             }
+            return;
         }
-        // KỊCH BẢN 2: CÓ ÍT NHẤT 1 BÊN TỪ CHỐI (false)
-        else {
-            phieu.setTrangThai(TrangThaiDatLich.HUY);
-            if (phieu.getLiDoHuy() == null || phieu.getLiDoHuy().isBlank()) {
-                phieu.setLiDoHuy("Lịch hẹn kết thúc: Có bên xác nhận không thuê phòng");
-            }
-            phieuDatLichRepository.save(phieu);
 
-            // Giữ nguyên trạng thái phòng trọ DA_DUYET để tiếp tục hiển thị đón khách khác
-            if (phongTro != null) {
-                phongTro.setTrangThai(TrangThaiPhongTro.DA_DUYET);
-                phongTroRepository.save(phongTro);
-            }
-
-            // Sàn hoàn trả đủ 100% cọc (coc) vào ví Chủ trọ (để bù lại khoản tiền mặt chủ trọ đã ứng trả trước cho khách)
-            if (chuTro != null && coc > 0) {
-                chuTro.setSoDu(chuTro.getSoDu() + coc);
-                chuTroRepository.save(chuTro);
-
-                transactionService.taoGiaoDich(
-                        chuTro.getNguoiDung(),
-                        coc,
-                        "HOAN_COC",
-                        "Hoàn 100% cọc thế chân xem phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
-                                " (Không thuê sau khi xem thực tế)",
-                        TrangThaiGD.THANH_CONG
-                );
-            }
-        }
+        // Nếu 1 bên chọn true còn bên kia vẫn là null: Lưu trạng thái và chờ
+        phieuDatLichRepository.save(phieu);
     }
 
     /**
      * Backward-compatible legacy endpoints
      */
     @Transactional
+    @Deprecated
     public void hoanThanhLichHen(String maDatLich, String username) {
         chuTroDuaRaQuyetDinh(maDatLich, username, new AppointmentDecisionRequest(true, null));
     }
 
     @Transactional
+    @Deprecated
     public void khachHangXacNhanThue(String maDatLich, String username) {
         khachHangDuaRaQuyetDinh(maDatLich, username, new AppointmentDecisionRequest(true, null));
     }

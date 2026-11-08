@@ -10,7 +10,6 @@ import lombok.*;
 @Builder
 public class ComplaintRequestDTO {
 
-    @NotBlank(message = "Mã người gửi không được để trống")
     private String maNguoiGui;
 
     @NotBlank(message = "Đối tượng bị khiếu nại không được để trống")

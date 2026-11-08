@@ -64,6 +64,18 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok(result, msg));
     }
 
+    @PostMapping("/users/{id}/reset-password")
+    @Operation(summary = "Admin đặt lại mật khẩu cho tài khoản người dùng")
+    public ResponseEntity<ApiResponse<String>> resetUserPassword(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String matKhauMoi = (body != null && body.get("matKhauMoi") != null && !body.get("matKhauMoi").isBlank())
+                ? body.get("matKhauMoi").trim()
+                : "InnFinder@2026";
+        adminService.resetUserPassword(id, matKhauMoi);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Đặt lại mật khẩu thành công"));
+    }
+
     @GetMapping("/complaints")
     @Operation(summary = "Admin xem danh sách toàn bộ khiếu nại trong hệ thống")
     public ResponseEntity<ApiResponse<List<ComplaintResponseDTO>>> getAllComplaints() {

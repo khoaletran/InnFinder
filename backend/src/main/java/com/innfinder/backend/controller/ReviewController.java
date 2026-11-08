@@ -45,4 +45,12 @@ public class ReviewController {
         List<ReviewResponseDTO> result = reviewService.getReviewsForCurrentLandlord();
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách đánh giá của chủ trọ thành công"));
     }
+
+    @DeleteMapping("/api/admin/reviews/{id}")
+    @Operation(summary = "Quản trị viên xóa đánh giá vi phạm")
+    public ResponseEntity<ApiResponse<String>> deleteReview(@PathVariable String id) {
+        reviewService.deleteReview(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Xóa đánh giá thành công"));
+    }
+
 }

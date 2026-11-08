@@ -93,7 +93,7 @@ public class TransactionService {
         NguoiDung user = nguoiDungRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        ChuTro chuTro = chuTroRepository.findById(user.getMaNguoiDung())
+        ChuTro chuTro = chuTroRepository.findByIdForUpdate(user.getMaNguoiDung())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_LANDLORD));
 
         List<BankAccountResponse> dsBank = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())

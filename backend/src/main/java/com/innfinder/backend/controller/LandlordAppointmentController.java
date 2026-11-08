@@ -64,6 +64,7 @@ public class LandlordAppointmentController {
 
     @PatchMapping("/{id}/complete")
     @Operation(summary = "Chủ trọ xác nhận khách đã đến xem xong (Legacy)")
+    @Deprecated
     public ApiResponse<String> hoanThanhLichHen(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
         appointmentService.hoanThanhLichHen(maDatLich, username);

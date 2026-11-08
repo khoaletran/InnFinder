@@ -10,6 +10,8 @@ import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.DanhGiaRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.PhongTroRepository;
+import com.innfinder.backend.repository.PhieuDatLichRepository;
+import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,22 +30,38 @@ public class ReviewService {
     private final DanhGiaRepository danhGiaRepository;
     private final PhongTroRepository phongTroRepository;
     private final NguoiDungRepository nguoiDungRepository;
+    private final PhieuDatLichRepository phieuDatLichRepository;
 
     @Transactional
     public ReviewResponseDTO createReview(String roomId, ReviewRequestDTO request) {
         PhongTro phongTro = phongTroRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
 
-        NguoiDung nguoiDung = nguoiDungRepository.findById(request.getMaNguoiDung())
+        String username = SecurityUtils.getCurrentUsername();
+        if (username == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (request.getDiem() < 1 || request.getDiem() > 5) {
             throw new AppException(ErrorCode.INVALID_RATING);
         }
 
-        // KIỂM TRA ĐÃ TỪNG ĐÁNH GIÁ CHƯA: Nếu có thì CẬP NHẬT thay vì tạo trùng lặp
+        // 1. KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT: Khách hàng phải có lịch hẹn xem phòng (XAC_NHAN hoặc HOAN_THANH) đối với phòng này
+        boolean daXemHoacThue = phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByNgayHenDesc(nguoiDung.getMaNguoiDung())
+                .stream()
+                .anyMatch(p -> p.getPhongTro() != null &&
+                        p.getPhongTro().getMaPhongTro().equals(roomId) &&
+                        (p.getTrangThai() == TrangThaiDatLich.XAC_NHAN || p.getTrangThai() == TrangThaiDatLich.HOAN_THANH));
+
+        if (!daXemHoacThue) {
+            throw new AppException(ErrorCode.REVIEW_NOT_ALLOWED);
+        }
+
+        // 2. KIỂM TRA ĐÃ TỪNG ĐÁNH GIÁ CHƯA: Nếu có thì CẬP NHẬT thay vì tạo trùng lặp
         Optional<DanhGia> existingOpt = danhGiaRepository
-                .findByPhongTro_MaPhongTroAndNguoiDung_MaNguoiDung(roomId, request.getMaNguoiDung());
+                .findByPhongTro_MaPhongTroAndNguoiDung_MaNguoiDung(roomId, nguoiDung.getMaNguoiDung());
 
         if (existingOpt.isPresent()) {
             DanhGia existing = existingOpt.get();
@@ -100,6 +118,13 @@ public class ReviewService {
             result.add(toResponseDTO(dg));
         }
         return result;
+    }
+
+    @Transactional
+    public void deleteReview(String id) {
+        DanhGia dg = danhGiaRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_FOUND));
+        danhGiaRepository.delete(dg);
     }
 
     private ReviewResponseDTO toResponseDTO(DanhGia dg) {

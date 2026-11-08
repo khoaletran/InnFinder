@@ -13,7 +13,6 @@ import lombok.*;
 @Builder
 public class ReviewRequestDTO {
 
-    @NotBlank(message = "Mã người dùng không được để trống")
     private String maNguoiDung;
 
     @NotNull(message = "Điểm đánh giá không được để trống")

@@ -300,14 +300,13 @@ public class RoomService {
     /**
      * Tự động sinh mã phòng định dạng: PTDDMMYYHHmmSS (14 ký tự)
      */
-    private String generateRoomCode() {
-        String code = "PT" + LocalDateTime.now().format(ROOM_CODE_FORMATTER);
-        // Tránh trùng mã nếu tạo trong cùng 1 giây
-        if (phongTroRepository.existsById(code)) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ignored) {}
-            code = "PT" + LocalDateTime.now().format(ROOM_CODE_FORMATTER);
+    private synchronized String generateRoomCode() {
+        LocalDateTime now = LocalDateTime.now();
+        String code = "PT" + now.format(ROOM_CODE_FORMATTER);
+        int addedSeconds = 1;
+        while (phongTroRepository.existsById(code)) {
+            code = "PT" + now.plusSeconds(addedSeconds).format(ROOM_CODE_FORMATTER);
+            addedSeconds++;
         }
         return code;
     }

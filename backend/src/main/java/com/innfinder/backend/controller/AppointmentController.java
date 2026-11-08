@@ -81,6 +81,7 @@ public class AppointmentController {
 
     @PatchMapping("/{id}/confirm-rental")
     @Operation(summary = "Khách hàng xác nhận đồng ý thuê phòng sau khi xem thực tế (Legacy)")
+    @Deprecated
     public ApiResponse<String> khachHangXacNhanThue(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
         appointmentService.khachHangXacNhanThue(maDatLich, username);

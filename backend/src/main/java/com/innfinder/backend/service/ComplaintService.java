@@ -33,7 +33,15 @@ public class ComplaintService {
 
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
-        NguoiDung nguoiGui = nguoiDungRepository.findById(request.getMaNguoiGui()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        String username = SecurityUtils.getCurrentUsername();
+        NguoiDung nguoiGui;
+        if (username != null) {
+            nguoiGui = nguoiDungRepository.findByTenDangNhap(username)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        } else {
+            nguoiGui = nguoiDungRepository.findById(request.getMaNguoiGui())
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        }
 
         NguoiDung doiTuong = nguoiDungRepository.findById(request.getDoiTuongKhieuNai()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
