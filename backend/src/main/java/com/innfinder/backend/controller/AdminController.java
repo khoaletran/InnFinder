@@ -4,6 +4,7 @@ import com.innfinder.backend.dto.request.ComplaintResolveDTO;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.response.*;
+import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AdminService;
 import com.innfinder.backend.service.ComplaintService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,11 +15,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@Tag(name = "Admin Controller", description = "Các API quản trị hệ thống: duyệt bài, quản lý người dùng, xử lý khiếu nại và thống kê")
+@Tag(name = "Admin Controller", description = "Các API quản trị hệ thống: duyệt bài, quản lý người dùng, xử lý khiếu nại, thống kê và ngân khố")
 public class AdminController {
 
     private final AdminService adminService;
@@ -79,10 +81,47 @@ public class AdminController {
     }
 
     @GetMapping("/statistics")
-    @Operation(summary = "Thống kê tổng quan số liệu hệ thống")
+    @Operation(summary = "Thống kê tổng quan số liệu hệ thống & Ngân khố trung tâm")
     public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics() {
         AdminStatisticsResponseDTO result = adminService.getStatistics();
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thống kê số liệu thành công"));
+    }
+
+    // ==========================================
+    // QUẢN LÝ GIAO DỊCH & DUYỆT RÚT TIỀN (NGÂN KHỐ)
+    // ==========================================
+
+    @GetMapping("/transactions")
+    @Operation(summary = "Lấy danh sách toàn bộ giao dịch trên hệ thống")
+    public ResponseEntity<ApiResponse<List<AdminTransactionResponseDTO>>> getAllTransactions() {
+        List<AdminTransactionResponseDTO> result = adminService.getAllTransactions();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách giao dịch thành công"));
+    }
+
+    @GetMapping("/transactions/{id}")
+    @Operation(summary = "Xem chi tiết một giao dịch theo mã")
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> getTransactionById(@PathVariable String id) {
+        AdminTransactionResponseDTO result = adminService.getTransactionById(id);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy chi tiết giao dịch thành công"));
+    }
+
+    @PatchMapping("/transactions/{id}/approve")
+    @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền")
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(@PathVariable String id) {
+        String adminUsername = SecurityUtils.getCurrentUsername();
+        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt yêu cầu rút tiền thành công"));
+    }
+
+    @PatchMapping("/transactions/{id}/reject")
+    @Operation(summary = "Admin từ chối yêu cầu rút tiền (hoàn lại số dư ví cho Chủ trọ)")
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> rejectTransaction(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String adminUsername = SecurityUtils.getCurrentUsername();
+        String lyDo = body != null ? body.get("lyDo") : null;
+        AdminTransactionResponseDTO result = adminService.rejectTransaction(id, adminUsername, lyDo);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Từ chối yêu cầu rút tiền thành công"));
     }
 
     // ==========================================

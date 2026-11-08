@@ -13,6 +13,15 @@ export interface AdminDashboardStats {
   tangTruongGiaoDich: Array<{ thang: string; giaTri: number }>;
 }
 
+export interface AdminTreasuryStats {
+  tongQuyHeThong: number;
+  quyTamGiuCoc: number;
+  tongSoDuViChuTro: number;
+  quyChoRut: number;
+  soLenhRutChoDuyet: number;
+  tongDoanhThu: number;
+}
+
 export interface AdminUserItem {
   maNguoiDung: string;
   tenDangNhap: string;
@@ -104,10 +113,11 @@ export interface AdminTransactionItem {
   phongTro: string;
   diaChiPhong?: string;
   soTien: number;
-  loaiGiaoDich: 'YEU_CAU_RUT_TIEN' | 'COC_GIU_CHO' | 'HOAN_COC' | 'THANH_TOAN_CHU_TRO' | string;
-  trangThai: 'THANH_CONG' | 'DANG_XU_LY' | 'THAT_BAI';
+  loaiGiaoDich: 'YEU_CAU_RUT_TIEN' | 'RUT_TIEN' | 'COC_GIU_CHO' | 'COC_XEM_PHONG' | 'HOAN_COC' | 'CONG_TIEN_COC' | string;
+  trangThai: 'THANH_CONG' | 'DANG_XU_LY' | 'CHO_THANH_TOAN' | 'THAT_BAI' | 'HOAN_TIEN' | string;
   thoiGian: string;
   nguoiThucHien: string;
+  sdtNguoiThucHien?: string;
   chuTro: string;
   tienCoc: number;
   phiDichVu: number;

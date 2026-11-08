@@ -4,30 +4,37 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
 import { adminService } from '../../../services/admin.service';
-import { AdminTransactionItem } from '../../../types/admin.types';
+import { AdminTransactionItem, AdminTreasuryStats } from '../../../types/admin.types';
 
 export default function AdminTransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [transaction, setTransaction] = useState<AdminTransactionItem | null>(null);
+  const [treasury, setTreasury] = useState<AdminTreasuryStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      setLoading(true);
-      adminService
-        .getTransactionById(id)
-        .then((res) => {
-          setTransaction(res || null);
-        })
-        .catch(() => {
-          setTransaction(null);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
+  const loadData = async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const [tx, stats] = await Promise.all([
+        adminService.getTransactionById(id),
+        adminService.getTreasuryStats(),
+      ]);
+      setTransaction(tx || null);
+      setTreasury(stats);
+    } catch {
+      setTransaction(null);
+    } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [id]);
 
   if (loading) {
@@ -72,40 +79,77 @@ export default function AdminTransactionDetailScreen() {
 
   const isSuccess = transaction.trangThai === 'THANH_CONG';
   const isFailed = transaction.trangThai === 'THAT_BAI';
-  const isPending = transaction.trangThai === 'DANG_XU_LY';
-  const isWithdraw = transaction.loaiGiaoDich === 'YEU_CAU_RUT_TIEN';
+  const isPending =
+    transaction.trangThai === 'CHO_THANH_TOAN' || transaction.trangThai === 'DANG_XU_LY';
+  const isWithdraw = (transaction.loaiGiaoDich || '').toUpperCase().includes('RUT_TIEN');
+
+  const tongQuyHienTai = treasury?.tongQuyHeThong || 0;
+  const soTienRut = transaction.soTien || 0;
+  const quyConLai = tongQuyHienTai - soTienRut;
+  const isTreasurySufficient = tongQuyHienTai >= soTienRut;
 
   const handleApprove = () => {
-    Alert.alert('Xác nhận duyệt giao dịch', 'Bạn có chắc chắn muốn duyệt yêu cầu rút tiền này?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Duyệt chuyển tiền',
-        onPress: async () => {
-          if (id) {
-            await adminService.approveTransaction(id);
-            Alert.alert('Thành công', 'Đã duyệt yêu cầu rút tiền thành công.');
-            router.back();
-          }
+    if (!isTreasurySufficient) {
+      Alert.alert(
+        'Không đủ ngân khố',
+        'Kho tiền hệ thống hiện tại không đủ số dư để giải ngân yêu cầu rút tiền này!'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Xác nhận duyệt chuyển tiền',
+      `Bạn xác nhận giải ngân ${soTienRut.toLocaleString('vi-VN')} đ cho người dùng?\nQuỹ sàn còn lại: ${quyConLai.toLocaleString('vi-VN')} đ.`,
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Duyệt chuyển tiền',
+          onPress: async () => {
+            if (!id) return;
+            setActionLoading(true);
+            const res = await adminService.approveTransaction(id);
+            setActionLoading(false);
+            if (res.success) {
+              Alert.alert('Thành công', 'Đã duyệt yêu cầu rút tiền thành công.');
+              router.back();
+            } else {
+              Alert.alert('Không thể duyệt', res.message || 'Lỗi xử lý giao dịch');
+              loadData();
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleReject = () => {
-    Alert.alert('Từ chối giao dịch', 'Bạn có chắc chắn muốn từ chối yêu cầu giao dịch này?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Từ chối',
-        style: 'destructive',
-        onPress: async () => {
-          if (id) {
-            await adminService.rejectTransaction(id, 'Thông tin tài khoản không hợp lệ');
-            Alert.alert('Đã từ chối', 'Đã từ chối yêu cầu rút tiền và hoàn lại số dư cho người dùng.');
-            router.back();
-          }
+    Alert.alert(
+      'Từ chối yêu cầu rút tiền',
+      'Số tiền này sẽ được hoàn trả lại đầy đủ vào ví của Chủ trọ. Bạn có chắc chắn muốn từ chối?',
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Từ chối rút tiền',
+          style: 'destructive',
+          onPress: async () => {
+            if (!id) return;
+            setActionLoading(true);
+            const res = await adminService.rejectTransaction(
+              id,
+              'Thông tin tài khoản nhận tiền không chính xác'
+            );
+            setActionLoading(false);
+            if (res.success) {
+              Alert.alert('Đã từ chối', 'Đã từ chối yêu cầu và hoàn lại số dư vào ví cho người dùng.');
+              router.back();
+            } else {
+              Alert.alert('Lỗi', res.message || 'Không thể từ chối giao dịch');
+              loadData();
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
@@ -140,7 +184,7 @@ export default function AdminTransactionDetailScreen() {
                 : 'text-amber-700'
             }`}
           >
-            {isSuccess ? 'Thành công' : isFailed ? 'Thất bại' : 'Chờ xử lý'}
+            {isSuccess ? 'Thành công' : isFailed ? 'Đã từ chối' : 'Chờ phê duyệt'}
           </Text>
         </View>
       </View>
@@ -158,10 +202,61 @@ export default function AdminTransactionDetailScreen() {
           <Text className="text-3xl font-black text-teal-600">
             {transaction.soTien.toLocaleString('vi-VN')} đ
           </Text>
-          <Text className="text-[11px] text-slate-400 mt-2">
+          <Text className="text-[11px] text-slate-400 mt-2 font-mono">
             Mã tham chiếu: {transaction.maGiaoDich}
           </Text>
         </View>
+
+        {/* THẺ ĐỐI SOÁT NGÂN KHỐ (KHI LÀ LỆNH RÚT ĐANG CHỜ DUYỆT) */}
+        {isWithdraw && isPending && (
+          <Card className="bg-slate-900 rounded-2xl p-4 mb-4 border border-slate-800 shadow-sm">
+            <View className="flex-row items-center justify-between pb-2.5 border-b border-slate-800">
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="calculator" size={16} color="#2DD4BF" />
+                <Text className="text-xs font-bold text-teal-300 uppercase">
+                  Kiểm soát ngân khố giải ngân
+                </Text>
+              </View>
+              <Text className="text-[10px] text-slate-400">Chống giải ngân vượt quỹ</Text>
+            </View>
+
+            <View className="py-2.5 space-y-1.5">
+              <View className="flex-row justify-between py-1">
+                <Text className="text-xs text-slate-400">Kho tiền hiện tại của Sàn:</Text>
+                <Text className="text-xs font-bold text-white">
+                  {tongQuyHienTai.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+
+              <View className="flex-row justify-between py-1">
+                <Text className="text-xs text-rose-400">Số tiền duyệt rút:</Text>
+                <Text className="text-xs font-bold text-rose-400">
+                  - {soTienRut.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+
+              <View className="flex-row justify-between py-2 border-t border-slate-800">
+                <Text className="text-xs font-bold text-teal-300">Quỹ Sàn còn lại sau duyệt:</Text>
+                <Text
+                  className={`text-sm font-black ${
+                    isTreasurySufficient ? 'text-teal-400' : 'text-rose-500'
+                  }`}
+                >
+                  {quyConLai.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+            </View>
+
+            {!isTreasurySufficient && (
+              <View className="bg-rose-950/80 p-2.5 rounded-xl border border-rose-800 flex-row gap-2 mt-1">
+                <Ionicons name="warning" size={16} color="#FB7185" />
+                <Text className="text-[11px] text-rose-300 flex-1 leading-4">
+                  Cảnh báo: Kho tiền không đủ để giải ngân! Không thể phê duyệt giao dịch này.
+                </Text>
+              </View>
+            )}
+          </Card>
+        )}
 
         {/* Thông tin giao dịch */}
         <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin chứng từ & Thời gian</Text>
@@ -180,53 +275,18 @@ export default function AdminTransactionDetailScreen() {
               {isWithdraw ? 'Yêu cầu rút tiền về ngân hàng' : transaction.loaiGiaoDich}
             </Text>
           </View>
-          {transaction.phongTro ? (
-            <View className="flex-row justify-between py-2.5">
-              <Text className="text-xs text-slate-500 font-medium">Phòng trọ áp dụng</Text>
-              <Text className="text-xs font-semibold text-slate-800 flex-1 text-right ml-4" numberOfLines={1}>
-                {transaction.phongTro}
+          {transaction.ghiChu ? (
+            <View className="py-2.5">
+              <Text className="text-xs text-slate-500 font-medium mb-1">Chi tiết / Diễn giải</Text>
+              <Text className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg leading-relaxed">
+                {transaction.ghiChu}
               </Text>
             </View>
           ) : null}
         </Card>
 
-        {/* Chi tiết khấu trừ & Doanh thu sàn (Mục 2.3 AGENTS.md) */}
-        {!isWithdraw ? (
-          <>
-            <Text className="text-sm font-bold text-slate-900 mb-2">Bản chất kinh tế & Hoa hồng hệ thống</Text>
-            <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
-              <View className="flex-row justify-between py-2">
-                <Text className="text-xs text-slate-500 font-medium">Tiền cọc giữ chân xem phòng (coc)</Text>
-                <Text className="text-xs font-bold text-slate-800">
-                  {transaction.tienCoc.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-              <View className="flex-row justify-between py-2">
-                <Text className="text-xs text-slate-500 font-medium">Phí dịch vụ trích lại cho InnFinder (phiThu)</Text>
-                <Text className="text-xs font-bold text-rose-600">
-                  - {transaction.phiDichVu.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-              <View className="flex-row justify-between py-2.5 border-t border-slate-200">
-                <Text className="text-xs font-bold text-slate-900">Chủ trọ thực nhận vào ví (coc - phiThu)</Text>
-                <Text className="text-base font-black text-teal-600">
-                  {transaction.thucNhan.toLocaleString('vi-VN')} đ
-                </Text>
-              </View>
-              <View className="py-2.5">
-                <View className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex-row gap-2">
-                  <Ionicons name="information-circle" size={16} color="#64748B" style={{ marginTop: 1 }} />
-                  <Text className="text-[11px] text-slate-600 flex-1 leading-relaxed">
-                    Quy tắc bất khả xâm phạm: Doanh thu của sàn InnFinder được tính từ tổng phiThu của các phiếu đặt lịch đã HOÀN THÀNH, bảng GiaoDich chỉ đóng vai trò sổ cái dòng tiền.
-                  </Text>
-                </View>
-              </View>
-            </Card>
-          </>
-        ) : null}
-
         {/* Thông tin ngân hàng nhận tiền (nếu là rút tiền) */}
-        {isWithdraw ? (
+        {isWithdraw && (
           <>
             <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin tài khoản nhận tiền</Text>
             <Card className="bg-white rounded-2xl border border-slate-200/90 p-4 mb-4 divide-y divide-slate-100 shadow-xs">
@@ -234,42 +294,52 @@ export default function AdminTransactionDetailScreen() {
                 <Text className="text-xs text-slate-500 font-medium">Người yêu cầu rút</Text>
                 <Text className="text-xs font-bold text-slate-800">{transaction.nguoiThucHien}</Text>
               </View>
+              {transaction.sdtNguoiThucHien ? (
+                <View className="flex-row justify-between py-2.5">
+                  <Text className="text-xs text-slate-500 font-medium">Số điện thoại liên hệ</Text>
+                  <Text className="text-xs font-semibold text-teal-700">{transaction.sdtNguoiThucHien}</Text>
+                </View>
+              ) : null}
               <View className="flex-row justify-between py-2.5">
                 <Text className="text-xs text-slate-500 font-medium">Ngân hàng thụ hưởng</Text>
-                <Text className="text-xs font-bold text-teal-700">{transaction.tenNganHang || 'Vietcombank'}</Text>
+                <Text className="text-xs font-bold text-teal-700">
+                  {transaction.tenNganHang || 'Ngân hàng thụ hưởng'}
+                </Text>
               </View>
               <View className="flex-row justify-between py-2.5">
                 <Text className="text-xs text-slate-500 font-medium">Số tài khoản ngân hàng</Text>
-                <Text className="text-xs font-bold text-slate-800 font-mono">{transaction.soTaiKhoan || 'Chưa cung cấp'}</Text>
+                <Text className="text-xs font-bold text-slate-800 font-mono">
+                  {transaction.soTaiKhoan || 'Chưa cung cấp'}
+                </Text>
               </View>
-              {transaction.ghiChu ? (
-                <View className="py-2.5">
-                  <Text className="text-xs text-slate-500 font-medium mb-1">Nội dung ghi chú chuyển khoản</Text>
-                  <Text className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg font-mono">
-                    {transaction.ghiChu}
-                  </Text>
-                </View>
-              ) : null}
             </Card>
 
-            {isPending ? (
+            {isPending && (
               <View className="flex-row gap-3 pt-2">
                 <Pressable
+                  disabled={actionLoading}
                   onPress={handleReject}
                   className="flex-1 py-3.5 rounded-xl border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"
                 >
-                  <Text className="text-sm font-bold text-rose-600">Từ chối rút tiền</Text>
+                  <Text className="text-sm font-bold text-rose-600">
+                    {actionLoading ? 'Đang xử lý...' : 'Từ chối rút tiền'}
+                  </Text>
                 </Pressable>
                 <Pressable
+                  disabled={actionLoading || !isTreasurySufficient}
                   onPress={handleApprove}
-                  className="flex-1 py-3.5 rounded-xl bg-teal-600 items-center justify-center active:bg-teal-700"
+                  className={`flex-1 py-3.5 rounded-xl items-center justify-center ${
+                    isTreasurySufficient ? 'bg-teal-600 active:bg-teal-700' : 'bg-slate-300'
+                  }`}
                 >
-                  <Text className="text-sm font-bold text-white">Duyệt chuyển tiền</Text>
+                  <Text className="text-sm font-bold text-white">
+                    {actionLoading ? 'Đang duyệt...' : 'Duyệt chuyển tiền'}
+                  </Text>
                 </Pressable>
               </View>
-            ) : null}
+            )}
           </>
-        ) : null}
+        )}
       </ScrollView>
     </View>
   );

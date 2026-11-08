@@ -1,6 +1,7 @@
 import { axiosClient } from '../api/axiosClient';
 import {
   AdminDashboardStats,
+  AdminTreasuryStats,
   AdminUserItem,
   AdminLandlordRequestItem,
   AdminPostItem,
@@ -73,6 +74,31 @@ export const adminService = {
           baoCaoViPham: 0,
         },
         tangTruongGiaoDich: [],
+      };
+    }
+  },
+
+  // 1.1. Lấy số liệu Ngân khố trung tâm / Kho tiền hệ thống
+  getTreasuryStats: async (): Promise<AdminTreasuryStats> => {
+    try {
+      const res = await axiosClient.get<any, any>('/api/admin/statistics');
+      const d = res?.data !== undefined ? res.data : res;
+      return {
+        tongQuyHeThong: d?.tongQuyHeThong ?? 0,
+        quyTamGiuCoc: d?.quyTamGiuCoc ?? 0,
+        tongSoDuViChuTro: d?.tongSoDuViChuTro ?? 0,
+        quyChoRut: d?.quyChoRut ?? 0,
+        soLenhRutChoDuyet: d?.soLenhRutChoDuyet ?? 0,
+        tongDoanhThu: d?.tongDoanhThu ?? 0,
+      };
+    } catch {
+      return {
+        tongQuyHeThong: 0,
+        quyTamGiuCoc: 0,
+        tongSoDuViChuTro: 0,
+        quyChoRut: 0,
+        soLenhRutChoDuyet: 0,
+        tongDoanhThu: 0,
       };
     }
   },
@@ -231,7 +257,7 @@ export const adminService = {
     }
   },
 
-  // 4. Quản lý Bài đăng (Chỉ Duyệt / Từ chối - Không có quyền xoá bài)
+  // 4. Quản lý Bài đăng
   getPosts: async (_status?: string): Promise<AdminPostItem[]> => {
     try {
       const res = await axiosClient.get<any, any>('/api/admin/rooms/pending');
@@ -271,7 +297,6 @@ export const adminService = {
 
   getPostById: async (id: string): Promise<AdminPostItem | null> => {
     try {
-      // 1. Thử lấy từ endpoint public /api/rooms/${id} trước (để có đầy đủ tọa độ, tiện ích, cọc)
       try {
         const res = await axiosClient.get<any, any>(`/api/rooms/${id}`);
         const r = res?.data !== undefined ? res.data : res;
@@ -316,7 +341,6 @@ export const adminService = {
         }
       } catch {}
 
-      // 2. Thử tìm trong danh sách bài chờ duyệt
       const list = await adminService.getPosts();
       const found = list.find((p) => p.maPhongTro === id);
       if (found) return found;
@@ -389,10 +413,10 @@ export const adminService = {
     }
   },
 
-  // 6. Giao dịch & Yêu cầu rút tiền của người dùng
+  // 6. Giao dịch & Yêu cầu rút tiền của người dùng (Ngân khố Admin)
   getTransactions: async (): Promise<AdminTransactionItem[]> => {
     try {
-      const res = await axiosClient.get<any, any>('/api/transactions/my-history');
+      const res = await axiosClient.get<any, any>('/api/admin/transactions');
       const list = Array.isArray(res) ? res : (res?.data || []);
       if (Array.isArray(list)) {
         return list.map((t: any) => ({
@@ -401,13 +425,17 @@ export const adminService = {
           diaChiPhong: 'Hệ thống ví InnFinder',
           soTien: t.soTien || 0,
           loaiGiaoDich: t.loaiGiaoDich || 'GIAO_DICH',
-          trangThai: t.trangThai || 'THANH_CONG',
+          trangThai: t.trangThai || 'CHO_THANH_TOAN',
           thoiGian: t.ngayGiaoDich ? new Date(t.ngayGiaoDich).toLocaleString('vi-VN') : '',
-          nguoiThucHien: 'Người dùng',
-          chuTro: 'Hệ thống',
-          tienCoc: t.soTien || 0,
-          phiDichVu: 0,
-          thucNhan: t.soTien || 0,
+          nguoiThucHien: t.hoVaTen || t.tenNguoiDung || 'Người dùng',
+          sdtNguoiThucHien: t.sdt || '',
+          chuTro: t.tenNguoiDung || 'Hệ thống',
+          tienCoc: t.tienCoc || t.soTien || 0,
+          phiDichVu: t.phiDichVu || 0,
+          thucNhan: t.thucNhan || t.soTien || 0,
+          tenNganHang: t.tenNganHang,
+          soTaiKhoan: t.soTaiKhoan,
+          ghiChu: t.noiDung,
         }));
       }
       return [];
@@ -418,28 +446,56 @@ export const adminService = {
 
   getTransactionById: async (id: string): Promise<AdminTransactionItem | null> => {
     try {
+      const res = await axiosClient.get<any, any>(`/api/admin/transactions/${id}`);
+      const t = res?.data !== undefined ? res.data : res;
+      if (t && t.maGiaoDich) {
+        return {
+          maGiaoDich: t.maGiaoDich,
+          phongTro: t.noiDung || 'Giao dịch hệ thống',
+          diaChiPhong: 'Hệ thống ví InnFinder',
+          soTien: t.soTien || 0,
+          loaiGiaoDich: t.loaiGiaoDich || 'GIAO_DICH',
+          trangThai: t.trangThai || 'CHO_THANH_TOAN',
+          thoiGian: t.ngayGiaoDich ? new Date(t.ngayGiaoDich).toLocaleString('vi-VN') : '',
+          nguoiThucHien: t.hoVaTen || t.tenNguoiDung || 'Người dùng',
+          sdtNguoiThucHien: t.sdt || '',
+          chuTro: t.tenNguoiDung || 'Hệ thống',
+          tienCoc: t.tienCoc || t.soTien || 0,
+          phiDichVu: t.phiDichVu || 0,
+          thucNhan: t.thucNhan || t.soTien || 0,
+          tenNganHang: t.tenNganHang,
+          soTaiKhoan: t.soTaiKhoan,
+          ghiChu: t.noiDung,
+        };
+      }
       const list = await adminService.getTransactions();
-      return list.find((t) => t.maGiaoDich === id) || null;
+      return list.find((item) => item.maGiaoDich === id) || null;
     } catch {
       return null;
     }
   },
 
-  approveTransaction: async (id: string): Promise<boolean> => {
+  approveTransaction: async (id: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      await axiosClient.patch(`/api/admin/transactions/${id}/approve`);
-      return true;
-    } catch {
-      return false;
+      const res = await axiosClient.patch<any, any>(`/api/admin/transactions/${id}/approve`);
+      return { success: true, message: res?.message || 'Duyệt yêu cầu rút tiền thành công' };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.response?.data?.message || err?.message || 'Không thể phê duyệt giao dịch',
+      };
     }
   },
 
-  rejectTransaction: async (id: string, lyDo?: string): Promise<boolean> => {
+  rejectTransaction: async (id: string, lyDo?: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      await axiosClient.patch(`/api/admin/transactions/${id}/reject`, { lyDo });
-      return true;
-    } catch {
-      return false;
+      const res = await axiosClient.patch<any, any>(`/api/admin/transactions/${id}/reject`, { lyDo });
+      return { success: true, message: res?.message || 'Từ chối yêu cầu rút tiền thành công' };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.response?.data?.message || err?.message || 'Không thể từ chối giao dịch',
+      };
     }
   },
 
