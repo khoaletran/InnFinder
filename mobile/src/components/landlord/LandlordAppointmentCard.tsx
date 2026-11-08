@@ -197,28 +197,45 @@ export const LandlordAppointmentCard: React.FC<Props> = ({
           )}
 
           {appointment.trangThai === 'XAC_NHAN' && (
-            <View className="flex-row gap-2 mt-3 pt-2.5 border-t border-gray-100">
-              <View className="flex-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() => onCancelRental?.(appointment.id)}
-                  className="w-full border-gray-300 active:bg-gray-50"
-                >
-                  <Button.Label className="text-gray-700 text-xs font-medium">Không thuê</Button.Label>
-                </Button>
-              </View>
+            <View className="mt-3 pt-2.5 border-t border-gray-100">
+              {!appointment.daNhanLaiCoc ? (
+                <View className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex-row items-center gap-2">
+                  <Ionicons name="information-circle-outline" size={16} color="#D97706" />
+                  <Text className="text-xs text-amber-800 flex-1 leading-4">
+                    Vui lòng hoàn tiền cọc trực tiếp cho khách khi gặp mặt. Chờ khách xác nhận trên ứng dụng.
+                  </Text>
+                </View>
+              ) : appointment.chuTroDongY === null || appointment.chuTroDongY === undefined ? (
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={() => onCancelRental?.(appointment.id)}
+                      className="w-full border-gray-300 active:bg-gray-50"
+                    >
+                      <Button.Label className="text-gray-700 text-xs font-medium">Từ chối</Button.Label>
+                    </Button>
+                  </View>
 
-              <View className="flex-1">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onPress={() => onComplete?.(appointment.id)}
-                  className="w-full bg-emerald-700"
-                >
-                  <Button.Label className="text-white text-xs font-bold">Xác nhận thuê</Button.Label>
-                </Button>
-              </View>
+                  <View className="flex-1">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onPress={() => onComplete?.(appointment.id)}
+                      className="w-full bg-emerald-700"
+                    >
+                      <Button.Label className="text-white text-xs font-bold">Xác nhận thuê</Button.Label>
+                    </Button>
+                  </View>
+                </View>
+              ) : (
+                <View className="flex-row items-center justify-center py-1.5 px-3 rounded-xl bg-slate-100">
+                  <Text className="text-xs font-bold text-slate-700">
+                    {appointment.chuTroDongY ? 'Bạn đã chọn: Cho thuê (Chờ khách)' : 'Bạn đã từ chối cho thuê'}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </Card>

@@ -44,6 +44,14 @@ interface BookingState {
   confirmRental: (
     maDatLich: string,
   ) => Promise<{ success: boolean; message?: string }>;
+  confirmReceivedDeposit: (
+    maDatLich: string,
+  ) => Promise<{ success: boolean; message?: string }>;
+  submitCustomerDecision: (
+    maDatLich: string,
+    dongY: boolean,
+    liDoTuChoi?: string,
+  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -248,6 +256,65 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           err.response?.data?.message ||
           err.message ||
           "Xác nhận thuê phòng thất bại",
+      };
+    }
+  },
+
+  // Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực
+  confirmReceivedDeposit: async (maDatLich: string) => {
+    try {
+      const updated = await bookingService.confirmReceivedDeposit(maDatLich);
+      set((state) => ({
+        appointments: state.appointments.map((item) =>
+          item.maDatLich === maDatLich
+            ? { ...item, daNhanLaiCoc: true }
+            : item,
+        ),
+      }));
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          "Xác nhận nhận lại cọc thất bại",
+      };
+    }
+  },
+
+  // Khách hàng đưa ra quyết định độc lập (Thuê / Không thuê)
+  submitCustomerDecision: async (
+    maDatLich: string,
+    dongY: boolean,
+    liDoTuChoi?: string,
+  ) => {
+    try {
+      const updated = await bookingService.submitCustomerDecision(
+        maDatLich,
+        dongY,
+        liDoTuChoi,
+      );
+      set((state) => ({
+        appointments: state.appointments.map((item) =>
+          item.maDatLich === maDatLich
+            ? {
+                ...item,
+                khachHangDongY: dongY,
+                trangThai: updated.trangThai || item.trangThai,
+                liDoHuy: updated.liDoHuy || item.liDoHuy,
+              }
+            : item,
+        ),
+      }));
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message:
+          err.response?.data?.message ||
+          err.message ||
+          "Gửi quyết định thất bại",
       };
     }
   },

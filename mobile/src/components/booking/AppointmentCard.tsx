@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image, Pressable } from "react-native";
+import { View, Text, Image, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, Button } from "heroui-native";
 import { router } from "expo-router";
@@ -74,6 +74,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   };
   const reviewedRoomIds = useBookingStore((s) => s.reviewedRoomIds);
   const paidAppointmentIds = useBookingStore((s) => s.paidAppointmentIds);
+  const confirmReceivedDeposit = useBookingStore((s) => s.confirmReceivedDeposit);
+  const submitCustomerDecision = useBookingStore((s) => s.submitCustomerDecision);
   const isDepositPaid = !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich);
 
   const canCancel =
@@ -206,6 +208,84 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
                   Nộp cọc
                 </Button.Label>
               </Button>
+            )}
+
+            {/* BƯỚC 4 SWIMLANE: Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực */}
+            {item.trangThai === "XAC_NHAN" && isDepositPaid && !item.daNhanLaiCoc && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 rounded-xl px-3 py-1.5"
+                onPress={() => {
+                  Alert.alert(
+                    "Xác nhận nhận lại cọc",
+                    "Chủ trọ đã trả lại đủ tiền cọc trực tiếp cho bạn tại buổi xem phòng chưa?",
+                    [
+                      { text: "Chưa nhận", style: "cancel" },
+                      {
+                        text: "Đã nhận đủ",
+                        onPress: async () => {
+                          const res = await confirmReceivedDeposit(item.maDatLich);
+                          if (res.success) {
+                            Alert.alert("Thành công", "Đã xác nhận nhận lại cọc! Hãy đưa ra quyết định thuê phòng.");
+                          } else {
+                            Alert.alert("Lỗi", res.message || "Xác nhận không thành công");
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Button.Label className="text-xs font-bold text-white">
+                  Đã nhận cọc
+                </Button.Label>
+              </Button>
+            )}
+
+            {/* BƯỚC 5 SWIMLANE: Khách hàng đưa ra quyết định thuê / không thuê sau khi đã nhận lại cọc */}
+            {item.trangThai === "XAC_NHAN" && isDepositPaid && item.daNhanLaiCoc && (
+              item.khachHangDongY === null || item.khachHangDongY === undefined ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-rose-300 bg-rose-50 rounded-xl px-2.5 py-1.5"
+                    onPress={() => onCancel(item.maDatLich)}
+                  >
+                    <Button.Label className="text-xs font-semibold text-rose-600">
+                      Không thuê
+                    </Button.Label>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="bg-teal-600 rounded-xl px-3 py-1.5"
+                    onPress={async () => {
+                      const res = await submitCustomerDecision(item.maDatLich, true);
+                      if (res.success) {
+                        Alert.alert("Thành công", "Bạn đã chọn Thuê phòng! Đang chờ Chủ trọ xác nhận.");
+                      } else {
+                        Alert.alert("Lỗi", res.message || "Gửi quyết định thất bại");
+                      }
+                    }}
+                  >
+                    <Button.Label className="text-xs font-bold text-white">
+                      Thuê phòng
+                    </Button.Label>
+                  </Button>
+                </>
+              ) : (
+                <Chip
+                  variant="soft"
+                  color={item.khachHangDongY ? "success" : "danger"}
+                  size="sm"
+                >
+                  <Chip.Label className="text-[10px] font-bold">
+                    {item.khachHangDongY ? "Chờ chủ trọ chốt" : "Đã từ chối thuê"}
+                  </Chip.Label>
+                </Chip>
+              )
             )}
 
             {/* Nút Đánh giá / Xem đánh giá khi lịch hẹn đã Hoàn tất */}

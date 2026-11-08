@@ -42,6 +42,31 @@ export const bookingService = {
   },
 
   /**
+   * Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực
+   * Endpoint: PATCH /api/appointments/{id}/confirm-received-deposit
+   */
+  confirmReceivedDeposit: async (maDatLich: string): Promise<AppointmentResponse> => {
+    return axiosClient.patch<any, AppointmentResponse>(
+      `/api/appointments/${maDatLich}/confirm-received-deposit`
+    );
+  },
+
+  /**
+   * Khách hàng đưa ra quyết định độc lập (Thuê / Không thuê)
+   * Endpoint: PATCH /api/appointments/{id}/decision
+   */
+  submitCustomerDecision: async (
+    maDatLich: string,
+    dongY: boolean,
+    liDoTuChoi?: string
+  ): Promise<AppointmentResponse> => {
+    return axiosClient.patch<any, AppointmentResponse>(
+      `/api/appointments/${maDatLich}/decision`,
+      { dongY, liDoTuChoi }
+    );
+  },
+
+  /**
    * Khach hang xac nhan thue phong sau khi xem thuc te
    * Endpoint: PATCH /api/appointments/{id}/confirm-rental
    */

@@ -140,7 +140,7 @@ export default function AppointmentsScreen() {
         await landlordService.rejectAppointment(selectedAppointmentId, reasonText.trim());
         Alert.alert('Thành công', 'Đã từ chối lịch hẹn và hoàn trả cọc cho khách.');
       } else {
-        await landlordService.cancelAppointmentByLandlord(selectedAppointmentId, reasonText.trim());
+        await landlordService.submitLandlordDecision(selectedAppointmentId, false, reasonText.trim());
         Alert.alert('Thành công', 'Đã ghi nhận không thuê và hoàn cọc cho khách hàng.');
       }
       setReasonModalVisible(false);
@@ -165,7 +165,7 @@ export default function AppointmentsScreen() {
           style: 'default',
           onPress: async () => {
             try {
-              await landlordService.completeAppointment(id);
+              await landlordService.submitLandlordDecision(id, true);
               Alert.alert('Chúc mừng!', 'Đã chốt hợp đồng thuê thành công và cộng tiền cọc vào ví!');
               loadAppointments();
             } catch (err: any) {

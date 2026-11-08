@@ -42,6 +42,8 @@ export default function RentalDetailScreen() {
     fetchAppointments,
     cancelAppointment,
     confirmRental,
+    confirmReceivedDeposit,
+    submitCustomerDecision,
     reviewedRoomIds,
     refundWallet,
     paidAppointmentIds,
@@ -121,6 +123,18 @@ export default function RentalDetailScreen() {
   // Kịch bản 2: Khách bấm Không thuê hoặc Hủy lịch hẹn
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
+    if (item.daNhanLaiCoc) {
+      const result = await submitCustomerDecision(item.maDatLich, false, reason);
+      setIsCanceling(false);
+      setCancelModalVisible(false);
+      if (result.success) {
+        Alert.alert("Thành công", "Đã ghi nhận bạn không thuê phòng.");
+      } else {
+        Alert.alert("Lỗi", result.message || "Không thể gửi quyết định.");
+      }
+      return;
+    }
+
     const wasPaid =
       !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich);
     const result = await cancelAppointment(item.maDatLich, reason);
@@ -155,12 +169,12 @@ export default function RentalDetailScreen() {
           style: "default",
           onPress: async () => {
             setIsConfirmingRental(true);
-            const res = await confirmRental(item.maDatLich);
+            const res = await submitCustomerDecision(item.maDatLich, true);
             setIsConfirmingRental(false);
             if (res.success) {
               Alert.alert(
-                "Thuê phòng thành công!",
-                "Chúc mừng bạn đã chốt thuê phòng trọ thành công. Hệ thống đã hoàn trả 100% tiền cọc giữ chân vào ví của bạn.",
+                "Đã gửi quyết định thuê!",
+                "Bạn đã xác nhận thuê phòng. Hệ thống đang chờ Chủ trọ đưa ra quyết định.",
               );
             } else {
               Alert.alert(
@@ -334,39 +348,84 @@ export default function RentalDetailScreen() {
 
       {/* 7. NÚT HÀNH ĐỘNG ĐÁY MÀN HÌNH (CHUẨN THEO SWIMLANE 2.3) */}
       <View className="flex-row items-center gap-2.5 px-4 py-3 bg-white border-t border-slate-100">
-        {/* KỊCH BẢN 1 & 2: Lịch hẹn đã duyệt & đã nộp cọc -> Đưa ra 2 lựa chọn [Không thuê] vs [Xác nhận thuê] */}
+        {/* KỊCH BẢN 1 & 2: Lịch hẹn đã duyệt & đã nộp cọc -> BƯỚC 4 & BƯỚC 5 SWIMLANE */}
         {item.trangThai === "XAC_NHAN" && isDepositPaid ? (
-          <>
-            <TouchableOpacity
-              onPress={handleCallLandlord}
-              className="w-12 h-12 rounded-xl bg-slate-100 items-center justify-center border border-slate-200"
-            >
-              <Ionicons name="call-outline" size={20} color="#0D9488" />
-            </TouchableOpacity>
+          !item.daNhanLaiCoc ? (
+            <>
+              <TouchableOpacity
+                onPress={handleCallLandlord}
+                className="w-12 h-12 rounded-xl bg-slate-100 items-center justify-center border border-slate-200"
+              >
+                <Ionicons name="call-outline" size={20} color="#0D9488" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setCancelModalVisible(true)}
-              className="flex-1 py-3 rounded-xl border border-rose-300 bg-rose-50 items-center justify-center"
-            >
-              <Text className="text-sm font-semibold text-rose-600">
-                Không thuê
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handlePressConfirmRental}
-              disabled={isConfirmingRental}
-              className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
-            >
-              {isConfirmingRental ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    "Xác nhận nhận lại cọc",
+                    "Chủ trọ đã hoàn trả 100% tiền cọc trực tiếp cho bạn khi gặp xem phòng chưa?",
+                    [
+                      { text: "Chưa nhận", style: "cancel" },
+                      {
+                        text: "Đã nhận đủ",
+                        onPress: async () => {
+                          const res = await confirmReceivedDeposit(item.maDatLich);
+                          if (res.success) {
+                            Alert.alert("Thành công", "Bạn đã xác nhận nhận lại cọc! Bây giờ bạn có thể quyết định thuê hoặc không thuê.");
+                          } else {
+                            Alert.alert("Lỗi", res.message || "Xác nhận thất bại");
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 items-center justify-center"
+              >
                 <Text className="text-sm font-bold text-white">
-                  Xác nhận thuê
+                  Đã nhận lại cọc từ Chủ trọ
                 </Text>
-              )}
-            </TouchableOpacity>
-          </>
+              </TouchableOpacity>
+            </>
+          ) : item.khachHangDongY === null || item.khachHangDongY === undefined ? (
+            <>
+              <TouchableOpacity
+                onPress={handleCallLandlord}
+                className="w-12 h-12 rounded-xl bg-slate-100 items-center justify-center border border-slate-200"
+              >
+                <Ionicons name="call-outline" size={20} color="#0D9488" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setCancelModalVisible(true)}
+                className="flex-1 py-3 rounded-xl border border-rose-300 bg-rose-50 items-center justify-center"
+              >
+                <Text className="text-sm font-semibold text-rose-600">
+                  Không thuê
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handlePressConfirmRental}
+                disabled={isConfirmingRental}
+                className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
+              >
+                {isConfirmingRental ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text className="text-sm font-bold text-white">
+                    Xác nhận thuê
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View className="flex-1 py-3 px-4 rounded-xl bg-slate-100 items-center justify-center">
+              <Text className="text-sm font-bold text-slate-700">
+                {item.khachHangDongY ? "Bạn đã chọn: Thuê phòng (Đang chờ Chủ trọ)" : "Bạn đã chọn: Không thuê"}
+              </Text>
+            </View>
+          )
         ) : item.trangThai === "XAC_NHAN" && !isDepositPaid ? (
           /* Khi chủ trọ đã duyệt lịch nhưng khách chưa nộp cọc */
           <>

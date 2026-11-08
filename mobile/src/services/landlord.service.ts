@@ -154,6 +154,9 @@ export const landlordService = {
             coc: Number(a.coc) || 0,
             phiThu: Number(a.phiThu) || 0,
             hinhAnh: a.hinhAnh,
+            daNhanLaiCoc: !!a.daNhanLaiCoc,
+            khachHangDongY: a.khachHangDongY,
+            chuTroDongY: a.chuTroDongY,
           }))
         : [];
 
@@ -175,6 +178,15 @@ export const landlordService = {
   rejectAppointment: async (id: string, reason?: string): Promise<void> => {
     await axiosClient.patch(`/api/landlord/appointments/${id}/reject`, {
       liDoHuy: reason || 'Chủ trọ bận lịch vào khung giờ này',
+    });
+  },
+
+
+  // Chủ trọ đưa ra quyết định độc lập (Cho thuê / Từ chối cho thuê)
+  submitLandlordDecision: async (id: string, dongY: boolean, reason?: string): Promise<any> => {
+    return axiosClient.patch(`/api/landlord/appointments/${id}/decision`, {
+      dongY,
+      liDoTuChoi: reason,
     });
   },
 

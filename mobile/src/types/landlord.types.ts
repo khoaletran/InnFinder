@@ -51,6 +51,9 @@ export interface LandlordAppointmentItem {
   coc?: number;
   phiThu?: number;
   hinhAnh?: string;
+  daNhanLaiCoc?: boolean;
+  khachHangDongY?: boolean | null;
+  chuTroDongY?: boolean | null;
 }
 
 export interface LandlordRentalRequestItem {
