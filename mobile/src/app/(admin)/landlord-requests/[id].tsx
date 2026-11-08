@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Card, Chip } from 'heroui-native';
@@ -9,19 +9,63 @@ import { AdminLandlordRequestItem } from '../../../types/admin.types';
 export default function AdminLandlordRequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [request, setRequest] = useState<AdminLandlordRequestItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
-      adminService.getLandlordRequestById(id).then((res) => {
-        if (res) setRequest(res);
-      });
+      setLoading(true);
+      adminService
+        .getLandlordRequestById(id)
+        .then((res) => {
+          setRequest(res || null);
+        })
+        .catch(() => {
+          setRequest(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
   }, [id]);
 
-  if (!request) {
+  if (loading) {
     return (
       <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center">
-        <Text className="text-slate-500">Đang tải hồ sơ...</Text>
+        <ActivityIndicator size="large" color="#0D9488" />
+        <Text className="text-slate-500 mt-3 font-medium text-sm">Đang tải hồ sơ thẩm định...</Text>
+      </View>
+    );
+  }
+
+  if (!request) {
+    return (
+      <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
+        <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-200/80">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+          <Text className="text-base font-bold text-slate-900 ml-2.5">Chi tiết đơn đăng ký chủ trọ</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+            <Ionicons name="document-text-outline" size={32} color="#94A3B8" />
+          </View>
+          <Text className="text-slate-700 font-bold text-base mb-1">Không tìm thấy hồ sơ</Text>
+          <Text className="text-slate-400 text-xs text-center mb-4">
+            Đơn đăng ký không tồn tại hoặc đã được xử lý xong.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            className="px-5 py-2.5 bg-teal-600 rounded-xl active:bg-teal-700"
+          >
+            <Text className="text-white font-semibold text-xs">Quay lại danh sách</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }

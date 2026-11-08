@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
@@ -9,19 +9,63 @@ import { AdminTransactionItem } from '../../../types/admin.types';
 export default function AdminTransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [transaction, setTransaction] = useState<AdminTransactionItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
-      adminService.getTransactionById(id).then((res) => {
-        if (res) setTransaction(res);
-      });
+      setLoading(true);
+      adminService
+        .getTransactionById(id)
+        .then((res) => {
+          setTransaction(res || null);
+        })
+        .catch(() => {
+          setTransaction(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
   }, [id]);
 
-  if (!transaction) {
+  if (loading) {
     return (
       <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center">
-        <Text className="text-slate-500">Đang tải chi tiết...</Text>
+        <ActivityIndicator size="large" color="#0D9488" />
+        <Text className="text-slate-500 mt-3 font-medium text-sm">Đang tải chi tiết giao dịch...</Text>
+      </View>
+    );
+  }
+
+  if (!transaction) {
+    return (
+      <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
+        <View className="flex-row items-center px-4 py-3 bg-white border-b border-slate-200/80">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center active:bg-slate-200"
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+          <Text className="text-base font-bold text-slate-900 ml-2.5">Chi tiết giao dịch</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
+            <Ionicons name="receipt-outline" size={32} color="#94A3B8" />
+          </View>
+          <Text className="text-slate-700 font-bold text-base mb-1">Không tìm thấy giao dịch</Text>
+          <Text className="text-slate-400 text-xs text-center mb-4">
+            Giao dịch không tồn tại hoặc đã được xử lý.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            className="px-5 py-2.5 bg-teal-600 rounded-xl active:bg-teal-700"
+          >
+            <Text className="text-white font-semibold text-xs">Quay lại danh sách</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }

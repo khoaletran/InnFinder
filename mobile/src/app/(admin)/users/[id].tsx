@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Card } from 'heroui-native';
@@ -9,16 +9,21 @@ import { AdminUserItem } from '../../../types/admin.types';
 export default function AdminUserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [user, setUser] = useState<AdminUserItem | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (id) {
-      adminService.getUserById(id).then((res) => {
-        if (res) {
-          setUser(res);
-          setIsLocked(res.trangThai === 'KHOA');
-        }
-      });
+      setLoading(true);
+      adminService
+        .getUserById(id)
+        .then((res) => {
+          if (res) {
+            setUser(res);
+            setIsLocked(res.trangThai === 'KHOA');
+          }
+        })
+        .finally(() => setLoading(false));
     }
   }, [id]);
 
@@ -67,10 +72,29 @@ export default function AdminUserDetailScreen() {
     );
   };
 
-  if (!user) {
+  if (loading) {
     return (
       <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center">
-        <Text className="text-slate-500">Đang tải thông tin...</Text>
+        <ActivityIndicator size="small" color="#0D9488" />
+        <Text className="text-xs text-slate-500 mt-2">Đang tải thông tin tài khoản...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center px-6">
+        <Ionicons name="person-outline" size={48} color="#94A3B8" />
+        <Text className="text-base font-bold text-slate-800 mt-3">Không tìm thấy người dùng</Text>
+        <Text className="text-xs text-slate-500 text-center mt-1">
+          Tài khoản này không tồn tại hoặc đã bị gỡ bỏ khỏi hệ thống.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          className="mt-5 px-5 py-2.5 bg-teal-600 rounded-xl active:bg-teal-700"
+        >
+          <Text className="text-xs font-bold text-white">Quay lại</Text>
+        </Pressable>
       </View>
     );
   }

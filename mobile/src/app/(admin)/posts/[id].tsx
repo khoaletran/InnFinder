@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Image, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Avatar } from 'heroui-native';
@@ -9,13 +9,18 @@ import { AdminPostItem } from '../../../types/admin.types';
 export default function AdminPostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [post, setPost] = useState<AdminPostItem | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
 
   useEffect(() => {
     if (id) {
-      adminService.getPostById(id).then((res) => {
-        if (res) setPost(res);
-      });
+      setLoading(true);
+      adminService
+        .getPostById(id)
+        .then((res) => {
+          setPost(res);
+        })
+        .finally(() => setLoading(false));
     }
   }, [id]);
 
@@ -70,10 +75,29 @@ export default function AdminPostDetailScreen() {
         ]);
   };
 
-  if (!post) {
+  if (loading) {
     return (
       <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center">
-        <Text className="text-slate-500">Đang tải chi tiết...</Text>
+        <ActivityIndicator size="small" color="#0D9488" />
+        <Text className="text-xs text-slate-500 mt-2">Đang tải chi tiết bài đăng...</Text>
+      </View>
+    );
+  }
+
+  if (!post) {
+    return (
+      <View style={{ flex: 1 }} className="pt-safe bg-slate-50 items-center justify-center px-6">
+        <Ionicons name="newspaper-outline" size={48} color="#94A3B8" />
+        <Text className="text-base font-bold text-slate-800 mt-3">Không tìm thấy bài đăng</Text>
+        <Text className="text-xs text-slate-500 text-center mt-1">
+          Bài đăng này có thể đã bị xóa hoặc không tồn tại trên hệ thống.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          className="mt-5 px-5 py-2.5 bg-teal-600 rounded-xl active:bg-teal-700"
+        >
+          <Text className="text-xs font-bold text-white">Quay lại</Text>
+        </Pressable>
       </View>
     );
   }
@@ -82,7 +106,7 @@ export default function AdminPostDetailScreen() {
 
   return (
     <View style={{ flex: 1 }} className="pt-safe bg-slate-50">
-      {/* Header chuẩn tenant */}
+      {/* Header chuẩn stack */}
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
         <View className="flex-row items-center gap-2.5">
           <Pressable
@@ -92,9 +116,6 @@ export default function AdminPostDetailScreen() {
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
           </Pressable>
           <Text className="text-base font-bold text-slate-900">Kiểm duyệt bài đăng</Text>
-        </View>
-        <View className="w-9 h-9 rounded-full bg-slate-100 items-center justify-center">
-          <Ionicons name="share-social-outline" size={18} color="#64748B" />
         </View>
       </View>
 
@@ -106,33 +127,56 @@ export default function AdminPostDetailScreen() {
         {/* Image banner */}
         <View className="relative w-full h-64 bg-slate-200">
           <Image
-            source={{ uri: post.hinhAnh[activeImgIdx] || post.hinhAnh[0] }}
+            source={{
+              uri:
+                post.hinhAnh && post.hinhAnh.length > 0
+                  ? post.hinhAnh[activeImgIdx] || post.hinhAnh[0]
+                  : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+            }}
             className="w-full h-full"
             resizeMode="cover"
           />
-          <View className="absolute bottom-3 right-3 bg-black/60 px-3 py-1 rounded-full">
-            <Text className="text-xs font-bold text-white">
-              {activeImgIdx + 1}/{post.hinhAnh.length}
-            </Text>
-          </View>
-        </View>
-
-        <View className="p-4">
-          {/* Post Title & Price */}
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1 mr-2">
-              <Text className="text-lg font-bold text-slate-900">{post.tieuDe}</Text>
-              <Text className="text-2xl font-black text-teal-600 mt-1">
-                {post.giaThue.toLocaleString('vi-VN')} đ/tháng
+          {post.hinhAnh && post.hinhAnh.length > 1 ? (
+            <View className="absolute bottom-3 right-3 bg-black/60 px-3 py-1 rounded-full">
+              <Text className="text-xs font-bold text-white">
+                {activeImgIdx + 1}/{post.hinhAnh.length}
               </Text>
             </View>
+          ) : null}
+        </View>
+
+        {/* Thumbnail selector */}
+        {post.hinhAnh && post.hinhAnh.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="px-4 py-3 bg-white border-b border-slate-100"
+          >
+            {post.hinhAnh.map((img, idx) => (
+              <Pressable
+                key={idx}
+                onPress={() => setActiveImgIdx(idx)}
+                className={`w-14 h-14 rounded-lg overflow-hidden mr-2 border-2 ${
+                  activeImgIdx === idx ? 'border-teal-600' : 'border-transparent'
+                }`}
+              >
+                <Image source={{ uri: img }} className="w-full h-full" resizeMode="cover" />
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* Nội dung chi tiết */}
+        <View className="p-4">
+          {/* Badge trạng thái */}
+          <View className="flex-row items-center justify-between mb-2">
             <View
-              className={`px-2.5 py-1 rounded-full ${
+              className={`px-3 py-1 rounded-full border ${
                 isPending
-                  ? 'bg-amber-50 border border-amber-200'
+                  ? 'bg-amber-50 border-amber-200'
                   : post.trangThai === 'DA_DUYET'
-                  ? 'bg-emerald-50 border border-emerald-200'
-                  : 'bg-rose-50 border border-rose-200'
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-rose-50 border-rose-200'
               }`}
             >
               <Text
@@ -144,96 +188,109 @@ export default function AdminPostDetailScreen() {
                     : 'text-rose-700'
                 }`}
               >
-                {isPending ? 'Chờ duyệt' : post.trangThai === 'DA_DUYET' ? 'Đã duyệt' : 'Từ chối'}
+                {isPending
+                  ? 'Chờ duyệt'
+                  : post.trangThai === 'DA_DUYET'
+                  ? 'Đã duyệt'
+                  : 'Đã từ chối'}
               </Text>
             </View>
+            <Text className="text-xs text-slate-400 font-medium">Đăng: {post.thoiGianDang}</Text>
           </View>
 
-          {/* Quick specs card */}
-          <View className="flex-row items-center justify-between bg-white rounded-2xl border border-slate-200/90 p-4 my-4 shadow-xs">
-            <View className="items-center flex-1">
-              <Text className="text-[11px] text-slate-400 font-medium">Diện tích</Text>
+          {/* Tiêu đề & Giá */}
+          <Text className="text-lg font-bold text-slate-900 leading-snug mb-1">{post.tieuDe}</Text>
+          <Text className="text-xs text-slate-500 mb-3">{post.diaChi}</Text>
+
+          <View className="flex-row items-baseline gap-1 mb-4 pb-3 border-b border-slate-100">
+            <Text className="text-2xl font-black text-teal-600">
+              {post.giaThue.toLocaleString('vi-VN')}
+            </Text>
+            <Text className="text-sm font-semibold text-slate-500">đ/tháng</Text>
+          </View>
+
+          {/* Quick info badges */}
+          <View className="flex-row gap-2 mb-4">
+            <View className="flex-1 p-2.5 bg-white rounded-xl border border-slate-200/90 items-center">
+              <Text className="text-[10px] text-slate-400 font-medium">Diện tích</Text>
               <Text className="text-sm font-bold text-slate-800 mt-0.5">{post.dienTich} m²</Text>
             </View>
-            <View className="w-[1px] h-8 bg-slate-200" />
-            <View className="items-center flex-1">
-              <Text className="text-[11px] text-slate-400 font-medium">Tiền cọc</Text>
-              <Text className="text-sm font-bold text-slate-800 mt-0.5">
-                {post.cocPhong ? `${(post.cocPhong / 1000000).toFixed(1)} tr` : '1 tháng'}
+            <View className="flex-1 p-2.5 bg-white rounded-xl border border-slate-200/90 items-center">
+              <Text className="text-[10px] text-slate-400 font-medium">Sức chứa</Text>
+              <Text className="text-sm font-bold text-slate-800 mt-0.5">{post.soNguoi} người</Text>
+            </View>
+            <View className="flex-1 p-2.5 bg-white rounded-xl border border-slate-200/90 items-center">
+              <Text className="text-[10px] text-slate-400 font-medium">Loại phòng</Text>
+              <Text className="text-sm font-bold text-slate-800 mt-0.5" numberOfLines={1}>
+                {post.loaiPhong}
               </Text>
             </View>
-            <View className="w-[1px] h-8 bg-slate-200" />
-            <View className="items-center flex-1">
-              <Text className="text-[11px] text-slate-400 font-medium">Sức chứa</Text>
-              <Text className="text-sm font-bold text-slate-800 mt-0.5">Tối đa {post.soNguoi} người</Text>
-            </View>
           </View>
 
-          {/* Chủ trọ */}
-          <Text className="text-sm font-bold text-slate-900 mb-2">Thông tin chủ nhà</Text>
-          <Card className="flex-row items-center justify-between p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
-            <View className="flex-row items-center gap-3">
-              <Avatar size="md" color="default" className="size-11">
-                <Avatar.Fallback className="bg-teal-50">
-                  <Text className="text-sm font-bold text-teal-700">
-                    {post.tenChuTro.slice(0, 2).toUpperCase()}
-                  </Text>
-                </Avatar.Fallback>
-              </Avatar>
-              <View>
-                <Text className="text-sm font-bold text-slate-900">{post.tenChuTro}</Text>
-                <Text className="text-xs text-slate-400 mt-0.5 font-medium">SĐT: {post.sdtChuTro}</Text>
-              </View>
+          {/* Thông tin chủ trọ */}
+          <Text className="text-sm font-bold text-slate-900 mb-2">Chủ sở hữu</Text>
+          <Card className="flex-row items-center p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
+            <Avatar size="md" color="default" className="size-11">
+              <Avatar.Fallback className="bg-teal-50">
+                <Text className="text-sm font-bold text-teal-700">
+                  {post.tenChuTro.slice(0, 2).toUpperCase()}
+                </Text>
+              </Avatar.Fallback>
+            </Avatar>
+            <View className="flex-1 ml-3">
+              <Text className="text-sm font-bold text-slate-900">{post.tenChuTro}</Text>
+              <Text className="text-xs text-slate-500 mt-0.5">SĐT: {post.sdtChuTro}</Text>
             </View>
-            <View className="w-9 h-9 rounded-full bg-teal-50 items-center justify-center">
-              <Ionicons name="call-outline" size={18} color="#0D9488" />
+            <View className="px-2.5 py-1 rounded-full bg-slate-100">
+              <Text className="text-[11px] font-semibold text-slate-600">Chủ phòng</Text>
             </View>
           </Card>
-
-          {/* Địa chỉ */}
-          <Text className="text-sm font-bold text-slate-900 mb-2">Vị trí phòng trọ</Text>
-          <Card className="p-3.5 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="location-outline" size={18} color="#0D9488" />
-              <Text className="text-xs font-medium text-slate-700 flex-1 leading-relaxed">{post.diaChi}</Text>
-            </View>
-          </Card>
-
-          {/* Tiện ích */}
-          <Text className="text-sm font-bold text-slate-900 mb-2">Tiện ích phòng</Text>
-          <View className="flex-row flex-wrap gap-2 mb-4">
-            {post.tienIch.map((item, idx) => (
-              <View
-                key={idx}
-                className="px-3 py-1.5 rounded-full bg-teal-50/70 border border-teal-200/70"
-              >
-                <Text className="text-xs font-semibold text-teal-800">{item}</Text>
-              </View>
-            ))}
-          </View>
 
           {/* Mô tả */}
-          <Text className="text-sm font-bold text-slate-900 mb-2">Mô tả chi tiết</Text>
-          <Card className="p-4 bg-white rounded-2xl border border-slate-200/90 mb-6 shadow-xs">
-            <Text className="text-xs text-slate-600 leading-relaxed font-normal">{post.moTa}</Text>
-          </Card>
+          {post.moTa ? (
+            <>
+              <Text className="text-sm font-bold text-slate-900 mb-2">Mô tả phòng</Text>
+              <Card className="p-4 bg-white rounded-2xl border border-slate-200/90 mb-4 shadow-xs">
+                <Text className="text-xs text-slate-600 leading-relaxed">{post.moTa}</Text>
+              </Card>
+            </>
+          ) : null}
 
-          {/* Nút hành động kiểm duyệt */}
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={handleReject}
-              className="flex-1 py-3.5 rounded-xl items-center justify-center bg-rose-50 border border-rose-200 active:opacity-80"
-            >
-              <Text className="text-sm font-bold text-rose-600">Từ chối duyệt</Text>
-            </Pressable>
+          {/* Tiện ích */}
+          {post.tienIch && post.tienIch.length > 0 ? (
+            <>
+              <Text className="text-sm font-bold text-slate-900 mb-2">Tiện ích phòng</Text>
+              <View className="flex-row flex-wrap gap-2 mb-6">
+                {post.tienIch.map((t, idx) => (
+                  <View
+                    key={idx}
+                    className="flex-row items-center gap-1.5 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-full"
+                  >
+                    <Ionicons name="checkmark-circle" size={14} color="#0D9488" />
+                    <Text className="text-xs font-semibold text-teal-800">{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
 
-            <Pressable
-              onPress={handleApprove}
-              className="flex-1 py-3.5 rounded-xl items-center justify-center bg-teal-600 active:bg-teal-700"
-            >
-              <Text className="text-sm font-bold text-white">Duyệt bài đăng</Text>
-            </Pressable>
-          </View>
+          {/* Nút Duyệt / Từ chối (Chỉ hiển thị khi bài đang chờ duyệt) */}
+          {isPending ? (
+            <View className="flex-row gap-3 pt-2">
+              <Pressable
+                onPress={handleReject}
+                className="flex-1 py-3.5 rounded-xl border border-rose-200 bg-rose-50 items-center justify-center active:opacity-80"
+              >
+                <Text className="text-sm font-bold text-rose-600">Từ chối bài</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleApprove}
+                className="flex-1 py-3.5 rounded-xl bg-teal-600 items-center justify-center active:bg-teal-700"
+              >
+                <Text className="text-sm font-bold text-white">Duyệt bài đăng</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
