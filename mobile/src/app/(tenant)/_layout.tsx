@@ -10,9 +10,12 @@ export default function TenantTabLayout() {
   const { user, isAuthenticated } = useAuthStore();
 
   // Đảm bảo nếu là Admin thì không bao giờ hiển thị giao diện khách hàng
+  // Tự động tải thông báo khi khách đã đăng nhập
   useEffect(() => {
     if (isAuthenticated && user?.vaiTro === 'QUAN_TRI') {
       router.replace('/(admin)');
+    } else if (isAuthenticated) {
+      useNotificationStore.getState().fetchNotifications(false);
     }
   }, [isAuthenticated, user?.vaiTro]);
 

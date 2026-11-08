@@ -1,102 +1,179 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Card } from 'heroui-native';
-import { router } from 'expo-router';
-import { Colors } from '../../constants/theme';
-import { useNotificationStore } from '../../store/useNotificationStore';
+import { router, useFocusEffect } from 'expo-router';
+import { Card } from 'heroui-native';
+import {
+  useNotificationStore,
+  TenantNotificationItem,
+  TenantNotificationType,
+} from '../../store/useNotificationStore';
 
-export interface NotificationItem {
-  id: string;
-  tieuDe: string;
-  noiDung: string;
-  thoiGian: string;
-  loai: 'LICH_HEN' | 'GIAO_DICH' | 'HE_THONG';
-  chuaDoc: boolean;
-}
+type FilterTab = 'ALL' | 'APPOINTMENT' | 'PAYMENT' | 'REMINDER';
 
-const FILTER_TABS: Array<{ key: 'ALL' | 'LICH_HEN' | 'GIAO_DICH'; label: string }> = [
+const FILTER_TABS: Array<{ key: FilterTab; label: string }> = [
   { key: 'ALL', label: 'Tất cả' },
-  { key: 'LICH_HEN', label: 'Lịch xem phòng' },
-  { key: 'GIAO_DICH', label: 'Cọc & Giao dịch' },
+  { key: 'APPOINTMENT', label: 'Lịch hẹn' },
+  { key: 'PAYMENT', label: 'Ví & Cọc' },
+  { key: 'REMINDER', label: 'Nhắc nhở' },
 ];
 
 export default function TenantNotificationsScreen() {
-  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [filterType, setFilterType] = useState<'ALL' | 'LICH_HEN' | 'GIAO_DICH'>('ALL');
-  const [refreshing, setRefreshing] = useState(false);
+  const {
+    notifications,
+    isLoading,
+    unreadCount,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useNotificationStore();
 
-  const unreadCount = notifications.filter((item) => item.chuaDoc).length;
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
 
+  // Nạp dữ liệu khi focus màn hình (có TTL 60s, không spam request)
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications(false);
+    }, [])
+  );
+
+  // Lọc theo tabs
   const filteredList = notifications.filter((item) => {
-    if (filterType === 'ALL') return true;
-    return item.loai === filterType;
+    if (activeFilter === 'ALL') return true;
+    if (activeFilter === 'APPOINTMENT') {
+      return (
+        item.type === 'APPOINTMENT' ||
+        item.type === 'COMPLETED' ||
+        item.type === 'CANCELLED'
+      );
+    }
+    if (activeFilter === 'PAYMENT') return item.type === 'PAYMENT';
+    if (activeFilter === 'REMINDER') return item.type === 'REMINDER';
+    return true;
   });
 
-  const handleMarkAllAsRead = () => {
-    setUnreadCount(0);
-    setNotifications((prev) =>
-      prev.map((item) => ({ ...item, chuaDoc: false }))
-    );
-  };
-
-  const handleItemPress = (id: string) => {
-    const remaining = notifications.filter((item) => item.id !== id && item.chuaDoc).length;
-    setUnreadCount(remaining);
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, chuaDoc: false } : item))
-    );
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 600);
-  };
-
-  const getIconConfig = (type: NotificationItem['loai']) => {
+  const getIconConfig = (type: TenantNotificationType) => {
     switch (type) {
-      case 'LICH_HEN':
+      case 'APPOINTMENT':
         return {
           name: 'calendar-outline' as const,
-          color: '#0D9488',
-          bg: 'bg-teal-50',
-          border: 'border-teal-200',
-          tag: 'Lịch hẹn',
-        };
-      case 'GIAO_DICH':
-        return {
-          name: 'wallet-outline' as const,
-          color: '#16A34A',
-          bg: 'bg-green-50',
-          border: 'border-green-200',
-          tag: 'Giao dịch',
-        };
-      case 'HE_THONG':
-      default:
-        return {
-          name: 'notifications-outline' as const,
           color: '#2563EB',
           bg: 'bg-blue-50',
           border: 'border-blue-200',
-          tag: 'Hệ thống',
+          tag: 'Lịch hẹn',
+        };
+      case 'COMPLETED':
+        return {
+          name: 'checkmark-circle-outline' as const,
+          color: '#0D9488',
+          bg: 'bg-teal-50',
+          border: 'border-teal-200',
+          tag: 'Thành công',
+        };
+      case 'CANCELLED':
+        return {
+          name: 'close-circle-outline' as const,
+          color: '#E11D48',
+          bg: 'bg-rose-50',
+          border: 'border-rose-200',
+          tag: 'Đã hủy',
+        };
+      case 'PAYMENT':
+        return {
+          name: 'wallet-outline' as const,
+          color: '#16A34A',
+          bg: 'bg-emerald-50',
+          border: 'border-emerald-200',
+          tag: 'Ví & Cọc',
+        };
+      case 'REMINDER':
+        return {
+          name: 'star-outline' as const,
+          color: '#D97706',
+          bg: 'bg-amber-50',
+          border: 'border-amber-200',
+          tag: 'Đánh giá',
         };
     }
   };
 
+  const handlePressItem = (item: TenantNotificationItem) => {
+    markAsRead(item.id);
+    if (item.targetRoute) {
+      router.push(item.targetRoute as any);
+    }
+  };
+
+  const renderNotificationRow = ({ item }: { item: TenantNotificationItem }) => {
+    const icon = getIconConfig(item.type);
+
+    return (
+      <Pressable
+        onPress={() => handlePressItem(item)}
+        className="mb-2.5 active:opacity-90"
+      >
+        <Card
+          className={`p-3.5 rounded-2xl border transition-all ${
+            item.isRead
+              ? 'bg-white border-gray-100 shadow-none'
+              : 'bg-white border-teal-200/70 shadow-xs'
+          }`}
+        >
+          <View className="flex-row items-start gap-3">
+            {/* 1. Icon đại diện phân loại chuẩn theo Landlord */}
+            <View
+              className={`w-10 h-10 rounded-xl items-center justify-center border ${icon.bg} ${icon.border}`}
+            >
+              <Ionicons name={icon.name} size={20} color={icon.color} />
+            </View>
+
+            {/* 2. Nội dung thông báo */}
+            <View className="flex-1">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text
+                  className={`text-sm ${
+                    item.isRead ? 'font-semibold text-gray-800' : 'font-bold text-gray-950'
+                  }`}
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </Text>
+                <Text className="text-[11px] text-gray-400 ml-2">{item.time}</Text>
+              </View>
+
+              <Text
+                className={`text-xs leading-4 ${
+                  item.isRead ? 'text-gray-500' : 'text-gray-700'
+                }`}
+                numberOfLines={2}
+              >
+                {item.message}
+              </Text>
+            </View>
+
+            {/* 3. Mũi tên điều hướng */}
+            <View className="items-center justify-center self-center pl-1">
+              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+            </View>
+          </View>
+        </Card>
+      </Pressable>
+    );
+  };
+
   return (
-    <View className="flex-1 pt-safe bg-slate-50">
-      {/* 1. Header chuẩn InnFinder đồng bộ 100% */}
-      <View className="px-4 py-3 bg-white border-b border-slate-200/80">
+    <SafeAreaView style={{ flex: 1 }} className="bg-slate-50" edges={['top']}>
+      {/* 1. Header đồng bộ chuẩn 100% */}
+      <View className="px-4 py-3 bg-white border-b border-gray-100">
         <View className="flex-row items-center justify-between mb-3">
           <View>
-            <Text className="text-xl font-bold text-slate-900">Thông báo</Text>
-            <Text className="text-xs text-slate-500 mt-0.5">
-              Cập nhật tin tức lịch hẹn & biến động giao dịch
+            <Text className="text-xl font-bold text-gray-900">Thông báo</Text>
+            <Text className="text-xs text-gray-500 mt-0.5">
+              Cập nhật lịch hẹn xem phòng, hoàn cọc & biến động ví
             </Text>
           </View>
+
           <View className="flex-row items-center gap-2">
             {unreadCount > 0 ? (
               <View className="px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200">
@@ -104,13 +181,13 @@ export default function TenantNotificationsScreen() {
               </View>
             ) : (
               <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
-                <Text className="text-xs font-bold text-teal-700">{filteredList.length} thông báo</Text>
+                <Text className="text-xs font-bold text-teal-700">{filteredList.length} tin</Text>
               </View>
             )}
           </View>
         </View>
 
-        {/* 2. Dải Pills lọc trạng thái bo tròn + Nút Đánh dấu đã đọc */}
+        {/* 2. Dải lọc Tab & Nút Đã đọc tất cả */}
         <View className="flex-row items-center justify-between">
           <ScrollView
             horizontal
@@ -118,22 +195,20 @@ export default function TenantNotificationsScreen() {
             contentContainerStyle={{ gap: 8 }}
           >
             {FILTER_TABS.map((tab) => {
-              const isSelected = filterType === tab.key;
+              const isSelected = activeFilter === tab.key;
               return (
                 <Pressable
                   key={tab.key}
-                  onPress={() => setFilterType(tab.key)}
+                  onPress={() => setActiveFilter(tab.key)}
                   className={`px-3.5 py-1.5 rounded-full border ${
                     isSelected
                       ? 'bg-teal-700 border-teal-700'
-                      : 'bg-white border-slate-200'
+                      : 'bg-gray-50 border-gray-200'
                   }`}
                 >
                   <Text
                     className={`text-xs ${
-                      isSelected
-                        ? 'font-semibold text-white'
-                        : 'font-medium text-slate-700'
+                      isSelected ? 'font-bold text-white' : 'font-medium text-gray-700'
                     }`}
                   >
                     {tab.label}
@@ -144,111 +219,41 @@ export default function TenantNotificationsScreen() {
           </ScrollView>
 
           {unreadCount > 0 && (
-            <Pressable onPress={handleMarkAllAsRead} className="ml-2 active:opacity-70">
-              <Text className="text-xs font-semibold text-teal-700">Đã đọc tất cả</Text>
+            <Pressable onPress={markAllAsRead} className="ml-2 active:opacity-70">
+              <Text className="text-xs font-bold text-teal-700">Đã đọc tất cả</Text>
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* 3. Danh sách thông báo (Hiển thị EmptyState chuẩn khi chưa có dữ liệu) */}
+      {/* 3. Danh sách thông báo */}
       <FlatList
         data={filteredList}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100, flexGrow: 1 }}
+        renderItem={renderNotificationRow}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
+            refreshing={isLoading}
+            onRefresh={() => fetchNotifications(true)}
+            colors={['#0D9488']}
           />
         }
         ListEmptyComponent={
-          <View className="items-center justify-center py-24 px-6">
-            <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
-              <Ionicons name="notifications-outline" size={32} color="#94A3B8" />
-            </View>
-            <Text className="text-sm font-semibold text-slate-700">
-              Chưa có thông báo mới
-            </Text>
-            <Text className="text-xs text-slate-400 mt-1 text-center leading-5">
-              Khi có xác nhận lịch hẹn xem phòng, biến động số dư hoặc tin tức hệ thống, thông báo sẽ hiển thị tại đây.
-            </Text>
-            <Button
-              variant="primary"
-              size="md"
-              onPress={() => router.push('/(tenant)/index')}
-              className="mt-4 rounded-full bg-teal-600 active:bg-teal-700"
-            >
-              <Button.Label className="text-white font-bold text-xs">
-                Khám phá phòng ngay
-              </Button.Label>
-            </Button>
-          </View>
+          !isLoading ? (
+            <Card className="p-8 bg-white rounded-2xl items-center justify-center my-6 border border-gray-100 shadow-sm">
+              <Ionicons name="notifications-off-outline" size={44} color="#94A3B8" />
+              <Text className="text-sm font-semibold text-gray-700 mt-3">
+                Không có thông báo nào
+              </Text>
+              <Text className="text-xs text-gray-400 text-center mt-1">
+                Các sự kiện về lịch xem phòng, biến động số dư và hoàn cọc sẽ hiển thị tại đây.
+              </Text>
+            </Card>
+          ) : undefined
         }
-        renderItem={({ item }) => {
-          const icon = getIconConfig(item.loai);
-          return (
-            <Pressable
-              onPress={() => handleItemPress(item.id)}
-              className="mb-3 active:opacity-95"
-            >
-              <Card
-                className={`p-3.5 rounded-2xl border ${
-                  item.chuaDoc
-                    ? 'bg-white border-teal-200 shadow-xs'
-                    : 'bg-white border-slate-200/90 shadow-2xs'
-                }`}
-              >
-                <View className="flex-row">
-                  <View
-                    className={`w-11 h-11 rounded-xl ${icon.bg} border ${icon.border} items-center justify-center mr-3`}
-                  >
-                    <Ionicons name={icon.name} size={20} color={icon.color} />
-                  </View>
-
-                  <View className="flex-1 justify-between">
-                    <View>
-                      <View className="flex-row items-center justify-between gap-1 mb-1">
-                        <Text
-                          numberOfLines={1}
-                          className={`text-sm flex-1 mr-1.5 ${
-                            item.chuaDoc
-                              ? 'font-bold text-slate-900'
-                              : 'font-semibold text-slate-700'
-                          }`}
-                        >
-                          {item.tieuDe}
-                        </Text>
-                      </View>
-
-                      <Text
-                        className="text-xs text-slate-600 leading-relaxed"
-                        numberOfLines={2}
-                      >
-                        {item.noiDung}
-                      </Text>
-                    </View>
-
-                    <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                      <Text className="text-[10px] text-slate-400 font-medium">
-                        {item.thoiGian}
-                      </Text>
-                      <View className="px-2 py-0.5 rounded-full bg-slate-100">
-                        <Text className="text-[9px] font-bold text-slate-500">
-                          {icon.tag}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </Card>
-            </Pressable>
-          );
-        }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
