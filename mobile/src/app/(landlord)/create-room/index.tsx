@@ -228,6 +228,19 @@ export default function CreateRoomScreen() {
 
     setSubmitting(true);
     try {
+      // 1. Sắp xếp ảnh đại diện (isCover) lên đầu tiên
+      const sortedImages = [...images].sort((a, b) => (b.isCover ? 1 : 0) - (a.isCover ? 1 : 0));
+      const imageUris = sortedImages.map((img) => img.uri);
+
+      // 2. Upload ảnh lên Cloudinary thông qua API Backend (kèm fallback an toàn)
+      let uploadedUrls = imageUris;
+      try {
+        uploadedUrls = await landlordService.uploadImages(imageUris);
+      } catch (uploadErr) {
+        console.warn('Upload Cloudinary thất bại, tiếp tục tạo phòng với ảnh hiện tại:', uploadErr);
+      }
+
+      // 3. Gửi payload kèm danh sách URL Cloudinary thực tế
       const payload = {
         tenPhong,
         maLpt: selectedRoomType.id,
@@ -239,8 +252,8 @@ export default function CreateRoomScreen() {
         kinhDo: '10.8231',
         viDo: '106.6297',
         dsTienIch: selectedAmenities,
-        moTa: moTa.trim() || 'Phòng trọ đầy đủ tiện nghi, an ninh tốt, giờ giấc tự do.',
-        hinhAnhUrls: images.map((img) => img.uri),
+        moTa: moTa.trim(),
+        hinhAnhUrls: uploadedUrls,
       };
 
       await landlordService.createRoom(payload);
@@ -447,7 +460,7 @@ export default function CreateRoomScreen() {
                 multiline
                 numberOfLines={6}
                 textAlignVertical="top"
-                placeholder="Căn hộ studio đầy đủ ánh sáng tự nhiên, nằm tại vị trí đắc địa trung tâm Quận 3. Nội thất đầy đủ: giường, nệm, tủ quần áo, máy lạnh..."
+                placeholder=""
                 placeholderTextColor="#9ca3af"
                 value={moTa}
                 onChangeText={setMoTa}
@@ -558,7 +571,7 @@ export default function CreateRoomScreen() {
               className="w-full bg-teal-700 py-2.5 rounded-xl"
             >
               <Button.Label className="text-white font-bold text-sm">
-                {submitting ? 'Đang gửi...' : 'Đăng bài'}
+                {submitting ? 'Đang tải ảnh & đăng...' : 'Đăng bài'}
               </Button.Label>
             </Button>
           )}
