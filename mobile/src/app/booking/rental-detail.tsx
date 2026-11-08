@@ -41,6 +41,7 @@ export default function RentalDetailScreen() {
     isLoading,
     fetchAppointments,
     cancelAppointment,
+    confirmRental,
     reviewedRoomIds,
     refundWallet,
     paidAppointmentIds,
@@ -49,6 +50,7 @@ export default function RentalDetailScreen() {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [isConfirmingRental, setIsConfirmingRental] = useState(false);
 
   useEffect(() => {
     if (appointments.length === 0) {
@@ -116,6 +118,7 @@ export default function RentalDetailScreen() {
     }
   };
 
+  // Kịch bản 2: Khách bấm Không thuê hoặc Hủy lịch hẹn
   const handleConfirmCancel = async (reason: string) => {
     setIsCanceling(true);
     const wasPaid =
@@ -140,41 +143,35 @@ export default function RentalDetailScreen() {
     }
   };
 
-  // CÔNG CỤ DEV SIMULATOR: Giả lập Chủ trọ duyệt lịch để tự test
-  const handleSimulateLandlordConfirm = async () => {
-    setIsSimulating(true);
-    try {
-      await landlordService.confirmAppointment(item.maDatLich);
-      await fetchAppointments();
-      Alert.alert("Giả lập thành công", "Chủ trọ đã chấp nhận lịch hẹn!");
-    } catch (err: any) {
-      Alert.alert(
-        "Lỗi giả lập",
-        err.message || "Không thể giả lập duyệt lịch.",
-      );
-    } finally {
-      setIsSimulating(false);
-    }
-  };
-
-  // CÔNG CỤ DEV SIMULATOR: Giả lập Chủ trọ hoàn tất xem phòng
-  const handleSimulateLandlordComplete = async () => {
-    setIsSimulating(true);
-    try {
-      await landlordService.completeRentalRequest(item.maDatLich);
-      if (item.coc) {
-        await refundWallet(item.coc);
-      }
-      await fetchAppointments();
-      Alert.alert(
-        "Hoàn tất buổi xem phòng!",
-        "Hệ thống đã tự động hoàn trả 100% tiền cọc về ví của bạn.",
-      );
-    } catch (err: any) {
-      Alert.alert("Lỗi giả lập", err.message || "Không thể giả lập hoàn tất.");
-    } finally {
-      setIsSimulating(false);
-    }
+  // Kịch bản 1: Khách hàng bấm Xác nhận thuê phòng (CẢ 2 BÊN CÙNG BẤM XÁC NHẬN THUÊ)
+  const handlePressConfirmRental = () => {
+    Alert.alert(
+      "Xác nhận thuê phòng",
+      "Bạn có chắc chắn muốn chốt thuê phòng trọ này? Sau khi xác nhận, hợp đồng thuê sẽ hoàn tất và 100% tiền cọc giữ chân sẽ được hoàn trả vào ví của bạn.",
+      [
+        { text: "Để sau", style: "cancel" },
+        {
+          text: "Xác nhận thuê",
+          style: "default",
+          onPress: async () => {
+            setIsConfirmingRental(true);
+            const res = await confirmRental(item.maDatLich);
+            setIsConfirmingRental(false);
+            if (res.success) {
+              Alert.alert(
+                "Thuê phòng thành công!",
+                "Chúc mừng bạn đã chốt thuê phòng trọ thành công. Hệ thống đã hoàn trả 100% tiền cọc giữ chân vào ví của bạn.",
+              );
+            } else {
+              Alert.alert(
+                "Lỗi",
+                res.message || "Xác nhận thuê phòng thất bại.",
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   const isReviewed = reviewedRoomIds.includes(item.maPhongTro);
@@ -333,144 +330,130 @@ export default function RentalDetailScreen() {
         <View className="py-4">
           <RentalTimeline status={item.trangThai} ngayHen={item.ngayHen} />
         </View>
+      </ScrollView>
 
-        {/* 6. DEV SIMULATOR: Thanh giả lập Chủ trọ giúp TV3 tự test một mình */}
-        <View className="bg-amber-50/80 border border-dashed border-amber-300 p-3.5 rounded-2xl mt-2 mb-4">
-          <View className="flex-row items-center gap-1.5 mb-2">
-            <Ionicons name="construct-outline" size={16} color="#D97706" />
-            <Text className="text-xs font-bold text-amber-900">
-              Dev Helper (Tự test khi chưa có Chủ trọ)
-            </Text>
-          </View>
-          <Text className="text-[11px] text-amber-700 mb-3 leading-4">
-            Bấm các nút bên dưới để đóng vai Chủ trọ duyệt lịch và kết thúc buổi
-            xem phòng:
-          </Text>
+      {/* 7. NÚT HÀNH ĐỘNG ĐÁY MÀN HÌNH (CHUẨN THEO SWIMLANE 2.3) */}
+      <View className="flex-row items-center gap-2.5 px-4 py-3 bg-white border-t border-slate-100">
+        {/* KỊCH BẢN 1 & 2: Lịch hẹn đã duyệt & đã nộp cọc -> Đưa ra 2 lựa chọn [Không thuê] vs [Xác nhận thuê] */}
+        {item.trangThai === "XAC_NHAN" && isDepositPaid ? (
+          <>
+            <TouchableOpacity
+              onPress={handleCallLandlord}
+              className="w-12 h-12 rounded-xl bg-slate-100 items-center justify-center border border-slate-200"
+            >
+              <Ionicons name="call-outline" size={20} color="#0D9488" />
+            </TouchableOpacity>
 
-          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => setCancelModalVisible(true)}
+              className="flex-1 py-3 rounded-xl border border-rose-300 bg-rose-50 items-center justify-center"
+            >
+              <Text className="text-sm font-semibold text-rose-600">
+                Không thuê
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handlePressConfirmRental}
+              disabled={isConfirmingRental}
+              className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
+            >
+              {isConfirmingRental ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text className="text-sm font-bold text-white">
+                  Xác nhận thuê
+                </Text>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : item.trangThai === "XAC_NHAN" && !isDepositPaid ? (
+          /* Khi chủ trọ đã duyệt lịch nhưng khách chưa nộp cọc */
+          <>
+            <TouchableOpacity
+              onPress={() => setCancelModalVisible(true)}
+              className="flex-1 py-3 rounded-xl border border-rose-500 items-center justify-center"
+            >
+              <Text className="text-sm font-semibold text-rose-500">
+                Hủy yêu cầu
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/booking/deposit-payment",
+                  params: {
+                    appointmentId: item.maDatLich,
+                    roomId: item.maPhongTro,
+                    roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                    roomImage: item.hinhAnh || "",
+                    depositAmount: String(item.coc || 0),
+                    ngayHen: item.ngayHen,
+                  },
+                })
+              }
+              className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
+            >
+              <Text className="text-sm font-bold text-white">
+                Nộp cọc ({formatCurrency(item.coc || 0)})
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : item.trangThai === "HOAN_THANH" ? (
+          /* Nếu đã hoàn tất: Nút Đánh giá phòng hoặc Xem đánh giá */
+          <>
+            <TouchableOpacity
+              onPress={handleCallLandlord}
+              className="flex-1 py-3 rounded-xl border border-slate-300 bg-white items-center justify-center"
+            >
+              <Text className="text-sm font-semibold text-slate-800">
+                Liên hệ chủ trọ
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/booking/review",
+                  params: {
+                    roomId: item.maPhongTro,
+                    roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                    roomAddress: item.diaChiPhong || "",
+                    roomImage: item.hinhAnh || "",
+                  },
+                })
+              }
+              className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
+            >
+              <Text className="text-sm font-bold text-white">
+                {isReviewed ? "Xem đánh giá" : "Đánh giá phòng"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          /* Trạng thái CHO_XAC_NHAN hoặc HUY */
+          <>
             {item.trangThai === "CHO_XAC_NHAN" && (
               <TouchableOpacity
-                onPress={handleSimulateLandlordConfirm}
-                disabled={isSimulating}
-                className="flex-1 py-2 bg-amber-600 rounded-lg items-center"
+                onPress={() => setCancelModalVisible(true)}
+                className="flex-1 py-3 rounded-xl border border-rose-500 items-center justify-center"
               >
-                <Text className="text-xs font-bold text-white">
-                  1. Duyệt lịch xem
+                <Text className="text-sm font-semibold text-rose-500">
+                  Hủy yêu cầu
                 </Text>
               </TouchableOpacity>
             )}
 
-            {item.trangThai === "XAC_NHAN" &&
-              (isDepositPaid ? (
-                <TouchableOpacity
-                  onPress={handleSimulateLandlordComplete}
-                  disabled={isSimulating}
-                  className="flex-1 py-2 bg-emerald-600 rounded-lg items-center"
-                >
-                  <Text className="text-xs font-bold text-white">
-                    2. Hoàn tất xem & Hoàn cọc
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View className="flex-1 py-2 bg-amber-200/80 rounded-lg items-center px-2">
-                  <Text className="text-[11px] font-semibold text-amber-900 text-center">
-                    (Cần nộp cọc giữ chân trước khi hoàn tất)
-                  </Text>
-                </View>
-              ))}
-
-            {item.trangThai === "HOAN_THANH" && (
-              <View className="flex-1 py-2 bg-slate-200 rounded-lg items-center">
-                <Text className="text-xs font-semibold text-slate-600">
-                  ✓ Đã thông toàn bộ luồng
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* 7. Nút hành động đáy màn hình */}
-      <View className="flex-row items-center gap-3 px-4 py-3 bg-white border-t border-slate-100">
-        {/* Nút Nộp cọc giữ chân (Khi chủ trọ đã duyệt lịch nhưng chưa nộp cọc) */}
-        {item.trangThai === "XAC_NHAN" && !isDepositPaid && (
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/booking/deposit-payment",
-                params: {
-                  appointmentId: item.maDatLich,
-                  roomId: item.maPhongTro,
-                  roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
-                  roomImage: item.hinhAnh || "",
-                  depositAmount: String(item.coc || 0),
-                  ngayHen: item.ngayHen,
-                },
-              })
-            }
-            className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
-          >
-            <Text className="text-base font-bold text-white">
-              Nộp cọc ({formatCurrency(item.coc || 0)})
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Nếu đã hoàn tất: Nút Đánh giá phòng hoặc Xem đánh giá */}
-        {item.trangThai === "HOAN_THANH" && (
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/booking/review",
-                params: {
-                  roomId: item.maPhongTro,
-                  roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
-                  roomAddress: item.diaChiPhong || "",
-                  roomImage: item.hinhAnh || "",
-                },
-              })
-            }
-            className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
-          >
-            <Text className="text-base font-bold text-white">
-              {isReviewed ? "Xem đánh giá" : "Đánh giá phòng"}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Nếu đang chờ hoặc đã xác nhận: Cho phép Hủy */}
-        {(item.trangThai === "CHO_XAC_NHAN" ||
-          item.trangThai === "XAC_NHAN") && (
-          <TouchableOpacity
-            onPress={() => setCancelModalVisible(true)}
-            className="flex-1 py-3 rounded-xl border border-rose-500 items-center justify-center"
-          >
-            <Text className="text-base font-semibold text-rose-500">
-              Hủy yêu cầu
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Nút Gọi điện liên hệ */}
-        {(item.trangThai !== "XAC_NHAN" || isDepositPaid) && (
-          <TouchableOpacity
-            onPress={handleCallLandlord}
-            className={`flex-1 py-3 rounded-xl items-center justify-center ${
-              item.trangThai === "HOAN_THANH"
-                ? "border border-slate-300 bg-white"
-                : "bg-teal-600"
-            }`}
-          >
-            <Text
-              className={`text-base font-semibold ${
-                item.trangThai === "HOAN_THANH"
-                  ? "text-slate-800"
-                  : "text-white"
-              }`}
+            <TouchableOpacity
+              onPress={handleCallLandlord}
+              className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
             >
-              Liên hệ chủ trọ
-            </Text>
-          </TouchableOpacity>
+              <Text className="text-sm font-semibold text-white">
+                Liên hệ chủ trọ
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
 

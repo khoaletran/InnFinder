@@ -9,8 +9,9 @@ export interface CancelReasonModalProps {
   onConfirm: (reason: string) => void;
 }
 
-// 4 lý do mẫu thường gặp
+// 5 lý do mẫu thường gặp khi hủy hẹn hoặc không thuê sau khi xem
 const QUICK_REASONS = [
+  'Phòng thực tế không phù hợp',
   'Bận việc đột xuất',
   'Đã tìm được phòng khác',
   'Thời gian không phù hợp',
