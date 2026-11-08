@@ -19,6 +19,7 @@ import { landlordService } from '../../services/landlord.service';
 import { roomService } from '../../services/room.service';
 import { RoomDetailResponse } from '../../types/room.types';
 import { formatVND } from '../../utils/formatVND';
+import { LocationPickerModal } from '../../components/landlord/LocationPickerModal';
 
 const ROOM_TYPES = [
   { id: 'LPT002', name: 'Phòng trọ khép kín' },
@@ -67,6 +68,21 @@ export default function EditRoomScreen() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [moTa, setMoTa] = useState('');
   const [images, setImages] = useState<LocalImageItem[]>([]);
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number }>({
+    latitude: 10.8231,
+    longitude: 106.6874,
+  });
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  const handleSelectLocation = (
+    coords: { latitude: number; longitude: number },
+    suggestedAddress?: string
+  ) => {
+    setCoordinates(coords);
+    if (!diaChi.trim() && suggestedAddress) {
+      setDiaChi(suggestedAddress);
+    }
+  };
 
   // Modal Báo cáo Xác nhận lại cho Chủ trọ
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -90,6 +106,24 @@ export default function EditRoomScreen() {
       setDienTich(data.dienTich ? data.dienTich.toString() : '24');
       setSoNguoi(data.soNguoi || 2);
       setMoTa(data.moTa || '');
+
+      const c1 = parseFloat(data.viDo || '');
+      const c2 = parseFloat(data.kinhDo || '');
+      let lat = 10.8231;
+      let lng = 106.6874;
+      if (!isNaN(c1) && !isNaN(c2)) {
+        if (c1 > 90 && c2 <= 90) {
+          lat = c2;
+          lng = c1;
+        } else if (c2 > 90 && c1 <= 90) {
+          lat = c1;
+          lng = c2;
+        } else {
+          lat = c1;
+          lng = c2;
+        }
+      }
+      setCoordinates({ latitude: lat, longitude: lng });
 
       const maLpt = data.loaiPhong?.maLpt;
       if (maLpt) {
@@ -226,8 +260,8 @@ export default function EditRoomScreen() {
         dienTich: Number(dienTich) || 24,
         soNguoi,
         diaChi: diaChi.trim(),
-        kinhDo: originalRoom?.kinhDo || '10.8231',
-        viDo: originalRoom?.viDo || '106.6297',
+        kinhDo: coordinates.longitude.toString(),
+        viDo: coordinates.latitude.toString(),
         dsTienIch: selectedAmenities,
         moTa: moTa.trim(),
         hinhAnhUrls: uploadedUrls,
@@ -327,8 +361,42 @@ export default function EditRoomScreen() {
             onChangeText={setDiaChi}
             placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
             placeholderTextColor="#9ca3af"
-            className="border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 bg-gray-50/60 mb-3"
+            className="border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 bg-gray-50/60 mb-2.5"
           />
+
+          {/* Vị trí trên bản đồ */}
+          <View className="mb-3">
+            <View className="flex-row items-center justify-between mb-1.5">
+              <Text className="text-xs font-semibold text-gray-700">Vị trí phòng trên bản đồ</Text>
+              <Pressable
+                onPress={() => setShowLocationModal(true)}
+                className="flex-row items-center gap-1 active:opacity-70"
+              >
+                <Ionicons name="map" size={13} color="#0f766e" />
+                <Text className="text-xs font-bold text-teal-700">Đổi trên bản đồ</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={() => setShowLocationModal(true)}
+              className="border border-teal-200 bg-teal-50/50 rounded-xl p-2.5 flex-row items-center justify-between active:bg-teal-100/50"
+            >
+              <View className="flex-row items-center gap-2 flex-1 pr-2">
+                <View className="w-7 h-7 rounded-full bg-teal-100 items-center justify-center">
+                  <Ionicons name="location" size={16} color="#0f766e" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-bold text-teal-950">
+                    Tọa độ: {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
+                  </Text>
+                  <Text className="text-[10px] text-teal-700 font-medium">
+                    Chạm để điều chỉnh chính xác vị trí hiển thị cho khách
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#0f766e" />
+            </Pressable>
+          </View>
 
           {/* Giá thuê & Tiền cọc */}
           <View className="flex-row gap-3 mb-3">
@@ -594,6 +662,12 @@ export default function EditRoomScreen() {
                   </Text>
                 </View>
                 <View className="flex-row justify-between">
+                  <Text className="text-xs text-gray-500">Tọa độ bản đồ:</Text>
+                  <Text className="text-xs font-semibold text-teal-800 font-bold">
+                    {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between">
                   <Text className="text-xs text-gray-500">Số tiện ích đã chọn:</Text>
                   <Text className="text-xs font-semibold text-gray-800">
                     {selectedAmenities.length} tiện ích
@@ -652,6 +726,14 @@ export default function EditRoomScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL 3: CHỌN VỊ TRÍ TRÊN BẢN ĐỒ */}
+      <LocationPickerModal
+        visible={showLocationModal}
+        initialCoords={coordinates}
+        onClose={() => setShowLocationModal(false)}
+        onSelectLocation={handleSelectLocation}
+      />
     </SafeAreaView>
   );
 }

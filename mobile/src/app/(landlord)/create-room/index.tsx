@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Button } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import { WizardStepIndicator } from '../../../components/landlord/WizardStepIndicator';
+import { LocationPickerModal } from '../../../components/landlord/LocationPickerModal';
 import { useCreateRoomStore } from '../../../store/useCreateRoomStore';
 import { landlordService } from '../../../services/landlord.service';
 
@@ -71,6 +72,21 @@ export default function CreateRoomScreen() {
   const [dienTich, setDienTich] = useState(step1.dienTich ? step1.dienTich.toString() : '24');
   const [soNguoi, setSoNguoi] = useState(step1.soNguoi || 3);
   const [diaChi, setDiaChi] = useState(step1.diaChi || step2.diaChi || '');
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number }>({
+    latitude: 10.8231,
+    longitude: 106.6874,
+  });
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  const handleSelectLocation = (
+    coords: { latitude: number; longitude: number },
+    suggestedAddress?: string
+  ) => {
+    setCoordinates(coords);
+    if (!diaChi.trim() && suggestedAddress) {
+      setDiaChi(suggestedAddress);
+    }
+  };
 
   // Local state Step 2
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(step3.tienIchIds || ['TI0001', 'TI0002']);
@@ -249,8 +265,8 @@ export default function CreateRoomScreen() {
         dienTich: Number(dienTich) || 24,
         soNguoi,
         diaChi,
-        kinhDo: '10.8231',
-        viDo: '106.6297',
+        kinhDo: coordinates.longitude.toString(),
+        viDo: coordinates.latitude.toString(),
         dsTienIch: selectedAmenities,
         moTa: moTa.trim(),
         hinhAnhUrls: uploadedUrls,
@@ -394,7 +410,7 @@ export default function CreateRoomScreen() {
             </View>
 
             {/* Địa chỉ phòng trọ (Tích hợp vào Step 1) */}
-            <View className="mb-6">
+            <View className="mb-4">
               <Text className="text-xs font-semibold text-gray-700 mb-1.5">Địa chỉ cụ thể *</Text>
               <TextInput
                 placeholder="Ví dụ: 123 Nguyễn Văn Cừ, Phường 4, Quận 5, TP.HCM"
@@ -403,6 +419,40 @@ export default function CreateRoomScreen() {
                 onChangeText={setDiaChi}
                 className="border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 bg-gray-50/50"
               />
+            </View>
+
+            {/* Vị trí trên bản đồ */}
+            <View className="mb-6">
+              <View className="flex-row items-center justify-between mb-1.5">
+                <Text className="text-xs font-semibold text-gray-700">Vị trí phòng trên bản đồ *</Text>
+                <Pressable
+                  onPress={() => setShowLocationModal(true)}
+                  className="flex-row items-center gap-1 active:opacity-70"
+                >
+                  <Ionicons name="map" size={14} color="#0f766e" />
+                  <Text className="text-xs font-bold text-teal-700">Chọn trên bản đồ</Text>
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={() => setShowLocationModal(true)}
+                className="border border-teal-200 bg-teal-50/50 rounded-xl p-3 flex-row items-center justify-between active:bg-teal-100/50"
+              >
+                <View className="flex-row items-center gap-2.5 flex-1 pr-2">
+                  <View className="w-8 h-8 rounded-full bg-teal-100 items-center justify-center">
+                    <Ionicons name="location" size={18} color="#0f766e" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-teal-950">
+                      Tọa độ: {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
+                    </Text>
+                    <Text className="text-[11px] text-teal-700 font-medium mt-0.5">
+                      Chạm để mở bản đồ và ghim chính xác vị trí nhà trọ
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#0f766e" />
+              </Pressable>
             </View>
           </View>
         )}
@@ -609,6 +659,14 @@ export default function CreateRoomScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Modal Chọn vị trí trên bản đồ */}
+      <LocationPickerModal
+        visible={showLocationModal}
+        initialCoords={coordinates}
+        onClose={() => setShowLocationModal(false)}
+        onSelectLocation={handleSelectLocation}
+      />
     </SafeAreaView>
   );
 }
