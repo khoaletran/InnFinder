@@ -3,6 +3,7 @@ import { View, Text, Image, Pressable } from 'react-native';
 import { Card } from 'heroui-native';
 import { useRouter } from 'expo-router';
 import { LandlordPostItem } from '../../types/landlord.types';
+import { formatVNDShort } from '../../utils/formatVND';
 
 interface Props {
   post: LandlordPostItem;
@@ -52,7 +53,7 @@ export const PostStatusCard: React.FC<Props> = ({ post }) => {
           </Text>
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-semibold text-teal-700">
-              {(post.giaThue / 1000000).toFixed(1)} triệu/tháng
+              {formatVNDShort(post.giaThue)}
             </Text>
             <View className={`px-2 py-0.5 rounded-full ${badge.bg}`}>
               <Text className={`text-[11px] font-bold ${badge.text}`}>{badge.label}</Text>
