@@ -269,21 +269,27 @@ export const adminService = {
     }
   },
 
-  approveLandlordRequest: async (id: string): Promise<boolean> => {
+  approveLandlordRequest: async (id: string): Promise<{ success: boolean; message?: string }> => {
     try {
       await axiosClient.patch(`/api/admin/landlord-requests/${id}/approve`);
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Không thể duyệt đơn. Vui lòng thử lại sau.',
+      };
     }
   },
 
-  rejectLandlordRequest: async (id: string, lyDo?: string): Promise<boolean> => {
+  rejectLandlordRequest: async (id: string, lyDo?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       await axiosClient.patch(`/api/admin/landlord-requests/${id}/reject`, { lyDo });
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Không thể từ chối đơn. Vui lòng thử lại sau.',
+      };
     }
   },
 

@@ -98,13 +98,13 @@ export default function AdminLandlordRequestDetailScreen() {
         onPress: async () => {
           if (id) {
             setIsSubmitting(true);
-            const success = await adminService.approveLandlordRequest(id);
+            const res = await adminService.approveLandlordRequest(id);
             setIsSubmitting(false);
-            if (success) {
+            if (res.success) {
               Alert.alert('Thành công', 'Đã duyệt đơn và nâng cấp tài khoản thành Chủ trọ.');
               router.back();
             } else {
-              Alert.alert('Lỗi', 'Không thể duyệt đơn. Vui lòng thử lại sau.');
+              Alert.alert('Lỗi', res.message || 'Không thể duyệt đơn. Vui lòng thử lại sau.');
             }
           }
         },
@@ -119,14 +119,14 @@ export default function AdminLandlordRequestDetailScreen() {
     }
     if (id) {
       setIsSubmitting(true);
-      const success = await adminService.rejectLandlordRequest(id, rejectReason.trim());
+      const res = await adminService.rejectLandlordRequest(id, rejectReason.trim());
       setIsSubmitting(false);
       setRejectModalVisible(false);
-      if (success) {
+      if (res.success) {
         Alert.alert('Đã từ chối', 'Đã từ chối đơn đăng ký chủ trọ.');
         router.back();
       } else {
-        Alert.alert('Lỗi', 'Không thể từ chối đơn. Vui lòng thử lại sau.');
+        Alert.alert('Lỗi', res.message || 'Không thể từ chối đơn. Vui lòng thử lại sau.');
       }
     }
   };

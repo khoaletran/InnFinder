@@ -16,6 +16,7 @@ import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -47,6 +48,7 @@ public class AdminService {
     private final TienIchRepository tienIchRepository;
     private final TransactionService transactionService;
     private final PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
@@ -370,24 +372,33 @@ public class AdminService {
         NguoiDung user = yc.getNguoiDung();
         user.setCccd(yc.getCccd());
         user.setChuTro(true);
-        nguoiDungRepository.save(user);
 
         // 3. Khởi tạo bản ghi ChuTro nếu chưa có (100 điểm uy tín, số dư = 0)
-        chuTroRepository.findById(user.getMaNguoiDung())
-                .orElseGet(() -> chuTroRepository.save(ChuTro.builder()
-                        .maChuTro(user.getMaNguoiDung())
-                        .nguoiDung(user)
-                        .diemUyTin(100)
-                        .soDu(0L)
-                        .build()));
+        ChuTro chuTro = chuTroRepository.findById(user.getMaNguoiDung()).orElse(null);
+        if (chuTro == null) {
+            chuTro = ChuTro.builder()
+                    .nguoiDung(user)
+                    .diemUyTin(100)
+                    .soDu(0L)
+                    .build();
+            user.setThongTinChuTro(chuTro);
+            entityManager.persist(chuTro);
+        }
+        nguoiDungRepository.save(user);
 
-        // 4. Lưu tài khoản ngân hàng thụ hưởng
-        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
-                .soTaiKhoan(yc.getSoTaiKhoan())
-                .tenNganHang(yc.getTenNganHang())
-                .nguoiDung(user)
-                .build();
-        taiKhoanNganHangRepository.save(tk);
+        // 4. Lưu tài khoản ngân hàng thụ hưởng (kiểm tra tránh lưu lặp tài khoản)
+        String soTaiKhoanYc = yc.getSoTaiKhoan();
+        boolean daCoTk = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
+                .stream()
+                .anyMatch(t -> soTaiKhoanYc != null && soTaiKhoanYc.equals(t.getSoTaiKhoan()));
+        if (!daCoTk) {
+            TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
+                    .soTaiKhoan(yc.getSoTaiKhoan())
+                    .tenNganHang(yc.getTenNganHang())
+                    .nguoiDung(user)
+                    .build();
+            taiKhoanNganHangRepository.save(tk);
+        }
 
         return LandlordRequestResponseDTO.fromEntity(yc);
     }
