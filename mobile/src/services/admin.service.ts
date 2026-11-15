@@ -437,11 +437,12 @@ export const adminService = {
     }
   },
 
-  resolveComplaint: async (id: string, status: string, _ghiChu?: string): Promise<boolean> => {
+  resolveComplaint: async (id: string, status: string, ghiChu?: string): Promise<boolean> => {
     try {
       await axiosClient.patch(`/api/admin/complaints/${id}/resolve`, {
         trangThai: status,
         mucDoViPham: 'NHE',
+        ketQua: ghiChu,
       });
       return true;
     } catch {

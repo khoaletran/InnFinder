@@ -110,6 +110,9 @@ public class ComplaintService {
         if (request.getTrangThai() != null) {
             kn.setTrangThai(request.getTrangThai());
         }
+        if (request.getKetQua() != null && !request.getKetQua().isBlank()) {
+            kn.setKetQua(request.getKetQua());
+        }
         if (request.getMucDoViPham() != null) {
             kn.setMucDoViPham(request.getMucDoViPham());
 
@@ -149,6 +152,7 @@ public class ComplaintService {
                 .trangThai(kn.getTrangThai())
                 .mucDoUuTien(kn.getMucDoUuTien())
                 .mucDoViPham(kn.getMucDoViPham())
+                .ketQua(kn.getKetQua())
                 .build();
     }
 }

@@ -115,6 +115,7 @@ public class AppointmentService {
                 .khachHang(khachHang)
                 .phongTro(phongTro)
                 .ngayHen(request.getNgayHen())
+                .thoiGianDat(LocalDateTime.now())
                 .trangThai(TrangThaiDatLich.CHO_XAC_NHAN)
                 .coc(tienCoc)
                 .phiThu(phiThu)

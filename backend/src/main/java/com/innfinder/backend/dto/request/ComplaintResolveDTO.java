@@ -19,4 +19,6 @@ public class ComplaintResolveDTO {
 
     @NotNull(message = "Mức độ vi phạm không được để trống")
     private MucDoViPham mucDoViPham;
+
+    private String ketQua;
 }

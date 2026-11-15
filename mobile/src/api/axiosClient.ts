@@ -5,13 +5,14 @@ import { ApiResponse } from "../types/api.types";
 // LƯU Ý KHI TEST:
 // - Nếu chạy máy ảo Android: dùng 'http://10.0.2.2:8080'
 // - Nếu chạy trên điện thoại thật qua Expo Go: thay bằng IP mạng LAN máy tính của bạn (VD: 'http://192.168.1.15:8080')
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.41:8080";
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://10.10.41.110:8080";
 const TOKEN_KEY = "innfinder_jwt_token";
 
 export const axiosClient = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
   timeout: 10000,
 });

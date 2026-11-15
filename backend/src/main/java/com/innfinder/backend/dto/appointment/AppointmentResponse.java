@@ -19,6 +19,8 @@ public class AppointmentResponse {
     private String maDatLich;
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime ngayHen;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime thoiGianDat;
     private TrangThaiDatLich trangThai;
     private Long coc;
     private Long phiThu;
@@ -61,6 +63,7 @@ public class AppointmentResponse {
         var builder = AppointmentResponse.builder()
                 .maDatLich(entity.getMaDatLich())
                 .ngayHen(entity.getNgayHen())
+                .thoiGianDat(entity.getThoiGianDat())
                 .trangThai(entity.getTrangThai())
                 .coc(entity.getCoc())
                 .phiThu(entity.getPhiThu())
