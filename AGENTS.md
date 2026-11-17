@@ -10,6 +10,9 @@
 
 ## MỤC LỤC
 1. [Kiến trúc Kỹ thuật & Hạ tầng](#1-kiến-trúc-kỹ-thuật--hạ-tầng)
+   - 1.1. Cơ sở Dữ liệu & Backend API
+   - 1.2. Nền tảng Web Frontend (React 19, HeroUI v3, Tailwind v4, Vite)
+   - 1.3. Nền tảng Mobile App (React Native, Expo SDK 52, HeroUI Native)
 2. [Chi tiết Toàn bộ Luồng Nghiệp vụ Hệ thống (8 Use Cases Chính Thức)](#2-chi-tiết-toàn-bộ-luồng-nghiệp-vụ-hệ-thống-8-use-cases-chính-thức)
    - 2.1. Đăng ký & Kích hoạt tài khoản (UC: Đăng ký)
    - 2.2. Tìm kiếm & Xem chi tiết phòng trọ (UC: Tìm kiếm phòng trọ)
@@ -22,12 +25,19 @@
 3. [Đặc tả Chi tiết 15 Class Thực thể (Theo Class Diagram Mới)](#3-đặc-tả-chi-tiết-15-class-thực-thể-theo-class-diagram-mới)
 4. [Đặc tả Chi tiết 6 Enum Hệ thống](#4-đặc-tả-chi-tiết-6-enum-hệ-thống)
 5. [Quy chuẩn Kỹ thuật Bắt buộc (Technical Architecture Standards)](#5-quy-chuẩn-kỹ-thuật-bắt-buộc-technical-architecture-standards)
-6. [Quy trình Thao tác của Agent (Agent Workflow Protocol)](#6-quy-trình-thao-tác-của-agent-agent-workflow-protocol)
+6. [Quy chuẩn Đồng nhất Web Frontend & Phân công Phát triển 4 Thành viên](#6-quy-chuẩn-đồng-nhất-web-frontend--phân-công-phát-triển-4-thành-viên)
+   - 6.1. Cấu trúc Thư mục Chuẩn Hóa (`web/src/`)
+   - 6.2. Ma trận Phân công Trách nhiệm & Biên giới File/Route 4 Thành viên (Zero Git Conflict)
+   - 6.3. Quy tắc Biên dịch & Code Style Web Bắt buộc (Strict Rules)
+   - 6.4. Chuẩn hóa Gọi API & Quản lý State Client/Server
+   - 6.5. Quy trình Phối hợp Nhánh Git (Git Collaboration Protocol)
+7. [Quy trình Thao tác của Agent (Agent Workflow Protocol)](#7-quy-trình-thao-tác-của-agent-agent-workflow-protocol)
 
 ---
 
 ## 1. KIẾN TRÚC KỸ THUẬT & HẠ TẦNG
 
+### 1.1. Cơ sở Dữ liệu & Backend API
 - **Database**: MariaDB 11.2 (Docker Compose, Port `3307`, Database: `innfinder_db`, phpMyAdmin: `8081`).
 - **Backend Stack**: Spring Boot 3.4.x, Java 21, Spring Security Stateless, JJWT (0.12.6), Flyway Migration.
 - **Phân lớp chuẩn**:
@@ -37,6 +47,23 @@
   - `com.innfinder.backend.service`: Nghiệp vụ trung tâm, quản lý Transaction `@Transactional`.
   - `com.innfinder.backend.controller`: REST Controller, luôn trả về cấu trúc `ApiResponse<T>`.
   - `com.innfinder.backend.exception`: Ngoại lệ chuẩn `AppException` & `ErrorCode`, xử lý tập trung bởi `GlobalExceptionHandler`.
+
+### 1.2. Nền tảng Web Frontend (Single Page Application - SPA)
+- **Core Runtime & Build Tool**: React 19.x, TypeScript 5.7+ (`verbatimModuleSyntax: true`, `noUnusedLocals: true`), Vite 6.x.
+- **UI & Component System**: HeroUI v3 (`@heroui/react`, `@heroui/styles`) trên nền Tailwind CSS v4. Áp dụng mô hình Compound Components (`Card.Header`, `Card.Title`, ...). Tuyệt đối **KHÔNG** dùng `<HeroUIProvider>`.
+- **Định tuyến (Routing)**: `react-router-dom` v7 với kiến trúc Multi-Layout lồng ghép (`AuthLayout`, `CustomerLayout`, `AdminLayout`, `LandlordLayout`) và Route Guards (`ProtectedRoute`).
+- **Quản lý State Client**: `zustand` kết hợp middleware `persist` (Local Storage) cho phiên đăng nhập `useAuthStore` và thông báo `useNotificationStore`.
+- **Quản lý Server Cache**: `@tanstack/react-query` v5 tối ưu revalidation, caching và mutation.
+- **HTTP Client**: `axios` với interceptor tập trung tự động đính kèm `Bearer JWT` và bóc tách dữ liệu chuẩn `ApiResponse<T>`.
+- **Form & Validation**: `react-hook-form` tích hợp `@hookform/resolvers/zod` và `zod` schema, đồng bộ 100% regex với Backend.
+- **Biểu đồ & Phân tích**: `recharts` cho thống kê doanh thu sàn, lưu lượng và phân bố nghiệp vụ.
+- **Icon & Thông báo**: `lucide-react` và `sonner` (Modern Rich Toast).
+
+### 1.3. Nền tảng Mobile App (Mobile Application)
+- **Framework & Runtime**: React Native 0.76+, Expo SDK 52+.
+- **UI Kit**: HeroUI Native kết hợp Uniwind (Tailwind CSS v4 for Native).
+- **Navigation**: Expo Router / React Navigation v7.
+- **State & Storage**: Zustand + Expo SecureStore (cho bảo mật lưu trữ JWT Token).
 
 ---
 
@@ -550,7 +577,128 @@ Toàn bộ các Controller khi trả dữ liệu về cho Frontend (Web & Mobile
 
 ---
 
-## 6. QUY TRÌNH THAO TÁC CỦA AGENT (AGENT WORKFLOW PROTOCOL)
+## 6. QUY CHUẨN ĐỒNG NHẤT WEB FRONTEND & PHÂN CÔNG PHÁT TRIỂN 4 THÀNH VIÊN
+
+Để đảm bảo toàn bộ 4 thành viên nhóm (và các AI Agent trợ lý tương ứng) làm việc song song **tuyệt đối không xung đột mã nguồn (Zero Git Conflict)**, toàn bộ dự án Web tuân thủ nghiêm ngặt các quy định sau:
+
+### 6.1. Cấu trúc Thư mục Chuẩn Hóa (`web/src/`):
+```
+web/src/
+├── api/                   # Cấu hình HTTP Client, Interceptor tập trung (axiosClient.ts)
+├── assets/                # Hình ảnh tĩnh, SVG, icons tĩnh
+├── components/            # Component tái sử dụng dùng chung
+│   ├── common/            # Header, Footer, Modal dùng chung, LoadingSpinner, EmptyState
+│   ├── map/               # Component bản đồ Leaflet / Mapbox hiển thị tọa độ phòng
+│   └── charts/            # Component biểu đồ Recharts dùng chung
+├── constants/             # Hằng số toàn cục (banks.ts, navigation.ts, roles.ts)
+├── layouts/               # Master Layouts theo từng vai trò / ngữ cảnh
+│   ├── AuthLayout.tsx     # Layout đăng nhập / đăng ký (2 cột hiện đại)
+│   ├── CustomerLayout.tsx # Layout cổng người dùng thuê (Header + Tenant Sidebar)
+│   ├── AdminLayout.tsx    # Layout Cổng quản trị Admin Console (Admin Sidebar + Topbar)
+│   └── LandlordLayout.tsx # Layout Cổng Chủ trọ (Landlord Sidebar + Metrics Bar)
+├── pages/                 # Màn hình chức năng, phân chia theo Domain & Thành viên phụ trách
+│   ├── auth/              # [Thành viên 1] LoginPage, RegisterPage, ForgotPasswordPage
+│   ├── admin/             # [Thành viên 1] Dashboard, Users, Posts, Viewings, Transactions, Reviews, Complaints, Categories, Statistics
+│   ├── customer/          # [Thành viên 1, 2, 3] Màn hình khách thuê (chi tiết theo phân công)
+│   └── landlord/          # [Thành viên 4] Màn hình dành riêng cho Chủ trọ
+├── routes/                # Cấu hình định tuyến tập trung
+│   ├── index.tsx          # Toàn bộ Route Tree của ứng dụng Web
+│   └── ProtectedRoute.tsx # Route Guard kiểm tra Auth và Role (QUAN_TRI, KHACH_HANG, CHU_TRO)
+├── services/              # Lớp giao tiếp API Backend theo từng Domain
+│   ├── authUser.service.ts      # [Thành viên 1] Đăng nhập, đăng ký, hồ sơ, ngân hàng
+│   ├── admin.service.ts         # [Thành viên 1] Nghiệp vụ Admin Console
+│   ├── upload.service.ts        # [Thành viên 1] Upload hình ảnh Cloudinary
+│   ├── room.service.ts          # [Thành viên 2] Tìm kiếm, lọc, chi tiết phòng
+│   ├── favorite.service.ts      # [Thành viên 2] Yêu thích phòng trọ
+│   ├── appointment.service.ts   # [Thành viên 3] Đặt lịch xem, cọc, quyết định thuê
+│   ├── transaction.service.ts   # [Thành viên 3] Lịch sử ví, yêu cầu rút tiền
+│   ├── review.service.ts        # [Thành viên 3] Đánh giá chất lượng phòng
+│   └── landlord.service.ts      # [Thành viên 4] Quản lý phòng trọ chủ trọ, duyệt lịch, duyệt trả cọc
+├── store/                 # Zustand Stores quản lý State Client
+│   ├── useAuthStore.ts          # [Thành viên 1] Quản lý Auth State, Token, User Info
+│   ├── useNotificationStore.ts  # [Thành viên 1] Quản lý Thông báo người dùng
+│   ├── useRoomFilterStore.ts    # [Thành viên 2] State bộ lọc tìm kiếm phòng trọ
+│   ├── useBookingStore.ts       # [Thành viên 3] State tiến trình đặt lịch & cọc giữ chân
+│   └── useLandlordStore.ts      # [Thành viên 4] State quản lý danh sách phòng của chủ trọ
+├── types/                 # Định nghĩa TypeScript Interface & DTO
+│   ├── api.types.ts             # ApiResponse<T>, PageResponse<T>
+│   ├── auth-user.types.ts       # UserProfile, LoginRequest, RegisterRequest
+│   ├── admin.types.ts           # Admin Dashboard, User Mgmt, Platform Revenue stats
+│   ├── room.types.ts            # PhongTro, LoaiPhongTro, TienIch, FilterCriteria
+│   ├── booking.types.ts         # PhieuDatLich, Coc, QuyTrinhThue
+│   ├── transaction.types.ts     # GiaoDich, RutTien, NganHang
+│   └── landlord.types.ts        # ChuTroProfile, CreateRoomDTO, LandlordStats
+└── utils/                 # Hàm tiện ích dùng chung
+    ├── formatters.ts      # formatVND, formatDate, formatDateTime, formatPhoneNumber
+    └── validators.ts      # Zod Schemas đồng bộ Regex với Backend
+```
+
+### 6.2. Ma trận Phân công Trách nhiệm & Biên giới File/Route 4 Thành viên (Zero Conflict):
+
+| Thành viên | Vai trò & Trách nhiệm chính | Thư mục & File độc quyền sở hữu | Danh sách Routes phụ trách |
+|:---|:---|:---|:---|
+| **Thành viên 1**<br>*(Tech Lead / Core)* | **Hạ tầng, Auth, Hồ sơ, Khiếu nại & Toàn bộ Admin Console**<br>- Base architecture, Axios Client, Layouts, Routing base<br>- Auth (Login, Register 2-step Wizard, Forgot password)<br>- Profile & Quản lý Tài khoản ngân hàng, Thông báo, Khiếu nại<br>- Toàn bộ 9 phân hệ Admin Console: Thống kê doanh thu sàn chuẩn, Kiểm duyệt phòng trọ, Giám sát lịch xem, Quản lý tài khoản người dùng, Sổ cái giao dịch, Kiểm duyệt đánh giá, Giải quyết khiếu nại & Vi phạm, Quản lý danh mục loại phòng/tiện ích, Báo cáo & Thống kê kinh doanh. | `web/src/pages/auth/*`<br>`web/src/pages/admin/*`<br>`web/src/pages/customer/ProfilePage.tsx`<br>`web/src/pages/customer/NotificationsPage.tsx`<br>`web/src/pages/customer/ComplaintsPage.tsx`<br>`web/src/services/authUser.service.ts`<br>`web/src/services/admin.service.ts`<br>`web/src/services/upload.service.ts`<br>`web/src/store/useAuthStore.ts`<br>`web/src/store/useNotificationStore.ts`<br>`web/src/types/auth-user.types.ts`<br>`web/src/types/admin.types.ts` | `/login`<br>`/register`<br>`/forgot-password`<br>`/profile`<br>`/notifications`<br>`/complaints`<br>`/admin/dashboard`<br>`/admin/users`<br>`/admin/posts`<br>`/admin/viewings`<br>`/admin/transactions`<br>`/admin/reviews`<br>`/admin/complaints`<br>`/admin/categories`<br>`/admin/statistics` |
+| **Thành viên 2**<br>*(Discovery & Details)* | **Khám phá, Tìm kiếm & Chi tiết Phòng trọ**<br>- Trang chủ khách hàng & Banner tìm kiếm nổi bật<br>- Bộ lọc phòng trọ đa tiêu chí (khoảng giá, diện tích, vị trí, tiện ích, loại phòng)<br>- Tích hợp bản đồ Leaflet định vị tọa độ kinh độ/vĩ độ phòng trọ<br>- Trang chi tiết phòng trọ: Carousel hình ảnh thực tế, thông tin giá thuê, tiền cọc hợp đồng, danh sách tiện ích, nội quy, widget uy tín chủ trọ, danh sách đánh giá<br>- Quản lý danh sách phòng yêu thích (`PhongYeuThich`). | `web/src/pages/customer/HomePage.tsx`<br>`web/src/pages/customer/SearchPage.tsx`<br>`web/src/pages/customer/RoomDetailPage.tsx`<br>`web/src/pages/customer/FavoritesPage.tsx`<br>`web/src/components/room/*`<br>`web/src/services/room.service.ts`<br>`web/src/services/favorite.service.ts`<br>`web/src/store/useRoomFilterStore.ts`<br>`web/src/types/room.types.ts` | `/` (Trang chủ)<br>`/search` (Tìm kiếm phòng)<br>`/room/:id` (Chi tiết phòng)<br>`/favorites` (Phòng yêu thích) |
+| **Thành viên 3**<br>*(Booking & Financials)* | **Đặt lịch xem phòng, Cọc giữ chân, Quyết định thuê & Đánh giá**<br>- Luồng đặt lịch xem phòng & nộp cọc giữ chân (`coc`) theo từng loại phòng<br>- Quản lý danh sách phiếu hẹn xem phòng (`PhieuDatLich`) phía khách hàng<br>- Màn hình xác nhận đã nhận lại cọc từ chủ trọ và quyết định độc lập (Thuê / Không thuê)<br>- Quản lý lịch sử giao dịch ví & lập yêu cầu rút tiền của khách hàng<br>- Form đánh giá chất lượng phòng sau khi xem (chọn số sao + nhận xét + upload ảnh). | `web/src/pages/customer/AppointmentsPage.tsx`<br>`web/src/pages/customer/AppointmentDetailPage.tsx`<br>`web/src/pages/customer/RentalsPage.tsx`<br>`web/src/pages/customer/WalletPage.tsx`<br>`web/src/components/booking/*`<br>`web/src/services/appointment.service.ts`<br>`web/src/services/transaction.service.ts`<br>`web/src/services/review.service.ts`<br>`web/src/store/useBookingStore.ts`<br>`web/src/types/booking.types.ts`<br>`web/src/types/transaction.types.ts`<br>`web/src/types/review.types.ts` | `/appointments`<br>`/appointments/:id`<br>`/rentals`<br>`/wallet`<br>`/transactions` |
+| **Thành viên 4**<br>*(Landlord Portal)* | **Cổng Quản lý Chủ trọ (Landlord Portal)**<br>- Layout dành riêng cho Chủ trọ (`LandlordLayout`)<br>- Bảng điều khiển Chủ trọ (thống kê phòng, phòng đang cho thuê, doanh thu thực tế nhận được)<br>- Quản lý danh sách tin đăng phòng trọ (thêm, sửa, ẩn/hiện, theo dõi trạng thái duyệt)<br>- Wizard 5 bước Đăng tin phòng trọ mới chuẩn UI (Thông tin cơ bản ➔ Vị trí/Bản đồ ➔ Tiện ích ➔ Hình ảnh ➔ Cọc & Giá thuê)<br>- Quản lý lịch hẹn xem phòng: Xác nhận lịch, xác nhận trả cọc trực tiếp cho khách, quyết định độc lập (Cho thuê / Từ chối)<br>- Quản lý ví chủ trọ & tạo lệnh rút tiền về ngân hàng liên kết. | `web/src/layouts/LandlordLayout.tsx`<br>`web/src/pages/landlord/*`<br>`web/src/components/landlord/*`<br>`web/src/services/landlord.service.ts`<br>`web/src/store/useLandlordStore.ts`<br>`web/src/types/landlord.types.ts` | `/landlord/dashboard`<br>`/landlord/rooms`<br>`/landlord/rooms/create`<br>`/landlord/rooms/edit/:id`<br>`/landlord/appointments`<br>`/landlord/wallet` |
+
+### 6.3. Quy tắc Biên dịch & Code Style Web Bắt buộc (Strict Rules):
+1. **Bắt buộc sử dụng `import type` (`verbatimModuleSyntax: true`)**:
+   - Khi import bất kỳ Interface, Type alias, hoặc DTO nào từ file khác, **bắt buộc** phải có từ khóa `type`:
+     ```typescript
+     // ĐÚNG:
+     import type { UserProfile, ApiResponse } from '@/types/api.types';
+     // SAI (Gây lỗi TS1484 khi build):
+     import { UserProfile, ApiResponse } from '@/types/api.types';
+     ```
+2. **Không biến / import thừa (`noUnusedLocals: true`, `noUnusedParameters: true`)**:
+   - Lệnh build `tsc -b && vite build` sẽ dừng ngay lập tức nếu phát hiện bất kỳ biến hoặc import không được sử dụng (Lỗi TS6133). Tuyệt đối clean code trước khi commit và push git.
+3. **Chuẩn HeroUI v3 & Tailwind CSS v4**:
+   - **Tuyệt đối KHÔNG bọc `<HeroUIProvider>`** ở bất kỳ đâu. HeroUI v3 hoạt động độc lập không cần Context Provider.
+   - Luôn sử dụng mô hình Compound Components cho Card và Form:
+     ```tsx
+     <Card className="p-6">
+       <Card.Header>
+         <Card.Title>Tiêu đề</Card.Title>
+         <Card.Description>Mô tả chi tiết</Card.Description>
+       </Card.Header>
+       <Card.Content>...</Card.Content>
+       <Card.Footer>...</Card.Footer>
+     </Card>
+     ```
+   - Trong `web/src/index.css`: `@import "tailwindcss";` phải đứng trước `@import "@heroui/styles";`.
+4. **Chuẩn hóa Gọi API & Quản lý Token**:
+   - Không được dùng `fetch` trần hoặc tạo instance `axios` tùy tiện. Mọi request phải thông qua `axiosClient` (`web/src/api/axiosClient.ts`).
+   - Token JWT được `axiosClient` tự động lấy từ `useAuthStore` qua header `Authorization: Bearer <token>`.
+   - Mọi response thành công đều đã được interceptor bóc tách dữ liệu về trực tiếp `response.data.data`.
+5. **Ràng buộc Regex & Validation (Zod Schemas)**:
+   - Các Form dữ liệu bắt buộc validate bằng Zod schema trong `web/src/utils/validators.ts`, đồng bộ chính xác với Mục 3 của `AGENTS.md`:
+     * Số điện thoại: `/^(03|05|07|08|09)\d{8}$|^\+84\d{9}$/`
+     * CCCD: `/^\d{12}$/`
+     * Số tài khoản ngân hàng: `/^\d{6,20}$/`
+     * Mã người dùng: `/^ND\d{8}\d{4}$/`
+     * Mã phòng trọ: `/^PT\d{12}$/`
+6. **Nhắc lại Quy tắc Bất Khả Xâm Phạm về Doanh thu Sàn (Platform Revenue)**:
+   - Doanh thu Sàn hiển thị trên Web (Admin Dashboard, Báo cáo) **BẮT BUỘC ĐƯỢC TÍNH BẰNG TỔNG `phiThu` CỦA CÁC PHIẾU ĐẶT LỊCH CÓ TRẠNG THÁI `HOAN_THANH`**.
+   - Tuyệt đối **KHÔNG** lấy tổng số tiền trong bảng `GiaoDich` làm doanh thu sàn. Bảng `GiaoDich` chỉ là sổ cái dòng tiền đối soát.
+
+### 6.4. Chuẩn hóa Gọi API & Quản lý State Client/Server:
+- **Server State**: Sử dụng `@tanstack/react-query` (`useQuery`, `useMutation`) cho mọi dữ liệu tải từ server để tự động caching và refetching khi dữ liệu thay đổi.
+- **Client State**: Sử dụng `zustand` cho trạng thái giao diện toàn cục (Auth, Filters, Notifications).
+
+### 6.5. Quy trình Phối hợp Nhánh Git (Git Collaboration Protocol):
+- Branch chính: `main` (Production-ready, chỉ merge khi chạy qua `npm --prefix web run build` thành công 100% không cảnh báo).
+- Branch tích hợp: `dev`.
+- Mỗi thành viên làm việc độc lập trên nhánh riêng:
+  * Thành viên 1: `feature/member-1-admin-auth`
+  * Thành viên 2: `feature/member-2-room-search`
+  * Thành viên 3: `feature/member-3-booking-deposit`
+  * Thành viên 4: `feature/member-4-landlord-portal`
+- Khi chỉnh sửa file chung (`web/src/routes/index.tsx` hoặc `web/src/constants/navigation.ts`), các thành viên chỉ uncomment hoặc thêm mới component trong phạm vi route/menu thuộc sở hữu của mình, tránh sửa chéo vào vùng code của thành viên khác.
+
+---
+
+## 7. QUY TRÌNH THAO TÁC CỦA AGENT (AGENT WORKFLOW PROTOCOL)
 
 1. **Đọc kỹ luật**: Mở `AGENTS.md`, tra cứu đúng Entity, Regex và Luồng nghiệp vụ liên quan.
 2. **Trình bày phương án**: Lên danh sách file dự kiến tác động và mã nguồn mẫu.
