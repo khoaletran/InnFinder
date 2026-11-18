@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal } from '../common/Modal';
 import { AlertTriangle, Trash2 } from 'lucide-react';
+import { Modal } from '@/components/common/Modal';
 
 interface DeleteRoomModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export const DeleteRoomModal: React.FC<DeleteRoomModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Xác nhận xóa phòng trọ"
+      title="Xác nhận ẩn / gỡ bài đăng phòng"
       maxWidth="sm"
       footer={
         <>
@@ -40,7 +40,7 @@ export const DeleteRoomModal: React.FC<DeleteRoomModalProps> = ({
             className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            {loading ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+            {loading ? 'Đang xử lý...' : 'Gỡ bài đăng'}
           </button>
         </>
       }
@@ -51,13 +51,13 @@ export const DeleteRoomModal: React.FC<DeleteRoomModalProps> = ({
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-800">
-            Bạn có chắc chắn muốn xóa phòng này?
+            Bạn có chắc chắn muốn gỡ bài đăng phòng này?
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            Phòng: <strong className="text-slate-700">"{roomName}"</strong>
+            Phòng: <strong className="text-slate-700">&ldquo;{roomName}&rdquo;</strong>
           </p>
           <p className="text-xs text-red-500 mt-2 font-medium">
-            Hành động này sẽ xóa dữ liệu phòng và hình ảnh khỏi hệ thống tìm kiếm.
+            Phòng sẽ chuyển sang trạng thái Đã hủy (HUY) và ẩn khỏi kết quả tìm kiếm công khai.
           </p>
         </div>
       </div>

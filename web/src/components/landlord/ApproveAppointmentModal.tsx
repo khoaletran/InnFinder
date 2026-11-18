@@ -1,7 +1,8 @@
 import React from 'react';
-import { Modal } from '../common/Modal';
-import { CheckCircle2, Calendar, Clock, MapPin, User, Phone } from 'lucide-react';
-import type { LandlordAppointmentItem } from '../../types/landlord.types';
+import { Calendar, CheckCircle2, Clock, MapPin, Phone, User } from 'lucide-react';
+import { Modal } from '@/components/common/Modal';
+import type { LandlordAppointmentItem } from '@/types/landlord.types';
+import { formatPhoneNumber, formatVND } from '@/utils/formatters';
 
 interface ApproveAppointmentModalProps {
   isOpen: boolean;
@@ -54,9 +55,11 @@ export const ApproveAppointmentModal: React.FC<ApproveAppointmentModalProps> = (
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-bold text-emerald-900">Khách đã nộp cọc giữ chân lịch xem</p>
+            <p className="text-xs font-bold text-emerald-900">
+              Cọc giữ chân lịch xem: {formatVND(appointment.coc)}
+            </p>
             <p className="text-[11px] text-emerald-700 mt-0.5">
-              Hệ thống đang tạm giữ {appointment.coc?.toLocaleString('vi-VN')} đ tiền cọc. Khi gặp mặt, bạn nhớ hoàn trả cọc trực tiếp cho khách.
+              Khi dẫn xem thực tế, bạn hoàn trả trực tiếp 100% khoản cọc ({formatVND(appointment.coc)}) cho khách để chuyển quyền nhận cọc thế chân tại Sàn sang ví của bạn.
             </p>
           </div>
         </div>
@@ -64,23 +67,34 @@ export const ApproveAppointmentModal: React.FC<ApproveAppointmentModalProps> = (
         <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2 text-xs">
           <div className="flex items-center gap-2 text-slate-700">
             <User className="w-4 h-4 text-slate-400" />
-            <span>Khách xem phòng: <strong>{appointment.khachHangTen}</strong></span>
+            <span>
+              Khách xem phòng: <strong>{appointment.khachHangTen}</strong>
+            </span>
           </div>
           <div className="flex items-center gap-2 text-slate-700">
             <Phone className="w-4 h-4 text-slate-400" />
-            <span>Số điện thoại: <strong>{appointment.sdt}</strong></span>
+            <span>
+              Số điện thoại: <strong>{formatPhoneNumber(appointment.sdt)}</strong>
+            </span>
           </div>
           <div className="flex items-center gap-2 text-slate-700">
             <Calendar className="w-4 h-4 text-slate-400" />
-            <span>Ngày hẹn: <strong>{appointment.ngayHen}</strong></span>
+            <span>
+              Ngày hẹn: <strong>{appointment.ngayHen}</strong>
+            </span>
           </div>
           <div className="flex items-center gap-2 text-slate-700">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span>Giờ hẹn: <strong>{appointment.thoiGian}</strong></span>
+            <span>
+              Giờ hẹn: <strong>{appointment.thoiGian}</strong>
+            </span>
           </div>
           <div className="flex items-start gap-2 text-slate-700">
             <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-            <span>Phòng: <strong>{appointment.phongTen}</strong> ({appointment.diaChiPhong})</span>
+            <span>
+              Phòng: <strong>{appointment.phongTen}</strong>
+              {appointment.diaChiPhong ? ` (${appointment.diaChiPhong})` : ''}
+            </span>
           </div>
         </div>
 

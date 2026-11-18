@@ -1,4 +1,12 @@
-// ================= ADMIN TYPES =================
+import type {
+  MucDoViPham,
+  TrangThaiKhieuNai,
+  TrangThaiYeuCauChuTro,
+  VaiTro,
+} from './auth-user.types';
+import type { TrangThaiDatLich } from './booking.types';
+import type { TrangThaiPhongTro } from './room.types';
+import type { TrangThaiGD } from './transaction.types';
 
 export interface AdminDashboardStats {
   nguoiDung: { total: number; label: string };
@@ -29,7 +37,7 @@ export interface AdminUserItem {
   email: string;
   sdt: string;
   cccd?: string;
-  vaiTro: 'QUAN_TRI' | 'KHACH_HANG';
+  vaiTro: VaiTro;
   chuTro: boolean;
   trangThai: 'HOAT_DONG' | 'KHOA';
   trangThaiKhoa?: boolean;
@@ -53,7 +61,7 @@ export interface AdminPostItem {
   dienTich: number;
   soNguoi: number;
   loaiPhong: string;
-  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI' | 'HUY' | 'HOAN_THANH';
+  trangThai: TrangThaiPhongTro;
   thoiGianDang: string;
   tenChuTro: string;
   sdtChuTro: string;
@@ -78,9 +86,9 @@ export interface AdminComplaintItem {
   avatarDoiTuong?: string;
   vanDe: string;
   thoiGian: string;
-  trangThai: 'CHO_XU_LY' | 'CHO_DUYET' | 'DANG_XU_LY' | 'DA_XU_LI' | 'DA_XU_LY' | 'TU_CHOI';
+  trangThai: TrangThaiKhieuNai;
   hinhAnh: string[];
-  mucDoViPham?: 'NHE' | 'TRUNG_BINH' | 'NANG';
+  mucDoViPham?: MucDoViPham;
   phongLienQuan?: {
     maPhong: string;
     tieuDe: string;
@@ -104,7 +112,7 @@ export interface AdminLandlordRequestItem {
   soTaiKhoan: string;
   tenChuTaiKhoan?: string;
   ngayGui: string;
-  trangThai: 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI';
+  trangThai: TrangThaiYeuCauChuTro;
   lyDoTuChoi?: string;
   avatarUrl?: string;
   diemUyTin?: number;
@@ -116,8 +124,8 @@ export interface AdminTransactionItem {
   phongTro?: string;
   diaChiPhong?: string;
   soTien: number;
-  loaiGiaoDich: 'YEU_CAU_RUT_TIEN' | 'RUT_TIEN' | 'COC_GIU_CHO' | 'COC_XEM_PHONG' | 'HOAN_COC' | 'CONG_TIEN_COC' | string;
-  trangThai: 'THANH_CONG' | 'DANG_XU_LY' | 'CHO_THANH_TOAN' | 'THAT_BAI' | 'HOAN_TIEN' | string;
+  loaiGiaoDich: string;
+  trangThai: TrangThaiGD;
   thoiGian: string;
   nguoiThucHien: string;
   sdtNguoiThucHien?: string;
@@ -155,7 +163,8 @@ export interface AdminAppointmentItem {
   tenPhongTro: string;
   diaChiPhong: string;
   ngayHen: string;
-  trangThai: 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY';
+  trangThai: TrangThaiDatLich;
+  phiThu?: number;
   ghiChu?: string;
   tienCoc?: number;
 }

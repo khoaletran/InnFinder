@@ -1,7 +1,7 @@
-import React from 'react';
-import {
-  Download,
-} from 'lucide-react';
+import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Card, Chip, Spinner } from '@heroui/react';
+import { Download, RefreshCw, ShieldCheck, Wallet, DollarSign, Building2 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,153 +15,309 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { formatVND } from '../../utils/formatters';
+import { adminService } from '@/services/admin.service';
+import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
+import { formatVND } from '@/utils/formatters';
 
-const MONTHLY_DATA = [
-  { thang: 'Tháng 5', hoaHong: 12500000, hoanCoc: 18000000 },
-  { thang: 'Tháng 6', hoaHong: 18200000, hoanCoc: 24000000 },
-  { thang: 'Tháng 7', hoaHong: 24800000, hoanCoc: 35000000 },
-  { thang: 'Tháng 8', hoaHong: 31000000, hoanCoc: 41000000 },
-  { thang: 'Tháng 9', hoaHong: 29500000, hoanCoc: 39000000 },
-  { thang: 'Tháng 10', hoaHong: 42000000, hoanCoc: 54000000 },
-  { thang: 'Tháng 11', hoaHong: 48500000, hoanCoc: 62000000 },
-];
-
-const ROOM_TYPE_DISTRIBUTION = [
-  { name: 'Phòng trọ thường', value: 45, color: '#3b82f6' },
-  { name: 'Chung cư mini', value: 25, color: '#6366f1' },
-  { name: 'Căn hộ dịch vụ', value: 15, color: '#10b981' },
-  { name: 'Nhà nguyên căn', value: 10, color: '#f59e0b' },
-  { name: 'Ở ghép / Dorm', value: 5, color: '#ec4899' },
-];
+const PIE_COLORS = ['#2563eb', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
 
 export const StatisticsPage: React.FC = () => {
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+    isFetching: isFetchingStats,
+    refetch: refetchStats,
+  } = useQuery({
+    queryKey: ['admin', 'dashboard-stats'],
+    queryFn: () => adminService.getDashboardStats(),
+  });
+
+  const {
+    data: treasury,
+    isLoading: isLoadingTreasury,
+    isFetching: isFetchingTreasury,
+    refetch: refetchTreasury,
+  } = useQuery({
+    queryKey: ['admin', 'treasury-stats'],
+    queryFn: () => adminService.getTreasuryStats(),
+  });
+
+  const { data: allRooms = [], refetch: refetchRooms } = useQuery({
+    queryKey: ['admin', 'rooms', 'all'],
+    queryFn: () => adminService.getAllRooms(),
+  });
+
+  const handleRefreshAll = () => {
+    void refetchStats();
+    void refetchTreasury();
+    void refetchRooms();
+  };
+
+  // Phân bố loại hình phòng thực tế từ danh sách phòng đã tải trên sàn
+  const roomTypeDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const room of allRooms) {
+      const label = room.loaiPhong || 'Phòng trọ tiêu chuẩn';
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, value], idx) => ({
+      name,
+      value,
+      color: PIE_COLORS[idx % PIE_COLORS.length],
+    }));
+  }, [allRooms]);
+
+  // Biểu đồ đối soát rạch ròi giữa Doanh thu Hoa hồng Sàn (phiThu HOAN_THANH) và các Quỹ dòng tiền đối soát
+  const treasuryBreakdownData = useMemo(
+    () => [
+      {
+        danhMuc: 'Doanh thu Sàn (phiThu)',
+        soTien: treasury?.tongDoanhThu ?? 0,
+      },
+      {
+        danhMuc: 'Cọc tạm giữ',
+        soTien: treasury?.quyTamGiuCoc ?? 0,
+      },
+      {
+        danhMuc: 'Số dư ví Chủ trọ',
+        soTien: treasury?.tongSoDuViChuTro ?? 0,
+      },
+      {
+        danhMuc: 'Quỹ chờ rút',
+        soTien: treasury?.quyChoRut ?? 0,
+      },
+    ],
+    [treasury],
+  );
+
+  if (isLoadingStats || isLoadingTreasury) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
+        <Spinner size="lg" />
+        <span className="text-xs font-medium">
+          Đang tải báo cáo thống kê doanh thu sàn & ngân khố thực tế...
+        </span>
+      </div>
+    );
+  }
+
+  const isRefreshing = isFetchingStats || isFetchingTreasury;
+
   return (
     <div className="space-y-6">
-      {/* Title */}
+      {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Thống kê & Báo cáo Chuyên sâu</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            Thống kê & Báo cáo Doanh thu Sàn
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Báo cáo hiệu quả kinh doanh hoa hồng môi giới và phân bổ phòng trọ toàn hệ thống
+            Đối soát doanh thu hoa hồng môi giới thực tế (`phiThu` từ `PhieuDatLich` hoàn tất) và cơ cấu ngân khố
           </p>
         </div>
 
-        <button
-          onClick={() => window.print()}
-          className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-2 self-start sm:self-auto cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Xuất báo cáo tài chính
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Đồng bộ dữ liệu
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Xuất báo cáo tài chính
+          </button>
+        </div>
       </div>
 
-      {/* Chart 1: Doanh thu hoa hồng vs Tổng tiền hoàn cọc */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              Đối soát Doanh thu hoa hồng (`phiThu`) và Cọc hoàn trả theo tháng
-            </h3>
-            <p className="text-xs text-slate-500">
-              Hoa hồng thực thu của sàn so với dòng tiền luân chuyển cọc trả lại cho chủ trọ
+      {/* Platform Revenue Strict Compliance Notice */}
+      <Card className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 shadow-none">
+        <Card.Content className="p-0 flex items-start gap-3 text-xs text-slate-800">
+          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-slate-900">
+                Chuẩn mực Kế toán Doanh thu Sàn InnFinder (AGENTS.md §2.3 & §5.5):
+              </span>
+              <Chip size="sm" variant="soft" color="success" className="font-bold">
+                Dữ liệu API thời gian thực
+              </Chip>
+            </div>
+            <p className="leading-relaxed text-slate-700">
+              Doanh thu của hệ thống được tính <strong>độc quyền</strong> theo công thức{' '}
+              <code className="px-1.5 py-0.5 rounded bg-white border border-emerald-200 font-mono text-[11px] text-emerald-800">
+                SELECT COALESCE(SUM(p.phi_thu), 0) FROM phieu_dat_lich p WHERE p.trang_thai = 'HOAN_THANH'
+              </code>
+              . Bảng <code className="font-mono">GiaoDich</code> chỉ đóng vai trò sổ cái dòng tiền đối soát cọc/hoàn cọc/rút tiền và <strong>tuyệt đối không được cộng vào doanh thu sàn</strong>.
             </p>
           </div>
-        </div>
+        </Card.Content>
+      </Card>
 
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={MONTHLY_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="thang" stroke="#94a3b8" fontSize={11} tickLine={false} />
-              <YAxis
-                stroke="#94a3b8"
-                fontSize={11}
-                tickLine={false}
-                tickFormatter={(val) => `${val / 1000000}M`}
-              />
-              <Tooltip
-                formatter={(val: any) => [formatVND(val), '']}
-                contentStyle={{ borderRadius: '12px', fontSize: '12px' }}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-              <Bar dataKey="hoaHong" name="Doanh thu hoa hồng sàn (phiThu)" fill="#2563eb" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="hoanCoc" name="Tiền cọc luân chuyển hoàn trả" fill="#93c5fd" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Summary KPI Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+          <Card.Content className="p-0 flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-500">
+                Tổng doanh thu hoa hồng sàn (`SUM(phiThu)`)
+              </span>
+              <div className="text-2xl font-black text-blue-600 mt-1">
+                {formatVND(treasury?.tongDoanhThu ?? 0)}
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Từ các lịch hẹn đạt trạng thái HOAN_THANH
+              </span>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </Card.Content>
+        </Card>
+
+        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+          <Card.Content className="p-0 flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-500">
+                Tổng quỹ luân chuyển ngân khố
+              </span>
+              <div className="text-2xl font-black text-slate-900 mt-1">
+                {formatVND(treasury?.tongQuyHeThong ?? 0)}
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Đối soát sổ cái tạm giữ cọc & ví Chủ trọ
+              </span>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </Card.Content>
+        </Card>
+
+        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+          <Card.Content className="p-0 flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-500">
+                Tổng phòng trọ ghi nhận
+              </span>
+              <div className="text-2xl font-black text-indigo-600 mt-1">
+                {(stats?.soTinDang.total ?? allRooms.length).toLocaleString('vi-VN')} phòng
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Chờ duyệt: {stats?.hangDoi.tinMoi ?? 0} bài đăng
+              </span>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
+          </Card.Content>
+        </Card>
       </div>
 
-      {/* Chart 2: Phân bổ Loại phòng */}
+      {/* Chart 1: Reusable PlatformRevenueChart */}
+      <PlatformRevenueChart
+        data={stats?.tangTruongGiaoDich || []}
+        title="Biểu đồ Tăng trưởng Doanh thu Hoa hồng Sàn (`phiThu`)"
+        subtitle="Tính độc quyền từ SUM(phiThu) của các PhieuDatLich đạt trạng thái HOAN_THANH theo thời gian thực"
+      />
+
+      {/* Chart 2 & Chart 3: Phân tách Doanh thu vs Dòng tiền Ngân khố & Cơ cấu loại phòng */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-1">Cơ cấu loại hình phòng trọ trên sàn</h3>
-          <p className="text-xs text-slate-500 mb-4">Tỷ trọng các bài đăng đang hoạt động</p>
-          <div className="h-64 w-full flex items-center justify-center">
+        <Card className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <Card.Header className="p-0 pb-4">
+            <Card.Title className="text-sm font-bold text-slate-900">
+              Phân tách Doanh thu Sàn (`phiThu`) và Quỹ Ngân khố Luân chuyển
+            </Card.Title>
+            <Card.Description className="text-xs text-slate-500 mt-0.5">
+              Tách biệt rõ hoa hồng thực thu của sàn với tiền cọc tạm giữ và số dư ví thuộc sở hữu Chủ trọ
+            </Card.Description>
+          </Card.Header>
+
+          <Card.Content className="p-0 h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={ROOM_TYPE_DISTRIBUTION}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {ROOM_TYPE_DISTRIBUTION.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(val: any) => [`${val}%`, 'Tỷ trọng']} />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
-              </PieChart>
+              <BarChart
+                data={treasuryBreakdownData}
+                margin={{ top: 10, right: 12, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="danhMuc" stroke="#64748b" fontSize={11} tickLine={false} />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  tickFormatter={(val: number) =>
+                    val >= 1_000_000
+                      ? `${(val / 1_000_000).toFixed(1)}M`
+                      : `${val.toLocaleString('vi-VN')}`
+                  }
+                />
+                <Tooltip
+                  formatter={(val: unknown) => [formatVND(Number(val ?? 0)), 'Giá trị thực tế']}
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '12px',
+                  }}
+                />
+                <Bar dataKey="soTien" fill="#2563eb" radius={[8, 8, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
+          </Card.Content>
+        </Card>
 
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+        <Card className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Chỉ số chuyển đổi xem phòng</h3>
-            <p className="text-xs text-slate-500 mb-4">Tỷ lệ hoàn tất ký thuê từ các lịch hẹn xem thực tế</p>
+            <Card.Header className="p-0 pb-4">
+              <Card.Title className="text-sm font-bold text-slate-900">
+                Cơ cấu loại hình phòng trọ đang hiển thị
+              </Card.Title>
+              <Card.Description className="text-xs text-slate-500 mt-0.5">
+                Thống kê trực tiếp từ {allRooms.length} bài đăng công khai trên sàn
+              </Card.Description>
+            </Card.Header>
 
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Tỷ lệ xem phòng thành công và ký hợp đồng</span>
-                  <span className="text-emerald-600 font-bold">78.5%</span>
+            <Card.Content className="p-0 h-56 w-full flex items-center justify-center">
+              {roomTypeDistribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={roomTypeDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={82}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {roomTypeDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val: unknown) => [`${Number(val ?? 0)} phòng`, 'Số lượng']}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-xs text-slate-400">
+                  Chưa có bài đăng phòng trọ công khai để phân tích tỷ trọng.
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '78.5%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Tỷ lệ xem phòng không thuê (Hoàn cọc 100%)</span>
-                  <span className="text-blue-600 font-bold">17.2%</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '17.2%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Tỷ lệ hủy lịch hẹn trước giờ xem</span>
-                  <span className="text-amber-600 font-bold">4.3%</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full" style={{ width: '4.3%' }} />
-                </div>
-              </div>
-            </div>
+              )}
+            </Card.Content>
           </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl text-[11px] text-slate-500 border border-slate-100 mt-4">
-            Quy trình thế chân cọc đảm bảo tỷ lệ khách đến xem phòng thực tế đạt trên 95%, giải quyết triệt để tình trạng bỏ bom lịch hẹn.
-          </div>
-        </div>
+          <Card.Footer className="p-3 bg-slate-50 rounded-xl text-[11px] text-slate-500 border border-slate-100 mt-3">
+            Sàn InnFinder không quản lý tiền thuê phòng (`giaThue`) hay tiền cọc hợp đồng (`cocPhong`) giữa Khách và Chủ trọ.
+          </Card.Footer>
+        </Card>
       </div>
     </div>
   );

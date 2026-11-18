@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { UserProfileResponse } from '../types/auth-user.types';
-import { tokenStorage } from '../api/axiosClient';
+import type { UserProfileResponse } from '@/types/auth-user.types';
+
+const TOKEN_KEY = 'innfinder_jwt_token';
 
 interface AuthState {
   token: string | null;
@@ -9,8 +10,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isChuTro: boolean;
-  
-  // Actions
+
   setAuth: (token: string, user: UserProfileResponse) => void;
   setUser: (user: UserProfileResponse) => void;
   logout: () => void;
@@ -19,14 +19,14 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      token: tokenStorage.getToken(),
+      token: typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null,
       user: null,
-      isAuthenticated: !!tokenStorage.getToken(),
+      isAuthenticated: false,
       isAdmin: false,
       isChuTro: false,
 
       setAuth: (token, user) => {
-        tokenStorage.saveToken(token);
+        localStorage.setItem(TOKEN_KEY, token);
         const isAdmin = user.vaiTro === 'QUAN_TRI';
         const isChuTro = !!user.chuTro;
         set({
@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        tokenStorage.removeToken();
+        localStorage.removeItem(TOKEN_KEY);
         set({
           token: null,
           user: null,
@@ -68,6 +68,6 @@ export const useAuthStore = create<AuthState>()(
         isAdmin: state.isAdmin,
         isChuTro: state.isChuTro,
       }),
-    }
-  )
+    },
+  ),
 );

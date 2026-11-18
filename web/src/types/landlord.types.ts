@@ -1,4 +1,9 @@
-export type TrangThaiPhongTro = 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
+import type { MucDoViPham, TrangThaiKhieuNai } from './auth-user.types';
+import type { TrangThaiDatLich } from './booking.types';
+import type { TrangThaiPhongTro } from './room.types';
+import type { TrangThaiGD } from './transaction.types';
+
+export type { TrangThaiPhongTro };
 
 export interface LandlordDashboardStats {
   tongPhong: number;
@@ -8,6 +13,7 @@ export interface LandlordDashboardStats {
   tongDanhGia: number;
   diemDanhGia: number | string;
   soDu: number;
+  diemUyTin?: number;
   yeuCauMoi: number;
   tongPhongMoi?: number;
 }
@@ -31,7 +37,22 @@ export interface LandlordRoomItem {
   loaiPhong?: string;
   maLpt?: string;
   dsTienIch?: string[];
+  dsMaTienIch?: string[];
   thoiGianDang?: string;
+}
+
+export interface RoomCreatePayload {
+  diaChi: string;
+  giaThue: number;
+  dienTich: number;
+  soNguoi: number;
+  maLpt: string;
+  moTa?: string;
+  kinhDo: string;
+  viDo: string;
+  coc: number;
+  dsMaTienIch: string[];
+  hinhAnhUrls: string[];
 }
 
 export interface LandlordAppointmentItem {
@@ -45,7 +66,7 @@ export interface LandlordAppointmentItem {
   ngayHen: string;
   rawNgayHen?: string;
   ghiChu?: string;
-  trangThai: 'CHO_XAC_NHAN' | 'XAC_NHAN' | 'HOAN_THANH' | 'HUY';
+  trangThai: TrangThaiDatLich;
   maPhongTro?: string;
   diaChiPhong?: string;
   giaThue?: number;
@@ -67,7 +88,7 @@ export interface LandlordTransactionItem {
   tienCoc: number;
   phiDichVu: number;
   thucNhan: number;
-  trangThai: 'THANH_CONG' | 'HOAN_TIEN' | 'CHO_THANH_TOAN' | 'THAT_BAI';
+  trangThai: TrangThaiGD;
   ngayGiaoDich: string;
   thoiGianTao?: string;
   loaiGiaoDich: 'DA_THU' | 'HOAN_COC' | 'RUT_TIEN';
@@ -77,6 +98,7 @@ export interface BankAccountItem {
   id?: number;
   soTaiKhoan: string;
   tenNganHang: string;
+  tenChuTaiKhoan?: string;
 }
 
 export interface LandlordWalletInfo {
@@ -105,8 +127,8 @@ export interface ComplaintItem {
   doiTuongTen: string;
   vanDe: string;
   hinhAnh?: string;
-  trangThai: 'CHO_DUYET' | 'DANG_XU_LY' | 'DA_XU_LI' | 'DA_HUY';
-  mucDoViPham: 'NHE' | 'TRUNG_BINH' | 'NANG';
+  trangThai: TrangThaiKhieuNai;
+  mucDoViPham: MucDoViPham;
   ngayGui: string;
   ketQua?: string;
 }

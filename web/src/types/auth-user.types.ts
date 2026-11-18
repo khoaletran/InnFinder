@@ -1,5 +1,11 @@
 export type VaiTro = 'QUAN_TRI' | 'KHACH_HANG';
 
+export type TrangThaiKhieuNai = 'CHO_DUYET' | 'DANG_XU_LY' | 'DA_XU_LI';
+
+export type MucDoViPham = 'NHE' | 'TRUNG_BINH' | 'NANG';
+
+export type TrangThaiYeuCauChuTro = 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI';
+
 export interface RegisterRequest {
   tenDangNhap: string;
   hoVaTen?: string;
@@ -9,7 +15,6 @@ export interface RegisterRequest {
   sdt: string;
   cccd?: string;
   chuTro: boolean;
-  // Thông tin chủ trọ đính kèm nếu đăng ký làm chủ trọ
   anhCccdTruoc?: string;
   anhCccdSau?: string;
   tenNganHang?: string;
@@ -75,26 +80,26 @@ export interface UpgradeLandlordRequest {
 }
 
 export interface ComplaintRequestDTO {
-  maNguoiGui?: string;
   doiTuongKhieuNai: string;
   vanDe: string;
   hinhAnh?: string;
   mucDoUuTien?: number;
-  phongLienQuanId?: string;
 }
 
 export interface ComplaintResponseDTO {
-  id: string | number;
-  maKhieuNai?: string;
-  maNguoiGui: string;
+  id?: string | number;
+  maKhieuNai: string;
+  maNguoiGui?: string;
   tenNguoiGui?: string;
   doiTuongKhieuNai: string;
   tenDoiTuong?: string;
   vanDe: string;
   hinhAnh?: string;
-  trangThai: 'CHO_DUYET' | 'CHO_XU_LY' | 'DANG_XU_LY' | 'DA_XU_LI' | 'DA_XU_LY' | 'TU_CHOI';
+  trangThai: TrangThaiKhieuNai;
+  ketQua?: string;
   ketLuan?: string;
-  mucDoViPham?: 'NHE' | 'TRUNG_BINH' | 'NANG';
+  mucDoViPham?: MucDoViPham;
+  ngayGui?: string;
   createdAt?: string;
   ngayTao?: string;
 }

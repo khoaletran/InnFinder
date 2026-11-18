@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Modal } from '../common/Modal';
 import { XCircle } from 'lucide-react';
-import type { LandlordAppointmentItem } from '../../types/landlord.types';
+import { Modal } from '@/components/common/Modal';
+import type { LandlordAppointmentItem } from '@/types/landlord.types';
 
 interface CancelAppointmentModalProps {
   isOpen: boolean;
@@ -11,17 +11,14 @@ interface CancelAppointmentModalProps {
   loading?: boolean;
 }
 
-export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  appointment,
-  loading = false,
-}) => {
+const CancelAppointmentModalContent: React.FC<{
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  appointment: LandlordAppointmentItem;
+  loading?: boolean;
+}> = ({ onClose, onConfirm, appointment, loading = false }) => {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-
-  if (!appointment) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +27,12 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
       return;
     }
     setError('');
-    onConfirm(reason);
+    onConfirm(reason.trim());
   };
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen={true}
       onClose={onClose}
       title="Từ chối / Hủy lịch xem phòng"
       maxWidth="md"
@@ -63,9 +60,12 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-xs text-slate-600">
-          Bạn đang yêu cầu hủy lịch hẹn của khách{' '}
+          Bạn đang yêu cầu từ chối / hủy lịch hẹn của khách{' '}
           <strong className="text-slate-800">{appointment.khachHangTen}</strong> vào lúc{' '}
-          <strong>{appointment.thoiGian} {appointment.ngayHen}</strong>.
+          <strong>
+            {appointment.thoiGian} {appointment.ngayHen}
+          </strong>
+          .
         </p>
 
         <div>
@@ -86,9 +86,18 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
         </div>
 
         <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-[11px] text-amber-800">
-          Tiền cọc giữ chân của khách sẽ được hệ thống hoàn trả 100% về tài khoản của khách hàng.
+          Tiền cọc giữ chân của khách (nếu đã nộp) sẽ được hệ thống hoàn trả 100% về ví của khách hàng.
         </div>
       </form>
     </Modal>
   );
+};
+
+export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
+  isOpen,
+  appointment,
+  ...rest
+}) => {
+  if (!isOpen || !appointment) return null;
+  return <CancelAppointmentModalContent appointment={appointment} {...rest} />;
 };

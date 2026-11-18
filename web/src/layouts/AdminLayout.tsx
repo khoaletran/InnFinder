@@ -1,20 +1,9 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  CalendarCheck2,
-  ArrowLeftRight,
-  Star,
-  AlertOctagon,
-  FolderTree,
-  BarChart3,
-  LogOut,
-  Search,
-  ExternalLink,
-} from 'lucide-react';
-import { useAuthStore } from '../store/useAuthStore';
+import { Chip } from '@heroui/react';
+import { LogOut, Search, Home, UserCircle } from 'lucide-react';
+import { ADMIN_NAV_ITEMS } from '@/constants/navigation';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -24,18 +13,6 @@ export const AdminLayout: React.FC = () => {
     logout();
     navigate('/login');
   };
-
-  const navItems = [
-    { label: 'Tổng quan', path: '/admin/dashboard', icon: LayoutDashboard },
-    { label: 'Người dùng', path: '/admin/users', icon: Users },
-    { label: 'Bài đăng', path: '/admin/posts', icon: Building2 },
-    { label: 'Lịch xem', path: '/admin/viewings', icon: CalendarCheck2 },
-    { label: 'Giao dịch', path: '/admin/transactions', icon: ArrowLeftRight },
-    { label: 'Đánh giá', path: '/admin/reviews', icon: Star },
-    { label: 'Khiếu nại', path: '/admin/complaints', icon: AlertOctagon },
-    { label: 'Danh mục', path: '/admin/categories', icon: FolderTree },
-    { label: 'Thống kê', path: '/admin/statistics', icon: BarChart3 },
-  ];
 
   return (
     <div className="min-h-screen bg-slate-100 flex text-slate-800">
@@ -59,17 +36,18 @@ export const AdminLayout: React.FC = () => {
             </Link>
           </div>
 
-          {/* Navigation Links */}
+          {/* Centralized Navigation Links from @/constants/navigation */}
           <nav className="p-3 space-y-1">
             <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Quản trị vận hành
             </div>
-            {navItems.map((item) => {
+            {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  end={item.end}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                       isActive
@@ -86,22 +64,26 @@ export const AdminLayout: React.FC = () => {
           </nav>
         </div>
 
-        {/* Bottom Section: Admin User Info & Switcher */}
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          <Link
-            to="/customer/profile"
-            className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-              Xem Cổng Khách hàng
-            </span>
-            <span className="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-300">
-              User
-            </span>
-          </Link>
+        {/* Bottom Section: Portal Switchers & Admin User Info */}
+        <div className="p-4 border-t border-slate-800 space-y-2.5">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/"
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium transition-colors"
+            >
+              <Home className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>Trang chủ</span>
+            </Link>
+            <Link
+              to="/profile"
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium transition-colors"
+            >
+              <UserCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Cổng cá nhân</span>
+            </Link>
+          </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between pt-1.5">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-9 h-9 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-400 font-bold flex items-center justify-center shrink-0 text-xs overflow-hidden">
                 {user?.hinhDaiDien || user?.avatarUrl ? (
@@ -118,15 +100,16 @@ export const AdminLayout: React.FC = () => {
                 <p className="text-xs font-semibold text-white truncate">
                   {user?.hoVaTen || user?.tenDangNhap || 'Quản trị viên'}
                 </p>
-                <span className="inline-block px-1.5 py-0.2 text-[9px] font-bold rounded bg-blue-500/20 text-blue-400 border border-blue-400/30 uppercase">
-                  Super Admin
+                <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded bg-blue-500/20 text-blue-400 border border-blue-400/30 uppercase">
+                  QUAN_TRI
                 </span>
               </div>
             </div>
             <button
+              type="button"
               onClick={handleLogout}
               title="Đăng xuất khỏi Admin"
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -150,13 +133,13 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Hệ thống hoạt động ổn định
-            </div>
+            <Chip size="sm" variant="soft" color="success" className="font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5 inline-block" />
+              Hệ thống ổn định
+            </Chip>
             <div className="h-5 w-px bg-slate-200" />
             <div className="text-xs text-slate-600 font-medium">
-              Chào buổi sáng, <strong className="text-slate-900">{user?.hoVaTen || 'Admin'}</strong>
+              Xin chào, <strong className="text-slate-900">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
             </div>
           </div>
         </header>

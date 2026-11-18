@@ -1,6 +1,8 @@
-// web/src/types/room.types.ts
+import type { ReviewResponseDTO } from './review.types';
 
-export type TrangThaiPhongTro = "CHO_DUYET" | "DA_DUYET" | "HOAN_THANH" | "HUY";
+export type { ReviewResponseDTO };
+
+export type TrangThaiPhongTro = 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
 
 export interface CategoryResponse {
   maLpt?: string;
@@ -8,8 +10,8 @@ export interface CategoryResponse {
   tenLoaiPhong?: string;
   tenLoaiPhongTro?: string;
   moTa?: string;
-  soTienCoc?: number; // Mức cọc xem phòng quy định theo loại phòng
-  phiThu?: number; // Mức phí hoa hồng sàn trích lại khi thuê thành công
+  soTienCoc?: number;
+  phiThu?: number;
 }
 
 export interface AmenityResponse {
@@ -32,18 +34,6 @@ export interface LandlordSummaryResponse {
   sdt?: string;
   hinhDaiDien?: string;
   diemUyTin?: number;
-}
-
-export interface ReviewResponseDTO {
-  maDanhGia: string;
-  maPhongTro: string;
-  maNguoiDung: string;
-  tenNguoiDung?: string;
-  tenDangNhap?: string;
-  hinhDaiDien?: string;
-  diem: number;
-  noiDung: string;
-  ngayDanhGia?: string;
 }
 
 export interface RoomSummaryResponse {
@@ -74,7 +64,8 @@ export interface RoomDetailResponse {
   moTa?: string;
   kinhDo: string;
   viDo: string;
-  coc?: number; // Tiền cọc hợp đồng
+  coc?: number;
+  cocPhong?: number;
   thoiGianDang?: string;
   trangThai?: TrangThaiPhongTro;
   tieuDe?: string;
@@ -101,5 +92,5 @@ export interface RoomFilterRequest {
   page?: number;
   size?: number;
   sortBy?: string;
-  sortDirection?: "ASC" | "DESC";
+  sortDirection?: 'ASC' | 'DESC';
 }

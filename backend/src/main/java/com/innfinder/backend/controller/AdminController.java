@@ -184,7 +184,7 @@ public class AdminController {
     @Operation(summary = "Từ chối đơn đăng ký làm Chủ trọ kèm lý do")
     public ResponseEntity<ApiResponse<LandlordRequestResponseDTO>> rejectLandlordRequest(
             @PathVariable String id,
-            @RequestBody(required = false) RejectLandlordRequestDTO request) {
+            @Valid @RequestBody(required = false) RejectLandlordRequestDTO request) {
         LandlordRequestResponseDTO result = adminService.rejectLandlordRequest(id, request);
         return ResponseEntity.ok(ApiResponse.ok(result, "Từ chối đơn đăng ký chủ trọ thành công"));
     }

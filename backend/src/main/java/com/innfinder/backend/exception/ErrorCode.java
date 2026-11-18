@@ -48,7 +48,16 @@ public enum ErrorCode {
 
     // --- BIỂU PHÍ CỌC & HOA HỒNG SÀN ---
     ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng trọ", HttpStatus.NOT_FOUND),
-    INVALID_DEPOSIT_FEE("Mức phí thu sàn phải nhỏ hơn số tiền cọc", HttpStatus.BAD_REQUEST);
+    INVALID_DEPOSIT_FEE("Mức phí thu sàn phải nhỏ hơn số tiền cọc", HttpStatus.BAD_REQUEST),
+
+    // --- TÀI KHOẢN CÁ NHÂN, NGÂN HÀNG & HỒ SƠ CHỦ TRỌ ---
+    INVALID_CURRENT_PASSWORD("Mật khẩu hiện tại không chính xác", HttpStatus.BAD_REQUEST),
+    BANK_ACCOUNT_EXISTED("Số tài khoản ngân hàng này đã được liên kết trong tài khoản của bạn", HttpStatus.BAD_REQUEST),
+    BANK_ACCOUNT_NOT_FOUND("Không tìm thấy tài khoản ngân hàng yêu cầu", HttpStatus.NOT_FOUND),
+    BANK_ACCOUNT_NOT_OWNED("Bạn không có quyền xóa tài khoản ngân hàng này", HttpStatus.FORBIDDEN),
+    ALREADY_A_LANDLORD("Tài khoản của bạn đã được kích hoạt quyền Chủ trọ", HttpStatus.BAD_REQUEST),
+    LANDLORD_REQUEST_PENDING("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Quản trị viên xét duyệt", HttpStatus.BAD_REQUEST),
+    INVALID_LANDLORD_REQUEST_STATUS("Đơn đăng ký chủ trọ không ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

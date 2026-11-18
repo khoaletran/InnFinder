@@ -1,16 +1,17 @@
-import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React from 'react';
 import {
-  Calendar,
-  Phone,
-  User,
   AlertCircle,
+  Calendar,
   CheckCircle2,
-  XCircle,
   CreditCard,
+  Phone,
   Star,
-} from "lucide-react";
-import type { AppointmentResponse, TrangThaiDatLich } from "../../types/booking.types";
+  User,
+  XCircle,
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import type { AppointmentResponse, TrangThaiDatLich } from '@/types/booking.types';
+import { formatPhoneNumber, formatVND } from '@/utils/formatters';
 
 export interface AppointmentCardProps {
   item: AppointmentResponse;
@@ -18,63 +19,61 @@ export interface AppointmentCardProps {
   isDepositPaid?: boolean;
 }
 
-// Cấu hình nhãn và màu sắc trạng thái chuẩn theo Backend & Thiết kế
 const STATUS_CONFIG: Record<
   TrangThaiDatLich,
   { label: string; textClass: string; bgClass: string; borderClass: string }
 > = {
   CHO_XAC_NHAN: {
-    label: "Chờ xác nhận",
-    textClass: "text-amber-700",
-    bgClass: "bg-amber-50",
-    borderClass: "border-amber-200",
+    label: 'Chờ xác nhận',
+    textClass: 'text-amber-700',
+    bgClass: 'bg-amber-50',
+    borderClass: 'border-amber-200',
   },
   XAC_NHAN: {
-    label: "Đã xác nhận",
-    textClass: "text-emerald-700",
-    bgClass: "bg-emerald-50",
-    borderClass: "border-emerald-200",
+    label: 'Đã xác nhận',
+    textClass: 'text-emerald-700',
+    bgClass: 'bg-emerald-50',
+    borderClass: 'border-emerald-200',
   },
   HOAN_THANH: {
-    label: "Hoàn tất",
-    textClass: "text-teal-700",
-    bgClass: "bg-teal-50",
-    borderClass: "border-teal-200",
+    label: 'Hoàn tất',
+    textClass: 'text-teal-700',
+    bgClass: 'bg-teal-50',
+    borderClass: 'border-teal-200',
   },
   HUY: {
-    label: "Đã hủy",
-    textClass: "text-rose-600",
-    bgClass: "bg-rose-50",
-    borderClass: "border-rose-200",
+    label: 'Đã hủy',
+    textClass: 'text-rose-600',
+    bgClass: 'bg-rose-50',
+    borderClass: 'border-rose-200',
   },
 };
 
-// Rút gọn thông tin đối tượng hủy (Chỉ hiển thị ai hủy, không kèm lý do dài dòng)
 const getCancelByText = (liDoHuy?: string): string => {
-  if (!liDoHuy) return "Đã hủy";
+  if (!liDoHuy) return 'Đã hủy';
   const lower = liDoHuy.toLowerCase().trim();
   if (
-    lower.startsWith("chủ trọ") ||
-    lower.includes("chủ trọ từ chối") ||
-    lower.includes("chủ trọ hủy")
+    lower.startsWith('chủ trọ') ||
+    lower.includes('chủ trọ từ chối') ||
+    lower.includes('chủ trọ hủy')
   ) {
-    return "Chủ trọ hủy";
+    return 'Chủ trọ hủy';
   }
   if (
-    lower.startsWith("khách hàng") ||
-    lower.includes("khách hàng không thuê") ||
-    lower.includes("khách hàng hủy")
+    lower.startsWith('khách hàng') ||
+    lower.includes('khách hàng không thuê') ||
+    lower.includes('khách hàng hủy')
   ) {
-    return "Khách hàng hủy";
+    return 'Khách hàng hủy';
   }
-  if (lower.includes("hệ thống") || lower.includes("hết hạn")) {
-    return "Hệ thống hủy";
+  if (lower.includes('hệ thống') || lower.includes('hết hạn')) {
+    return 'Hệ thống hủy';
   }
-  if (liDoHuy.includes(":")) {
-    const actor = liDoHuy.split(":")[0].trim();
+  if (liDoHuy.includes(':')) {
+    const actor = liDoHuy.split(':')[0].trim();
     if (actor) return actor;
   }
-  return "Đã hủy";
+  return 'Đã hủy';
 };
 
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
@@ -84,51 +83,60 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Định dạng ngày giờ: 28/09/2026 · 18:30
-  const formatDateTime = (isoString?: string) => {
-    if (!isoString) return { dateStr: "--/--/----", timeStr: "--:--" };
+  const formatAppointmentDateTime = (isoString?: string) => {
+    if (!isoString) return { dateStr: '--/--/----', timeStr: '--:--', fullStr: '--/--/---- · --:--' };
     try {
       const d = new Date(isoString);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
+      if (isNaN(d.getTime())) {
+        return { dateStr: isoString, timeStr: '', fullStr: isoString };
+      }
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
-      const hours = String(d.getHours()).padStart(2, "0");
-      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
       return {
         dateStr: `${day}/${month}/${year}`,
         timeStr: `${hours}:${minutes}`,
         fullStr: `${day}/${month}/${year} · ${hours}:${minutes}`,
       };
     } catch {
-      return { dateStr: isoString, timeStr: "", fullStr: isoString };
+      return { dateStr: isoString, timeStr: '', fullStr: isoString };
     }
   };
 
-  const { fullStr } = formatDateTime(item.ngayHen);
+  const { fullStr } = formatAppointmentDateTime(item.ngayHen);
   const statusInfo = STATUS_CONFIG[item.trangThai] || {
     label: item.trangThai,
-    textClass: "text-slate-600",
-    bgClass: "bg-slate-50",
-    borderClass: "border-slate-200",
+    textClass: 'text-slate-600',
+    bgClass: 'bg-slate-50',
+    borderClass: 'border-slate-200',
   };
 
   const canCancel =
-    item.trangThai === "CHO_XAC_NHAN" || item.trangThai === "XAC_NHAN";
+    item.trangThai === 'CHO_XAC_NHAN' || item.trangThai === 'XAC_NHAN';
 
   const hasUnpaidDeposit =
     (item.coc ?? 0) > 0 && !item.daNopCoc && !isDepositPaid;
 
   const displayImage =
     item.hinhAnh ||
-    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400";
+    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400';
+
+  const detailRoute = `/appointments/${item.maDatLich}`;
+  const depositRoute = `/appointments/deposit/${item.maDatLich}`;
+  const reviewRoute = `/reviews/create/${item.maPhongTro}?roomTitle=${encodeURIComponent(
+    item.tieuDePhong || '',
+  )}&roomAddress=${encodeURIComponent(
+    item.diaChiPhong || '',
+  )}&roomImage=${encodeURIComponent(item.hinhAnh || '')}`;
 
   return (
     <div
-      onClick={() => navigate(`/booking/rental/${item.maDatLich}`)}
+      onClick={() => navigate(detailRoute)}
       className="bg-white hover:bg-slate-50/70 transition-colors border-b border-slate-100 last:border-b-0 py-4 px-4 sm:px-6 cursor-pointer"
     >
       <div className="flex flex-col lg:grid lg:grid-cols-[minmax(240px,1fr)_165px_165px_140px_204px] lg:items-center gap-4">
-        {/* CỘT 1: Ảnh & Tiêu đề phòng & Ghi chú */}
         <div className="flex items-center gap-3.5 min-w-0">
           <img
             src={displayImage}
@@ -137,14 +145,15 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           />
           <div className="min-w-0 flex-1">
             <Link
-              to={`/booking/rental/${item.maDatLich}`}
+              to={detailRoute}
+              onClick={(e) => e.stopPropagation()}
               className="font-bold text-slate-900 text-sm hover:text-blue-600 transition-colors line-clamp-1 block"
               title={item.tieuDePhong || `Phòng trọ #${item.maPhongTro}`}
             >
               {item.tieuDePhong || `Phòng trọ #${item.maPhongTro}`}
             </Link>
             <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
-              {item.diaChiPhong || "Xem kỹ khu bếp và chỗ để xe"}
+              {item.diaChiPhong || 'Địa chỉ đang cập nhật'}
             </p>
             <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
               Mã lịch: #{item.maDatLich}
@@ -152,7 +161,6 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </div>
         </div>
 
-        {/* CỘT 2: NGÀY · GIỜ */}
         <div className="min-w-0">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
             Ngày · Giờ
@@ -163,50 +171,48 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </div>
         </div>
 
-        {/* CỘT 3: LIÊN HỆ CHỦ TRỌ */}
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-sm font-mono whitespace-nowrap">
             <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span>{item.sdtChuTro || "090 345 6789"}</span>
+            <span>{formatPhoneNumber(item.sdtChuTro)}</span>
           </div>
           <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 truncate">
             <User className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate">{item.tenChuTro ? `Chủ trọ ${item.tenChuTro}` : "Chủ trọ Minh Anh"}</span>
+            <span className="truncate">
+              {item.tenChuTro ? `Chủ trọ ${item.tenChuTro}` : 'Chủ trọ'}
+            </span>
           </span>
         </div>
 
-        {/* CỘT 4: TRẠNG THÁI (CỐ ĐỊNH TỌA ĐỘ VÀ CĂN GIỮA ĐỒNG ĐỀU) */}
         <div className="min-w-0 flex flex-col items-center justify-center text-center">
           <div className="flex items-center justify-center">
             <span
               className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusInfo.bgClass} ${statusInfo.textClass} ${statusInfo.borderClass}`}
             >
-              {item.trangThai === "CHO_XAC_NHAN" && (
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              {item.trangThai === 'CHO_XAC_NHAN' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               )}
-              {item.trangThai === "XAC_NHAN" && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              {item.trangThai === 'XAC_NHAN' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               )}
-              {item.trangThai === "HOAN_THANH" && (
+              {item.trangThai === 'HOAN_THANH' && (
                 <CheckCircle2 className="w-3 h-3 text-teal-600" />
               )}
-              {item.trangThai === "HUY" && (
+              {item.trangThai === 'HUY' && (
                 <XCircle className="w-3 h-3 text-rose-500" />
               )}
               {statusInfo.label}
             </span>
           </div>
 
-          {/* Cảnh báo nếu chưa nộp cọc giữ chân */}
-          {hasUnpaidDeposit && item.trangThai !== "HUY" && (
+          {hasUnpaidDeposit && item.trangThai !== 'HUY' && (
             <span className="text-[11px] text-amber-600 font-medium flex items-center justify-center gap-1 mt-1 text-center">
               <AlertCircle className="w-3 h-3 shrink-0" />
-              Chưa nộp cọc ({new Intl.NumberFormat("vi-VN").format(item.coc)} đ)
+              Chưa nộp cọc ({formatVND(item.coc)})
             </span>
           )}
 
-          {/* Người hủy: Chỉ hiển thị ai hủy, không để lý do dài dòng */}
-          {item.trangThai === "HUY" && (
+          {item.trangThai === 'HUY' && (
             <span
               className="text-[11px] text-rose-500 font-medium text-center mt-1 block truncate max-w-full"
               title={item.liDoHuy}
@@ -216,18 +222,16 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
 
-        {/* CỘT 5: CỤM NÚT TÁC VỤ (CỐ ĐỊNH CHÍNH XÁC KÍCH THƯỚC ĐỒNG BỘ 100%) */}
         <div
           onClick={(e) => e.stopPropagation()}
           className="w-[204px] shrink-0 flex items-center justify-end gap-2"
         >
-          {/* TRƯỜNG HỢP 1: Cần nộp cọc + Có thể hủy -> ĐỦ 2 NÚT ([Nộp cọc] + [Hủy lịch]) -> ẨN nút Xem chi tiết */}
           {hasUnpaidDeposit && canCancel ? (
             <>
               <button
                 type="button"
                 onClick={() =>
-                  navigate(`/booking/deposit/${item.maDatLich}`, {
+                  navigate(depositRoute, {
                     state: {
                       roomId: item.maPhongTro,
                       roomTitle: item.tieuDePhong,
@@ -251,21 +255,16 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
                 Hủy lịch
               </button>
             </>
-          ) : item.trangThai === "HOAN_THANH" ? (
-            /* TRƯỜNG HỢP 2: Đã hoàn tất -> 2 NÚT ([Xem chi tiết] + [★ Đánh giá]) */
+          ) : item.trangThai === 'HOAN_THANH' ? (
             <>
               <Link
-                to={`/booking/rental/${item.maDatLich}`}
+                to={detailRoute}
                 className="w-[98px] h-[34px] flex items-center justify-center text-center text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 bg-slate-50 border border-slate-200/80 rounded-full transition-colors cursor-pointer shrink-0"
               >
                 Xem chi tiết
               </Link>
               <Link
-                to={`/booking/review/${item.maPhongTro}?roomTitle=${encodeURIComponent(
-                  item.tieuDePhong || ""
-                )}&roomAddress=${encodeURIComponent(
-                  item.diaChiPhong || ""
-                )}&roomImage=${encodeURIComponent(item.hinhAnh || "")}`}
+                to={reviewRoute}
                 className="w-[98px] h-[34px] flex items-center justify-center text-center text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-full transition-colors gap-1 cursor-pointer shrink-0"
               >
                 <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
@@ -273,10 +272,9 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </Link>
             </>
           ) : canCancel ? (
-            /* TRƯỜNG HỢP 3: Chỉ có thể hủy (Đã nộp cọc hoặc không cần cọc) -> 2 NÚT ([Xem chi tiết] + [Hủy lịch]) */
             <>
               <Link
-                to={`/booking/rental/${item.maDatLich}`}
+                to={detailRoute}
                 className="w-[98px] h-[34px] flex items-center justify-center text-center text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 bg-slate-50 border border-slate-200/80 rounded-full transition-colors cursor-pointer shrink-0"
               >
                 Xem chi tiết
@@ -290,9 +288,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </button>
             </>
           ) : (
-            /* TRƯỜNG HỢP 4: Đã hủy -> 1 NÚT [Xem chi tiết] */
             <Link
-              to={`/booking/rental/${item.maDatLich}`}
+              to={detailRoute}
               className="w-[98px] h-[34px] flex items-center justify-center text-center text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100 bg-slate-50 border border-slate-200/80 rounded-full transition-colors cursor-pointer shrink-0"
             >
               Xem chi tiết

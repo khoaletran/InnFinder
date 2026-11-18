@@ -1,4 +1,4 @@
-import { axiosClient } from '../api/axiosClient';
+import { axiosClient } from '@/api/axiosClient';
 import type {
   AuthResponse,
   BankAccountResponse,
@@ -10,21 +10,19 @@ import type {
   UpdateProfileRequest,
   UpgradeLandlordRequest,
   UserProfileResponse,
-} from '../types/auth-user.types';
+} from '@/types/auth-user.types';
 
 export const authUserService = {
-  // 1. Xác thực (AuthController)
   register: (data: RegisterRequest) => {
-    return axiosClient.post<any, string>('/api/auth/register', data);
+    return axiosClient.post<unknown, string>('/api/auth/register', data);
   },
 
   login: (data: LoginRequest) => {
-    return axiosClient.post<any, AuthResponse>('/api/auth/login', data);
+    return axiosClient.post<unknown, AuthResponse>('/api/auth/login', data);
   },
 
-  // 2. Hồ sơ cá nhân (UserController)
   getMyProfile: async (): Promise<UserProfileResponse> => {
-    const res = await axiosClient.get<any, UserProfileResponse>('/api/users/profile');
+    const res = await axiosClient.get<unknown, UserProfileResponse>('/api/users/profile');
     if (res && res.hinhDaiDien && !res.avatarUrl) {
       res.avatarUrl = res.hinhDaiDien;
     }
@@ -36,7 +34,7 @@ export const authUserService = {
       ...data,
       hinhDaiDien: data.hinhDaiDien || data.avatarUrl,
     };
-    const res = await axiosClient.put<any, UserProfileResponse>('/api/users/profile', payload);
+    const res = await axiosClient.put<unknown, UserProfileResponse>('/api/users/profile', payload);
     if (res && res.hinhDaiDien && !res.avatarUrl) {
       res.avatarUrl = res.hinhDaiDien;
     }
@@ -44,31 +42,42 @@ export const authUserService = {
   },
 
   changePassword: (data: ChangePasswordRequest) => {
-    return axiosClient.patch<any, string>('/api/users/change-password', data);
+    return axiosClient.patch<unknown, string>('/api/users/change-password', data);
   },
 
   getMyBankAccounts: (): Promise<BankAccountResponse[]> => {
-    return axiosClient.get<any, BankAccountResponse[]>('/api/users/bank-accounts');
+    return axiosClient.get<unknown, BankAccountResponse[]>('/api/users/bank-accounts');
   },
 
-  addBankAccount: (data: { soTaiKhoan: string; tenNganHang: string; tenChuTaiKhoan?: string }) => {
-    return axiosClient.post<any, BankAccountResponse>('/api/users/bank-accounts', data);
+  addBankAccount: (data: {
+    soTaiKhoan: string;
+    tenNganHang: string;
+    tenChuTaiKhoan?: string;
+  }) => {
+    return axiosClient.post<unknown, BankAccountResponse>('/api/users/bank-accounts', data);
+  },
+
+  deleteBankAccount: (id: number) => {
+    return axiosClient.delete<unknown, void>(`/api/users/bank-accounts/${id}`);
   },
 
   upgradeToLandlord: (data: UpgradeLandlordRequest) => {
-    return axiosClient.post<any, string>('/api/users/upgrade-to-landlord', data);
+    return axiosClient.post<unknown, string>('/api/users/upgrade-to-landlord', data);
   },
 
   getMyLandlordRequest: () => {
-    return axiosClient.get<any, any>('/api/users/my-landlord-request');
+    return axiosClient.get<unknown, Record<string, unknown> | null>(
+      '/api/users/my-landlord-request',
+    );
   },
 
-  // 3. Khiếu nại (ComplaintController)
   createComplaint: (data: ComplaintRequestDTO) => {
-    return axiosClient.post<any, ComplaintResponseDTO>('/api/complaints', data);
+    return axiosClient.post<unknown, ComplaintResponseDTO>('/api/complaints', data);
   },
 
-  getMyComplaints: (): Promise<ComplaintResponseDTO[]> => {
-    return axiosClient.get<any, ComplaintResponseDTO[]>('/api/complaints/my-complaints');
+  getMyComplaints: (type: 'RECEIVED' | 'SENT' = 'SENT'): Promise<ComplaintResponseDTO[]> => {
+    return axiosClient.get<unknown, ComplaintResponseDTO[]>('/api/complaints/my-complaints', {
+      params: { type },
+    });
   },
 };

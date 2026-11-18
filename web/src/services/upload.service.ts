@@ -7,7 +7,7 @@ export const uploadService = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const res = await axiosClient.post<any, string>(`/api/upload/image?folder=${folder}`, formData, {
+    const res = await axiosClient.post<FormData, string>(`/api/upload/image?folder=${folder}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -19,7 +19,7 @@ export const uploadService = {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
     
-    const res = await axiosClient.post<any, string[]>(`/api/upload/images?folder=${folder}`, formData, {
+    const res = await axiosClient.post<FormData, string[]>(`/api/upload/images?folder=${folder}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

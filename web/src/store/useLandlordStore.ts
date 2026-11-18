@@ -1,17 +1,22 @@
 import { create } from 'zustand';
-import type { LandlordRoomItem, LandlordDashboardStats } from '../types/landlord.types';
+import type {
+  LandlordDashboardStats,
+  LandlordRoomItem,
+  TrangThaiPhongTro,
+} from '@/types/landlord.types';
+
+export type LandlordRoomFilter = 'ALL' | TrangThaiPhongTro;
 
 interface LandlordState {
   rooms: LandlordRoomItem[];
   stats: LandlordDashboardStats | null;
-  filterStatus: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY';
+  filterStatus: LandlordRoomFilter;
   searchQuery: string;
   isLoading: boolean;
 
-  // Actions
   setRooms: (rooms: LandlordRoomItem[]) => void;
   setStats: (stats: LandlordDashboardStats) => void;
-  setFilterStatus: (status: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY') => void;
+  setFilterStatus: (status: LandlordRoomFilter) => void;
   setSearchQuery: (query: string) => void;
   setLoading: (loading: boolean) => void;
   addRoom: (room: LandlordRoomItem) => void;

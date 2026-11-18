@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 
 export interface TimeSlotPickerProps {
@@ -7,7 +7,7 @@ export interface TimeSlotPickerProps {
   selectedDate: string; // YYYY-MM-DD
 }
 
-export const TIME_SLOTS = [
+const TIME_SLOTS = [
   "08:30",
   "09:30",
   "10:30",
@@ -23,13 +23,20 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   onSelectTime,
   selectedDate,
 }) => {
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Ràng buộc: Nếu là ngày hôm nay thì giờ hẹn phải cách hiện tại ít nhất 1 tiếng
   const isSlotDisabled = (time: string): boolean => {
     if (!selectedDate) return false;
     const [year, month, day] = selectedDate.split("-").map(Number);
     const [h, m] = time.split(":").map(Number);
     const slotDate = new Date(year, month - 1, day, h, m, 0, 0);
-    return slotDate.getTime() < Date.now() + 60 * 60 * 1000;
+    return slotDate.getTime() < nowMs + 60 * 60 * 1000;
   };
 
   return (

@@ -1,87 +1,93 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthLayout } from '../layouts/AuthLayout';
-import { CustomerLayout } from '../layouts/CustomerLayout';
-import { AdminLayout } from '../layouts/AdminLayout';
-import { ProtectedRoute } from './ProtectedRoute';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { AdminLayout } from '@/layouts/AdminLayout';
+import { AuthLayout } from '@/layouts/AuthLayout';
+import { CustomerLayout } from '@/layouts/CustomerLayout';
+import { LandlordLayout } from '@/layouts/LandlordLayout';
+import { ProtectedRoute } from '@/routes/ProtectedRoute';
 
-// Public Guest & Tenant Pages (Phân hệ Người 2 - Tìm kiếm, Bản đồ & Chi tiết phòng)
-import { HomePage } from '../pages/HomePage';
-import { SearchMapPage } from '../pages/SearchMapPage';
-import { RoomDetailPage } from '../pages/RoomDetailPage';
-import { FavoritesPage } from '../pages/FavoritesPage';
+// Auth Pages (Thành viên 1)
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { LoginPage } from '@/pages/auth/LoginPage';
+import { RegisterPage } from '@/pages/auth/RegisterPage';
 
-// Auth Pages
-import { LoginPage } from '../pages/auth/LoginPage';
-import { RegisterPage } from '../pages/auth/RegisterPage';
-import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
+// Admin Console Pages (Thành viên 1)
+import { CategoriesPage } from '@/pages/admin/CategoriesPage';
+import { ComplaintsAdminPage } from '@/pages/admin/ComplaintsAdminPage';
+import { DashboardPage } from '@/pages/admin/DashboardPage';
+import { PostsPage } from '@/pages/admin/PostsPage';
+import { ReviewsPage } from '@/pages/admin/ReviewsPage';
+import { StatisticsPage } from '@/pages/admin/StatisticsPage';
+import { TransactionsPage } from '@/pages/admin/TransactionsPage';
+import { UsersPage } from '@/pages/admin/UsersPage';
+import { ViewingsPage } from '@/pages/admin/ViewingsPage';
 
-// Customer Pages (Phân hệ Người 1)
-import { ProfilePage } from '../pages/customer/ProfilePage';
-import { NotificationsPage } from '../pages/customer/NotificationsPage';
-import { ComplaintsPage } from '../pages/customer/ComplaintsPage';
+// Customer Discovery & Details Pages (Thành viên 2)
+import { FavoritesPage } from '@/pages/customer/FavoritesPage';
+import { HomePage } from '@/pages/customer/HomePage';
+import { RoomDetailPage } from '@/pages/customer/RoomDetailPage';
+import { SearchPage } from '@/pages/customer/SearchPage';
 
-// Booking Pages (Phân hệ Người 3 - Đặt lịch, Cọc, Thuê phòng, Giao dịch & Đánh giá)
-import { AppointmentsPage } from '../pages/booking/AppointmentsPage';
-import { RentalDetailPage } from '../pages/booking/RentalDetailPage';
-import { TransactionsPage as CustomerTransactionsPage } from '../pages/booking/TransactionsPage';
-import { TransactionDetailPage } from '../pages/booking/TransactionDetailPage';
-import { SchedulePage } from '../pages/booking/SchedulePage';
-import { DepositPaymentPage } from '../pages/booking/DepositPaymentPage';
-import { ReviewPage } from '../pages/booking/ReviewPage';
+// Customer Profile, Notifications & Complaints Pages (Thành viên 1)
+import { ComplaintsPage } from '@/pages/customer/ComplaintsPage';
+import { NotificationsPage } from '@/pages/customer/NotificationsPage';
+import { ProfilePage } from '@/pages/customer/ProfilePage';
 
-// Landlord Pages (Phân hệ Người 4 - Cổng Chủ trọ)
-import { LandlordLayout } from '../layouts/LandlordLayout';
-import { DashboardPage as LandlordDashboardPage } from '../pages/landlord/DashboardPage';
-import { RoomsPage } from '../pages/landlord/RoomsPage';
-import { CreateRoomPage } from '../pages/landlord/CreateRoomPage';
-import { AppointmentsPage as LandlordAppointmentsPage } from '../pages/landlord/AppointmentsPage';
-import { WalletPage as LandlordWalletPage } from '../pages/landlord/WalletPage';
-import { ReviewsComplaintsPage } from '../pages/landlord/ReviewsComplaintsPage';
+// Customer Booking, Deposit, Rentals, Wallet & Review Pages (Thành viên 3)
+import { AppointmentDetailPage } from '@/pages/customer/AppointmentDetailPage';
+import { AppointmentsPage } from '@/pages/customer/AppointmentsPage';
+import { DepositPaymentPage } from '@/pages/customer/DepositPaymentPage';
+import { RentalsPage } from '@/pages/customer/RentalsPage';
+import { ReviewPage } from '@/pages/customer/ReviewPage';
+import { SchedulePage } from '@/pages/customer/SchedulePage';
+import { TransactionDetailPage } from '@/pages/customer/TransactionDetailPage';
+import { TransactionsPage as CustomerTransactionsPage } from '@/pages/customer/TransactionsPage';
+import { WalletPage as CustomerWalletPage } from '@/pages/customer/WalletPage';
 
-// Admin Pages (Phân hệ Web Admin Console)
-import { DashboardPage } from '../pages/admin/DashboardPage';
-import { UsersPage } from '../pages/admin/UsersPage';
-import { PostsPage } from '../pages/admin/PostsPage';
-import { ViewingsPage } from '../pages/admin/ViewingsPage';
-import { TransactionsPage } from '../pages/admin/TransactionsPage';
-import { ReviewsPage } from '../pages/admin/ReviewsPage';
-import { ComplaintsAdminPage } from '../pages/admin/ComplaintsAdminPage';
-import { CategoriesPage } from '../pages/admin/CategoriesPage';
-import { StatisticsPage } from '../pages/admin/StatisticsPage';
+// Landlord Portal Pages (Thành viên 4)
+import { AppointmentsPage as LandlordAppointmentsPage } from '@/pages/landlord/AppointmentsPage';
+import { CreateRoomPage } from '@/pages/landlord/CreateRoomPage';
+import { DashboardPage as LandlordDashboardPage } from '@/pages/landlord/DashboardPage';
+import { ReviewsComplaintsPage } from '@/pages/landlord/ReviewsComplaintsPage';
+import { RoomsPage } from '@/pages/landlord/RoomsPage';
+import { WalletPage as LandlordWalletPage } from '@/pages/landlord/WalletPage';
+
+const LegacyDepositRedirect: React.FC = () => {
+  const { appointmentId } = useParams<{ appointmentId: string }>();
+  return <Navigate to={`/appointments/deposit/${appointmentId || ''}`} replace />;
+};
+
+const LegacyRentalRedirect: React.FC = () => {
+  const { appointmentId } = useParams<{ appointmentId: string }>();
+  return <Navigate to={`/appointments/${appointmentId || ''}`} replace />;
+};
+
+const LegacyReviewRedirect: React.FC = () => {
+  const { roomId } = useParams<{ roomId: string }>();
+  return <Navigate to={`/reviews/create/${roomId || ''}`} replace />;
+};
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* 1. PUBLIC TENANT & GUEST ROUTES (Phân hệ Người 2) */}
+      {/* 1. PUBLIC DISCOVERY ROUTES (Thành viên 2) */}
       <Route path="/" element={<HomePage />} />
-      <Route path="/search" element={<SearchMapPage />} />
+      <Route path="/search" element={<SearchPage />} />
       <Route path="/room/:id" element={<RoomDetailPage />} />
-      <Route path="/favorites" element={<FavoritesPage />} />
 
-      {/* 2. PUBLIC AUTH ROUTES */}
+      {/* 2. PUBLIC AUTH ROUTES (Thành viên 1) */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
-      {/* 3. PROTECTED CUSTOMER ROUTES (Phân hệ Người 1) */}
-      <Route
-        path="/customer"
-        element={
-          <ProtectedRoute>
-            <CustomerLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/customer/profile" replace />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="complaints" element={<ComplaintsPage />} />
+      {/* 3. CUSTOMER PORTAL ROUTES — Chuẩn hóa 100% theo AGENTS.md Mục 6.2 */}
+      <Route element={<CustomerLayout />}>
+        {/* Phòng yêu thích cho phép xem cả khi khách vãng lai đã lưu tạm */}
+        <Route path="/favorites" element={<FavoritesPage />} />
       </Route>
 
-      {/* 4. PHÂN HỆ KHÁCH THUÊ (Người 3 - Đặt lịch, Thuê phòng, Giao dịch) */}
       <Route
         element={
           <ProtectedRoute>
@@ -89,24 +95,59 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
+        {/* Thành viên 1: Hồ sơ, Thông báo, Khiếu nại */}
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/complaints" element={<ComplaintsPage />} />
+
+        {/* Thành viên 3: Đặt lịch, Cọc, Quyết định thuê, Ví & Sổ cái, Đánh giá */}
         <Route path="/appointments" element={<AppointmentsPage />} />
-        <Route path="/rentals" element={<AppointmentsPage />} />
-        <Route path="/rentals/:appointmentId" element={<RentalDetailPage />} />
+        <Route path="/appointments/schedule" element={<SchedulePage />} />
+        <Route path="/appointments/schedule/:roomId" element={<SchedulePage />} />
+        <Route path="/appointments/deposit/:appointmentId" element={<DepositPaymentPage />} />
+        <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+        <Route path="/rentals" element={<RentalsPage />} />
+        <Route path="/rentals/:appointmentId" element={<AppointmentDetailPage />} />
+        <Route path="/wallet" element={<CustomerWalletPage />} />
         <Route path="/transactions" element={<CustomerTransactionsPage />} />
         <Route path="/transactions/:transactionId" element={<TransactionDetailPage />} />
+        <Route path="/reviews/create/:roomId" element={<ReviewPage />} />
 
-        {/* Cấu hình đầy đủ các route /booking/* theo đặc tả AGENTS.md */}
-        <Route path="/booking/appointments" element={<AppointmentsPage />} />
+        {/* Tương thích ngược các đường dẫn cũ (/customer/* & /booking/*) */}
+        <Route path="/customer" element={<Navigate to="/profile" replace />} />
+        <Route path="/customer/profile" element={<Navigate to="/profile" replace />} />
+        <Route path="/customer/notifications" element={<Navigate to="/notifications" replace />} />
+        <Route path="/customer/complaints" element={<Navigate to="/complaints" replace />} />
+        <Route path="/booking/appointments" element={<Navigate to="/appointments" replace />} />
+        <Route path="/booking/rental-requests" element={<Navigate to="/rentals" replace />} />
         <Route path="/booking/schedule" element={<SchedulePage />} />
         <Route path="/booking/schedule/:roomId" element={<SchedulePage />} />
-        <Route path="/booking/deposit/:appointmentId" element={<DepositPaymentPage />} />
-        <Route path="/booking/rental/:appointmentId" element={<RentalDetailPage />} />
-        <Route path="/booking/transactions" element={<CustomerTransactionsPage />} />
-        <Route path="/booking/transactions/:transactionId" element={<TransactionDetailPage />} />
-        <Route path="/booking/review/:roomId" element={<ReviewPage />} />
+        <Route path="/booking/deposit/:appointmentId" element={<LegacyDepositRedirect />} />
+        <Route path="/booking/rental/:appointmentId" element={<LegacyRentalRedirect />} />
+        <Route path="/booking/transactions" element={<Navigate to="/transactions" replace />} />
+        <Route path="/booking/review/:roomId" element={<LegacyReviewRedirect />} />
       </Route>
 
-      {/* 5. PROTECTED ADMIN CONSOLE ROUTES */}
+      {/* 4. LANDLORD PORTAL ROUTES (Thành viên 4) */}
+      <Route
+        path="/landlord"
+        element={
+          <ProtectedRoute requireChuTro={true}>
+            <LandlordLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/landlord/dashboard" replace />} />
+        <Route path="dashboard" element={<LandlordDashboardPage />} />
+        <Route path="rooms" element={<RoomsPage />} />
+        <Route path="rooms/create" element={<CreateRoomPage />} />
+        <Route path="rooms/edit/:id" element={<CreateRoomPage isEdit={true} />} />
+        <Route path="appointments" element={<LandlordAppointmentsPage />} />
+        <Route path="wallet" element={<LandlordWalletPage />} />
+        <Route path="reviews" element={<ReviewsComplaintsPage />} />
+      </Route>
+
+      {/* 5. ADMIN CONSOLE ROUTES (Thành viên 1) */}
       <Route
         path="/admin"
         element={
@@ -125,25 +166,6 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsAdminPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
-      </Route>
-
-      {/* 4. PROTECTED LANDLORD CONSOLE ROUTES */}
-      <Route
-        path="/landlord"
-        element={
-          <ProtectedRoute requireChuTro={true}>
-            <LandlordLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/landlord/dashboard" replace />} />
-        <Route path="dashboard" element={<LandlordDashboardPage />} />
-        <Route path="rooms" element={<RoomsPage />} />
-        <Route path="rooms/create" element={<CreateRoomPage />} />
-        <Route path="rooms/edit/:id" element={<CreateRoomPage isEdit={true} />} />
-        <Route path="appointments" element={<LandlordAppointmentsPage />} />
-        <Route path="wallet" element={<LandlordWalletPage />} />
-        <Route path="reviews" element={<ReviewsComplaintsPage />} />
       </Route>
 
       {/* Catch-all 404 redirect */}

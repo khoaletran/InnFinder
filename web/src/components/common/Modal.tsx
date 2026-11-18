@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Card } from '@heroui/react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -45,35 +46,40 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div
-        className={`w-full ${maxWidthClasses[maxWidth]} bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200`}
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-xs animate-in fade-in duration-200"
+    >
+      <Card
         onClick={(e) => e.stopPropagation()}
+        className={`w-full ${maxWidthClasses[maxWidth]} bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden p-0`}
       >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <Card.Header className="px-6 py-4 border-b border-slate-100 flex flex-row items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+            <Card.Title className="text-base font-bold text-slate-900">{title}</Card.Title>
+            {subtitle && (
+              <Card.Description className="text-xs text-slate-500 mt-0.5">
+                {subtitle}
+              </Card.Description>
+            )}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
+        </Card.Header>
 
-        {/* Content */}
-        <div className="px-6 py-5 max-h-[80vh] overflow-y-auto">{children}</div>
+        <Card.Content className="px-6 py-5 max-h-[78vh] overflow-y-auto">{children}</Card.Content>
 
-        {/* Footer */}
         {footer && (
-          <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+          <Card.Footer className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
             {footer}
-          </div>
+          </Card.Footer>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

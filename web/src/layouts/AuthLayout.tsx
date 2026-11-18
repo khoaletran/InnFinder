@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
+import { Card } from '@heroui/react';
 import { ShieldCheck, Headphones, Lock, CheckCircle2, Home, ArrowLeft } from 'lucide-react';
 
 export const AuthLayout: React.FC = () => {
@@ -36,10 +37,9 @@ export const AuthLayout: React.FC = () => {
 
       {/* Main Content Area: 2 Columns */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
-        <div className="w-full max-w-6xl bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px]">
+        <Card className="w-full max-w-6xl bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px] p-0">
           {/* Left Column: Hero Brand Panel */}
           <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 text-white p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
-            {/* Ambient background glow */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
 
@@ -53,7 +53,8 @@ export const AuthLayout: React.FC = () => {
                 Tìm đúng phòng. <br />
                 <span className="bg-gradient-to-r from-blue-400 to-teal-300 bg-clip-text text-transparent">
                   Quản lý nhẹ nhàng.
-                </span> <br />
+                </span>{' '}
+                <br />
                 Dữ liệu rõ ràng.
               </h1>
 
@@ -69,7 +70,9 @@ export const AuthLayout: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Tin đăng đã xác thực</h4>
-                    <p className="text-xs text-slate-300">Admin kiểm duyệt thực tế hình ảnh, tiện ích và vị trí GPS.</p>
+                    <p className="text-xs text-slate-300">
+                      Admin kiểm duyệt thực tế hình ảnh, tiện ích và vị trí GPS.
+                    </p>
                   </div>
                 </div>
 
@@ -79,7 +82,9 @@ export const AuthLayout: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Bảo vệ cọc giữ chân xem phòng</h4>
-                    <p className="text-xs text-slate-300">Hoàn cọc 100% khi xem phòng, sàn chỉ thu hoa hồng khi hai bên xác nhận thuê.</p>
+                    <p className="text-xs text-slate-300">
+                      Hoàn cọc 100% khi xem phòng, sàn chỉ thu hoa hồng khi hai bên xác nhận thuê.
+                    </p>
                   </div>
                 </div>
 
@@ -89,7 +94,9 @@ export const AuthLayout: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Bảo mật thông tin CCCD & Ngân hàng</h4>
-                    <p className="text-xs text-slate-300">Hệ thống mã hóa chuẩn ngân hàng và quản lý ví minh bạch.</p>
+                    <p className="text-xs text-slate-300">
+                      Hệ thống mã hóa chuẩn ngân hàng và quản lý ví minh bạch.
+                    </p>
                   </div>
                 </div>
 
@@ -99,7 +106,9 @@ export const AuthLayout: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Hỗ trợ & Xử lý khiếu nại</h4>
-                    <p className="text-xs text-slate-300">Ban quản trị can thiệp và xử lý minh chứng trong vòng 24 giờ.</p>
+                    <p className="text-xs text-slate-300">
+                      Ban quản trị can thiệp và xử lý minh chứng trong vòng 24 giờ.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -112,12 +121,12 @@ export const AuthLayout: React.FC = () => {
           </div>
 
           {/* Right Column: Form Outlet */}
-          <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex items-center justify-center bg-white">
+          <Card.Content className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex items-center justify-center bg-white">
             <div className="w-full max-w-md">
               <Outlet />
             </div>
-          </div>
-        </div>
+          </Card.Content>
+        </Card>
       </main>
     </div>
   );

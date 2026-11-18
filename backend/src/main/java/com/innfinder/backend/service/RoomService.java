@@ -104,8 +104,8 @@ public class RoomService {
                 .thoiGianDang(LocalDateTime.now())
                 .trangThai(TrangThaiPhongTro.CHO_DUYET)
                 .diaChi(request.getDiaChi())
-                .kinhDo(request.getKinhDo())
-                .viDo(request.getViDo())
+                .kinhDo(request.getKinhDo() != null && !request.getKinhDo().isBlank() ? request.getKinhDo() : "106.6297")
+                .viDo(request.getViDo() != null && !request.getViDo().isBlank() ? request.getViDo() : "10.8231")
                 .cocPhong(request.getCoc() != null ? request.getCoc() : 0L)
                 .dsTienIch(dsTienIch)
                 .build();
@@ -161,8 +161,8 @@ public class RoomService {
                 .thoiGianDang(LocalDateTime.now())
                 .trangThai(TrangThaiPhongTro.CHO_DUYET)
                 .diaChi(request.getDiaChi())
-                .kinhDo(request.getKinhDo() != null ? request.getKinhDo() : "10.8231")
-                .viDo(request.getViDo() != null ? request.getViDo() : "106.6297")
+                .kinhDo(request.getKinhDo() != null && !request.getKinhDo().isBlank() ? request.getKinhDo() : "106.6297")
+                .viDo(request.getViDo() != null && !request.getViDo().isBlank() ? request.getViDo() : "10.8231")
                 .cocPhong(request.getCoc() != null ? request.getCoc() : 0L)
                 .dsTienIch(dsTienIch)
                 .build();

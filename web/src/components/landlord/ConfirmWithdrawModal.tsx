@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Modal } from '../common/Modal';
 import { CheckCircle2, ShieldAlert } from 'lucide-react';
-import type { BankAccountItem } from '../../types/landlord.types';
+import { Modal } from '@/components/common/Modal';
+import { useAuthStore } from '@/store/useAuthStore';
+import type { BankAccountItem } from '@/types/landlord.types';
+import { formatVND } from '@/utils/formatters';
 
 interface ConfirmWithdrawModalProps {
   isOpen: boolean;
@@ -12,23 +14,27 @@ interface ConfirmWithdrawModalProps {
   loading?: boolean;
 }
 
-export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  amount,
-  account,
-  loading = false,
-}) => {
+const ConfirmWithdrawModalContent: React.FC<{
+  onClose: () => void;
+  onConfirm: () => void;
+  amount: number;
+  account: BankAccountItem;
+  loading?: boolean;
+}> = ({ onClose, onConfirm, amount, account, loading = false }) => {
+  const user = useAuthStore((s) => s.user);
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
 
-  if (!isOpen || !account) return null;
+  const accountHolder =
+    account.tenChuTaiKhoan ||
+    user?.hoVaTen ||
+    user?.tenDangNhap ||
+    'Chủ tài khoản';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length < 6) {
-      setError('Vui lòng nhập đủ 6 chữ số mã xác thực');
+      setError('Vui lòng nhập đủ 6 chữ số mã xác thực OTP');
       return;
     }
     setError('');
@@ -37,10 +43,10 @@ export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen={true}
       onClose={onClose}
       title="Xác nhận yêu cầu rút tiền"
-      subtitle="Vui lòng kiểm tra kỹ thông tin trước khi chuyển"
+      subtitle="Vui lòng kiểm tra kỹ thông tin ngân hàng trước khi xác nhận"
       maxWidth="sm"
       footer={
         <>
@@ -68,7 +74,7 @@ export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
         <div className="text-center py-2">
           <span className="text-xs text-slate-500 font-medium block">Số tiền rút thực nhận</span>
           <span className="text-2xl font-black text-slate-900 mt-1 block">
-            {amount.toLocaleString('vi-VN')} đ
+            {formatVND(amount)}
           </span>
         </div>
 
@@ -79,22 +85,23 @@ export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Số tài khoản:</span>
-            <span className="font-bold text-slate-800 tracking-wider">{account.soTaiKhoan}</span>
+            <span className="font-bold text-slate-800 font-mono tracking-wider">
+              {account.soTaiKhoan}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Chủ tài khoản:</span>
-            <span className="font-bold text-slate-800">TRẦN VĂN KHẢI</span>
+            <span className="font-bold text-slate-800 uppercase">{accountHolder}</span>
           </div>
           <div className="flex justify-between border-t border-slate-200/60 pt-2">
             <span className="text-slate-500">Phí giao dịch:</span>
-            <span className="font-bold text-emerald-600">0 VNĐ (Miễn phí)</span>
+            <span className="font-bold text-emerald-600">0 ₫ (Miễn phí)</span>
           </div>
         </div>
 
-        {/* OTP Simulation */}
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">
-            Mã OTP xác nhận (Nhập 6 số bất kỳ để test)
+            Mã OTP xác thực (6 chữ số)
           </label>
           <input
             type="text"
@@ -112,9 +119,18 @@ export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
 
         <div className="flex items-center gap-2 p-2.5 bg-amber-50 rounded-xl text-[11px] text-amber-700">
           <ShieldAlert className="w-4 h-4 shrink-0" />
-          <span>Giao dịch an toàn được mã hóa 2 lớp.</span>
+          <span>Giao dịch rút tiền an toàn được bảo vệ xác thực 2 lớp.</span>
         </div>
       </form>
     </Modal>
   );
+};
+
+export const ConfirmWithdrawModal: React.FC<ConfirmWithdrawModalProps> = ({
+  isOpen,
+  account,
+  ...rest
+}) => {
+  if (!isOpen || !account) return null;
+  return <ConfirmWithdrawModalContent account={account} {...rest} />;
 };

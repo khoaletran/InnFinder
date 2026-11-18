@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../store/useAuthStore';
-import type { VaiTro } from '../types/auth-user.types';
+import { useAuthStore } from '@/store/useAuthStore';
+import type { VaiTro } from '@/types/auth-user.types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,11 +25,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (user.vaiTro === 'QUAN_TRI') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    return <Navigate to="/customer/profile" replace />;
+    return <Navigate to="/profile" replace />;
   }
 
   if (requireChuTro && !user?.chuTro) {
-    return <Navigate to="/customer/profile" replace />;
+    return <Navigate to="/profile?tab=upgrade" replace />;
   }
 
   return <>{children}</>;

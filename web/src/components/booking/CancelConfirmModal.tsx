@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { AlertTriangle, X, Check, Loader2 } from "lucide-react";
 
 export interface CancelConfirmModalProps {
@@ -14,7 +14,7 @@ export interface CancelConfirmModalProps {
 }
 
 // 5 lý do mẫu thường gặp khi hủy lịch xem phòng (đồng bộ 100% với Mobile)
-export const QUICK_REASONS = [
+const QUICK_REASONS = [
   "Phòng thực tế không phù hợp",
   "Bận việc đột xuất",
   "Đã tìm được phòng khác",
@@ -22,8 +22,7 @@ export const QUICK_REASONS = [
   "Đổi ý định thuê khu vực này",
 ];
 
-export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
-  isOpen,
+const CancelConfirmModalContent: React.FC<Omit<CancelConfirmModalProps, "isOpen">> = ({
   isLoading = false,
   onClose,
   onConfirmCancel,
@@ -35,15 +34,6 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
 }) => {
   const [selectedQuickReason, setSelectedQuickReason] = useState<string>("");
   const [customReason, setCustomReason] = useState<string>("");
-
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedQuickReason("");
-      setCustomReason("");
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const finalReason = customReason.trim() || selectedQuickReason;
   const isConfirmDisabled = (requireReason && !finalReason) || isLoading;
@@ -176,6 +166,11 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
       </div>
     </div>
   );
+};
+
+export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({ isOpen, ...rest }) => {
+  if (!isOpen) return null;
+  return <CancelConfirmModalContent {...rest} />;
 };
 
 export default CancelConfirmModal;

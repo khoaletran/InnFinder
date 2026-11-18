@@ -360,7 +360,7 @@ public class AdminService {
                 .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));
 
         if (yc.getTrangThai() != TrangThaiYeuCauChuTro.CHO_DUYET) {
-            throw new RuntimeException("Đơn đăng ký không ở trạng thái chờ duyệt!");
+            throw new AppException(ErrorCode.INVALID_LANDLORD_REQUEST_STATUS);
         }
 
         // 1. Cập nhật trạng thái đơn
@@ -409,13 +409,13 @@ public class AdminService {
                 .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));
 
         if (yc.getTrangThai() != TrangThaiYeuCauChuTro.CHO_DUYET) {
-            throw new RuntimeException("Đơn đăng ký không ở trạng thái chờ duyệt!");
+            throw new AppException(ErrorCode.INVALID_LANDLORD_REQUEST_STATUS);
         }
 
         yc.setTrangThai(TrangThaiYeuCauChuTro.TU_CHOI);
         yc.setNgayDuyet(LocalDateTime.now());
         yc.setLyDoTuChoi(request != null && request.getLyDo() != null && !request.getLyDo().isBlank()
-                ? request.getLyDo()
+                ? request.getLyDo().trim()
                 : "Hồ sơ không đáp ứng tiêu chuẩn xét duyệt");
 
         yc = yeuCauChuTroRepository.save(yc);

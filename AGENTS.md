@@ -11,10 +11,10 @@
 ## MỤC LỤC
 1. [Kiến trúc Kỹ thuật & Hạ tầng](#1-kiến-trúc-kỹ-thuật--hạ-tầng)
    - 1.1. Cơ sở Dữ liệu & Backend API
-   - 1.2. Nền tảng Web Frontend (React 19, HeroUI v3, Tailwind v4, Vite)
-   - 1.3. Nền tảng Mobile App (React Native, Expo SDK 52, HeroUI Native)
+   - 1.2. Nền tảng Web Frontend (React 19, HeroUI v3, Tailwind v4, Vite 8)
+   - 1.3. Nền tảng Mobile App (React Native 0.88, Expo SDK 58, HeroUI Native)
 2. [Chi tiết Toàn bộ Luồng Nghiệp vụ Hệ thống (8 Use Cases Chính Thức)](#2-chi-tiết-toàn-bộ-luồng-nghiệp-vụ-hệ-thống-8-use-cases-chính-thức)
-   - 2.1. Đăng ký & Kích hoạt tài khoản (UC: Đăng ký)
+   - 2.1. Đăng ký & Nâng cấp vai trò Chủ trọ (UC: Đăng ký)
    - 2.2. Tìm kiếm & Xem chi tiết phòng trọ (UC: Tìm kiếm phòng trọ)
    - 2.3. Đặt lịch xem phòng, Cọc giữ chân, Hoàn cọc & Thu phí hoa hồng (Quy trình Swimlane cốt lõi)
    - 2.4. Đăng tin phòng trọ mới & Admin kiểm duyệt (UC: Thêm phòng trọ)
@@ -22,8 +22,8 @@
    - 2.6. Quản lý ví & Yêu cầu rút tiền về ngân hàng (UC: Tạo yêu cầu rút tiền)
    - 2.7. Gửi khiếu nại, Tố cáo & Xử lý vi phạm (UC: Gửi khiếu nại)
    - 2.8. Quản trị viên cập nhật & Quản lý người dùng (UC: Cập nhật tài khoản)
-3. [Đặc tả Chi tiết 15 Class Thực thể (Theo Class Diagram Mới)](#3-đặc-tả-chi-tiết-15-class-thực-thể-theo-class-diagram-mới)
-4. [Đặc tả Chi tiết 6 Enum Hệ thống](#4-đặc-tả-chi-tiết-6-enum-hệ-thống)
+3. [Đặc tả Chi tiết 16 Class Thực thể (Theo Class Diagram Mới)](#3-đặc-tả-chi-tiết-16-class-thực-thể-theo-class-diagram-mới)
+4. [Đặc tả Chi tiết 7 Enum Hệ thống](#4-đặc-tả-chi-tiết-7-enum-hệ-thống)
 5. [Quy chuẩn Kỹ thuật Bắt buộc (Technical Architecture Standards)](#5-quy-chuẩn-kỹ-thuật-bắt-buộc-technical-architecture-standards)
 6. [Quy chuẩn Đồng nhất Web Frontend & Phân công Phát triển 4 Thành viên](#6-quy-chuẩn-đồng-nhất-web-frontend--phân-công-phát-triển-4-thành-viên)
    - 6.1. Cấu trúc Thư mục Chuẩn Hóa (`web/src/`)
@@ -38,10 +38,10 @@
 ## 1. KIẾN TRÚC KỸ THUẬT & HẠ TẦNG
 
 ### 1.1. Cơ sở Dữ liệu & Backend API
-- **Database**: MariaDB 11.2 (Docker Compose, Port `3307`, Database: `innfinder_db`, phpMyAdmin: `8081`).
-- **Backend Stack**: Spring Boot 3.4.x, Java 21, Spring Security Stateless, JJWT (0.12.6), Flyway Migration.
+- **Database**: MariaDB 11.2 (Docker Compose, Port `3307`, Database: `innfinder_db`, phpMyAdmin: `8081`) hỗ trợ failover Cloud DB linh hoạt qua `INNFINDER_DB_MODE`.
+- **Backend Stack**: Spring Boot 4.1.2, Java 21, Spring Security Stateless, JJWT (0.12.6), Flyway Migration, Cloudinary SDK (1.38.0), SpringDoc OpenAPI (2.8.5), AI Semantic Search (Gemini 768-dim Vector Embedding qua bảng phụ trợ `phong_tro_vector`).
 - **Phân lớp chuẩn**:
-  - `com.innfinder.backend.entity`: Chứa 15 Entity và 6 Enum theo đúng Class Diagram mới.
+  - `com.innfinder.backend.entity`: Chứa các Entity nghiệp vụ (16 Class thực thể chuẩn trên Class Diagram, trong đó `TienIchPhong` và `PhongYeuThich` ánh xạ qua `@ManyToMany @JoinTable`, kèm thực thể hạ tầng `PhongTroVector`) và 7 Enum hệ thống.
   - `com.innfinder.backend.dto`: Chứa Request/Response DTO; bắt buộc dùng Bean Validation (`@Pattern`, `@NotBlank`, `@Min`, `@Max`, `@Email`).
   - `com.innfinder.backend.repository`: Spring Data JPA interface.
   - `com.innfinder.backend.service`: Nghiệp vụ trung tâm, quản lý Transaction `@Transactional`.
@@ -49,18 +49,19 @@
   - `com.innfinder.backend.exception`: Ngoại lệ chuẩn `AppException` & `ErrorCode`, xử lý tập trung bởi `GlobalExceptionHandler`.
 
 ### 1.2. Nền tảng Web Frontend (Single Page Application - SPA)
-- **Core Runtime & Build Tool**: React 19.x, TypeScript 5.7+ (`verbatimModuleSyntax: true`, `noUnusedLocals: true`), Vite 6.x.
+- **Core Runtime & Build Tool**: React 19.3+, TypeScript 5.9 (`verbatimModuleSyntax: true`, `noUnusedLocals: true`, alias `@/*` ➔ `./src/*`), Vite 8.x.
 - **UI & Component System**: HeroUI v3 (`@heroui/react`, `@heroui/styles`) trên nền Tailwind CSS v4. Áp dụng mô hình Compound Components (`Card.Header`, `Card.Title`, ...). Tuyệt đối **KHÔNG** dùng `<HeroUIProvider>`.
 - **Định tuyến (Routing)**: `react-router-dom` v7 với kiến trúc Multi-Layout lồng ghép (`AuthLayout`, `CustomerLayout`, `AdminLayout`, `LandlordLayout`) và Route Guards (`ProtectedRoute`).
-- **Quản lý State Client**: `zustand` kết hợp middleware `persist` (Local Storage) cho phiên đăng nhập `useAuthStore` và thông báo `useNotificationStore`.
-- **Quản lý Server Cache**: `@tanstack/react-query` v5 tối ưu revalidation, caching và mutation.
-- **HTTP Client**: `axios` với interceptor tập trung tự động đính kèm `Bearer JWT` và bóc tách dữ liệu chuẩn `ApiResponse<T>`.
-- **Form & Validation**: `react-hook-form` tích hợp `@hookform/resolvers/zod` và `zod` schema, đồng bộ 100% regex với Backend.
-- **Biểu đồ & Phân tích**: `recharts` cho thống kê doanh thu sàn, lưu lượng và phân bố nghiệp vụ.
+- **Bản đồ Tương tác**: `leaflet` v1.9 (`RoomMap`, `MapPicker`) định vị tọa độ `kinhDo`, `viDo` của phòng trọ.
+- **Quản lý State Client**: `zustand` v5 kết hợp middleware `persist` (Local Storage) cho phiên đăng nhập `useAuthStore`, thông báo `useNotificationStore`, yêu thích `useFavoriteStore` và tiến trình đặt lịch `useBookingStore`.
+- **Quản lý Server Cache**: `@tanstack/react-query` v5 (`useQuery`, `useMutation`) tối ưu revalidation, caching và đồng bộ dữ liệu server.
+- **HTTP Client**: `axios` với interceptor tập trung tự động đính kèm `Bearer JWT` từ `useAuthStore` và bóc tách dữ liệu chuẩn `ApiResponse<T>`.
+- **Form & Validation**: `react-hook-form` tích hợp `@hookform/resolvers/zod` và `zod` v4 schema, đồng bộ 100% regex với Backend.
+- **Biểu đồ & Phân tích**: `recharts` v3 cho thống kê doanh thu hoa hồng sàn (`phiThu`), lưu lượng và phân bố nghiệp vụ.
 - **Icon & Thông báo**: `lucide-react` và `sonner` (Modern Rich Toast).
 
 ### 1.3. Nền tảng Mobile App (Mobile Application)
-- **Framework & Runtime**: React Native 0.76+, Expo SDK 52+.
+- **Framework & Runtime**: React Native 0.88+, Expo SDK 58.
 - **UI Kit**: HeroUI Native kết hợp Uniwind (Tailwind CSS v4 for Native).
 - **Navigation**: Expo Router / React Navigation v7.
 - **State & Storage**: Zustand + Expo SecureStore (cho bảo mật lưu trữ JWT Token).
@@ -69,22 +70,20 @@
 
 ## 2. CHI TIẾT TOÀN BỘ LUỒNG NGHIỆP VỤ HỆ THỐNG (8 USE CASES CHÍNH THỨC)
 
-### 2.1. Đăng ký & Kích hoạt tài khoản (UC: Đăng ký)
-- **Mục đích**: Cho phép Khách vãng lai tạo tài khoản mới trên hệ thống để tìm kiếm phòng hoặc đăng tin cho thuê.
-- **Actor chính**: Khách vãng lai (Chưa đăng nhập).
-- **Tiền điều kiện**: Email và số điện thoại chưa từng đăng ký trên hệ thống.
+### 2.1. Đăng ký & Nâng cấp vai trò Chủ trọ (UC: Đăng ký)
+- **Mục đích**: Cho phép Khách vãng lai tạo tài khoản mới trên hệ thống để tìm kiếm phòng hoặc nộp hồ sơ xác thực trở thành Chủ trọ.
+- **Actor chính**: Khách vãng lai (Chưa đăng nhập), Quản trị viên (`QUAN_TRI`).
+- **Tiền điều kiện**: Tên đăng nhập, Email và số điện thoại chưa từng đăng ký trên hệ thống.
 - **Luồng sự kiện chính**:
-  1. Người dùng nhập thông tin: Tên đăng nhập, Mật khẩu, Xác nhận mật khẩu, Email, Số điện thoại, CCCD (nếu đăng ký làm chủ phòng).
-  2. Lựa chọn vai trò ban đầu: Người tìm thuê (`chuTro = false`) hoặc Người cho thuê (`chuTro = true`).
+  1. Người dùng nhập thông tin cơ bản: Tên đăng nhập, Họ và tên, Mật khẩu, Xác nhận mật khẩu, Email, Số điện thoại.
+  2. Lựa chọn nhu cầu ban đầu: Người tìm thuê (`chuTro = false`) hoặc Đăng ký kèm hồ sơ Chủ trọ (Bước 2 Wizard: nhập số CCCD 12 số, tải ảnh 2 mặt CCCD, chọn ngân hàng và số tài khoản nhận tiền).
   3. Nhấn nút "Tạo tài khoản".
-  4. Hệ thống kiểm tra dữ liệu: Regex email, sđt, cccd, độ dài mật khẩu và kiểm tra mật khẩu trùng khớp.
-  5. Hệ thống tạo tài khoản `NguoiDung` (mã tự sinh `^ND\d{8}\d{4}$`), nếu là người cho thuê thì đồng thời khởi tạo bản ghi `ChuTro` (số dư = 0, điểm uy tín = 100).
-  6. Hệ thống gửi email chứa liên kết xác thực đến địa chỉ email đã đăng ký.
-  7. Hiển thị thông báo đăng ký thành công, yêu cầu người dùng xác thực email để kích hoạt.
+  4. Hệ thống kiểm tra dữ liệu: Regex email, sđt, cccd, số tài khoản, độ dài mật khẩu (`>= 8` ký tự) và mật khẩu xác nhận trùng khớp.
+  5. Hệ thống tạo tài khoản `NguoiDung` (mã tự sinh `^ND\d{8}\d{4}$`, mặc định `vaiTro = KHACH_HANG`, `chuTro = false`).
+  6. Nếu người dùng chọn đăng ký làm Chủ trọ (hoặc nâng cấp từ trang Hồ sơ cá nhân), hệ thống tạo bản ghi `YeuCauChuTro` (`trangThai = CHO_DUYET`). Khi Admin phê duyệt (`DA_DUYET`), hệ thống bật cờ `chuTro = true` và khởi tạo bản ghi `ChuTro` (`soDu = 0`, `diemUyTin = 100`).
 - **Luồng thay thế / Ngoại lệ**:
-  - *Đăng ký qua Google OAuth2*: Người dùng chọn "Đăng ký với Google" ➔ Xác thực tài khoản Google ➔ Hệ thống tự động tạo `NguoiDung` tương ứng và cấp JWT đăng nhập.
   - *Lỗi mật khẩu không khớp*: Báo lỗi và yêu cầu nhập lại.
-  - *Email/SĐT đã tồn tại*: Báo lỗi trùng lặp dữ liệu.
+  - *Tên đăng nhập / Email / SĐT đã tồn tại*: Báo lỗi trùng lặp dữ liệu.
 
 ---
 
@@ -202,18 +201,18 @@ sequenceDiagram
 ---
 
 ### 2.6. Quản lý ví & Yêu cầu rút tiền về ngân hàng (UC: Tạo yêu cầu rút tiền)
-- **Mục đích**: Cho phép Người dùng / Chủ trọ rút số dư khả dụng từ ví hệ thống về tài khoản ngân hàng cá nhân.
-- **Actor chính**: Người dùng (`NguoiDung`), Chủ trọ (`ChuTro`).
-- **Tiền điều kiện**: Tài khoản có số dư khả dụng `soDu > 0` và đã liên kết tối thiểu 1 tài khoản ngân hàng (`TaiKhoanNganHang`).
+- **Mục đích**: Cho phép Chủ trọ / Người dùng rút số dư khả dụng từ ví hệ thống về tài khoản ngân hàng cá nhân đã liên kết.
+- **Actor chính**: Chủ trọ (`ChuTro`), Người dùng (`NguoiDung`).
+- **Tiền điều kiện**: Hồ sơ `ChuTro` có số dư khả dụng `soDu > 0` và `NguoiDung` đã liên kết tối thiểu 1 tài khoản ngân hàng (`TaiKhoanNganHang`).
 - **Luồng sự kiện chính**:
   1. Người dùng chọn mục "Rút tiền" trên màn hình quản lý ví.
-  2. Hệ thống hiển thị số dư khả dụng hiện tại và danh sách tài khoản ngân hàng đã liên kết.
+  2. Hệ thống hiển thị số dư khả dụng hiện tại (`ChuTro.soDu`) và danh sách tài khoản ngân hàng đã liên kết.
   3. Người dùng nhập số tiền muốn rút và chọn ngân hàng nhận tiền.
   4. Hệ thống kiểm tra ràng buộc: Số tiền rút phải `> 0`, nhỏ hơn hoặc bằng `soDu`, nằm trong hạn mức cho phép.
-  5. Hệ thống hiển thị modal xác thực yêu cầu nhập OTP hoặc mật khẩu cấp 2.
-  6. Người dùng xác nhận OTP.
-  7. Hệ thống tạo bản ghi `GiaoDich` với trạng thái `CHO_THANH_TOAN` (hoặc `CHO_DUYET`), tạm giữ số dư tương ứng.
-  8. Hệ thống thông báo tạo yêu cầu rút tiền thành công và chuyển cho bộ phận tài chính/cổng thanh toán xử lý.
+  5. Hệ thống hiển thị modal xác thực yêu cầu rút tiền.
+  6. Người dùng xác nhận yêu cầu rút tiền.
+  7. Hệ thống tạo bản ghi `GiaoDich` (`loaiGiaoDich = RUT_TIEN`) với trạng thái `TrangThaiGD = CHO_THANH_TOAN` và trừ/tạm giữ số dư tương ứng.
+  8. Hệ thống thông báo tạo yêu cầu rút tiền thành công và chuyển cho bộ phận tài chính/Admin đối soát xử lý (`THANH_CONG` hoặc hoàn trả `THAT_BAI`/`HOAN_TIEN`).
 
 ---
 
@@ -248,7 +247,7 @@ sequenceDiagram
 
 ---
 
-## 3. ĐẶC TẢ CHI TIẾT 15 CLASS THỰC THỂ (THEO CLASS DIAGRAM MỚI)
+## 3. ĐẶC TẢ CHI TIẾT 16 CLASS THỰC THỂ (THEO CLASS DIAGRAM MỚI)
 
 ### 1. `NguoiDung` (Bảng trung tâm tài khoản hệ thống)
 *Không còn bảng KhachHang và Admin riêng. Mọi đối tượng tài khoản (Khách hàng, Chủ trọ, Quản trị viên) đều xuất phát từ `NguoiDung`.*
@@ -264,14 +263,13 @@ sequenceDiagram
 | 7 | `sdt` | String | `^(03\|05\|07\|08\|09)\d{8}$` hoặc `^\+84\d{9}$` | Số điện thoại Việt Nam |
 | 8 | `vaiTro` | VaiTro (Enum) | `QUAN_TRI`, `KHACH_HANG` | Phân quyền hệ thống |
 | 9 | `cccd` | String | `^\d{12}$` | CCCD gồm đúng 12 chữ số |
-| 10| `thoiGianMoTaiKhoan`| LocalDate | Không được rỗng, `>= LocalDate.now()` | Ngày tạo tài khoản |
-| 11| `dsTaiKhoanNganHang`| List\<TaiKhoanNganHang\> | Quan hệ 1 - Nhiều (1..*) | Danh sách tài khoản ngân hàng liên kết |
-| 12| `dsKhieuNai` | List\<PhieuKhieuNai\> | Có thể rỗng | Khiếu nại liên quan |
-| 13| `dsViPham` | List\<ViPham\> | Có thể rỗng | Lịch sử vi phạm |
-| 14| `dsDanhGia` | List\<DanhGia\> | Có thể rỗng | Đánh giá đã thực hiện |
-| 15| `dsGD` | List\<GiaoDich\> | Có thể rỗng | Lịch sử giao dịch |
-| 16| `chuTro` | Boolean | True / False | Cờ xác định tài khoản đã kích hoạt vai trò Chủ trọ |
-| 17| `trangThaiKhoa` | Boolean | True / False, mặc định `false` | Cờ khóa tài khoản khi vi phạm nghiêm trọng |
+| 10| `thoiGianMoTaiKhoan`| LocalDate | Không được rỗng, mặc định `LocalDate.now()` | Ngày tạo tài khoản |
+| 11| `dsTaiKhoanNganHang`| List\<TaiKhoanNganHang\> | Quan hệ 1 - Nhiều (0..*) | Danh sách tài khoản ngân hàng liên kết |
+| 12| `dsKhieuNai` | List\<PhieuKhieuNai\> | Có thể rỗng | Khiếu nại liên quan (Mức độ vi phạm lưu tại `PhieuKhieuNai.mucDoViPham`) |
+| 13| `dsDanhGia` | List\<DanhGia\> | Có thể rỗng | Đánh giá đã thực hiện |
+| 14| `dsGD` | List\<GiaoDich\> | Có thể rỗng | Lịch sử giao dịch |
+| 15| `chuTro` | Boolean | True / False | Cờ xác định tài khoản đã kích hoạt vai trò Chủ trọ |
+| 16| `trangThaiKhoa` | Boolean | True / False, mặc định `false` | Cờ khóa tài khoản khi vi phạm nghiêm trọng |
 
 - **Phương thức bắt buộc**:
   - `+ NguoiDung(...)`
@@ -281,7 +279,7 @@ sequenceDiagram
 ---
 
 ### 2. `ChuTro` (Mở rộng cho Người dùng là Chủ sở hữu phòng)
-*Không còn mã `maCT` riêng. Định danh chủ trọ chính là `NguoiDung` thông qua liên kết (1) --- (0..1).*
+*Không còn mã `maCT` riêng. Định danh chủ trọ chính là `NguoiDung` thông qua liên kết `@MapsId` (1) --- (0..1).*
 
 | STT | Thuộc tính | Kiểu dữ liệu | Ràng buộc & Regex | Ghi chú |
 |:---:|:---|:---|:---|:---|
@@ -290,7 +288,7 @@ sequenceDiagram
 | 3 | `dsPhongTro` | List\<PhongTro\> | Quan hệ 1 - Nhiều | Danh sách phòng trọ đang quản lý |
 
 - **Phương thức bắt buộc**:
-  - `+ chuTro(maVi, matKhauVi, soDu)`
+  - `+ chuTro(diemUyTin, soDu)`
   - `+ toString(): String`
 
 ---
@@ -415,6 +413,8 @@ sequenceDiagram
 ---
 
 ### 11. `TienIchPhong` (Bảng trung gian n - n giữa PhongTro và TienIch)
+*Trong cơ sở dữ liệu là bảng liên kết `tien_ich_phong`, ánh xạ JPA qua `@ManyToMany` + `@JoinTable` tại `PhongTro.dsTienIch`.*
+
 | STT | Thuộc tính | Kiểu dữ liệu | Ràng buộc & Regex | Ghi chú |
 |:---:|:---|:---|:---|:---|
 | 1 | `phongTro` | PhongTro | Không được rỗng | Phòng trọ |
@@ -424,7 +424,9 @@ sequenceDiagram
 
 ---
 
-### 12. `PhongYeuThich`
+### 12. `PhongYeuThich` (Bảng trung gian n - n giữa NguoiDung và PhongTro)
+*Trong cơ sở dữ liệu là bảng liên kết `phong_yeu_thich`, ánh xạ JPA qua `@ManyToMany` + `@JoinTable` tại `NguoiDung.dsYeuThich`.*
+
 | STT | Thuộc tính | Kiểu dữ liệu | Ràng buộc & Regex | Ghi chú |
 |:---:|:---|:---|:---|:---|
 | 1 | `khachHang` | NguoiDung | Không được rỗng | Người dùng lưu yêu thích |
@@ -458,7 +460,7 @@ sequenceDiagram
 | 5 | `nguoiDuyet` | NguoiDung | Có thể null khi mới tạo | Admin tiếp nhận xử lý (`vaiTro = QUAN_TRI`) |
 | 6 | `hinhAnh` | String | URL hợp lệ, có thể rỗng | Hình ảnh bằng chứng vi phạm |
 | 7 | `ngayGui` | LocalDateTime | Không được rỗng | Thời điểm gửi |
-| 8 | `trangThai` | boolean / TrangThaiKhieuNai | Enum trạng thái xử lý | Tiến trình giải quyết |
+| 8 | `trangThai` | TrangThaiKhieuNai | `CHO_DUYET`, `DANG_XU_LY`, `DA_XU_LI` | Tiến trình giải quyết |
 | 9 | `mucDoUuTien` | int | `>= 1` | Mức ưu tiên xử lý |
 | 10| `mucDoViPham` | MucDoViPham | `NHE`, `TRUNG_BINH`, `NANG` | Mức độ vi phạm bị kết luận |
 | 11| `ketQua` | String | Cho phép rỗng | Kết luận / Phương án xử lý của Admin |
@@ -471,11 +473,12 @@ sequenceDiagram
 | STT | Thuộc tính | Kiểu dữ liệu | Ràng buộc & Regex | Ghi chú |
 |:---:|:---|:---|:---|:---|
 | 1 | `maGiaoDich` | String | Không được rỗng | Mã giao dịch tiền tệ |
-| 2 | `soTien` | long | `> 0` | Số tiền giao dịch |
-| 3 | `loaiGiaoDich` | String | Ví dụ: `COC_XEM_PHONG`, `HOAN_COC`, `THU_HOA_HONG` | Loại giao dịch |
-| 4 | `noiDung` | String | Mô tả giao dịch | Nội dung thanh toán |
-| 5 | `ngayGiaoDich`| LocalDateTime | Không được rỗng | Thời gian giao dịch |
-| 6 | `trangThai` | TrangThaiGD | `CHO_THANH_TOAN`, `THANH_CONG`, `THAT_BAI`, `HOAN_TIEN` | Trạng thái giao dịch |
+| 2 | `nguoiDung` | NguoiDung | Không được rỗng | Tài khoản thực hiện / nhận biến động giao dịch |
+| 3 | `soTien` | long | `> 0` | Số tiền giao dịch |
+| 4 | `loaiGiaoDich` | String | Ví dụ: `COC_XEM_PHONG`, `HOAN_COC`, `THU_HOA_HONG`, `RUT_TIEN` | Loại giao dịch |
+| 5 | `noiDung` | String | Mô tả giao dịch | Nội dung thanh toán |
+| 6 | `ngayGiaoDich`| LocalDateTime | Không được rỗng | Thời gian giao dịch |
+| 7 | `trangThai` | TrangThaiGD | `CHO_THANH_TOAN`, `THANH_CONG`, `THAT_BAI`, `HOAN_TIEN` | Trạng thái giao dịch |
 
 - **Phương thức**: `+ giaoDich()`, `+ toString(): String`
 
@@ -510,10 +513,10 @@ sequenceDiagram
    - `HOAN_THANH`: Phòng đã được thuê thành công (ẩn khỏi tìm kiếm).
    - `HUY`: Bị từ chối duyệt hoặc gỡ bỏ vi phạm.
 3. **`TrangThaiDatLich`**:
-   - `CHO_XAC_NHAN`: Lịch hẹn vừa tạo, chờ Chủ trọ chấp nhận.
-   - `XAC_NHAN`: Chủ trọ đã duyệt hẹn, khách nộp cọc giữ chân.
-   - `HOAN_THANH`: Xem phòng và xác nhận thuê thành công.
-   - `HUY`: Lịch hẹn bị hủy (do các bên hủy hoặc không thỏa thuận thuê).
+   - `CHO_XAC_NHAN`: Lịch hẹn vừa tạo và tạm giữ cọc giữ chân xem phòng (`coc`), chờ Chủ trọ chấp nhận.
+   - `XAC_NHAN`: Chủ trọ đã xác nhận lịch xem; đến hẹn gặp mặt trả cọc trực tiếp (`daNhanLaiCoc`) và chờ hai bên xác nhận kết quả (`khachHangDongY`, `chuTroDongY`).
+   - `HOAN_THANH`: Cả hai bên cùng xác nhận thuê thành công (`khachHangDongY = true` và `chuTroDongY = true`), sàn trích thu hoa hồng `phiThu`.
+   - `HUY`: Lịch hẹn bị hủy (do các bên hủy hẹn hoặc có ít nhất 1 bên chọn không thuê).
 4. **`TrangThaiKhieuNai`**:
    - `CHO_DUYET`: Khiếu nại mới nộp.
    - `DANG_XU_LY`: Đang tiến hành xác minh.
@@ -585,62 +588,67 @@ Toàn bộ các Controller khi trả dữ liệu về cho Frontend (Web & Mobile
 ```
 web/src/
 ├── api/                   # Cấu hình HTTP Client, Interceptor tập trung (axiosClient.ts)
-├── assets/                # Hình ảnh tĩnh, SVG, icons tĩnh
-├── components/            # Component tái sử dụng dùng chung
-│   ├── common/            # Header, Footer, Modal dùng chung, LoadingSpinner, EmptyState
-│   ├── map/               # Component bản đồ Leaflet / Mapbox hiển thị tọa độ phòng
-│   └── charts/            # Component biểu đồ Recharts dùng chung
+├── assets/                # Hình ảnh thương hiệu tĩnh (logo.png, logo-badge.png, logo-icon.png)
+├── components/            # Component tái sử dụng theo ngữ cảnh & dùng chung
+│   ├── booking/           # [Thành viên 3] AppointmentCard, RentalTimeline, TimeSlotPicker, Modals đặt lịch
+│   ├── charts/            # [Dùng chung] PlatformRevenueChart (Recharts doanh thu hoa hồng sàn)
+│   ├── common/            # [Dùng chung] Header, Footer, Modal, LoadingSpinner, EmptyState
+│   ├── landlord/          # [Thành viên 4] LandlordHeader, LandlordSidebar, Modals quản lý phòng/ví/lịch
+│   ├── map/               # [Dùng chung] RoomMap, MapPicker (Leaflet định vị tọa độ kinhDo/viDo)
+│   └── room/              # [Thành viên 2] RoomCard, PopularAreaCard, FilterModal
 ├── constants/             # Hằng số toàn cục (banks.ts, navigation.ts, roles.ts)
 ├── layouts/               # Master Layouts theo từng vai trò / ngữ cảnh
 │   ├── AuthLayout.tsx     # Layout đăng nhập / đăng ký (2 cột hiện đại)
 │   ├── CustomerLayout.tsx # Layout cổng người dùng thuê (Header + Tenant Sidebar)
 │   ├── AdminLayout.tsx    # Layout Cổng quản trị Admin Console (Admin Sidebar + Topbar)
-│   └── LandlordLayout.tsx # Layout Cổng Chủ trọ (Landlord Sidebar + Metrics Bar)
+│   └── LandlordLayout.tsx # Layout Cổng Chủ trọ (Landlord Sidebar + Header)
 ├── pages/                 # Màn hình chức năng, phân chia theo Domain & Thành viên phụ trách
 │   ├── auth/              # [Thành viên 1] LoginPage, RegisterPage, ForgotPasswordPage
-│   ├── admin/             # [Thành viên 1] Dashboard, Users, Posts, Viewings, Transactions, Reviews, Complaints, Categories, Statistics
-│   ├── customer/          # [Thành viên 1, 2, 3] Màn hình khách thuê (chi tiết theo phân công)
-│   └── landlord/          # [Thành viên 4] Màn hình dành riêng cho Chủ trọ
+│   ├── admin/             # [Thành viên 1] Dashboard, Users, Posts, Viewings, Transactions, Reviews, ComplaintsAdmin, Categories, Statistics
+│   ├── customer/          # [Thành viên 1, 2, 3] Màn hình khách thuê (chi tiết theo phân công Mục 6.2)
+│   └── landlord/          # [Thành viên 4] Dashboard, Rooms, CreateRoom (Wizard 5 bước), Appointments, Wallet, ReviewsComplaints
 ├── routes/                # Cấu hình định tuyến tập trung
 │   ├── index.tsx          # Toàn bộ Route Tree của ứng dụng Web
-│   └── ProtectedRoute.tsx # Route Guard kiểm tra Auth và Role (QUAN_TRI, KHACH_HANG, CHU_TRO)
+│   └── ProtectedRoute.tsx # Route Guard kiểm tra Auth, Role (QUAN_TRI, KHACH_HANG) & cờ chuTro
 ├── services/              # Lớp giao tiếp API Backend theo từng Domain
-│   ├── authUser.service.ts      # [Thành viên 1] Đăng nhập, đăng ký, hồ sơ, ngân hàng
+│   ├── authUser.service.ts      # [Thành viên 1] Đăng nhập, đăng ký, hồ sơ, ngân hàng, nâng cấp chủ trọ
 │   ├── admin.service.ts         # [Thành viên 1] Nghiệp vụ Admin Console
 │   ├── upload.service.ts        # [Thành viên 1] Upload hình ảnh Cloudinary
-│   ├── room.service.ts          # [Thành viên 2] Tìm kiếm, lọc, chi tiết phòng
-│   ├── favorite.service.ts      # [Thành viên 2] Yêu thích phòng trọ
-│   ├── appointment.service.ts   # [Thành viên 3] Đặt lịch xem, cọc, quyết định thuê
-│   ├── transaction.service.ts   # [Thành viên 3] Lịch sử ví, yêu cầu rút tiền
+│   ├── room.service.ts          # [Thành viên 2] Tìm kiếm, lọc, danh mục & chi tiết phòng
+│   ├── favorite.service.ts      # [Thành viên 2] Yêu thích phòng trọ (/api/favorites)
+│   ├── appointment.service.ts   # [Thành viên 3] Đặt lịch xem, cọc giữ chân, quyết định thuê
+│   ├── transaction.service.ts   # [Thành viên 3] Lịch sử sổ cái ví, yêu cầu rút tiền
 │   ├── review.service.ts        # [Thành viên 3] Đánh giá chất lượng phòng
-│   └── landlord.service.ts      # [Thành viên 4] Quản lý phòng trọ chủ trọ, duyệt lịch, duyệt trả cọc
+│   └── landlord.service.ts      # [Thành viên 4] Quản lý phòng chủ trọ, duyệt lịch, quyết định cho thuê, ví chủ trọ
 ├── store/                 # Zustand Stores quản lý State Client
-│   ├── useAuthStore.ts          # [Thành viên 1] Quản lý Auth State, Token, User Info
-│   ├── useNotificationStore.ts  # [Thành viên 1] Quản lý Thông báo người dùng
+│   ├── useAuthStore.ts          # [Thành viên 1] Quản lý Auth State, Token, User Info (persist)
+│   ├── useNotificationStore.ts  # [Thành viên 1] Quản lý Thông báo người dùng (persist)
 │   ├── useRoomFilterStore.ts    # [Thành viên 2] State bộ lọc tìm kiếm phòng trọ
+│   ├── useFavoriteStore.ts      # [Thành viên 2] State đồng bộ danh sách phòng yêu thích
 │   ├── useBookingStore.ts       # [Thành viên 3] State tiến trình đặt lịch & cọc giữ chân
-│   └── useLandlordStore.ts      # [Thành viên 4] State quản lý danh sách phòng của chủ trọ
+│   └── useLandlordStore.ts      # [Thành viên 4] State quản lý danh sách phòng & lịch hẹn của chủ trọ
 ├── types/                 # Định nghĩa TypeScript Interface & DTO
 │   ├── api.types.ts             # ApiResponse<T>, PageResponse<T>
-│   ├── auth-user.types.ts       # UserProfile, LoginRequest, RegisterRequest
+│   ├── auth-user.types.ts       # UserProfile, LoginRequest, RegisterRequest, UpgradeLandlordRequest
 │   ├── admin.types.ts           # Admin Dashboard, User Mgmt, Platform Revenue stats
 │   ├── room.types.ts            # PhongTro, LoaiPhongTro, TienIch, FilterCriteria
 │   ├── booking.types.ts         # PhieuDatLich, Coc, QuyTrinhThue
 │   ├── transaction.types.ts     # GiaoDich, RutTien, NganHang
-│   └── landlord.types.ts        # ChuTroProfile, CreateRoomDTO, LandlordStats
+│   ├── review.types.ts          # DanhGia, ReviewCreatePayload
+│   └── landlord.types.ts        # ChuTroProfile, RoomCreateRequest, LandlordStats
 └── utils/                 # Hàm tiện ích dùng chung
-    ├── formatters.ts      # formatVND, formatDate, formatDateTime, formatPhoneNumber
-    └── validators.ts      # Zod Schemas đồng bộ Regex với Backend
+    ├── formatters.ts      # formatVND, formatVNDShort, formatDate, formatDateTime, formatPhoneNumber
+    └── validators.ts      # Zod Schemas đồng bộ 100% Regex với Backend
 ```
 
 ### 6.2. Ma trận Phân công Trách nhiệm & Biên giới File/Route 4 Thành viên (Zero Conflict):
 
 | Thành viên | Vai trò & Trách nhiệm chính | Thư mục & File độc quyền sở hữu | Danh sách Routes phụ trách |
 |:---|:---|:---|:---|
-| **Thành viên 1**<br>*(Tech Lead / Core)* | **Hạ tầng, Auth, Hồ sơ, Khiếu nại & Toàn bộ Admin Console**<br>- Base architecture, Axios Client, Layouts, Routing base<br>- Auth (Login, Register 2-step Wizard, Forgot password)<br>- Profile & Quản lý Tài khoản ngân hàng, Thông báo, Khiếu nại<br>- Toàn bộ 9 phân hệ Admin Console: Thống kê doanh thu sàn chuẩn, Kiểm duyệt phòng trọ, Giám sát lịch xem, Quản lý tài khoản người dùng, Sổ cái giao dịch, Kiểm duyệt đánh giá, Giải quyết khiếu nại & Vi phạm, Quản lý danh mục loại phòng/tiện ích, Báo cáo & Thống kê kinh doanh. | `web/src/pages/auth/*`<br>`web/src/pages/admin/*`<br>`web/src/pages/customer/ProfilePage.tsx`<br>`web/src/pages/customer/NotificationsPage.tsx`<br>`web/src/pages/customer/ComplaintsPage.tsx`<br>`web/src/services/authUser.service.ts`<br>`web/src/services/admin.service.ts`<br>`web/src/services/upload.service.ts`<br>`web/src/store/useAuthStore.ts`<br>`web/src/store/useNotificationStore.ts`<br>`web/src/types/auth-user.types.ts`<br>`web/src/types/admin.types.ts` | `/login`<br>`/register`<br>`/forgot-password`<br>`/profile`<br>`/notifications`<br>`/complaints`<br>`/admin/dashboard`<br>`/admin/users`<br>`/admin/posts`<br>`/admin/viewings`<br>`/admin/transactions`<br>`/admin/reviews`<br>`/admin/complaints`<br>`/admin/categories`<br>`/admin/statistics` |
-| **Thành viên 2**<br>*(Discovery & Details)* | **Khám phá, Tìm kiếm & Chi tiết Phòng trọ**<br>- Trang chủ khách hàng & Banner tìm kiếm nổi bật<br>- Bộ lọc phòng trọ đa tiêu chí (khoảng giá, diện tích, vị trí, tiện ích, loại phòng)<br>- Tích hợp bản đồ Leaflet định vị tọa độ kinh độ/vĩ độ phòng trọ<br>- Trang chi tiết phòng trọ: Carousel hình ảnh thực tế, thông tin giá thuê, tiền cọc hợp đồng, danh sách tiện ích, nội quy, widget uy tín chủ trọ, danh sách đánh giá<br>- Quản lý danh sách phòng yêu thích (`PhongYeuThich`). | `web/src/pages/customer/HomePage.tsx`<br>`web/src/pages/customer/SearchPage.tsx`<br>`web/src/pages/customer/RoomDetailPage.tsx`<br>`web/src/pages/customer/FavoritesPage.tsx`<br>`web/src/components/room/*`<br>`web/src/services/room.service.ts`<br>`web/src/services/favorite.service.ts`<br>`web/src/store/useRoomFilterStore.ts`<br>`web/src/types/room.types.ts` | `/` (Trang chủ)<br>`/search` (Tìm kiếm phòng)<br>`/room/:id` (Chi tiết phòng)<br>`/favorites` (Phòng yêu thích) |
-| **Thành viên 3**<br>*(Booking & Financials)* | **Đặt lịch xem phòng, Cọc giữ chân, Quyết định thuê & Đánh giá**<br>- Luồng đặt lịch xem phòng & nộp cọc giữ chân (`coc`) theo từng loại phòng<br>- Quản lý danh sách phiếu hẹn xem phòng (`PhieuDatLich`) phía khách hàng<br>- Màn hình xác nhận đã nhận lại cọc từ chủ trọ và quyết định độc lập (Thuê / Không thuê)<br>- Quản lý lịch sử giao dịch ví & lập yêu cầu rút tiền của khách hàng<br>- Form đánh giá chất lượng phòng sau khi xem (chọn số sao + nhận xét + upload ảnh). | `web/src/pages/customer/AppointmentsPage.tsx`<br>`web/src/pages/customer/AppointmentDetailPage.tsx`<br>`web/src/pages/customer/RentalsPage.tsx`<br>`web/src/pages/customer/WalletPage.tsx`<br>`web/src/components/booking/*`<br>`web/src/services/appointment.service.ts`<br>`web/src/services/transaction.service.ts`<br>`web/src/services/review.service.ts`<br>`web/src/store/useBookingStore.ts`<br>`web/src/types/booking.types.ts`<br>`web/src/types/transaction.types.ts`<br>`web/src/types/review.types.ts` | `/appointments`<br>`/appointments/:id`<br>`/rentals`<br>`/wallet`<br>`/transactions` |
-| **Thành viên 4**<br>*(Landlord Portal)* | **Cổng Quản lý Chủ trọ (Landlord Portal)**<br>- Layout dành riêng cho Chủ trọ (`LandlordLayout`)<br>- Bảng điều khiển Chủ trọ (thống kê phòng, phòng đang cho thuê, doanh thu thực tế nhận được)<br>- Quản lý danh sách tin đăng phòng trọ (thêm, sửa, ẩn/hiện, theo dõi trạng thái duyệt)<br>- Wizard 5 bước Đăng tin phòng trọ mới chuẩn UI (Thông tin cơ bản ➔ Vị trí/Bản đồ ➔ Tiện ích ➔ Hình ảnh ➔ Cọc & Giá thuê)<br>- Quản lý lịch hẹn xem phòng: Xác nhận lịch, xác nhận trả cọc trực tiếp cho khách, quyết định độc lập (Cho thuê / Từ chối)<br>- Quản lý ví chủ trọ & tạo lệnh rút tiền về ngân hàng liên kết. | `web/src/layouts/LandlordLayout.tsx`<br>`web/src/pages/landlord/*`<br>`web/src/components/landlord/*`<br>`web/src/services/landlord.service.ts`<br>`web/src/store/useLandlordStore.ts`<br>`web/src/types/landlord.types.ts` | `/landlord/dashboard`<br>`/landlord/rooms`<br>`/landlord/rooms/create`<br>`/landlord/rooms/edit/:id`<br>`/landlord/appointments`<br>`/landlord/wallet` |
+| **Thành viên 1**<br>*(Tech Lead / Core)* | **Hạ tầng, Auth, Hồ sơ, Khiếu nại & Toàn bộ Admin Console**<br>- Base architecture, Axios Client, Layouts chung, Routing base, Constants, Validators<br>- Auth (Login, Register 2-step Wizard, Forgot password)<br>- Profile & Quản lý Tài khoản ngân hàng, Nâng cấp Chủ trọ (`YeuCauChuTro`), Thông báo, Khiếu nại<br>- Toàn bộ 9 phân hệ Admin Console: Thống kê doanh thu sàn chuẩn (`SUM phiThu HOAN_THANH`), Kiểm duyệt phòng trọ, Giám sát lịch xem, Quản lý tài khoản người dùng & duyệt CCCD Chủ trọ, Sổ cái giao dịch, Kiểm duyệt đánh giá, Giải quyết khiếu nại & Vi phạm, Quản lý danh mục loại phòng/cọc/phí/tiện ích, Báo cáo & Thống kê kinh doanh. | `web/src/pages/auth/*`<br>`web/src/pages/admin/*`<br>`web/src/pages/customer/ProfilePage.tsx`<br>`web/src/pages/customer/NotificationsPage.tsx`<br>`web/src/pages/customer/ComplaintsPage.tsx`<br>`web/src/services/authUser.service.ts`<br>`web/src/services/admin.service.ts`<br>`web/src/services/upload.service.ts`<br>`web/src/store/useAuthStore.ts`<br>`web/src/store/useNotificationStore.ts`<br>`web/src/types/auth-user.types.ts`<br>`web/src/types/admin.types.ts` | `/login`<br>`/register`<br>`/forgot-password`<br>`/profile`<br>`/notifications`<br>`/complaints`<br>`/admin/dashboard`<br>`/admin/users`<br>`/admin/posts`<br>`/admin/viewings`<br>`/admin/transactions`<br>`/admin/reviews`<br>`/admin/complaints`<br>`/admin/categories`<br>`/admin/statistics` |
+| **Thành viên 2**<br>*(Discovery & Details)* | **Khám phá, Tìm kiếm & Chi tiết Phòng trọ**<br>- Trang chủ khách hàng & Banner tìm kiếm nổi bật (kèm hỗ trợ tìm kiếm ngữ nghĩa AI)<br>- Bộ lọc phòng trọ đa tiêu chí (khoảng giá, diện tích, vị trí, mã tiện ích `TIxxxx`, loại phòng `LPTxxx`)<br>- Tích hợp bản đồ Leaflet (`RoomMap`) định vị tọa độ kinh độ/vĩ độ phòng trọ<br>- Trang chi tiết phòng trọ: Carousel hình ảnh thực tế, thông tin giá thuê, tiền cọc hợp đồng (`cocPhong`), mức cọc giữ chân xem phòng (`soTienCoc`), danh sách tiện ích, widget uy tín chủ trọ (`diemUyTin`), danh sách đánh giá<br>- Quản lý danh sách phòng yêu thích (`PhongYeuThich`). | `web/src/pages/customer/HomePage.tsx`<br>`web/src/pages/customer/SearchPage.tsx`<br>`web/src/pages/customer/RoomDetailPage.tsx`<br>`web/src/pages/customer/FavoritesPage.tsx`<br>`web/src/components/room/*`<br>`web/src/services/room.service.ts`<br>`web/src/services/favorite.service.ts`<br>`web/src/store/useRoomFilterStore.ts`<br>`web/src/store/useFavoriteStore.ts`<br>`web/src/types/room.types.ts` | `/` (Trang chủ)<br>`/search` (Tìm kiếm phòng)<br>`/room/:id` (Chi tiết phòng)<br>`/favorites` (Phòng yêu thích) |
+| **Thành viên 3**<br>*(Booking & Financials)* | **Đặt lịch xem phòng, Cọc giữ chân, Quyết định thuê & Đánh giá**<br>- Luồng đặt lịch xem phòng (`SchedulePage`) & nộp cọc giữ chân (`DepositPaymentPage`) theo từng loại phòng<br>- Quản lý danh sách phiếu hẹn xem phòng (`PhieuDatLich`) phía khách hàng<br>- Màn hình xác nhận đã nhận lại cọc từ chủ trọ (`daNhanLaiCoc`) và quyết định độc lập (`khachHangDongY`: Thuê / Không thuê)<br>- Quản lý ví khách thuê (`WalletPage`) & sổ cái lịch sử giao dịch (`TransactionsPage`, `TransactionDetailPage`)<br>- Form đánh giá chất lượng phòng sau khi xem (`ReviewPage`). | `web/src/pages/customer/SchedulePage.tsx`<br>`web/src/pages/customer/DepositPaymentPage.tsx`<br>`web/src/pages/customer/AppointmentsPage.tsx`<br>`web/src/pages/customer/AppointmentDetailPage.tsx`<br>`web/src/pages/customer/RentalsPage.tsx`<br>`web/src/pages/customer/WalletPage.tsx`<br>`web/src/pages/customer/TransactionsPage.tsx`<br>`web/src/pages/customer/TransactionDetailPage.tsx`<br>`web/src/pages/customer/ReviewPage.tsx`<br>`web/src/components/booking/*`<br>`web/src/services/appointment.service.ts`<br>`web/src/services/transaction.service.ts`<br>`web/src/services/review.service.ts`<br>`web/src/store/useBookingStore.ts`<br>`web/src/types/booking.types.ts`<br>`web/src/types/transaction.types.ts`<br>`web/src/types/review.types.ts` | `/appointments`<br>`/appointments/schedule/:roomId`<br>`/appointments/deposit/:appointmentId`<br>`/appointments/:id`<br>`/rentals`<br>`/wallet`<br>`/transactions`<br>`/transactions/:transactionId`<br>`/reviews/create/:roomId` |
+| **Thành viên 4**<br>*(Landlord Portal)* | **Cổng Quản lý Chủ trọ (Landlord Portal)**<br>- Layout dành riêng cho Chủ trọ (`LandlordLayout`, `LandlordHeader`, `LandlordSidebar`)<br>- Bảng điều khiển Chủ trọ (thống kê phòng, lịch hẹn chờ duyệt, số dư ví `soDu`, điểm uy tín `diemUyTin`)<br>- Quản lý danh sách tin đăng phòng trọ (thêm, sửa, ẩn/hiện, theo dõi trạng thái duyệt)<br>- Wizard 5 bước Đăng tin phòng trọ mới chuẩn UI (Thông tin cơ bản ➔ Vị trí/Bản đồ `MapPicker` ➔ Tiện ích ➔ Hình ảnh ➔ Giá thuê & Tiền cọc hợp đồng)<br>- Quản lý lịch hẹn xem phòng chuẩn Swimlane 2.3: Xác nhận lịch, chờ khách xác nhận `daNhanLaiCoc`, quyết định độc lập (`chuTroDongY`: Cho thuê / Từ chối)<br>- Quản lý ví chủ trọ, rút tiền về ngân hàng liên kết & xem đánh giá/khiếu nại. | `web/src/layouts/LandlordLayout.tsx`<br>`web/src/pages/landlord/*`<br>`web/src/components/landlord/*`<br>`web/src/services/landlord.service.ts`<br>`web/src/store/useLandlordStore.ts`<br>`web/src/types/landlord.types.ts` | `/landlord/dashboard`<br>`/landlord/rooms`<br>`/landlord/rooms/create`<br>`/landlord/rooms/edit/:id`<br>`/landlord/appointments`<br>`/landlord/wallet`<br>`/landlord/reviews` |
 
 ### 6.3. Quy tắc Biên dịch & Code Style Web Bắt buộc (Strict Rules):
 1. **Bắt buộc sử dụng `import type` (`verbatimModuleSyntax: true`)**:
@@ -687,8 +695,8 @@ web/src/
 - **Client State**: Sử dụng `zustand` cho trạng thái giao diện toàn cục (Auth, Filters, Notifications).
 
 ### 6.5. Quy trình Phối hợp Nhánh Git (Git Collaboration Protocol):
-- Branch chính: `main` (Production-ready, chỉ merge khi chạy qua `npm --prefix web run build` thành công 100% không cảnh báo).
-- Branch tích hợp: `dev`.
+- Branch chính: `main` (Production-ready, chỉ merge khi chạy qua `npm --prefix web run build` và `mvnw test-compile` thành công 100% không cảnh báo).
+- Branch tích hợp: `develop`.
 - Mỗi thành viên làm việc độc lập trên nhánh riêng:
   * Thành viên 1: `feature/member-1-admin-auth`
   * Thành viên 2: `feature/member-2-room-search`

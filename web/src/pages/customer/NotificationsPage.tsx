@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import {
-  CheckCheck,
-  Calendar,
-  ShieldAlert,
   ArrowRightLeft,
-  Info,
-  Clock,
   Bell,
+  Calendar,
+  CheckCheck,
+  Clock,
+  Info,
+  ShieldAlert,
 } from 'lucide-react';
-import { useNotificationStore } from '../../store/useNotificationStore';
-import type { NotificationItem } from '../../types/auth-user.types';
-import { formatDateTime } from '../../utils/formatters';
+import { useNavigate } from 'react-router-dom';
+import { EmptyState } from '@/components/common/EmptyState';
+import { useNotificationStore } from '@/store/useNotificationStore';
+import type { NotificationItem } from '@/types/auth-user.types';
+import { formatDateTime } from '@/utils/formatters';
 
 export const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
   const [filterType, setFilterType] = useState<string>('ALL');
 
@@ -50,9 +53,18 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
+  const handleNotificationClick = (notif: NotificationItem) => {
+    markAsRead(notif.id);
+    if (notif.linkUrl) {
+      const normalized = notif.linkUrl.startsWith('/customer/')
+        ? notif.linkUrl.replace('/customer/', '/')
+        : notif.linkUrl;
+      navigate(normalized);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -70,6 +82,7 @@ export const NotificationsPage: React.FC = () => {
 
         {unreadCount > 0 && (
           <button
+            type="button"
             onClick={markAllAsRead}
             className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-2 transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
           >
@@ -79,7 +92,6 @@ export const NotificationsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         {[
           { key: 'ALL', label: 'Tất cả thông báo' },
@@ -89,11 +101,12 @@ export const NotificationsPage: React.FC = () => {
           { key: 'SYSTEM', label: 'Hệ thống & Khiếu nại' },
         ].map((tab) => (
           <button
+            type="button"
             key={tab.key}
             onClick={() => setFilterType(tab.key)}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               filterType === tab.key
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-blue-600 text-white shadow-2xs'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
             }`}
           >
@@ -102,29 +115,26 @@ export const NotificationsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Notification List */}
       <div className="space-y-3">
         {filteredNotifications.length > 0 ? (
           filteredNotifications.map((notif) => (
             <div
               key={notif.id}
-              onClick={() => markAsRead(notif.id)}
+              onClick={() => handleNotificationClick(notif)}
               className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 ${
                 notif.read
                   ? 'bg-white border-slate-200 hover:border-slate-300'
-                  : 'bg-blue-50/40 border-blue-200 shadow-xs'
+                  : 'bg-blue-50/40 border-blue-200 shadow-2xs'
               }`}
             >
-              {/* Type Icon */}
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${getBadgeColor(
-                  notif.type
+                  notif.type,
                 )}`}
               >
                 {getIconForType(notif.type)}
               </div>
 
-              {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h4
@@ -145,14 +155,14 @@ export const NotificationsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span
                     className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getBadgeColor(
-                      notif.type
+                      notif.type,
                     )}`}
                   >
                     {notif.type === 'APPOINTMENT'
                       ? 'Lịch hẹn'
                       : notif.type === 'TRANSACTION'
-                      ? 'Giao dịch'
-                      : 'Hệ thống'}
+                        ? 'Giao dịch'
+                        : 'Hệ thống'}
                   </span>
 
                   {!notif.read && (
@@ -166,13 +176,11 @@ export const NotificationsPage: React.FC = () => {
             </div>
           ))
         ) : (
-          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
-            <Bell className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-slate-700">Không có thông báo nào</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Bạn đã xem hết các thông báo trong mục này.
-            </p>
-          </div>
+          <EmptyState
+            title="Không có thông báo nào"
+            description="Bạn đã xem hết các thông báo trong danh mục này."
+            icon={<Bell className="w-7 h-7" />}
+          />
         )}
       </div>
     </div>
