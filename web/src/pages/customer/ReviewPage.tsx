@@ -119,11 +119,12 @@ export const ReviewPage: React.FC = () => {
       setShowSuccessModal(true);
     },
     onError: (err: unknown) => {
-      setErrorMessage(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Không thể gửi đánh giá. Chỉ khách đã hoàn tất xem phòng mới được đánh giá.',
-      );
+          : 'Không thể gửi đánh giá. Chỉ khách đã hoàn tất xem phòng mới được đánh giá.';
+      setErrorMessage(msg);
+      toast.error(msg);
     },
   });
 
@@ -172,9 +173,18 @@ export const ReviewPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
+    if (!noiDung.trim()) {
+      const emptyMsg = 'Vui lòng nhập nội dung đánh giá chi tiết trải nghiệm thực tế!';
+      setErrorMessage(emptyMsg);
+      toast.error(emptyMsg);
+      return;
+    }
+
     const parsed = reviewSchema.safeParse({ diem, noiDung: noiDung.trim() });
     if (!parsed.success) {
-      setErrorMessage(parsed.error.issues[0]?.message || 'Dữ liệu đánh giá chưa hợp lệ');
+      const msg = parsed.error.issues[0]?.message || 'Dữ liệu đánh giá chưa hợp lệ';
+      setErrorMessage(msg);
+      toast.error(msg);
       return;
     }
 
