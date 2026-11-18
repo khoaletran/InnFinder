@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Home, ShieldCheck, Wallet } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Bell, ShieldCheck, Wallet } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { landlordService } from '@/services/landlord.service';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { formatVND } from '@/utils/formatters';
+import { NotificationPopover } from './NotificationModal';
 
 interface LandlordHeaderProps {
   title?: string;
@@ -16,7 +17,33 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
   subtitle,
 }) => {
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !notificationRef.current?.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false);
+        notificationButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showNotifications]);
 
   const { data: walletInfo } = useQuery({
     queryKey: ['landlord', 'wallet'],
@@ -34,14 +61,6 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          to="/"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-semibold transition-colors"
-        >
-          <Home className="w-3.5 h-3.5" />
-          Về trang tìm phòng
-        </Link>
-
         <button
           type="button"
           onClick={() => navigate('/landlord/wallet')}
@@ -66,16 +85,27 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
           <span className="text-xs font-bold text-amber-800">{diemUyTin} điểm</span>
         </div>
 
-        <Link
-          to="/notifications"
-          title="Thông báo"
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors relative"
-        >
-          <Bell className="w-5 h-5" />
-          {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
-          )}
-        </Link>
+        <div ref={notificationRef} className="relative">
+          <button
+            ref={notificationButtonRef}
+            type="button"
+            onClick={() => setShowNotifications((open) => !open)}
+            title="Thông báo"
+            aria-label="Thông báo"
+            aria-expanded={showNotifications}
+            aria-controls={showNotifications ? 'landlord-notifications' : undefined}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors relative cursor-pointer"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+            )}
+          </button>
+          <NotificationPopover
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
+        </div>
       </div>
     </header>
   );
