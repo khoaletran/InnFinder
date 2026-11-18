@@ -215,6 +215,12 @@ public class AdminService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername) {
+        return approveTransaction(id, adminUsername, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername, String bankReference) {
         // 1. Khóa bản ghi giao dịch (Pessimistic Lock) để chống 2 Admin cùng duyệt
         GiaoDich gd = giaoDichRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
@@ -235,6 +241,9 @@ public class AdminService {
         String timeNow = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         String oldNote = gd.getNoiDung() != null ? gd.getNoiDung() : "";
         gd.setNoiDung(oldNote + " [ĐÃ DUYỆT BỞI ADMIN: " + adminUsername + " lúc " + timeNow + "]");
+        if (bankReference != null && !bankReference.isBlank()) {
+            gd.setMaThamChieuNganHang(bankReference.trim());
+        }
         gd = giaoDichRepository.save(gd);
 
         return AdminTransactionResponseDTO.fromEntity(gd);

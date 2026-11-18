@@ -1,7 +1,7 @@
 import type { MucDoViPham, TrangThaiKhieuNai } from './auth-user.types';
 import type { TrangThaiDatLich } from './booking.types';
 import type { TrangThaiPhongTro } from './room.types';
-import type { TrangThaiGD } from './transaction.types';
+import type { TransactionResponse } from './transaction.types';
 
 export type { TrangThaiPhongTro };
 
@@ -80,18 +80,15 @@ export interface LandlordAppointmentItem {
   lyDoHuy?: string;
 }
 
-export interface LandlordTransactionItem {
-  id: string;
-  maGiaoDich: string;
-  khachHangTen: string;
-  phongTen: string;
-  tienCoc: number;
-  phiDichVu: number;
-  thucNhan: number;
-  trangThai: TrangThaiGD;
-  ngayGiaoDich: string;
-  thoiGianTao?: string;
-  loaiGiaoDich: 'DA_THU' | 'HOAN_COC' | 'RUT_TIEN';
+export interface LandlordTransactionItem extends TransactionResponse {
+  maDatLich?: string;
+  maPhongTro?: string;
+  maThamChieuNganHang?: string;
+  nganHangNhan?: string;
+  taiKhoanNhan?: string;
+  tenNguoiNhan?: string;
+  cocGoc?: number;
+  phiHoaHong?: number;
 }
 
 export interface BankAccountItem {
@@ -99,6 +96,7 @@ export interface BankAccountItem {
   soTaiKhoan: string;
   tenNganHang: string;
   tenChuTaiKhoan?: string;
+  macDinh?: boolean;
 }
 
 export interface LandlordWalletInfo {
@@ -107,6 +105,7 @@ export interface LandlordWalletInfo {
   dsTaiKhoanNganHang: BankAccountItem[];
   tongDaThu: number;
   tongDaRut: number;
+  dangChoRut?: number;
 }
 
 export interface ReviewItem {

@@ -158,12 +158,12 @@ public class AppointmentService {
 
         // 4. Ghi nhận giao dịch cọc giữ chân vào sổ cái GiaoDich
         if (phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
+            transactionService.taoGiaoDichLichHen(
                     khachHang,
                     phieu.getCoc(),
                     "COC_XEM_PHONG",
                     "Tạm giữ cọc xem phòng " + phieu.getPhongTro().getMaPhongTro() + " (Mã lịch: " + maDatLich + ")",
-                    TrangThaiGD.THANH_CONG
+                    TrangThaiGD.THANH_CONG, phieu
             );
         }
     }
@@ -259,12 +259,12 @@ public class AppointmentService {
         // Chỉ hoàn cọc nếu khách hàng đã thực sự nộp cọc trước đó
         boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
         if (daNop && phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
+            transactionService.taoGiaoDichLichHen(
                     phieu.getKhachHang(),
                     phieu.getCoc(),
                     "HOAN_COC",
                     "Hoàn cọc do chủ trọ từ chối lịch hẹn " + maDatLich,
-                    TrangThaiGD.HOAN_TIEN
+                    TrangThaiGD.HOAN_TIEN, phieu
             );
         }
     }
@@ -397,13 +397,13 @@ public class AppointmentService {
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + coc);
                 chuTroRepository.save(chuTroLocked);
 
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         coc,
                         "HOAN_COC",
                         "Hoàn 100% cọc thế chân xem phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
                                 " (Không thuê sau khi xem thực tế)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
             return;
@@ -427,13 +427,13 @@ public class AppointmentService {
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + thucNhanChuTro);
                 chuTroRepository.save(chuTroLocked);
 
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         thucNhanChuTro,
                         "CONG_TIEN_COC",
                         "Tiền cọc thuê phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
                                 " (Đã trừ hoa hồng sàn " + phiThu + " VNĐ)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
             return;
@@ -496,24 +496,24 @@ public class AppointmentService {
                 ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
                 chuTroRepository.save(chuTroLocked);
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         phieu.getCoc(),
                         "HOAN_COC",
                         "Hoàn cọc thế chân xem phòng " + phieu.getPhongTro().getMaPhongTro() + " (Lịch bị hủy sau khi xem)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
         } else {
             // Khách chưa gặp hoặc chưa nhận cọc ngoài đời -> hoàn tiền trực tiếp cho Khách hàng từ ví sàn
             boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
             if (daNop && phieu.getCoc() > 0) {
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         phieu.getKhachHang(),
                         phieu.getCoc(),
                         "HOAN_COC",
                         nguoiHuy + " lịch hẹn " + maDatLich,
-                        TrangThaiGD.HOAN_TIEN
+                        TrangThaiGD.HOAN_TIEN, phieu
                 );
             }
         }

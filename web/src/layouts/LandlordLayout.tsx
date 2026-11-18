@@ -8,7 +8,7 @@ export const LandlordLayout: React.FC = () => {
 
   const getPageTitle = (pathname: string) => {
     if (pathname.includes('/rooms/create')) {
-      return { title: 'Đăng Phòng Trọ Mới', subtitle: 'Tạo bài đăng cho thuê mới trên sàn (5 bước)' };
+      return { title: 'Đăng Phòng Trọ Mới', subtitle: 'Điền thông tin phòng và gửi bài đăng xét duyệt' };
     }
     if (pathname.includes('/rooms/edit')) {
       return { title: 'Chỉnh Sửa Phòng Trọ', subtitle: 'Cập nhật nội dung bài đăng phòng' };

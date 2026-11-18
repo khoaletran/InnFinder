@@ -1,405 +1,192 @@
-import React, { useState } from 'react';
-import { Card, Chip } from '@heroui/react';
+import { useMemo, useState } from 'react';
+import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  CheckCircle2,
-  Clock,
-  Landmark,
-  Loader2,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Wallet,
-  XCircle,
-} from 'lucide-react';
+import { Landmark, Plus, RefreshCw, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Modal } from '@/components/common/Modal';
+import { AddBankAccountModal } from '@/components/landlord/AddBankAccountModal';
 import { ConfirmWithdrawModal } from '@/components/landlord/ConfirmWithdrawModal';
+import { TransactionReceiptModal } from '@/components/landlord/TransactionReceiptModal';
 import { WithdrawModal } from '@/components/landlord/WithdrawModal';
+import { matchesTransactionType, transactionDirection, TRANSACTION_STATUSES, TRANSACTION_TYPES } from '@/components/landlord/walletTransactions';
 import { landlordService } from '@/services/landlord.service';
 import type { BankAccountItem } from '@/types/landlord.types';
-import type { TrangThaiGD } from '@/types/transaction.types';
 import { formatDateTime, formatVND } from '@/utils/formatters';
 
-const renderTransactionStatusChip = (status: TrangThaiGD) => {
-  switch (status) {
-    case 'THANH_CONG':
-      return (
-        <Chip size="sm" color="success" variant="soft">
-          <Chip.Label className="inline-flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" />
-            Thành công
-          </Chip.Label>
-        </Chip>
-      );
-    case 'CHO_THANH_TOAN':
-      return (
-        <Chip size="sm" color="warning" variant="soft">
-          <Chip.Label className="inline-flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            Chờ thanh toán
-          </Chip.Label>
-        </Chip>
-      );
-    case 'HOAN_TIEN':
-      return (
-        <Chip size="sm" color="accent" variant="soft">
-          <Chip.Label className="inline-flex items-center gap-1">
-            <RotateCcw className="w-3 h-3" />
-            Hoàn tiền
-          </Chip.Label>
-        </Chip>
-      );
-    case 'THAT_BAI':
-    default:
-      return (
-        <Chip size="sm" color="danger" variant="soft">
-          <Chip.Label className="inline-flex items-center gap-1">
-            <XCircle className="w-3 h-3" />
-            Thất bại
-          </Chip.Label>
-        </Chip>
-      );
-  }
-};
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm';
+const buttonClass = 'rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 cursor-pointer';
+const PAGE_SIZE = 10;
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Không thể xử lý yêu cầu';
 
-export const WalletPage: React.FC = () => {
+export function WalletPage() {
   const queryClient = useQueryClient();
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [addBankOpen, setAddBankOpen] = useState(false);
+  const [withdrawal, setWithdrawal] = useState<{ amount: number; account: BankAccountItem } | null>(null);
+  const [deleteAccount, setDeleteAccount] = useState<BankAccountItem | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('');
+  const [status, setStatus] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(1);
 
-  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
-  const [selectedAccount, setSelectedAccount] = useState<BankAccountItem | null>(null);
+  const walletQuery = useQuery({ queryKey: ['landlord', 'wallet'], queryFn: landlordService.getWalletInfo, refetchInterval: 30000 });
+  const txQuery = useQuery({ queryKey: ['landlord', 'transactions'], queryFn: landlordService.getTransactions, refetchInterval: 30000 });
+  const wallet = walletQuery.data;
+  const transactions = useMemo(() => txQuery.data ?? [], [txQuery.data]);
+  const accounts = [...(wallet?.dsTaiKhoanNganHang ?? [])].sort((a, b) => Number(!!b.macDinh) - Number(!!a.macDinh));
 
-  const {
-    data: wallet,
-    isLoading: walletLoading,
-    refetch: refetchWallet,
-  } = useQuery({
-    queryKey: ['landlord', 'wallet'],
-    queryFn: landlordService.getWalletInfo,
-  });
-
-  const {
-    data: transactions = [],
-    isLoading: txLoading,
-    refetch: refetchTransactions,
-  } = useQuery({
-    queryKey: ['landlord', 'transactions'],
-    queryFn: landlordService.getTransactions,
-  });
-
+  const invalidateWallet = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['landlord', 'wallet'] }),
+      queryClient.invalidateQueries({ queryKey: ['landlord', 'transactions'] }),
+      queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['user', 'bank-accounts'] }),
+    ]);
+  };
   const withdrawMutation = useMutation({
-    mutationFn: ({
-      soTien,
-      soTaiKhoan,
-      tenNganHang,
-    }: {
-      soTien: number;
-      soTaiKhoan: string;
-      tenNganHang: string;
-    }) => landlordService.requestWithdraw(soTien, soTaiKhoan, tenNganHang),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'wallet'] });
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'transactions'] });
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
-      setConfirmModalOpen(false);
-      toast.success(
-        'Tạo yêu cầu rút tiền thành công! Yêu cầu đang được đối soát chuyển khoản.',
-      );
+    mutationFn: ({ amount, account }: { amount: number; account: BankAccountItem }) => {
+      if (!account.id) throw new Error('Vui lòng tải lại danh sách ngân hàng');
+      return landlordService.requestWithdraw(amount, account.id);
     },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi xử lý yêu cầu rút tiền');
+    onSuccess: async (tx) => {
+      setWithdrawal(null);
+      await invalidateWallet();
+      setReceiptId(tx.maGiaoDich);
+      toast.success('Đã tạo yêu cầu rút tiền, đang chờ đối soát');
     },
+    onError: (error) => toast.error(errorMessage(error)),
   });
-
-  const addBankAccountMutation = useMutation({
-    mutationFn: ({
-      soTaiKhoan,
-      tenNganHang,
-      tenChuTaiKhoan,
-    }: {
-      soTaiKhoan: string;
-      tenNganHang: string;
-      tenChuTaiKhoan?: string;
-    }) => landlordService.addBankAccount(soTaiKhoan, tenNganHang, tenChuTaiKhoan),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'wallet'] });
-      toast.success('Thêm tài khoản ngân hàng liên kết thành công!');
-    },
+  const addBankMutation = useMutation({
+    mutationFn: ({ number, bank, holder }: { number: string; bank: string; holder?: string }) => landlordService.addBankAccount(number, bank, holder),
+    onSuccess: async () => { await invalidateWallet(); toast.success('Đã liên kết ngân hàng'); },
   });
-
-  const handleStartWithdraw = (amount: number, account: BankAccountItem) => {
-    setWithdrawAmount(amount);
-    setSelectedAccount(account);
-    setWithdrawModalOpen(false);
-    setConfirmModalOpen(true);
-  };
-
-  const handleConfirmWithdraw = () => {
-    if (!selectedAccount || withdrawAmount <= 0) return;
-    withdrawMutation.mutate({
-      soTien: withdrawAmount,
-      soTaiKhoan: selectedAccount.soTaiKhoan,
-      tenNganHang: selectedAccount.tenNganHang,
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => landlordService.deleteBankAccount(id),
+    onSuccess: async () => { setDeleteAccount(null); await invalidateWallet(); toast.success('Đã hủy liên kết ngân hàng'); },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const defaultMutation = useMutation({
+    mutationFn: (id: number) => landlordService.setDefaultBankAccount(id),
+    onSuccess: async () => { await invalidateWallet(); toast.success('Đã đặt ngân hàng mặc định'); },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const bankBusy = deleteMutation.isPending || defaultMutation.isPending || addBankMutation.isPending || withdrawMutation.isPending;
+  const dateInvalid = !!fromDate && !!toDate && fromDate > toDate;
+  const filtered = useMemo(() => {
+    if (dateInvalid) return [];
+    const keyword = search.trim().toLocaleLowerCase('vi-VN');
+    return transactions.filter((tx) => {
+      const date = tx.ngayGiaoDich.slice(0, 10);
+      const searchable = [tx.maGiaoDich, tx.noiDung, tx.maDatLich, tx.maPhongTro, tx.maThamChieuNganHang, TRANSACTION_TYPES[tx.loaiGiaoDich]].join(' ').toLocaleLowerCase('vi-VN');
+      return searchable.includes(keyword) && matchesTransactionType(tx, type) && (!status || tx.trangThai === status)
+        && (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
     });
+  }, [transactions, search, type, status, fromDate, toDate, dateInvalid]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const resetFilters = () => { setSearch(''); setType(''); setStatus(''); setFromDate(''); setToDate(''); setPage(1); };
+  const refresh = async () => {
+    try {
+      await Promise.all([walletQuery.refetch({ throwOnError: true }), txQuery.refetch({ throwOnError: true })]);
+      toast.success('Đã cập nhật ví và giao dịch');
+    } catch (error) { toast.error(errorMessage(error)); }
   };
 
-  const handleAddAccount = async (
-    soTaiKhoan: string,
-    tenNganHang: string,
-    tenChuTaiKhoan?: string,
-  ) => {
-    await addBankAccountMutation.mutateAsync({
-      soTaiKhoan,
-      tenNganHang,
-      tenChuTaiKhoan,
-    });
-  };
-
-  const handleRefresh = () => {
-    void refetchWallet();
-    void refetchTransactions();
-    toast.success('Đã làm mới dữ liệu ví và lịch sử giao dịch');
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-2 bg-gradient-to-tr from-cyan-600 via-teal-600 to-emerald-600 p-6 rounded-3xl text-white shadow-lg shadow-cyan-600/10 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
-                Số Dư Khả Dụng
-              </span>
-              <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center">
-                <Wallet className="w-4 h-4 text-white" />
-              </div>
-            </div>
-            <p className="text-3xl font-black mt-2 tracking-tight">
-              {formatVND(wallet?.soDu ?? 0)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setWithdrawModalOpen(true)}
-              className="px-4 py-2 bg-white text-cyan-700 hover:bg-cyan-50 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <ArrowUpRight className="w-4 h-4 text-cyan-600" />
-              <span>Rút tiền về ngân hàng</span>
-            </button>
-            <span className="text-[11px] text-cyan-100 font-medium">Miễn phí giao dịch</span>
-          </div>
-        </div>
-
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-          <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Tổng Đã Nhận
-            </Card.Title>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ArrowDownLeft className="w-4 h-4" />
-            </div>
-          </Card.Header>
-          <Card.Content className="p-0 mt-2">
-            <p className="text-xl font-black text-slate-900">
-              {formatVND(wallet?.tongDaThu ?? 0)}
-            </p>
-            <span className="text-[11px] text-emerald-600 font-medium mt-2 block">
-              Cọc thế chân đối soát thành công
-            </span>
-          </Card.Content>
-        </Card>
-
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-          <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Tổng Đã Rút
-            </Card.Title>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4" />
-            </div>
-          </Card.Header>
-          <Card.Content className="p-0 mt-2">
-            <p className="text-xl font-black text-slate-900">
-              {formatVND(wallet?.tongDaRut ?? 0)}
-            </p>
-            <span className="text-[11px] text-slate-400 mt-2 block">
-              Về tài khoản ngân hàng liên kết
-            </span>
-          </Card.Content>
-        </Card>
-      </div>
-
-      {/* Linked Bank Accounts */}
-      <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Header className="p-0 pb-3 flex flex-row items-center justify-between">
-          <div>
-            <Card.Title className="text-sm font-bold text-slate-900">
-              Tài Khoản Ngân Hàng Đã Liên Kết
-            </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Dùng để nhận tiền rút tự động từ ví Chủ trọ
-            </Card.Description>
-          </div>
-          <button
-            type="button"
-            onClick={() => setWithdrawModalOpen(true)}
-            className="text-xs font-bold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Thêm tài khoản</span>
-          </button>
-        </Card.Header>
-
-        <Card.Content className="p-0">
-          {walletLoading ? (
-            <div className="py-6 text-center text-xs text-slate-400">
-              Đang tải tài khoản ngân hàng...
-            </div>
-          ) : !wallet?.dsTaiKhoanNganHang || wallet.dsTaiKhoanNganHang.length === 0 ? (
-            <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-              Chưa có tài khoản ngân hàng nào được liên kết. Bấm &ldquo;Thêm tài khoản&rdquo; để liên kết ngay.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {wallet.dsTaiKhoanNganHang.map((acc, idx) => (
-                <div
-                  key={acc.id ?? `${acc.tenNganHang}-${acc.soTaiKhoan}-${idx}`}
-                  className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-cyan-100/60 text-cyan-700 flex items-center justify-center">
-                      <Landmark className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800">{acc.tenNganHang}</h4>
-                      <p className="text-[11px] font-mono font-semibold text-slate-500">
-                        {acc.soTaiKhoan}
-                      </p>
-                    </div>
-                  </div>
-                  <Chip size="sm" color="success" variant="soft">
-                    <Chip.Label>Đã liên kết</Chip.Label>
-                  </Chip>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Ledger Transactions Table */}
-      <Card className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs p-0">
-        <Card.Header className="p-4 border-b border-slate-100 flex flex-row items-center justify-between">
-          <div>
-            <Card.Title className="text-sm font-bold text-slate-900">
-              Sổ Cái Biến Động Số Dư & Giao Dịch Ví
-            </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Ghi nhận minh bạch mọi biến động tiền cọc thế chân, hoàn cọc và rút tiền
-            </Card.Description>
-          </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="p-2 text-slate-400 hover:text-cyan-600 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
-            title="Làm mới"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </Card.Header>
-
-        <Card.Content className="p-0 overflow-x-auto">
-          {txLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-cyan-600 mb-2" />
-              <span className="text-xs">Đang tải lịch sử giao dịch...</span>
-            </div>
-          ) : transactions.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">
-              Chưa phát sinh giao dịch nào trong ví.
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 px-4">Mã Giao Dịch</th>
-                  <th className="py-3 px-4">Nội Dung Đối Soát</th>
-                  <th className="py-3 px-4">Loại Biến Động</th>
-                  <th className="py-3 px-4">Số Tiền</th>
-                  <th className="py-3 px-4">Trạng Thái (TrangThaiGD)</th>
-                  <th className="py-3 px-4 text-right">Thời Gian</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
-                      #{tx.maGiaoDich}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-800 block">{tx.khachHangTen}</span>
-                      <span className="text-[11px] text-slate-500 block">{tx.phongTen}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {tx.loaiGiaoDich === 'DA_THU' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                          <ArrowDownLeft className="w-3.5 h-3.5" />
-                          Nhận cọc thế chân
-                        </span>
-                      ) : tx.loaiGiaoDich === 'RUT_TIEN' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
-                          <ArrowUpRight className="w-3.5 h-3.5" />
-                          Rút về ngân hàng
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-600">
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Hoàn tiền cọc
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 font-black text-sm">
-                      {tx.loaiGiaoDich === 'RUT_TIEN' ? (
-                        <span className="text-amber-600">-{formatVND(tx.thucNhan)}</span>
-                      ) : (
-                        <span className="text-emerald-600">+{formatVND(tx.thucNhan)}</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">{renderTransactionStatusChip(tx.trangThai)}</td>
-                    <td className="py-3.5 px-4 text-right text-slate-400 font-medium whitespace-nowrap">
-                      {formatDateTime(tx.ngayGiaoDich)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card.Content>
-      </Card>
-
-      <WithdrawModal
-        isOpen={withdrawModalOpen}
-        onClose={() => setWithdrawModalOpen(false)}
-        onConfirm={handleStartWithdraw}
-        availableBalance={wallet?.soDu ?? 0}
-        bankAccounts={wallet?.dsTaiKhoanNganHang ?? []}
-        onAddAccount={handleAddAccount}
-        loading={withdrawMutation.isPending || addBankAccountMutation.isPending}
-      />
-
-      <ConfirmWithdrawModal
-        isOpen={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        onConfirm={handleConfirmWithdraw}
-        amount={withdrawAmount}
-        account={selectedAccount}
-        loading={withdrawMutation.isPending}
-      />
+  return <div className="space-y-6">
+    {walletQuery.isError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      Không tải được dữ liệu ví: {errorMessage(walletQuery.error)}. <button className="underline" onClick={() => void refresh()}>Thử lại</button>
+    </div>}
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {[
+        ['Số dư khả dụng', wallet?.soDu], ['Tổng đã nhận', wallet?.tongDaThu],
+        ['Tổng đã rút', wallet?.tongDaRut], ['Đang chờ rút', wallet?.dangChoRut],
+      ].map(([label, value], index) => <Card key={String(label)} className={`p-5 rounded-2xl border border-slate-200 ${index === 0 ? 'bg-cyan-700 text-white' : 'bg-white'}`}>
+        <Card.Header><Card.Title className="text-xs uppercase tracking-wide">{label}</Card.Title></Card.Header>
+        <Card.Content><p className="text-2xl font-bold">{typeof value === 'number' ? formatVND(value) : '—'}</p></Card.Content>
+      </Card>)}
     </div>
-  );
-};
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs text-slate-500">Tiền chờ rút đã được trừ khỏi số dư khả dụng. Tổng đã nhận gồm cả khoản hoàn tiền về ví.</p>
+      <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy} onClick={() => setWithdrawOpen(true)}>Rút tiền về ngân hàng</button>
+    </div>
+
+    <Card className="p-5 rounded-2xl bg-white border border-slate-200">
+      <Card.Header className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <div><Card.Title>Tài khoản ngân hàng liên kết</Card.Title><Card.Description>Chọn ngân hàng mặc định để nhận tiền rút.</Card.Description></div>
+        <button className={buttonClass} disabled={bankBusy} onClick={() => setAddBankOpen(true)}><Plus className="mr-1 inline h-4 w-4" />Thêm tài khoản</button>
+      </Card.Header>
+      <Card.Content>
+        {walletQuery.isLoading ? <p className="text-sm text-slate-500">Đang tải ngân hàng...</p> : walletQuery.isError ? <p className="text-sm text-red-600">Chưa tải được danh sách ngân hàng.</p> : accounts.length === 0 ? <p className="text-sm text-slate-500">Chưa liên kết ngân hàng. Thêm tài khoản để rút tiền.</p> :
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">{accounts.map((account) => <div key={account.id ?? `${account.tenNganHang}-${account.soTaiKhoan}`} className="rounded-xl border border-slate-200 p-4 space-y-3">
+            <div className="flex items-start gap-3"><Landmark className="h-5 w-5 text-cyan-700 shrink-0" /><div className="min-w-0 flex-1">
+              <p className="font-semibold">{account.tenNganHang} {account.macDinh && <span className="text-xs text-cyan-700">· Mặc định</span>}</p>
+              <p className="font-mono text-sm break-all">{account.soTaiKhoan}</p><p className="text-xs text-slate-500">{account.tenChuTaiKhoan || 'Chưa cung cấp tên chủ tài khoản'}</p>
+            </div></div>
+            <div className="flex flex-wrap gap-2">
+              {!account.macDinh && <button className={buttonClass} disabled={!account.id || bankBusy} onClick={() => defaultMutation.mutate(account.id!)}><Star className="inline h-3.5 w-3.5 mr-1" />Đặt mặc định</button>}
+              <button className={`${buttonClass} text-red-600`} disabled={!account.id || bankBusy} onClick={() => setDeleteAccount(account)}><Trash2 className="inline h-3.5 w-3.5 mr-1" />Hủy liên kết</button>
+            </div>
+          </div>)}</div>}
+      </Card.Content>
+    </Card>
+
+    <Card className="p-0 rounded-2xl bg-white border border-slate-200 overflow-hidden">
+      <Card.Header className="p-5 flex flex-row items-center justify-between gap-3">
+        <div><Card.Title>Lịch sử giao dịch</Card.Title><Card.Description>Bấm vào giao dịch để xem biên nhận.</Card.Description></div>
+        <button title="Làm mới" aria-label="Làm mới ví và giao dịch" className={buttonClass} disabled={walletQuery.isFetching || txQuery.isFetching} onClick={() => void refresh()}><RefreshCw className="h-4 w-4" /></button>
+      </Card.Header>
+      <Card.Content className="p-0">
+        <div className="p-5 border-y border-slate-100 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <label className="text-xs space-y-1">Tìm kiếm<input className={inputClass} value={search} placeholder="Mã giao dịch, phòng, nội dung..." onChange={(e) => { setSearch(e.target.value); setPage(1); }} /></label>
+          <label className="text-xs space-y-1">Loại giao dịch<select className={inputClass} value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+            <option value="">Tất cả loại</option><option value="COC">Cọc giữ chân / Thế chân</option><option value="FEE">Hoa hồng sàn</option><option value="WITHDRAW">Rút tiền</option><option value="REFUND">Hoàn tiền</option>
+          </select></label>
+          <label className="text-xs space-y-1">Trạng thái<select className={inputClass} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            <option value="">Tất cả trạng thái</option>{Object.entries(TRANSACTION_STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <label className="text-xs space-y-1">Từ ngày<input type="date" className={inputClass} value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} /></label>
+          <label className="text-xs space-y-1">Đến ngày<input type="date" className={inputClass} value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} /></label>
+          <button className={`${buttonClass} self-end`} onClick={resetFilters}>Xóa bộ lọc</button>
+          {dateInvalid && <p role="alert" className="text-xs text-red-600 sm:col-span-2">Ngày kết thúc phải từ ngày bắt đầu trở đi.</p>}
+        </div>
+        {type === 'FEE' && <p className="px-5 pt-4 text-xs text-slate-500">Bao gồm khoản nhận cọc đã khấu trừ hoa hồng; số tiền trong bảng là tiền ghi nhận vào ví. Xem biên nhận để biết phí đã trừ.</p>}
+        {txQuery.isError && <p role="alert" className="p-5 text-sm text-red-600">Không tải được giao dịch: {errorMessage(txQuery.error)}. <button className="underline" onClick={() => void refresh()}>Thử lại</button></p>}
+        {txQuery.isLoading ? <p className="p-8 text-center text-sm text-slate-500">Đang tải giao dịch...</p> : !txQuery.isError && filtered.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{transactions.length ? 'Không có giao dịch phù hợp bộ lọc.' : 'Chưa phát sinh giao dịch.'}</p> :
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500"><tr>{['Giao dịch', 'Loại', 'Số tiền', 'Trạng thái', 'Thời gian'].map((label) => <th key={label} className="px-5 py-3">{label}</th>)}</tr></thead>
+            <tbody className="divide-y divide-slate-100">{visible.map((tx) => {
+              const direction = transactionDirection(tx);
+              const failed = tx.trangThai === 'THAT_BAI';
+              return <tr key={tx.maGiaoDich} onClick={() => setReceiptId(tx.maGiaoDich)} className="cursor-pointer hover:bg-cyan-50/40">
+                <td className="px-5 py-4 min-w-56"><button className="font-mono text-cyan-700 hover:underline text-left" onClick={() => setReceiptId(tx.maGiaoDich)}>#{tx.maGiaoDich}</button><p className="mt-1 text-xs text-slate-500 max-w-sm line-clamp-2">{tx.noiDung}</p></td>
+                <td className="px-5 py-4"><span>{TRANSACTION_TYPES[tx.loaiGiaoDich] ?? tx.loaiGiaoDich}</span>{(tx.phiHoaHong ?? 0) > 0 && <p className="text-xs text-amber-700 mt-1">Đã trừ phí {formatVND(tx.phiHoaHong!)}</p>}</td>
+                <td className={`px-5 py-4 font-semibold whitespace-nowrap ${failed ? 'text-slate-400' : direction === 'in' ? 'text-emerald-700' : direction === 'out' ? 'text-amber-700' : 'text-slate-700'}`}>
+                  {failed ? '' : direction === 'in' ? '+' : direction === 'out' ? '−' : ''}{formatVND(tx.soTien)}{failed && <p className="text-xs font-normal">Không quyết toán</p>}
+                </td>
+                <td className="px-5 py-4"><span className={`rounded-lg px-2 py-1 text-xs whitespace-nowrap ${failed ? 'bg-red-50 text-red-700' : tx.trangThai === 'CHO_THANH_TOAN' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{TRANSACTION_STATUSES[tx.trangThai]}</span></td>
+                <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(tx.ngayGiaoDich)}</td>
+              </tr>;
+            })}</tbody>
+          </table></div>}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 text-sm">
+          <span>{filtered.length} giao dịch · Trang {currentPage}/{pageCount}</span><div className="flex gap-2"><button className={buttonClass} disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Trước</button><button className={buttonClass} disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>Sau</button></div>
+        </div>
+      </Card.Content>
+    </Card>
+
+    {addBankOpen && <AddBankAccountModal onClose={() => setAddBankOpen(false)} loading={addBankMutation.isPending} onSave={async (number, bank, holder) => { await addBankMutation.mutateAsync({ number, bank, holder }); }} />}
+    <WithdrawModal isOpen={withdrawOpen} onClose={() => setWithdrawOpen(false)} availableBalance={wallet?.soDu ?? 0} bankAccounts={accounts}
+      onConfirm={(amount, account) => { setWithdrawOpen(false); setWithdrawal({ amount, account }); }}
+      onAddAccount={async (number, bank, holder) => { await addBankMutation.mutateAsync({ number, bank, holder }); }} loading={addBankMutation.isPending} />
+    <ConfirmWithdrawModal isOpen={!!withdrawal} onClose={() => { if (!withdrawMutation.isPending) setWithdrawal(null); }} onConfirm={() => { if (withdrawal && !withdrawMutation.isPending) withdrawMutation.mutate(withdrawal); }} amount={withdrawal?.amount ?? 0} account={withdrawal?.account ?? null} loading={withdrawMutation.isPending} />
+    <TransactionReceiptModal transaction={transactions.find((tx) => tx.maGiaoDich === receiptId) ?? null} onClose={() => setReceiptId(null)} />
+    {deleteAccount && <Modal isOpen onClose={() => { if (!deleteMutation.isPending) setDeleteAccount(null); }} title="Hủy liên kết ngân hàng" footer={<button className={`${buttonClass} text-red-600`} disabled={deleteMutation.isPending || !deleteAccount.id} onClick={() => deleteMutation.mutate(deleteAccount.id!)}>{deleteMutation.isPending ? 'Đang xử lý...' : 'Xác nhận hủy liên kết'}</button>}>
+      <p className="text-sm">Hủy liên kết {deleteAccount.tenNganHang} · {deleteAccount.soTaiKhoan}?</p>
+      <p className="mt-2 text-xs text-slate-500">Các giao dịch và yêu cầu rút tiền đã tạo vẫn giữ thông tin người nhận. Khi xóa ngân hàng mặc định, tài khoản còn lại đầu tiên sẽ được chọn thay thế.</p>
+    </Modal>}
+  </div>;
+}

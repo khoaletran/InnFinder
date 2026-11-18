@@ -45,7 +45,7 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
     };
   }, [showNotifications]);
 
-  const { data: walletInfo } = useQuery({
+  const { data: walletInfo, isError: walletError } = useQuery({
     queryKey: ['landlord', 'wallet'],
     queryFn: landlordService.getWalletInfo,
   });
@@ -73,7 +73,7 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
             <span className="block text-[10px] font-semibold text-emerald-700 uppercase leading-none">
               Số dư ví
             </span>
-            <span className="text-xs font-bold text-emerald-800">{formatVND(soDu)}</span>
+            <span className="text-xs font-bold text-emerald-800">{walletError ? 'Lỗi tải ví' : walletInfo ? formatVND(soDu) : 'Đang tải...'}</span>
           </div>
         </button>
 

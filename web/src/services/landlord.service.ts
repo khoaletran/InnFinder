@@ -296,70 +296,26 @@ export const landlordService = {
 
   // 4. Quản lý Ví & Giao dịch (TransactionController & UserController)
   getWalletInfo: async (): Promise<LandlordWalletInfo> => {
-    try {
-      const info = await axiosClient.get<unknown, LandlordWalletInfo>('/api/landlord/wallet');
-      if (info) {
-        return {
-          soDu: info.soDu ?? 0,
-          diemUyTin: info.diemUyTin ?? 100,
-          dsTaiKhoanNganHang: info.dsTaiKhoanNganHang || [],
-          tongDaThu: info.tongDaThu ?? 0,
-          tongDaRut: info.tongDaRut ?? 0,
-        };
-      }
-    } catch {
-      // fallback
-    }
-    return {
-      soDu: 0,
-      diemUyTin: 100,
-      dsTaiKhoanNganHang: [],
-      tongDaThu: 0,
-      tongDaRut: 0,
-    };
+    return axiosClient.get<unknown, LandlordWalletInfo>('/api/landlord/wallet');
   },
 
   getTransactions: async (): Promise<LandlordTransactionItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, TransactionResponse[]>(
-        '/api/transactions/my-history',
-      );
-      if (Array.isArray(list)) {
-        return list.map((tx) => {
-          const isWithdraw =
-            tx.loaiGiaoDich === 'RUT_TIEN' || tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN';
-          const isRefund = tx.loaiGiaoDich === 'HOAN_COC' || tx.trangThai === 'HOAN_TIEN';
-          return {
-            id: tx.maGiaoDich,
-            maGiaoDich: tx.maGiaoDich,
-            khachHangTen: isWithdraw ? 'Rút tiền về ngân hàng' : 'Đối soát cọc lịch xem',
-            phongTen: tx.noiDung,
-            tienCoc: isWithdraw ? 0 : tx.soTien,
-            phiDichVu: 0,
-            thucNhan: tx.soTien,
-            trangThai: tx.trangThai,
-            ngayGiaoDich: tx.ngayGiaoDich,
-            loaiGiaoDich: isWithdraw ? 'RUT_TIEN' : isRefund ? 'HOAN_COC' : 'DA_THU',
-          };
-        });
-      }
-    } catch {
-      // fallback
-    }
-    return [];
+    return axiosClient.get<unknown, LandlordTransactionItem[]>('/api/transactions/my-history');
   },
 
-  requestWithdraw: async (
-    soTien: number,
-    soTaiKhoan: string,
-    tenNganHang: string,
-  ): Promise<boolean> => {
-    await axiosClient.post<unknown, TransactionResponse>('/api/landlord/wallet/withdraw', {
+  requestWithdraw: async (soTien: number, bankAccountId: number): Promise<TransactionResponse> => {
+    return axiosClient.post<unknown, TransactionResponse>('/api/landlord/wallet/withdraw', {
       soTien,
-      soTaiKhoan,
-      tenNganHang,
+      bankAccountId,
     });
-    return true;
+  },
+
+  deleteBankAccount: async (id: number): Promise<void> => {
+    await axiosClient.delete(`/api/users/bank-accounts/${id}`);
+  },
+
+  setDefaultBankAccount: async (id: number): Promise<void> => {
+    await axiosClient.patch(`/api/users/bank-accounts/${id}/default`);
   },
 
   addBankAccount: async (

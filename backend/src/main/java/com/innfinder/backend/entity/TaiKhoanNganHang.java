@@ -25,4 +25,11 @@ public class TaiKhoanNganHang {
 
     @Column(name = "ten_ngan_hang", nullable = false, length = 100)
     private String tenNganHang;
+
+    @Column(name = "ten_chu_tai_khoan", length = 100)
+    private String tenChuTaiKhoan;
+
+    @Builder.Default
+    @Column(name = "mac_dinh", nullable = false)
+    private boolean macDinh = false;
 }

@@ -138,9 +138,10 @@ public class AdminController {
 
     @PatchMapping("/transactions/{id}/approve")
     @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền")
-    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(@PathVariable String id,
+            @Valid @RequestBody(required = false) com.innfinder.backend.dto.request.BankTransferConfirmationRequest request) {
         String adminUsername = SecurityUtils.getCurrentUsername();
-        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername);
+        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername, request == null ? null : request.getMaThamChieuNganHang());
         return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt yêu cầu rút tiền thành công"));
     }
 
