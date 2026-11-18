@@ -62,11 +62,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // Mở CORS cho Web & Mobile kết nối
+    // Mở CORS cho Web & Mobile kết nối (Bao gồm Vite dev http://localhost:5173)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*", "*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

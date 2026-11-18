@@ -27,6 +27,9 @@ import java.net.Socket;
 @Configuration
 public class DynamicDataSourceConfig {
 
+    @Value("${innfinder.datasource.mode:LOCAL}")
+    private String dbMode;
+
     @Value("${innfinder.datasource.cloud.url:jdbc:mariadb://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/innfinder_db?sslMode=verify-full&useUnicode=true&characterEncoding=utf8mb4}")
     private String cloudUrl;
 
@@ -54,6 +57,20 @@ public class DynamicDataSourceConfig {
     @Bean
     @Primary
     public DataSource dataSource() {
+        // 1. Nếu cấu hình chế độ LOCAL (chạy trực tiếp Docker MariaDB port 3307, không dùng Cloud)
+        if ("LOCAL".equalsIgnoreCase(dbMode)) {
+            log.info("==================================================================");
+            log.info("[InnFinder DB] 🐳 ĐANG CHẠY CHẾ ĐỘ MARIADB DOCKER LOCAL (localhost:3307)");
+            log.info("[InnFinder DB] Cấu hình: innfinder.datasource.mode = LOCAL (Không chạy Cloud)");
+            log.info("==================================================================");
+            return buildHikariDataSource(
+                    localUrl,
+                    localUsername,
+                    localPassword,
+                    "InnFinder-LocalDocker-Pool"
+            );
+        }
+
         log.info("==================================================================");
         log.info("[InnFinder DB] Đang kiểm tra kết nối tới Cloud Database ({}:{})...", cloudHost, cloudPort);
 
