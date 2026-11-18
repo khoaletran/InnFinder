@@ -16,6 +16,15 @@ import { ProfilePage } from '../pages/customer/ProfilePage';
 import { NotificationsPage } from '../pages/customer/NotificationsPage';
 import { ComplaintsPage } from '../pages/customer/ComplaintsPage';
 
+// Booking Pages (Phân hệ Người 3 - Đặt lịch, Cọc, Thuê phòng, Giao dịch & Đánh giá)
+import { AppointmentsPage } from '../pages/booking/AppointmentsPage';
+import { RentalDetailPage } from '../pages/booking/RentalDetailPage';
+import { TransactionsPage as CustomerTransactionsPage } from '../pages/booking/TransactionsPage';
+import { TransactionDetailPage } from '../pages/booking/TransactionDetailPage';
+import { SchedulePage } from '../pages/booking/SchedulePage';
+import { DepositPaymentPage } from '../pages/booking/DepositPaymentPage';
+import { ReviewPage } from '../pages/booking/ReviewPage';
+
 // Admin Pages (Phân hệ Web Admin Console)
 import { DashboardPage } from '../pages/admin/DashboardPage';
 import { UsersPage } from '../pages/admin/UsersPage';
@@ -79,7 +88,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsPage />} />
       </Route>
 
-      {/* Route placeholders cho Khách thuê (Người 2 & Người 3) */}
+      {/* Route Khách thuê (Người 2 & Người 3) */}
       <Route
         element={
           <ProtectedRoute>
@@ -91,18 +100,22 @@ export const AppRoutes: React.FC = () => {
           path="/favorites"
           element={<MemberPlaceholder member="Thành viên 2" title="Danh sách Phòng yêu thích" />}
         />
-        <Route
-          path="/appointments"
-          element={<MemberPlaceholder member="Thành viên 3" title="Lịch xem phòng của bạn" />}
-        />
-        <Route
-          path="/rentals"
-          element={<MemberPlaceholder member="Thành viên 3" title="Tiến trình Yêu cầu thuê" />}
-        />
-        <Route
-          path="/transactions"
-          element={<MemberPlaceholder member="Thành viên 3" title="Lịch sử Giao dịch cọc" />}
-        />
+        {/* Phân hệ Thành viên 3: Lịch xem & Thuê phòng, Giao dịch ví, Đánh giá */}
+        <Route path="/appointments" element={<AppointmentsPage />} />
+        <Route path="/rentals" element={<AppointmentsPage />} />
+        <Route path="/rentals/:appointmentId" element={<RentalDetailPage />} />
+        <Route path="/transactions" element={<CustomerTransactionsPage />} />
+        <Route path="/transactions/:transactionId" element={<TransactionDetailPage />} />
+
+        {/* Cấu hình đầy đủ các route /booking/* theo đặc tả AGENTS.md */}
+        <Route path="/booking/appointments" element={<AppointmentsPage />} />
+        <Route path="/booking/schedule" element={<SchedulePage />} />
+        <Route path="/booking/schedule/:roomId" element={<SchedulePage />} />
+        <Route path="/booking/deposit/:appointmentId" element={<DepositPaymentPage />} />
+        <Route path="/booking/rental/:appointmentId" element={<RentalDetailPage />} />
+        <Route path="/booking/transactions" element={<CustomerTransactionsPage />} />
+        <Route path="/booking/transactions/:transactionId" element={<TransactionDetailPage />} />
+        <Route path="/booking/review/:roomId" element={<ReviewPage />} />
       </Route>
 
       {/* 3. PROTECTED ADMIN CONSOLE ROUTES */}
