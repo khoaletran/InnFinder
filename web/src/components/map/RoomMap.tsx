@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ExternalLink, Locate } from 'lucide-react';
+import { ExternalLink, Locate, Radar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
@@ -11,6 +11,7 @@ export interface RoomMapProps {
   onSelectRoom?: (room: RoomSummaryResponse) => void;
   userCoords?: { lat: number; lng: number } | null;
   radiusKm?: number;
+  onRadiusChange?: (radiusKm: number) => void;
   onLocateUser?: () => void;
   isLocating?: boolean;
   interactivePreview?: boolean;
@@ -21,7 +22,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   selectedRoom = null,
   onSelectRoom,
   userCoords = null,
-  radiusKm,
+  radiusKm = 2,
+  onRadiusChange,
   onLocateUser,
   isLocating = false,
   interactivePreview = true,
@@ -31,17 +33,23 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const circleLayerRef = useRef<L.Circle | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const hasPannedToInitialRef = useRef(false);
   const navigate = useNavigate();
 
+  const userLat = userCoords?.lat;
+  const userLng = userCoords?.lng;
+
+  const initialCoordsRef = useRef<[number, number]>([
+    userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
+    userCoords?.lng || (rooms[0] ? getValidCoords(rooms[0])?.lng : null) || 105.8542,
+  ]);
+
+  // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    const firstCoords = rooms[0] ? getValidCoords(rooms[0]) : null;
-    const initialLat = userCoords?.lat || firstCoords?.lat || 10.7845;
-    const initialLng = userCoords?.lng || firstCoords?.lng || 106.6844;
-
     const map = L.map(mapContainerRef.current, {
-      center: [initialLat, initialLng],
+      center: initialCoordsRef.current,
       zoom: 14,
       zoomControl: false,
     });
@@ -58,55 +66,149 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
+    // Đảm bảo Leaflet tính toán chuẩn tỷ lệ khung hình 1:1 ngay khi render
+    const resizeTimer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    if (mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
+      clearTimeout(resizeTimer);
+      resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
+      userMarkerRef.current = null;
+      circleLayerRef.current = null;
+      markersLayerRef.current = null;
     };
-  }, [rooms, userCoords]);
+  }, []);
 
+  // 2. Căn giữa bản đồ vào vị trí người dùng khi vừa xác định được tọa độ lần đầu
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map) return;
+    if (!map || userLat === undefined || userLng === undefined) return;
 
-    if (userCoords) {
-      if (userMarkerRef.current) {
-        userMarkerRef.current.setLatLng([userCoords.lat, userCoords.lng]);
-      } else {
-        const userIcon = L.divIcon({
-          className: 'user-gps-marker',
-          html: `
-            <div style="position: relative; width: 20px; height: 20px;">
-              <div style="position: absolute; inset: -8px; background: rgba(13, 148, 136, 0.25); border-radius: 9999px;"></div>
-              <div style="position: absolute; inset: 0; background: #0d9488; border: 3px solid white; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>
-            </div>
-          `,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-        });
-        userMarkerRef.current = L.marker([userCoords.lat, userCoords.lng], {
-          icon: userIcon,
-          zIndexOffset: 1000,
-        }).addTo(map);
-      }
-
-      if (circleLayerRef.current) {
-        circleLayerRef.current.remove();
-        circleLayerRef.current = null;
-      }
-
-      if (radiusKm && radiusKm > 0) {
-        circleLayerRef.current = L.circle([userCoords.lat, userCoords.lng], {
-          radius: radiusKm * 1000,
-          color: '#0d9488',
-          fillColor: '#0d9488',
-          fillOpacity: 0.08,
-          weight: 1.5,
-          dashArray: '4, 6',
-        }).addTo(map);
-      }
+    if (!hasPannedToInitialRef.current) {
+      hasPannedToInitialRef.current = true;
+      map.setView([userLat, userLng], 14);
     }
-  }, [userCoords, radiusKm]);
+  }, [userLat, userLng]);
 
+  // 3. Tự động tính bán kính quét sao cho vòng tròn LUÔN HIỂN THỊ TRỌN VẸN 100% trong khung nhìn bản đồ
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !onRadiusChange) return;
+
+    const calculateDynamicRadius = () => {
+      const bounds = map.getBounds();
+      const center =
+        userLat !== undefined && userLng !== undefined
+          ? L.latLng(userLat, userLng)
+          : map.getCenter();
+
+      // Tính khoảng cách từ tâm tới 4 cạnh của khung nhìn (Bắc, Nam, Đông, Tây)
+      const distNorth = center.distanceTo(L.latLng(bounds.getNorth(), center.lng));
+      const distSouth = center.distanceTo(L.latLng(bounds.getSouth(), center.lng));
+      const distEast = center.distanceTo(L.latLng(center.lat, bounds.getEast()));
+      const distWest = center.distanceTo(L.latLng(center.lat, bounds.getWest()));
+
+      // Khoảng cách ngắn nhất từ tâm tới mép khung nhìn (thường là chiều dọc màn hình)
+      const minEdgeDistance = Math.min(distNorth, distSouth, distEast, distWest);
+
+      // Lấy 68% khoảng cách ngắn nhất để vòng tròn luôn nằm trọn vẹn lọt lòng trong khung hình, không bị cắt xén
+      const safeRadiusMeters = minEdgeDistance * 0.68;
+
+      // Quy đổi ra km thân thiện (ví dụ 1km, 1.5km, 2km, 2.5km, 3km...) vừa tầm mắt người dùng
+      const rawKm = safeRadiusMeters / 1000;
+      let calculatedKm: number;
+      if (rawKm < 1) {
+        calculatedKm = Math.max(0.5, Math.round(rawKm * 10) / 10);
+      } else if (rawKm <= 5) {
+        calculatedKm = Math.round(rawKm * 2) / 2; // Bước nhảy 0.5 km: 1.5, 2.0, 2.5...
+      } else {
+        calculatedKm = Math.round(rawKm); // Bước nhảy 1 km: 6, 7, 8...
+      }
+
+      onRadiusChange(calculatedKm);
+    };
+
+    calculateDynamicRadius();
+
+    map.on('zoomend', calculateDynamicRadius);
+    map.on('moveend', calculateDynamicRadius);
+
+    return () => {
+      map.off('zoomend', calculateDynamicRadius);
+      map.off('moveend', calculateDynamicRadius);
+    };
+  }, [userLat, userLng, onRadiusChange]);
+
+  // 4. Render CHẤM TRÒN XANH vị trí hiện tại của khách hàng (Chuẩn Teal & Pulse animation)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || userLat === undefined || userLng === undefined) return;
+
+    const userIcon = L.divIcon({
+      className: 'user-location-marker',
+      html: `
+        <div style="position: relative; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; pointer-events: auto;">
+          <div class="user-pulse-ring" style="position: absolute; inset: -10px; background: rgba(13, 148, 136, 0.35); border-radius: 9999px;"></div>
+          <div style="position: absolute; inset: 2px; background: #0d9488; border: 3px solid #ffffff; border-radius: 9999px; box-shadow: 0 0 12px rgba(13, 148, 136, 0.7), 0 3px 8px rgba(0,0,0,0.35);"></div>
+          <div style="position: absolute; width: 7px; height: 7px; background: #ffffff; border-radius: 9999px;"></div>
+        </div>
+      `,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([userLat, userLng]);
+      userMarkerRef.current.setIcon(userIcon);
+    } else {
+      userMarkerRef.current = L.marker([userLat, userLng], {
+        icon: userIcon,
+        zIndexOffset: 1000,
+        title: 'Vị trí hiện tại của bạn',
+      }).addTo(map);
+
+      userMarkerRef.current.bindTooltip('Vị trí hiện tại của bạn', {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -12],
+        className: 'user-location-tooltip',
+      });
+    }
+  }, [userLat, userLng]);
+
+  // 5. Render VÒNG TRÒN XANH quét bán kính phòng trọ (Đảm bảo luôn là hình tròn trọn vẹn trong khung hình)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || userLat === undefined || userLng === undefined) return;
+
+    const effectiveRadius = (radiusKm && radiusKm > 0 ? radiusKm : 2) * 1000;
+
+    if (circleLayerRef.current) {
+      circleLayerRef.current.setLatLng([userLat, userLng]);
+      circleLayerRef.current.setRadius(effectiveRadius);
+    } else {
+      circleLayerRef.current = L.circle([userLat, userLng], {
+        radius: effectiveRadius,
+        color: '#0d9488',
+        fillColor: '#0d9488',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '6, 8',
+      }).addTo(map);
+    }
+  }, [userLat, userLng, radiusKm]);
+
+  // 6. Cập nhật các marker giá phòng trên bản đồ
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersLayer = markersLayerRef.current;
@@ -143,6 +245,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     });
   }, [rooms, selectedRoom, onSelectRoom]);
 
+  // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !selectedRoom) return;
@@ -164,30 +267,45 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     `${selectedRoom?.tenLoaiPhong || 'Phòng trọ'} - ${selectedRoom?.diaChi.split(',')[0] || ''}`;
 
   return (
-    <div className="relative w-full h-full min-h-[260px]">
+    <div className="relative w-full h-full min-h-[300px]">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
+      {/* Badge bán kính quét tự động thay đổi theo độ mở rộng của bản đồ */}
+      <div className="absolute top-3 left-3 z-10 pointer-events-none">
+        <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
+          <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+          <span>
+            Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
+          </span>
+          <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+            Tự động lọt lòng bản đồ
+          </span>
+        </div>
+      </div>
+
+      {/* Nút định vị GPS của người dùng */}
       {onLocateUser && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-3 right-3 z-10">
           <button
             type="button"
             onClick={onLocateUser}
             disabled={isLocating}
             title="Định vị vị trí hiện tại của tôi"
-            className="w-11 h-11 rounded-2xl bg-white shadow-lg border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-teal-700 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-200/90 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Locate className={`w-5 h-5 ${isLocating ? 'animate-spin text-teal-600' : ''}`} />
           </button>
         </div>
       )}
 
+      {/* Thẻ xem trước thông tin phòng trọ đang chọn */}
       {interactivePreview && selectedRoom && (
-        <div className="absolute bottom-6 left-6 right-6 sm:right-auto sm:w-96 z-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:w-88 z-10 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <div
             onClick={() => navigate(`/room/${selectedRoom.maPhongTro}`)}
-            className="group bg-white/95 rounded-2xl shadow-xl border border-slate-200/90 p-3 flex items-center gap-3.5 cursor-pointer hover:border-teal-500 transition-all backdrop-blur-md"
+            className="group bg-white/95 rounded-2xl shadow-xl border border-slate-200/90 p-2.5 flex items-center gap-3 cursor-pointer hover:border-teal-500 transition-all backdrop-blur-md"
           >
-            <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+            <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
               <img
                 src={previewImage}
                 alt={previewTitle}
@@ -196,24 +314,24 @@ export const RoomMap: React.FC<RoomMapProps> = ({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[11px] font-bold">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px] font-bold">
                   Đang chọn
                 </span>
-                <span className="text-[11px] text-slate-400">{selectedRoom.dienTich} m²</span>
+                <span className="text-[10px] text-slate-400">{selectedRoom.dienTich} m²</span>
               </div>
 
-              <h4 className="font-bold text-slate-900 text-sm line-clamp-1 group-hover:text-teal-700 transition-colors">
+              <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-teal-700 transition-colors">
                 {previewTitle}
               </h4>
 
-              <p className="text-sm font-extrabold text-teal-700 mt-1">
+              <p className="text-xs font-extrabold text-teal-700 mt-0.5">
                 {formatVNDShort(selectedRoom.giaThue)}
               </p>
             </div>
 
             <div className="shrink-0 pl-1 text-slate-400 group-hover:text-teal-600 transition-colors">
-              <ExternalLink className="w-5 h-5" />
+              <ExternalLink className="w-4 h-4" />
             </div>
           </div>
         </div>

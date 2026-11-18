@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   MapPin,
+  Radar,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -51,14 +52,36 @@ export const SearchPage: React.FC = () => {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummaryResponse | null>(null);
 
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(
+  // Bán kính quét động (km) tự động thay đổi theo mức độ mở rộng / thu nhỏ của bản đồ
+  const [dynamicRadiusKm, setDynamicRadiusKm] = useState<number>(5);
+
+  // Vị trí GPS thật khi người dùng bấm định vị hoặc cấp quyền
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(
     filterStore.userLat && filterStore.userLng
       ? { lat: filterStore.userLat, lng: filterStore.userLng }
-      : { lat: 10.7845, lng: 106.6844 },
+      : null,
   );
   const [isLocating, setIsLocating] = useState(false);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
 
+  // 1. Tự động nhận diện GPS thực tế của người dùng khi vừa mở trang
+  const setUserLocation = filterStore.setUserLocation;
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGpsCoords(coords);
+        setUserLocation(coords.lat, coords.lng);
+      },
+      (err) => {
+        console.warn('Geolocation tự động không khả dụng hoặc bị từ chối:', err);
+      },
+      { timeout: 8000, enableHighAccuracy: true },
+    );
+  }, [setUserLocation]);
+
+  // 2. Tải danh sách phòng trọ từ Backend
   const { data: queryResult, isLoading, isFetching } = useQuery({
     queryKey: [
       'rooms',
@@ -79,7 +102,7 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       if (useAiSearch && submittedKeyword.trim()) {
-        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 20);
+        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 30);
         const content = aiRooms || [];
         return {
           content,
@@ -99,7 +122,7 @@ export const SearchPage: React.FC = () => {
         maLpt: filterStore.categoryId,
         dsTienIch: filterStore.selectedAmenities,
         page: currentPage,
-        size: 15,
+        size: 50, // Tải tối đa 50 phòng để khi mở rộng bản đồ vẫn hiển thị đầy đủ
         sortBy: sortField,
         sortDirection,
       });
@@ -115,6 +138,16 @@ export const SearchPage: React.FC = () => {
   const totalElements = queryResult?.totalElements || 0;
   const totalPages = queryResult?.totalPages || 1;
 
+  // 3. Tâm quét hiệu lực: Ưu tiên GPS thật, nếu chưa có thì tự động căn vào phòng đầu tiên đang xem
+  const activeCenterCoords = useMemo(() => {
+    if (gpsCoords) return gpsCoords;
+    if (rooms.length > 0) {
+      const firstValid = getValidCoords(rooms[0]);
+      if (firstValid) return firstValid;
+    }
+    return { lat: 21.0285, lng: 105.8542 };
+  }, [gpsCoords, rooms]);
+
   const activeSelectedRoom = useMemo(() => {
     if (selectedRoom && rooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
       return selectedRoom;
@@ -122,15 +155,16 @@ export const SearchPage: React.FC = () => {
     return rooms[0] ?? null;
   }, [rooms, selectedRoom]);
 
+  // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
   const roomsWithDistance = useMemo(() => {
     return rooms.map((room) => {
       let distanceInKm: number | null = null;
-      if (userCoords) {
+      if (activeCenterCoords) {
         const coords = getValidCoords(room);
         if (coords) {
           distanceInKm = getDistanceInKm(
-            userCoords.lat,
-            userCoords.lng,
+            activeCenterCoords.lat,
+            activeCenterCoords.lng,
             coords.lat,
             coords.lng,
           );
@@ -138,15 +172,19 @@ export const SearchPage: React.FC = () => {
       }
       return { room, distanceInKm };
     });
-  }, [rooms, userCoords]);
+  }, [rooms, activeCenterCoords]);
 
+  // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
+  const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
+
+  // Lọc các phòng nằm trong bán kính quét hiện tại
   const filteredRooms = useMemo(() => {
-    if (!filterStore.radiusKm || !userCoords) return roomsWithDistance;
+    if (!activeCenterCoords) return roomsWithDistance;
     return roomsWithDistance.filter((item) => {
       if (item.distanceInKm === null) return true;
-      return item.distanceInKm <= (filterStore.radiusKm || 999);
+      return item.distanceInKm <= effectiveRadius;
     });
-  }, [roomsWithDistance, filterStore.radiusKm, userCoords]);
+  }, [roomsWithDistance, effectiveRadius, activeCenterCoords]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,8 +209,8 @@ export const SearchPage: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(coords);
-        filterStore.setUserLocation(coords.lat, coords.lng);
+        setGpsCoords(coords);
+        setUserLocation(coords.lat, coords.lng);
         setIsLocating(false);
         toast.success('Đã cập nhật vị trí hiện tại của bạn');
       },
@@ -195,18 +233,20 @@ export const SearchPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden font-sans">
+      {/* Header hệ thống cố định ở đỉnh */}
       <Header />
 
-      <section className="bg-white border-b border-slate-200/90 py-3.5 px-4 sm:px-6 lg:px-8 sticky top-16 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto space-y-3">
+      {/* Thanh tìm kiếm & bộ lọc nhanh thu gọn gàng gàng, không chiếm nhiều diện tích */}
+      <section className="bg-white border-b border-slate-200/90 py-2.5 px-4 sm:px-6 shrink-0 z-30 shadow-2xs">
+        <div className="max-w-[1440px] mx-auto space-y-2">
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-4xl">
             <div className="flex-1 relative flex items-center">
               <div className="absolute left-3.5 text-slate-400">
                 {useAiSearch && isFetching ? (
-                  <Sparkles className="w-5 h-5 text-teal-600 animate-spin" />
+                  <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
                 ) : (
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4" />
                 )}
               </div>
               <input
@@ -214,35 +254,36 @@ export const SearchPage: React.FC = () => {
                 value={searchInput}
                 onChange={(e) => setSearchInputDraft(e.target.value)}
                 placeholder="Nhập địa điểm, quận hoặc mô tả tự nhiên (AI Vector Search)..."
-                className="w-full pl-11 pr-28 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-sm font-semibold text-slate-900 rounded-full border border-slate-200 focus:border-teal-600 outline-none transition-all placeholder:text-slate-400"
+                className="w-full pl-10 pr-26 py-1.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-xs sm:text-sm font-semibold text-slate-900 rounded-full border border-slate-200 focus:border-teal-600 outline-none transition-all placeholder:text-slate-400"
               />
 
               <button
                 type="button"
                 onClick={() => setUseAiSearch(!useAiSearch)}
                 title="Bật tìm kiếm ngữ nghĩa AI Gemini"
-                className={`absolute right-2 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                className={`absolute right-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   useAiSearch
                     ? 'bg-teal-600 text-white shadow-2xs'
                     : 'bg-white border border-slate-200 text-slate-600 hover:text-teal-700'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3 h-3" />
                 <span>AI Search</span>
               </button>
             </div>
 
             <button
               type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-full shadow-md shadow-blue-600/20 transition-all shrink-0 cursor-pointer"
+              className="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-full shadow-md shadow-blue-600/20 transition-all shrink-0 cursor-pointer"
             >
               Tìm kiếm
             </button>
           </form>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
-              <MapPin className="w-3.5 h-3.5 text-teal-600" />
+          {/* Dãy nhãn bộ lọc nhanh */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
+              <MapPin className="w-3 h-3 text-teal-600" />
               <span>{submittedKeyword || 'Toàn quốc'}</span>
             </div>
 
@@ -250,7 +291,7 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => removeFilter('price')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
               >
                 <span>
                   {filterStore.minPrice ? `${filterStore.minPrice / 1e6}tr` : '0'} –{' '}
@@ -264,7 +305,7 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => removeFilter('area')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
               >
                 <span>
                   {filterStore.minArea || '0'} – {filterStore.maxArea || 'Max'} m²
@@ -277,33 +318,44 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => removeFilter('amenities')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
               >
                 <span>Tiện ích · {filterStore.selectedAmenities.length}</span>
                 <X className="w-3 h-3 text-teal-600" />
               </button>
             )}
 
+            {/* Chip bán kính quét (Cố định hoặc Động theo bản đồ) */}
             {filterStore.radiusKm ? (
               <button
                 type="button"
                 onClick={() => removeFilter('radius')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
+                title="Bấm để chuyển về quét động theo mức mở rộng bản đồ"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
               >
-                <span>≤ {filterStore.radiusKm} km</span>
+                <Radar className="w-3 h-3 text-teal-600" />
+                <span>Cố định: ≤ {filterStore.radiusKm} km</span>
                 <X className="w-3 h-3 text-teal-600" />
               </button>
-            ) : null}
+            ) : (
+              <div
+                title="Bán kính tự động mở rộng khi bạn thu nhỏ hoặc phóng to bản đồ"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0"
+              >
+                <Radar className="w-3 h-3 text-teal-600 animate-pulse" />
+                <span>Quét bản đồ: ≤ {dynamicRadiusKm} km</span>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={() => setIsFilterModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+              className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="w-3 h-3" />
               <span>Bộ lọc nâng cao</span>
               {filterStore.getActiveFilterCount() > 0 && (
-                <span className="w-4 h-4 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">
+                <span className="w-3.5 h-3.5 rounded-full bg-teal-600 text-white text-[9px] flex items-center justify-center font-bold">
                   {filterStore.getActiveFilterCount()}
                 </span>
               )}
@@ -312,16 +364,18 @@ export const SearchPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)] min-h-[600px]">
-          <div className="lg:col-span-5 flex flex-col h-full bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      {/* Khung nội dung 2 cột: Danh sách phòng bên trái (cuộn độc lập) & Bản đồ bên phải */}
+      <div className="flex-1 min-h-0 w-full max-w-[1440px] mx-auto px-3 sm:px-6 py-2.5 sm:py-3 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 h-full">
+          {/* Cột trái: Danh sách phòng trọ */}
+          <div className="lg:col-span-5 flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-base font-extrabold text-slate-900">
+                <h2 className="text-sm font-extrabold text-slate-900">
                   {filteredRooms.length} phòng phù hợp
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Đồng bộ trực tiếp với bản đồ tương tác
+                <p className="text-[10px] text-slate-400">
+                  Đồng bộ với bản đồ (Bán kính ≤ {effectiveRadius} km)
                 </p>
               </div>
 
@@ -336,31 +390,32 @@ export const SearchPage: React.FC = () => {
                         : 'NEWEST',
                   )
                 }
-                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+                <ArrowUpDown className="w-3 h-3 text-slate-500" />
                 <span>
                   {sortBy === 'NEWEST'
                     ? 'Mới nhất'
                     : sortBy === 'PRICE_ASC'
-                      ? 'Giá tăng dần'
-                      : 'Giá giảm dần'}
+                      ? 'Giá tăng'
+                      : 'Giá giảm'}
                 </span>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+            {/* Danh sách phòng cuộn độc lập bên trong */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5">
               {isLoading ? (
                 [1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="p-3 bg-slate-50 rounded-2xl border border-slate-200 animate-pulse flex gap-3"
+                    className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 animate-pulse flex gap-3"
                   >
-                    <div className="w-36 h-28 bg-slate-200 rounded-xl shrink-0" />
+                    <div className="w-32 h-24 bg-slate-200 rounded-lg shrink-0" />
                     <div className="flex-1 space-y-2 py-1">
-                      <div className="h-4 bg-slate-200 rounded w-3/4" />
-                      <div className="h-4 bg-slate-200 rounded w-1/3" />
-                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                      <div className="h-3.5 bg-slate-200 rounded w-3/4" />
+                      <div className="h-3.5 bg-slate-200 rounded w-1/3" />
+                      <div className="h-2.5 bg-slate-200 rounded w-1/2" />
                     </div>
                   </div>
                 ))
@@ -376,19 +431,20 @@ export const SearchPage: React.FC = () => {
                   />
                 ))
               ) : (
-                <div className="py-16 text-center text-slate-500">
-                  <p className="text-sm font-bold text-slate-700">Không tìm thấy phòng phù hợp</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Hãy thử nới lỏng bộ lọc hoặc tìm kiếm theo từ khóa khác.
+                <div className="py-14 text-center text-slate-500">
+                  <p className="text-xs font-bold text-slate-700">Không tìm thấy phòng phù hợp</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Hãy thử nới lỏng bộ lọc hoặc mở rộng bản đồ để tìm thêm phòng.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-600">
+            {/* Phân trang chân danh sách */}
+            <div className="px-4 py-1.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-[11px] text-slate-600 shrink-0">
               <span>
                 {filteredRooms.length > 0
-                  ? `Trang ${currentPage + 1}/${totalPages} (${totalElements} phòng)`
+                  ? `Trang ${currentPage + 1}/${totalPages} (${totalElements} phòng tải về)`
                   : '0 phòng'}
               </span>
 
@@ -397,29 +453,31 @@ export const SearchPage: React.FC = () => {
                   type="button"
                   disabled={currentPage === 0}
                   onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-0.5 cursor-pointer text-[11px]"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Trước
+                  <ChevronLeft className="w-3 h-3" /> Trước
                 </button>
                 <button
                   type="button"
                   disabled={currentPage >= totalPages - 1}
                   onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-0.5 cursor-pointer text-[11px]"
                 >
-                  Tiếp <ChevronRight className="w-3.5 h-3.5" />
+                  Tiếp <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-7 h-full bg-slate-100 rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm relative">
+          {/* Cột phải: Bản đồ tương tác với Chấm tròn xanh GPS & Vòng tròn quét */}
+          <div className="lg:col-span-7 h-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200/90 shadow-xs relative">
             <RoomMap
               rooms={rooms}
               selectedRoom={activeSelectedRoom}
               onSelectRoom={(r) => setSelectedRoom(r)}
-              userCoords={userCoords}
-              radiusKm={filterStore.radiusKm}
+              userCoords={activeCenterCoords}
+              radiusKm={effectiveRadius}
+              onRadiusChange={(r) => setDynamicRadiusKm(r)}
               onLocateUser={handleLocateUser}
               isLocating={isLocating}
             />
