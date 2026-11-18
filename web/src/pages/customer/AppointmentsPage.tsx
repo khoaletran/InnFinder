@@ -202,6 +202,10 @@ export const AppointmentsPage: React.FC = () => {
                   ? `${new Date(activeRental.thoiGianDat).getDate()}/${new Date(activeRental.thoiGianDat).getMonth() + 1}`
                   : '--/--'
               }
+              daNhanLaiCoc={Boolean(activeRental.daNhanLaiCoc)}
+              daNopCoc={Boolean(activeRental.daNopCoc)}
+              khachHangDongY={activeRental.khachHangDongY}
+              chuTroDongY={activeRental.chuTroDongY}
             />
           </Card.Content>
         </Card>

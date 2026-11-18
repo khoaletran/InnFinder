@@ -138,6 +138,10 @@ export const RentalsPage: React.FC = () => {
                   ? `${new Date(latestItem.thoiGianDat).getDate()}/${new Date(latestItem.thoiGianDat).getMonth() + 1}`
                   : '--/--'
               }
+              daNhanLaiCoc={Boolean(latestItem.daNhanLaiCoc)}
+              daNopCoc={Boolean(latestItem.daNopCoc)}
+              khachHangDongY={latestItem.khachHangDongY}
+              chuTroDongY={latestItem.chuTroDongY}
             />
           </Card.Content>
         </Card>
