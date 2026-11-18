@@ -7,20 +7,17 @@ import {
   Calendar,
   CheckCircle2,
   Home,
-  ImagePlus,
   MapPin,
   MessageSquare,
   Send,
   ShieldCheck,
   Sparkles,
   Star,
-  X,
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { reviewService } from '@/services/review.service';
 import { roomService } from '@/services/room.service';
-import { uploadService } from '@/services/upload.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { formatDate } from '@/utils/formatters';
@@ -76,8 +73,6 @@ export const ReviewPage: React.FC = () => {
   const [diemDraft, setDiem] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [noiDungDraft, setNoiDung] = useState<string | null>(null);
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [isUploadingImg, setIsUploadingImg] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
@@ -109,7 +104,7 @@ export const ReviewPage: React.FC = () => {
   }, [existingReview, roomId, markRoomAsReviewed]);
 
   const submitMutation = useMutation({
-    mutationFn: (payload: { diem: number; noiDung: string; hinhAnhUrls?: string[] }) =>
+    mutationFn: (payload: { diem: number; noiDung: string }) =>
       reviewService.createReview(roomId || '', payload),
     onSuccess: () => {
       if (roomId) {
@@ -146,29 +141,6 @@ export const ReviewPage: React.FC = () => {
     }
   };
 
-  // Đính kèm ảnh thực tế tối đa 10MB/ảnh theo UC 2.5 Bước 4
-  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const oversized = files.find((f) => f.size > 10 * 1024 * 1024);
-    if (oversized) {
-      toast.error(`Ảnh "${oversized.name}" vượt quá giới hạn tối đa 10MB/ảnh!`);
-      return;
-    }
-
-    try {
-      setIsUploadingImg(true);
-      const uploaded = await uploadService.uploadMultipleImages(files, 'reviews');
-      setReviewImages((prev) => [...prev, ...uploaded]);
-      toast.success('Đã tải ảnh thực tế đính kèm đánh giá');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Tải ảnh thất bại');
-    } finally {
-      setIsUploadingImg(false);
-    }
-  };
-
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -191,7 +163,6 @@ export const ReviewPage: React.FC = () => {
     submitMutation.mutate({
       diem: parsed.data.diem,
       noiDung: parsed.data.noiDung,
-      hinhAnhUrls: reviewImages,
     });
   };
 
@@ -324,7 +295,7 @@ export const ReviewPage: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  2. Nội dung nhận xét chi tiết (`noiDung`) *
+                  Nội dung nhận xét chi tiết (`noiDung`) *
                 </label>
                 <span className="text-[11px] text-slate-400 font-mono">
                   {noiDung.length} / 500 ký tự
@@ -338,41 +309,6 @@ export const ReviewPage: React.FC = () => {
                 placeholder="Chia sẻ trải nghiệm thực tế về chất lượng phòng, tiện ích và thái độ của chủ trọ (tối thiểu 10 ký tự)..."
                 className="w-full text-xs p-3.5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/40 resize-none leading-relaxed text-slate-800"
               />
-            </div>
-
-            {/* Đính kèm ảnh thực tế (tối đa 10MB/ảnh theo UC 2.5 Bước 4) */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider">
-                3. Đính kèm ảnh thực tế (Tùy chọn · tối đa 10MB/ảnh)
-              </label>
-              <div className="flex flex-wrap items-center gap-3">
-                {reviewImages.map((url, idx) => (
-                  <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setReviewImages((prev) => prev.filter((_, i) => i !== idx))}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 cursor-pointer transition-colors">
-                  <ImagePlus className="w-5 h-5" />
-                  <span className="text-[10px] mt-1 font-medium">
-                    {isUploadingImg ? 'Đang tải...' : 'Thêm ảnh'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled={isUploadingImg}
-                    onChange={handleUploadImage}
-                    className="hidden"
-                  />
-                </label>
-              </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
