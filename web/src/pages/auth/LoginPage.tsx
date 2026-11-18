@@ -46,6 +46,9 @@ export const LoginPage: React.FC = () => {
       // Điều hướng theo phân quyền
       if (profile.vaiTro === 'QUAN_TRI') {
         navigate('/admin/dashboard', { replace: true });
+      } else if (profile.chuTro) {
+        const from = (location.state as any)?.from?.pathname;
+        navigate(from || '/landlord/dashboard', { replace: true });
       } else {
         const from = (location.state as any)?.from?.pathname || '/customer/profile';
         navigate(from, { replace: true });

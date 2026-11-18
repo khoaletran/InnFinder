@@ -30,6 +30,15 @@ import { SchedulePage } from '../pages/booking/SchedulePage';
 import { DepositPaymentPage } from '../pages/booking/DepositPaymentPage';
 import { ReviewPage } from '../pages/booking/ReviewPage';
 
+// Landlord Pages (Phân hệ Người 4 - Cổng Chủ trọ)
+import { LandlordLayout } from '../layouts/LandlordLayout';
+import { DashboardPage as LandlordDashboardPage } from '../pages/landlord/DashboardPage';
+import { RoomsPage } from '../pages/landlord/RoomsPage';
+import { CreateRoomPage } from '../pages/landlord/CreateRoomPage';
+import { AppointmentsPage as LandlordAppointmentsPage } from '../pages/landlord/AppointmentsPage';
+import { WalletPage as LandlordWalletPage } from '../pages/landlord/WalletPage';
+import { ReviewsComplaintsPage } from '../pages/landlord/ReviewsComplaintsPage';
+
 // Admin Pages (Phân hệ Web Admin Console)
 import { DashboardPage } from '../pages/admin/DashboardPage';
 import { UsersPage } from '../pages/admin/UsersPage';
@@ -116,6 +125,25 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsAdminPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
+      </Route>
+
+      {/* 4. PROTECTED LANDLORD CONSOLE ROUTES */}
+      <Route
+        path="/landlord"
+        element={
+          <ProtectedRoute requireChuTro={true}>
+            <LandlordLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/landlord/dashboard" replace />} />
+        <Route path="dashboard" element={<LandlordDashboardPage />} />
+        <Route path="rooms" element={<RoomsPage />} />
+        <Route path="rooms/create" element={<CreateRoomPage />} />
+        <Route path="rooms/edit/:id" element={<CreateRoomPage isEdit={true} />} />
+        <Route path="appointments" element={<LandlordAppointmentsPage />} />
+        <Route path="wallet" element={<LandlordWalletPage />} />
+        <Route path="reviews" element={<ReviewsComplaintsPage />} />
       </Route>
 
       {/* Catch-all 404 redirect */}
