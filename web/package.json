@@ -13,10 +13,14 @@
     "@heroui/react": "^3.2.7",
     "@heroui/styles": "^3.2.7",
     "@tailwindcss/vite": "^4.3.4",
+    "axios": "^1.21.1",
+    "lucide-react": "^1.74.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
     "tailwind-variants": "^4.0.1",
-    "tailwindcss": "^4.3.4"
+    "tailwindcss": "^4.3.4",
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
