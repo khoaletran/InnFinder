@@ -4,7 +4,12 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { CustomerLayout } from '../layouts/CustomerLayout';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { ProtectedRoute } from './ProtectedRoute';
-import { useAuthStore } from '../store/useAuthStore';
+
+// Public Guest & Tenant Pages (Phân hệ Người 2 - Tìm kiếm, Bản đồ & Chi tiết phòng)
+import { HomePage } from '../pages/HomePage';
+import { SearchMapPage } from '../pages/SearchMapPage';
+import { RoomDetailPage } from '../pages/RoomDetailPage';
+import { FavoritesPage } from '../pages/FavoritesPage';
 
 // Auth Pages
 import { LoginPage } from '../pages/auth/LoginPage';
@@ -27,7 +32,7 @@ import { ComplaintsAdminPage } from '../pages/admin/ComplaintsAdminPage';
 import { CategoriesPage } from '../pages/admin/CategoriesPage';
 import { StatisticsPage } from '../pages/admin/StatisticsPage';
 
-// Component giữ chỗ cho các màn hình của Thành viên 2, 3, 4 sẽ ghép nối
+// Component giữ chỗ cho các màn hình của Thành viên 3, 4 sẽ ghép nối
 const MemberPlaceholder: React.FC<{ member: string; title: string }> = ({ member, title }) => (
   <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center max-w-lg mx-auto my-12">
     <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 font-bold text-base">
@@ -43,28 +48,23 @@ const MemberPlaceholder: React.FC<{ member: string; title: string }> = ({ member
   </div>
 );
 
-// Điều hướng trang chủ dựa trên trạng thái đăng nhập
-const HomeRedirect: React.FC = () => {
-  const { isAuthenticated, isAdmin } = useAuthStore();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (isAdmin) return <Navigate to="/admin/dashboard" replace />;
-  return <Navigate to="/customer/profile" replace />;
-};
-
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Root redirect */}
-      <Route path="/" element={<HomeRedirect />} />
+      {/* 1. PUBLIC TENANT & GUEST ROUTES (Phân hệ Người 2) */}
+      <Route path="/" element={<HomePage />} />
+      <Route path="/search" element={<SearchMapPage />} />
+      <Route path="/room/:id" element={<RoomDetailPage />} />
+      <Route path="/favorites" element={<FavoritesPage />} />
 
-      {/* 1. PUBLIC AUTH ROUTES */}
+      {/* 2. PUBLIC AUTH ROUTES */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
-      {/* 2. PROTECTED CUSTOMER ROUTES */}
+      {/* 3. PROTECTED CUSTOMER ROUTES (Phân hệ Người 1) */}
       <Route
         path="/customer"
         element={
@@ -79,7 +79,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsPage />} />
       </Route>
 
-      {/* Route placeholders cho Khách thuê (Người 2 & Người 3) */}
+      {/* Route placeholders cho Khách thuê (Người 3) */}
       <Route
         element={
           <ProtectedRoute>
@@ -87,10 +87,6 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        <Route
-          path="/favorites"
-          element={<MemberPlaceholder member="Thành viên 2" title="Danh sách Phòng yêu thích" />}
-        />
         <Route
           path="/appointments"
           element={<MemberPlaceholder member="Thành viên 3" title="Lịch xem phòng của bạn" />}
@@ -105,7 +101,7 @@ export const AppRoutes: React.FC = () => {
         />
       </Route>
 
-      {/* 3. PROTECTED ADMIN CONSOLE ROUTES */}
+      {/* 4. PROTECTED ADMIN CONSOLE ROUTES */}
       <Route
         path="/admin"
         element={
