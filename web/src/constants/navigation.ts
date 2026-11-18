@@ -7,7 +7,6 @@ import {
   Calendar,
   CalendarCheck,
   CreditCard,
-  FileCheck2,
   Heart,
   Home,
   LayoutDashboard,
@@ -38,8 +37,7 @@ export const PUBLIC_NAV_ITEMS: NavItemConfig[] = [
 export const CUSTOMER_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Khám phá phòng', path: '/', icon: Home, end: true },
   { label: 'Phòng yêu thích', path: '/favorites', icon: Heart },
-  { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar },
-  { label: 'Quyết định thuê', path: '/rentals', icon: FileCheck2 },
+  { label: 'Lịch xem & Thuê phòng', path: '/appointments', icon: Calendar },
   { label: 'Quản lý ví', path: '/wallet', icon: Wallet },
   { label: 'Sổ cái giao dịch', path: '/transactions', icon: Receipt },
   { label: 'Thông báo', path: '/notifications', icon: Bell },

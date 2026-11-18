@@ -2,7 +2,6 @@
 export interface ReviewRequestDTO {
   diem: number; // 1 đến 5 sao
   noiDung: string;
-  hinhAnhUrls?: string[];
 }
 
 export interface ReviewResponseDTO {

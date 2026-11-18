@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Card } from '@heroui/react';
 import {
   AlertCircle,
+  ArrowRight,
   ArrowUpDown,
   Calendar,
   LayoutGrid,
@@ -13,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppointmentCard } from '@/components/booking/AppointmentCard';
 import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
+import { RentalProgressBar } from '@/components/booking/RentalProgressBar';
 import { RentalRequestCard } from '@/components/booking/RentalRequestCard';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useBookingStore, type AppointmentFilterTab } from '@/store/useBookingStore';
@@ -48,6 +51,14 @@ export const AppointmentsPage: React.FC = () => {
     const completed = appointments.filter((a) => a.trangThai === 'HOAN_THANH').length;
     const cancelled = appointments.filter((a) => a.trangThai === 'HUY').length;
     return { all, pending, confirmed, completed, cancelled };
+  }, [appointments]);
+
+  const activeRental = useMemo(() => {
+    return (
+      appointments.find(
+        (a) => a.trangThai === 'XAC_NHAN' || a.trangThai === 'CHO_XAC_NHAN',
+      ) || null
+    );
   }, [appointments]);
 
   const TAB_ITEMS: { key: AppointmentFilterTab; label: string; count: number }[] = [
@@ -108,11 +119,10 @@ export const AppointmentsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Lịch hẹn xem phòng
+            Lịch xem & Thuê phòng
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Theo dõi toàn bộ phiếu đặt lịch hẹn xem phòng (`PhieuDatLich`), cọc giữ chân và tiến
-            trình thuê
+            Theo dõi toàn bộ lịch hẹn xem phòng (`PhieuDatLich`), cọc giữ chân và tiến trình thuê
           </p>
         </div>
 
@@ -163,6 +173,43 @@ export const AppointmentsPage: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {activeRental && (
+        <Card className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-2xs space-y-4">
+          <Card.Header className="p-0 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+            <div>
+              <Card.Title className="text-sm sm:text-base font-bold text-slate-900">
+                Tiến trình xem & thuê phòng gần nhất
+              </Card.Title>
+              <Card.Description className="text-xs text-slate-500 mt-0.5">
+                {activeRental.tieuDePhong || `Phòng trọ mã #${activeRental.maPhongTro}`} · Mã lịch: #{activeRental.maDatLich}
+              </Card.Description>
+            </div>
+
+            <Link
+              to={`/appointments/${activeRental.maDatLich}`}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 transition-colors"
+            >
+              Xem chi tiết tiến trình <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </Card.Header>
+
+          <Card.Content className="p-0 pt-2">
+            <RentalProgressBar
+              status={activeRental.trangThai}
+              sentDate={
+                activeRental.thoiGianDat
+                  ? `${new Date(activeRental.thoiGianDat).getDate()}/${new Date(activeRental.thoiGianDat).getMonth() + 1}`
+                  : '--/--'
+              }
+              daNhanLaiCoc={Boolean(activeRental.daNhanLaiCoc)}
+              daNopCoc={Boolean(activeRental.daNopCoc)}
+              khachHangDongY={activeRental.khachHangDongY}
+              chuTroDongY={activeRental.chuTroDongY}
+            />
+          </Card.Content>
+        </Card>
+      )}
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {TAB_ITEMS.map((tab) => {

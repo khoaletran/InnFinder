@@ -363,23 +363,33 @@ export const DepositPaymentPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setShowCancelModal(true)}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-sm transition-colors cursor-pointer"
+              onClick={() => navigate('/appointments')}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center sm:text-left py-2 sm:py-0"
             >
-              Hủy lịch
+              Thanh toán sau (Về danh sách lịch)
             </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleConfirmPayment}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>{isSubmitting ? 'Đang xác nhận cọc...' : `Xác nhận đã nộp cọc ${formatVND(amount)}`}</span>
-            </button>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-sm transition-colors cursor-pointer"
+              >
+                Hủy lịch
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmPayment}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{isSubmitting ? 'Đang xác nhận cọc...' : `Xác nhận đã nộp cọc ${formatVND(amount)}`}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
