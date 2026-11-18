@@ -1,2 +1,41 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+@import "leaflet/dist/leaflet.css";
+
+/* Marker giá tiền tùy chỉnh trên bản đồ */
+.custom-price-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  border: 1.5px solid #0d9488;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translate(-50%, -50%);
+}
+
+.custom-price-marker:hover,
+.custom-price-marker.active {
+  background-color: #0d9488;
+  color: white;
+  border-color: #0f766e;
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.4);
+  z-index: 1000 !important;
+}
+
+/* Ẩn scrollbar ngang */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
