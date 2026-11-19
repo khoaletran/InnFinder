@@ -37,7 +37,7 @@ export default function RentalRequestsScreen() {
   useEffect(() => {
     setLoading(true);
     loadRequests();
-  }, [loadRequests, tab]);
+  }, [loadRequests]);
 
   const onRefresh = () => {
     setRefreshing(true);

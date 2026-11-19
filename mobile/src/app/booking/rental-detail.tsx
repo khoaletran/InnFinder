@@ -63,7 +63,7 @@ export default function RentalDetailScreen() {
       // 2. Polling ngầm mỗi 3 giây để cập nhật trạng thái nếu chủ trọ phê duyệt hoặc có biến động
       const interval = setInterval(() => {
         fetchAppointments(true);
-      }, 3000);
+      }, 8000);
 
       return () => {
         clearInterval(interval);
@@ -257,15 +257,15 @@ export default function RentalDetailScreen() {
           </View>
         </View>
 
-        {/* 3. THẺ TRẠNG THÁI TIỀN CỌC GIỮ CHÂN (BƯỚC 5 & 6) */}
+        {/* 3. THẺ TRẠNG THÁI TIỀN CỌC GIỮ CHÂN */}
         <View className="bg-slate-50 border border-slate-200 p-4 rounded-2xl my-4">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Tiền cọc giữ chân (Bước 5 & 6)
+              Tiền cọc giữ chân
             </Text>
             {item.trangThai === "HOAN_THANH" ? (
               <Chip size="sm" variant="soft" color="success">
-                <Chip.Label>✓ Đã hoàn 100%</Chip.Label>
+                <Chip.Label>Đã hoàn 100%</Chip.Label>
               </Chip>
             ) : item.trangThai === "HUY" ? (
               <Chip size="sm" variant="soft" color="danger">
@@ -326,7 +326,9 @@ export default function RentalDetailScreen() {
                 : item.trangThai === "HUY"
                   ? `Lịch hẹn đã hủy. ${isDepositPaid ? "Tiền cọc đã được hoàn trả lại ví của bạn." : "Chưa nộp tiền cọc."}`
                   : item.trangThai === "CHO_XAC_NHAN"
-                    ? "Yêu cầu đang chờ Chủ trọ xác nhận. Bạn chỉ cần nộp cọc giữ chân sau khi Chủ trọ đồng ý lịch xem."
+                    ? (isDepositPaid
+                        ? "Đã nộp cọc giữ chân! Hệ thống đã gửi phiếu hẹn tới Chủ trọ để xét duyệt đón tiếp."
+                        : "Phiếu hẹn chưa gửi tới Chủ trọ. Bạn cần hoàn tất nộp cọc giữ chân để Chủ trọ xét duyệt.")
                     : isDepositPaid
                       ? "Khoản cọc đang được InnFinder tạm giữ an toàn. Hệ thống sẽ hoàn lại 100% sau buổi xem phòng."
                       : "Chủ trọ đã đồng ý lịch hẹn! Vui lòng nộp cọc giữ chân để đảm bảo giữ chỗ xem phòng."}
@@ -531,14 +533,37 @@ export default function RentalDetailScreen() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={handleCallLandlord}
-              className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
-            >
-              <Text className="text-sm font-semibold text-white">
-                Liên hệ chủ trọ
-              </Text>
-            </TouchableOpacity>
+            {item.trangThai === "CHO_XAC_NHAN" && !isDepositPaid ? (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/deposit-payment",
+                    params: {
+                      appointmentId: item.maDatLich,
+                      roomId: item.maPhongTro,
+                      roomTitle: item.tieuDePhong || `Phòng #${item.maPhongTro}`,
+                      roomImage: item.hinhAnh || "",
+                      depositAmount: String(item.coc || 0),
+                      ngayHen: item.ngayHen,
+                    },
+                  })
+                }
+                className="flex-[1.5] py-3 rounded-xl bg-teal-600 items-center justify-center"
+              >
+                <Text className="text-sm font-bold text-white">
+                  Nộp cọc ngay ({formatCurrency(item.coc || 0)})
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleCallLandlord}
+                className="flex-1 py-3 rounded-xl bg-teal-600 items-center justify-center"
+              >
+                <Text className="text-sm font-semibold text-white">
+                  Liên hệ chủ trọ
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </View>

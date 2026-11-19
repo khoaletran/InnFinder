@@ -15,6 +15,7 @@ import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.TaiKhoanNganHangRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,6 +59,7 @@ public class TransactionService {
      * Hàm phụ trợ ghi nhận giao dịch vào CSDL
      */
     @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
     public GiaoDich taoGiaoDich(NguoiDung nguoiDung, Long soTien, String loaiGiaoDich, String noiDung, TrangThaiGD trangThai) {
         GiaoDich gd = GiaoDich.builder()
                 .maGiaoDich(generateMaGiaoDich())
@@ -87,6 +89,7 @@ public class TransactionService {
 
     /**
      * Lấy thông tin Ví của Chủ trọ (Số dư, điểm uy tín, danh sách ngân hàng liên kết)
+     * Tối ưu hóa: Dùng câu lệnh SQL aggregate tính toán trực tiếp dưới DB thay vì load toàn bộ giao dịch vào memory
      */
     @Transactional(readOnly = true)
     public LandlordWalletResponse getLandlordWalletInfo(String username) {
@@ -104,36 +107,33 @@ public class TransactionService {
                         .build())
                 .toList();
 
-        List<GiaoDich> dsGD = giaoDichRepository.findByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(user.getMaNguoiDung());
+        Long tongDaThu = giaoDichRepository.sumSoTienByNguoiDungAndLoaiGiaoDichNotAndTrangThai(
+                user.getMaNguoiDung(), "RUT_TIEN", TrangThaiGD.THANH_CONG);
 
-        long tongDaThu = dsGD.stream()
-                .filter(gd -> !"RUT_TIEN".equalsIgnoreCase(gd.getLoaiGiaoDich()) && gd.getTrangThai() == TrangThaiGD.THANH_CONG)
-                .mapToLong(GiaoDich::getSoTien)
-                .sum();
-
-        long tongDaRut = dsGD.stream()
-                .filter(gd -> "RUT_TIEN".equalsIgnoreCase(gd.getLoaiGiaoDich()))
-                .mapToLong(GiaoDich::getSoTien)
-                .sum();
+        // Chỉ tính các lệnh rút tiền đã được phê duyệt THANH_CONG
+        Long tongDaRut = giaoDichRepository.sumSoTienByNguoiDungAndLoaiGiaoDichAndTrangThai(
+                user.getMaNguoiDung(), "RUT_TIEN", TrangThaiGD.THANH_CONG);
 
         return LandlordWalletResponse.builder()
                 .soDu(chuTro.getSoDu() != null ? chuTro.getSoDu() : 0L)
                 .diemUyTin(chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100)
                 .dsTaiKhoanNganHang(dsBank)
-                .tongDaThu(tongDaThu)
-                .tongDaRut(tongDaRut)
+                .tongDaThu(tongDaThu != null ? tongDaThu : 0L)
+                .tongDaRut(tongDaRut != null ? tongDaRut : 0L)
                 .build();
     }
 
     /**
      * Chủ trọ tạo yêu cầu rút tiền về tài khoản ngân hàng
+     * Sử dụng Khóa bi quan findByIdForUpdate để chống Double Spending khi gửi nhiều request rút tiền cùng lúc
      */
     @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
     public TransactionResponse taoYeuCauRutTien(String username, WithdrawRequest request) {
         NguoiDung user = nguoiDungRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        ChuTro chuTro = chuTroRepository.findById(user.getMaNguoiDung())
+        ChuTro chuTro = chuTroRepository.findByIdForUpdate(user.getMaNguoiDung())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_LANDLORD));
 
         long soDuHienTai = chuTro.getSoDu() != null ? chuTro.getSoDu() : 0L;

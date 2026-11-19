@@ -123,6 +123,11 @@ export default function AdminMenuScreen() {
             label="Thống kê nâng cao"
             onPress={() => router.push('/(admin)/statistics')}
           />
+          <ProfileMenuRow
+            icon="pricetags-outline"
+            label="Biểu phí cọc & Phí sàn"
+            onPress={() => router.push('/(admin)/deposit-fees' as any)}
+          />
         </View>
 
         {/* Nút Đăng xuất */}

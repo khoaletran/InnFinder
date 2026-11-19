@@ -84,6 +84,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [showLoginPass, setShowLoginPass] = useState(false);
 
   // ================= STATE ĐĂNG KÝ =================
   const [regUser, setRegUser] = useState('');
@@ -92,6 +93,8 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
   const [regPhone, setRegPhone] = useState('');
   const [regPass, setRegPass] = useState('');
   const [regConfirmPass, setRegConfirmPass] = useState('');
+  const [showRegPass, setShowRegPass] = useState(false);
+  const [showRegConfirmPass, setShowRegConfirmPass] = useState(false);
   const [regError, setRegError] = useState('');
   const [regLoading, setRegLoading] = useState(false);
 
@@ -552,7 +555,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                     <TextField isRequired isInvalid={!!loginError && !loginUser}>
                       <Label>Tên đăng nhập</Label>
                       <Input
-                        placeholder="Nhập tên đăng nhập"
+                        placeholder="Tên tài khoản hoặc email"
                         autoCapitalize="none"
                         value={loginUser}
                         onChangeText={setLoginUser}
@@ -571,12 +574,26 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
                           </Text>
                         </Pressable>
                       </View>
-                      <Input
-                        placeholder="Nhập mật khẩu (tối thiểu 8 ký tự)"
-                        secureTextEntry
-                        value={loginPass}
-                        onChangeText={setLoginPass}
-                      />
+                      <View className="relative justify-center">
+                        <Input
+                          placeholder="Tối thiểu 8 ký tự"
+                          secureTextEntry={!showLoginPass}
+                          value={loginPass}
+                          onChangeText={setLoginPass}
+                          className="pr-10"
+                        />
+                        <Pressable
+                          onPress={() => setShowLoginPass(!showLoginPass)}
+                          className="absolute right-3 p-1 active:opacity-70"
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name={showLoginPass ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color="#64748B"
+                          />
+                        </Pressable>
+                      </View>
                       {loginError ? <FieldError>{loginError}</FieldError> : null}
                     </TextField>
 
@@ -657,22 +674,50 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
 
                     <TextField isRequired>
                       <Label>Mật khẩu</Label>
-                      <Input
-                        placeholder="Tối thiểu 8 ký tự"
-                        secureTextEntry
-                        value={regPass}
-                        onChangeText={setRegPass}
-                      />
+                      <View className="relative justify-center">
+                        <Input
+                          placeholder="Tối thiểu 8 ký tự"
+                          secureTextEntry={!showRegPass}
+                          value={regPass}
+                          onChangeText={setRegPass}
+                          className="pr-10"
+                        />
+                        <Pressable
+                          onPress={() => setShowRegPass(!showRegPass)}
+                          className="absolute right-3 p-1 active:opacity-70"
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name={showRegPass ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color="#64748B"
+                          />
+                        </Pressable>
+                      </View>
                     </TextField>
 
                     <TextField isRequired>
                       <Label>Xác nhận mật khẩu</Label>
-                      <Input
-                        placeholder="Nhập lại mật khẩu vừa nhập"
-                        secureTextEntry
-                        value={regConfirmPass}
-                        onChangeText={setRegConfirmPass}
-                      />
+                      <View className="relative justify-center">
+                        <Input
+                          placeholder="Nhập lại mật khẩu"
+                          secureTextEntry={!showRegConfirmPass}
+                          value={regConfirmPass}
+                          onChangeText={setRegConfirmPass}
+                          className="pr-10"
+                        />
+                        <Pressable
+                          onPress={() => setShowRegConfirmPass(!showRegConfirmPass)}
+                          className="absolute right-3 p-1 active:opacity-70"
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name={showRegConfirmPass ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color="#64748B"
+                          />
+                        </Pressable>
+                      </View>
                     </TextField>
 
                     {regError ? (

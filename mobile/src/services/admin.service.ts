@@ -1,4 +1,5 @@
 import { axiosClient } from '../api/axiosClient';
+import { RoomTypeDepositFee, UpdateDepositFeePayload } from '../types/room.types';
 import {
   AdminDashboardStats,
   AdminTreasuryStats,
@@ -104,10 +105,24 @@ export const adminService = {
   },
 
   // 2. Quản lý Người dùng
-  getUsers: async (role?: string): Promise<AdminUserItem[]> => {
+  getUsers: async (params?: {
+    keyword?: string;
+    page?: number;
+    size?: number;
+  }): Promise<AdminUserItem[]> => {
     try {
-      const res = await axiosClient.get<any, any>('/api/admin/users', { params: { role } });
-      const list = Array.isArray(res) ? res : (res?.data || []);
+      if (!params?.keyword || !params.keyword.trim()) {
+        return [];
+      }
+      const res = await axiosClient.get<any, any>('/api/admin/users', {
+        params: {
+          keyword: params.keyword.trim(),
+          page: params.page ?? 0,
+          size: params.size ?? 20,
+        },
+      });
+      const pageData = res?.data !== undefined ? res.data : res;
+      const list = pageData?.content || (Array.isArray(pageData) ? pageData : []);
       if (Array.isArray(list)) {
         return list.map((u: any) => ({
           maNguoiDung: u.maNguoiDung || '',
@@ -140,14 +155,29 @@ export const adminService = {
 
   getUserById: async (id: string): Promise<AdminUserItem | null> => {
     try {
-      const list = await adminService.getUsers();
-      const found = list.find((u) => u.maNguoiDung === id);
-      if (found) {
+      const res = await axiosClient.get<any, any>(`/api/admin/users/${id}`);
+      const u = res?.data !== undefined ? res.data : res;
+      if (u && u.maNguoiDung) {
         return {
-          ...found,
+          maNguoiDung: u.maNguoiDung || '',
+          tenDangNhap: u.tenDangNhap || '',
+          hoVaTen: u.hoVaTen || u.tenDangNhap || 'Người dùng',
+          email: u.email || '',
+          sdt: u.sdt || '',
+          cccd: u.cccd,
+          vaiTro: u.vaiTro || 'KHACH_HANG',
+          chuTro: Boolean(u.chuTro),
+          trangThai: u.trangThaiKhoa ? 'KHOA' : 'HOAT_DONG',
+          ngayTao: u.thoiGianMoTaiKhoan
+            ? new Date(u.thoiGianMoTaiKhoan).toLocaleDateString('vi-VN')
+            : '',
+          soTinDang: u.soTinDang || 0,
+          soLichHen: u.soLichHen || 0,
+          soGiaoDich: u.soGiaoDich || 0,
+          avatarUrl: u.hinhDaiDien,
           diemUyTin: 100,
           soDu: 0,
-          soTaiKhoan: '1023456789',
+          soTaiKhoan: 'Chờ cập nhật',
           tenNganHang: 'Vietcombank',
         };
       }
@@ -239,21 +269,27 @@ export const adminService = {
     }
   },
 
-  approveLandlordRequest: async (id: string): Promise<boolean> => {
+  approveLandlordRequest: async (id: string): Promise<{ success: boolean; message?: string }> => {
     try {
       await axiosClient.patch(`/api/admin/landlord-requests/${id}/approve`);
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Không thể duyệt đơn. Vui lòng thử lại sau.',
+      };
     }
   },
 
-  rejectLandlordRequest: async (id: string, lyDo?: string): Promise<boolean> => {
+  rejectLandlordRequest: async (id: string, lyDo?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       await axiosClient.patch(`/api/admin/landlord-requests/${id}/reject`, { lyDo });
-      return true;
-    } catch {
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Không thể từ chối đơn. Vui lòng thử lại sau.',
+      };
     }
   },
 
@@ -401,11 +437,12 @@ export const adminService = {
     }
   },
 
-  resolveComplaint: async (id: string, status: string, _ghiChu?: string): Promise<boolean> => {
+  resolveComplaint: async (id: string, status: string, ghiChu?: string): Promise<boolean> => {
     try {
       await axiosClient.patch(`/api/admin/complaints/${id}/resolve`, {
         trangThai: status,
         mucDoViPham: 'NHE',
+        ketQua: ghiChu,
       });
       return true;
     } catch {
@@ -414,10 +451,24 @@ export const adminService = {
   },
 
   // 6. Giao dịch & Yêu cầu rút tiền của người dùng (Ngân khố Admin)
-  getTransactions: async (): Promise<AdminTransactionItem[]> => {
+  getTransactions: async (params?: {
+    keyword?: string;
+    page?: number;
+    size?: number;
+  } | string): Promise<AdminTransactionItem[]> => {
     try {
-      const res = await axiosClient.get<any, any>('/api/admin/transactions');
-      const list = Array.isArray(res) ? res : (res?.data || []);
+      const keyword = typeof params === 'string' ? params : params?.keyword;
+      const page = typeof params === 'string' ? 0 : (params?.page ?? 0);
+      const size = typeof params === 'string' ? 20 : (params?.size ?? 20);
+      const res = await axiosClient.get<any, any>('/api/admin/transactions', {
+        params: {
+          keyword,
+          page,
+          size,
+        },
+      });
+      const pageData = res?.data !== undefined ? res.data : res;
+      const list = pageData?.content || (Array.isArray(pageData) ? pageData : []);
       if (Array.isArray(list)) {
         return list.map((t: any) => ({
           maGiaoDich: t.maGiaoDich || '',
@@ -590,6 +641,42 @@ export const adminService = {
   },
 
   // 9. Danh mục
+  // 10. Quản lý biểu phí cọc & sàn
+  getRoomTypeDepositFees: async (): Promise<RoomTypeDepositFee[]> => {
+    try {
+      const res = await axiosClient.get<any, any>('/api/admin/room-types/deposit-fees');
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      console.warn('Lỗi tải biểu phí cọc & sàn:', e);
+      return [];
+    }
+  },
+
+  updateRoomTypeDepositFee: async (
+    maLpt: string,
+    payload: UpdateDepositFeePayload
+  ): Promise<RoomTypeDepositFee> => {
+    const res = await axiosClient.put<any, any>(`/api/admin/room-types/${maLpt}/deposit-fee`, payload);
+    return res?.data !== undefined ? res.data : res;
+  },
+
+  updateRoomType: async (
+    maLpt: string,
+    payload: { ten: string; moTa?: string }
+  ): Promise<any> => {
+    const res = await axiosClient.put<any, any>(`/api/admin/room-types/${maLpt}`, payload);
+    return res?.data !== undefined ? res.data : res;
+  },
+
+  updateAmenity: async (
+    maTienIch: string,
+    payload: { ten: string; moTa?: string }
+  ): Promise<any> => {
+    const res = await axiosClient.put<any, any>(`/api/admin/amenities/${maTienIch}`, payload);
+    return res?.data !== undefined ? res.data : res;
+  },
+
   getCategories: async (type?: 'LOAI_PHONG' | 'TIEN_ICH' | 'KHU_VUC'): Promise<AdminCategoryItem[]> => {
     try {
       if (type === 'TIEN_ICH') {

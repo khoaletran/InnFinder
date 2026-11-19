@@ -30,6 +30,10 @@ public class PhieuDatLich {
     @Column(name = "ngay_hen", nullable = false)
     private LocalDateTime ngayHen;
 
+    @Column(name = "thoi_gian_dat", nullable = false)
+    @Builder.Default
+    private LocalDateTime thoiGianDat = LocalDateTime.now();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", nullable = false)
     @Builder.Default

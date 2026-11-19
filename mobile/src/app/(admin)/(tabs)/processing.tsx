@@ -77,9 +77,13 @@ export default function AdminProcessingScreen() {
       {
         text: 'Duyệt',
         onPress: async () => {
-          await adminService.approveLandlordRequest(id);
-          Alert.alert('Thành công', 'Đã nâng cấp tài khoản thành Chủ trọ.');
-          loadData();
+          const res = await adminService.approveLandlordRequest(id);
+          if (res.success) {
+            Alert.alert('Thành công', 'Đã nâng cấp tài khoản thành Chủ trọ.');
+            loadData();
+          } else {
+            Alert.alert('Lỗi', res.message || 'Không thể duyệt đơn.');
+          }
         },
       },
     ]);
@@ -92,9 +96,13 @@ export default function AdminProcessingScreen() {
         text: 'Từ chối',
         style: 'destructive',
         onPress: async () => {
-          await adminService.rejectLandlordRequest(id, 'CCCD hoặc tài khoản ngân hàng không hợp lệ');
-          Alert.alert('Đã từ chối', 'Đã từ chối hồ sơ.');
-          loadData();
+          const res = await adminService.rejectLandlordRequest(id, 'CCCD hoặc tài khoản ngân hàng không hợp lệ');
+          if (res.success) {
+            Alert.alert('Đã từ chối', 'Đã từ chối hồ sơ.');
+            loadData();
+          } else {
+            Alert.alert('Lỗi', res.message || 'Không thể từ chối hồ sơ.');
+          }
         },
       },
     ]);

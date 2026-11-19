@@ -25,4 +25,5 @@ public class ComplaintResponseDTO {
     private TrangThaiKhieuNai trangThai;
     private Integer mucDoUuTien;
     private MucDoViPham mucDoViPham;
+    private String ketQua;
 }

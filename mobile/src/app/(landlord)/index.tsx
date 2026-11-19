@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -33,20 +33,68 @@ export default function LandlordDashboardScreen() {
 
   const [appointments, setAppointments] = useState<LandlordAppointmentItem[]>([]);
   const [recentPosts, setRecentPosts] = useState<LandlordPostItem[]>([]);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    const s = await landlordService.getDashboardStats();
-    setStats(s);
+  const loadData = async (forceRefresh = false) => {
+    try {
+      // Tải song song 1 lượt duy nhất, không gọi lặp lại
+      const [rooms, apts, reviews, wallet] = await Promise.all([
+        landlordService.getMyRooms('ALL', forceRefresh),
+        landlordService.getAppointments(undefined, forceRefresh),
+        landlordService.getLandlordReviews(),
+        landlordService.getWalletInfo(),
+      ]);
 
-    const apts = await landlordService.getAppointments();
-    setAppointments(apts);
+      const tongPhong = rooms.length;
+      const phongChoDuyet = rooms.filter((r) => r.trangThai === 'CHO_DUYET').length;
+      const dangTrong = rooms.filter((r) => r.trangThai === 'DA_DUYET' && !r.isRented).length;
+      const dangThue = rooms.filter((r) => r.isRented || r.trangThai === 'HOAN_THANH').length;
+      const yeuCauMoi = apts.filter((a) => a.trangThai === 'CHO_XAC_NHAN').length;
 
-    const posts = await landlordService.getMyPosts();
-    setRecentPosts(posts.slice(0, 2));
+      const tongDanhGia = Array.isArray(reviews) ? reviews.length : 0;
+      let diemDanhGia: number | string = '5.0';
+      if (tongDanhGia > 0) {
+        const sum = reviews.reduce((acc: number, cur: any) => acc + (Number(cur.diem) || 5), 0);
+        diemDanhGia = (sum / tongDanhGia).toFixed(1);
+      }
+
+      setStats({
+        tongPhong,
+        phongChoDuyet,
+        dangTrong,
+        tongDanhGia,
+        diemDanhGia,
+        soDu: wallet?.soDu ?? 0,
+        tongPhongMoi: Math.min(rooms.length, 2),
+        yeuCauMoi,
+        dangThue,
+      });
+
+      setAppointments(apts);
+      setRecentPosts(
+        rooms.slice(0, 2).map((r) => ({
+          id: r.id,
+          tenPhong: r.tenPhong,
+          giaThue: r.giaThue,
+          trangThai: r.trangThai,
+          hinhAnhUrl: r.hinhAnhUrl,
+          ngayDang: r.thoiGianDang ? r.thoiGianDang.substring(0, 10) : new Date().toISOString().substring(0, 10),
+        }))
+      );
+    } catch (e) {
+      console.warn('Lỗi tải dữ liệu dashboard chủ trọ:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData(true);
   };
 
   const handleConfirm = async (id: string) => {
@@ -184,6 +232,9 @@ export default function LandlordDashboardScreen() {
         className="px-4 py-4"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0f766e']} />
+        }
       >
         {/* 2. Grid 4 Thống kê */}
         <StatSummaryGrid stats={stats} />

@@ -9,6 +9,7 @@ export type TrangThaiDatLich =
 export interface AppointmentResponse {
   maDatLich: string;
   ngayHen: string; // Dinh dang ISO: "2026-10-14T09:00:00"
+  thoiGianDat?: string; // Thoi gian gui yeu cau dat lich ISO: "2026-10-14T08:30:00"
   trangThai: TrangThaiDatLich;
   coc: number;
   phiThu: number;

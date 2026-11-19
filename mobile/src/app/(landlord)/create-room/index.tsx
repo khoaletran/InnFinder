@@ -178,8 +178,8 @@ export default function CreateRoomScreen() {
     });
     updateStep2({
       diaChi,
-      kinhDo: '10.8231',
-      viDo: '106.6297',
+      kinhDo: coordinates.longitude.toString(),
+      viDo: coordinates.latitude.toString(),
     });
   };
 

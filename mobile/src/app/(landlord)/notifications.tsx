@@ -34,7 +34,7 @@ export default function LandlordNotificationsScreen() {
   // Nạp dữ liệu khi focus màn hình (có TTL 60s, không spam request)
   useFocusEffect(
     useCallback(() => {
-      fetchNotifications(false);
+      fetchNotifications(true);
     }, [])
   );
 

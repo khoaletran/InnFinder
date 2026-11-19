@@ -14,7 +14,32 @@ import {
   BankAccountItem,
 } from '../types/landlord.types';
 
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const CACHE_TTL = 30000; // 30s cache bộ nhớ
+let myRoomsCache: CacheEntry<LandlordRoomItem[]> | null = null;
+let appointmentsCache: CacheEntry<LandlordAppointmentItem[]> | null = null;
+
+const filterRooms = (
+  list: LandlordRoomItem[],
+  filter?: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH' | 'AVAILABLE' | 'RENTED'
+) => {
+  if (filter === 'DA_DUYET' || filter === 'AVAILABLE') return list.filter((r) => r.trangThai === 'DA_DUYET');
+  if (filter === 'CHO_DUYET') return list.filter((r) => r.trangThai === 'CHO_DUYET');
+  if (filter === 'HUY') return list.filter((r) => r.trangThai === 'HUY');
+  if (filter === 'HOAN_THANH' || filter === 'RENTED') return list.filter((r) => r.trangThai === 'HOAN_THANH');
+  return list;
+};
+
 export const landlordService = {
+  // Xóa cache khi có cập nhật mới
+  clearCache: () => {
+    myRoomsCache = null;
+    appointmentsCache = null;
+  },
   // 1. Thống kê Dashboard (tính toán từ dữ liệu phòng và lịch hẹn thực tế trong DB)
   getDashboardStats: async (): Promise<LandlordDashboardStats> => {
     try {
@@ -68,9 +93,14 @@ export const landlordService = {
 
   // 2. Danh sách Phòng của tôi (gọi GET /api/landlord/rooms/my-rooms)
   getMyRooms: async (
-    filter?: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH' | 'AVAILABLE' | 'RENTED'
+    filter?: 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH' | 'AVAILABLE' | 'RENTED',
+    forceRefresh = false
   ): Promise<LandlordRoomItem[]> => {
     try {
+      const now = Date.now();
+      if (!forceRefresh && myRoomsCache && now - myRoomsCache.timestamp < CACHE_TTL) {
+        return filterRooms(myRoomsCache.data, filter);
+      }
       const res: any = await axiosClient.get('/api/landlord/rooms/my-rooms');
       const list: LandlordRoomItem[] = Array.isArray(res)
         ? res.map((r: any) => ({
@@ -89,38 +119,35 @@ export const landlordService = {
           }))
         : [];
 
-      if (filter === 'DA_DUYET' || filter === 'AVAILABLE') return list.filter((r) => r.trangThai === 'DA_DUYET');
-      if (filter === 'CHO_DUYET') return list.filter((r) => r.trangThai === 'CHO_DUYET');
-      if (filter === 'HUY') return list.filter((r) => r.trangThai === 'HUY');
-      if (filter === 'HOAN_THANH' || filter === 'RENTED') return list.filter((r) => r.trangThai === 'HOAN_THANH');
-      return list;
+      myRoomsCache = { data: list, timestamp: now };
+      return filterRooms(list, filter);
+
+
+
+
     } catch {
       return [];
     }
   },
 
   // 3. Quản lý Bài đăng của tôi (gọi GET /api/landlord/rooms/my-rooms)
-  getMyPosts: async (filter?: 'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED'): Promise<LandlordPostItem[]> => {
+  getMyPosts: async (filter?: 'ALL' | 'ACTIVE' | 'PENDING' | 'REJECTED', forceRefresh = false): Promise<LandlordPostItem[]> => {
     try {
-      const res: any = await axiosClient.get('/api/landlord/rooms/my-rooms');
-      const list: LandlordPostItem[] = Array.isArray(res)
-        ? res.map((r: any) => ({
-            id: r.maPhongTro,
-            tenPhong: r.tenLoaiPhong ? `${r.tenLoaiPhong} - ${r.diaChi}` : r.diaChi,
-            giaThue: Number(r.giaThue) || 0,
-            trangThai: r.trangThai || 'DA_DUYET',
-            hinhAnhUrl:
-              r.anhDaiDien ||
-              'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
-            lyDoTuChoi:
-              r.trangThai === 'HUY'
-                ? 'Thông tin chưa đạt yêu cầu kiểm duyệt, vui lòng cập nhật lại.'
-                : undefined,
-            ngayDang: r.thoiGianDang
-              ? r.thoiGianDang.substring(0, 10)
-              : new Date().toISOString().substring(0, 10),
-          }))
-        : [];
+      const rooms = await landlordService.getMyRooms('ALL', forceRefresh);
+      const list: LandlordPostItem[] = rooms.map((r) => ({
+        id: r.id,
+        tenPhong: r.tenPhong,
+        giaThue: r.giaThue,
+        trangThai: r.trangThai,
+        hinhAnhUrl: r.hinhAnhUrl,
+        lyDoTuChoi:
+          r.trangThai === 'HUY'
+            ? 'Thông tin chưa đạt yêu cầu kiểm duyệt, vui lòng cập nhật lại.'
+            : undefined,
+        ngayDang: r.thoiGianDang
+          ? r.thoiGianDang.substring(0, 10)
+          : new Date().toISOString().substring(0, 10),
+      }));
 
       if (filter === 'ACTIVE') return list.filter((p) => p.trangThai === 'DA_DUYET');
       if (filter === 'PENDING') return list.filter((p) => p.trangThai === 'CHO_DUYET');
@@ -130,10 +157,13 @@ export const landlordService = {
       return [];
     }
   },
-
-  // 4. Lịch xem phòng của khách (gọi GET /api/landlord/appointments)
-  getAppointments: async (date?: string): Promise<LandlordAppointmentItem[]> => {
+  // 4. Lịch xem phòng của khách (gọi GET /api/landlord/appointments kèm cache)
+  getAppointments: async (date?: string, forceRefresh = false): Promise<LandlordAppointmentItem[]> => {
     try {
+      const now = Date.now();
+      if (!forceRefresh && appointmentsCache && now - appointmentsCache.timestamp < CACHE_TTL) {
+        return date ? appointmentsCache.data.filter((a) => a.ngayHen === date) : appointmentsCache.data;
+      }
       const res: any = await axiosClient.get('/api/landlord/appointments');
       const list: LandlordAppointmentItem[] = Array.isArray(res)
         ? res.map((a: any) => ({
@@ -163,6 +193,7 @@ export const landlordService = {
           }))
         : [];
 
+      appointmentsCache = { data: list, timestamp: now };
       if (date) {
         return list.filter((a) => a.ngayHen === date);
       }
@@ -175,6 +206,7 @@ export const landlordService = {
   // Chủ trọ bấm xác nhận lịch hẹn xem phòng
   confirmAppointment: async (id: string): Promise<void> => {
     await axiosClient.patch(`/api/landlord/appointments/${id}/confirm`);
+    landlordService.clearCache();
   },
 
   // Chủ trọ từ chối lịch hẹn (hoàn cọc cho khách)
@@ -182,20 +214,23 @@ export const landlordService = {
     await axiosClient.patch(`/api/landlord/appointments/${id}/reject`, {
       liDoHuy: reason || 'Chủ trọ bận lịch vào khung giờ này',
     });
+    landlordService.clearCache();
   },
-
 
   // Chủ trọ đưa ra quyết định độc lập (Cho thuê / Từ chối cho thuê)
   submitLandlordDecision: async (id: string, dongY: boolean, reason?: string): Promise<any> => {
-    return axiosClient.patch(`/api/landlord/appointments/${id}/decision`, {
+    const res = await axiosClient.patch(`/api/landlord/appointments/${id}/decision`, {
       dongY,
       liDoTuChoi: reason,
     });
+    landlordService.clearCache();
+    return res;
   },
 
   // Chủ trọ chốt cho thuê phòng thành công sau khi xem (hoàn cọc khách, cộng tiền chủ trọ, đóng phòng)
   completeAppointment: async (id: string): Promise<void> => {
     await axiosClient.patch(`/api/landlord/appointments/${id}/complete`);
+    landlordService.clearCache();
   },
 
   // Chủ trọ hủy hoặc xác nhận khách không thuê sau khi xem (hoàn cọc cho khách, giữ lại phòng)
@@ -203,28 +238,27 @@ export const landlordService = {
     await axiosClient.patch(`/api/landlord/appointments/${id}/cancel`, {
       liDoHuy: reason || 'Không thuê sau khi xem phòng',
     });
+    landlordService.clearCache();
   },
 
-  // 5. Yêu cầu thuê phòng (Lọc các lịch hẹn đã xem xong hoặc yêu cầu thuê)
-  getRentalRequests: async (): Promise<LandlordRentalRequestItem[]> => {
+  // 5. Yêu cầu thuê phòng (Tái sử dụng getAppointments, không bắn request trùng)
+  getRentalRequests: async (forceRefresh = false): Promise<LandlordRentalRequestItem[]> => {
     try {
-      const res: any = await axiosClient.get('/api/landlord/appointments');
-      return Array.isArray(res)
-        ? res
-            .filter((a: any) => a.trangThai === 'XAC_NHAN' || a.trangThai === 'CHO_XAC_NHAN')
-            .map((a: any) => ({
-              id: a.maDatLich,
-              khachHangTen: a.tenKhachHang || 'Khách hàng',
-              sdt: a.sdtKhachHang || '0901 234 567',
-              phongTen: `Phòng ${a.maPhongTro} - ${a.diaChiPhong || ''}`,
-              giaThue: Number(a.giaThue) || 3500000,
-              ngayNhanPhong: a.ngayHen ? a.ngayHen.substring(0, 10) : '01/12/2026',
-              thoiGianThue: '12 tháng',
-              soNguoi: 2,
-              ghiChu: a.liDoHuy || 'Muốn thuê dài hạn',
-              trangThai: a.trangThai === 'XAC_NHAN' ? 'DA_DUYET' : 'CHO_DUYET',
-            }))
-        : [];
+      const appointments = await landlordService.getAppointments(undefined, forceRefresh);
+      return appointments
+        .filter((a: any) => a.trangThai === 'XAC_NHAN' || a.trangThai === 'CHO_XAC_NHAN')
+        .map((a: any) => ({
+          id: a.id,
+          khachHangTen: a.khachHangTen || 'Khách hàng',
+          sdt: a.sdt || '0901 234 567',
+          phongTen: a.phongTen,
+          giaThue: Number(a.giaThue) || 3500000,
+          ngayNhanPhong: a.ngayHen || '01/12/2026',
+          thoiGianThue: '12 tháng',
+          soNguoi: 2,
+          ghiChu: a.ghiChu || 'Muốn thuê dài hạn',
+          trangThai: a.trangThai === 'XAC_NHAN' ? 'DA_DUYET' : 'CHO_DUYET',
+        }));
     } catch {
       return [];
     }
@@ -260,6 +294,7 @@ export const landlordService = {
 
       if (filter) return list.filter((item) => item.loaiGiaoDich === filter);
       return list;
+
     } catch {
       return [];
     }

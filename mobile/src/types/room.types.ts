@@ -9,6 +9,24 @@ export interface CategoryResponse {
   tenLoaiPhongTro: string;
   moTa?: string;
   soTienCoc?: number; // Mức cọc xem phòng quy định theo loại phòng
+  phiThu?: number; // Mức phí hoa hồng sàn trích lại khi thuê thành công
+}
+
+export interface RoomTypeDepositFee {
+  maLpt: string;
+  tenLoaiPhongTro: string;
+  moTa?: string;
+  maCoc?: string;
+  soTienCoc: number;
+  maPhiThu?: string;
+  phiThu: number;
+  thucNhanChuTro: number;
+  tyLePhiPercent: number;
+}
+
+export interface UpdateDepositFeePayload {
+  soTienCoc: number;
+  phiThu: number;
 }
 
 export interface AmenityResponse {

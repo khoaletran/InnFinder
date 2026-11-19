@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,7 +8,7 @@ import { landlordService } from '../../services/landlord.service';
 import { LandlordRoomItem } from '../../types/landlord.types';
 import { formatVNDShort } from '../../utils/formatVND';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 8;
 
 type RoomFilterKey = 'ALL' | 'DA_DUYET' | 'CHO_DUYET' | 'HUY' | 'HOAN_THANH';
 
@@ -24,11 +24,12 @@ export default function MyRoomsScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<RoomFilterKey>('ALL');
   const [rooms, setRooms] = useState<LandlordRoomItem[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [visibleLimit, setVisibleLimit] = useState<number>(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setVisibleLimit(PAGE_SIZE);
     loadRooms();
   }, [filter]);
 
@@ -89,14 +90,20 @@ export default function MyRoomsScreen() {
     }
   };
 
-  // Tính toán phân trang
-  const totalRooms = rooms.length;
-  const totalPages = Math.max(1, Math.ceil(totalRooms / PAGE_SIZE));
+  // Lướt cuộn vô tận (Infinite Scroll)
+  const visibleRooms = useMemo(() => {
+    return rooms.slice(0, visibleLimit);
+  }, [rooms, visibleLimit]);
 
-  const paginatedRooms = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return rooms.slice(start, start + PAGE_SIZE);
-  }, [rooms, currentPage]);
+  const handleLoadMore = () => {
+    if (visibleLimit < rooms.length && !loadingMore) {
+      setLoadingMore(true);
+      setTimeout(() => {
+        setVisibleLimit((prev) => Math.min(prev + PAGE_SIZE, rooms.length));
+        setLoadingMore(false);
+      }, 250);
+    }
+  };
 
   // Render 1 phòng trọ
   const renderRoomItem = ({ item: room }: { item: LandlordRoomItem }) => (
@@ -204,7 +211,7 @@ export default function MyRoomsScreen() {
       <View className="px-4 py-3.5 bg-white border-b border-gray-100 flex-row items-center justify-between">
         <Text className="text-lg font-bold text-gray-900">Phòng của tôi</Text>
         <View className="px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200">
-          <Text className="text-xs font-bold text-teal-700">{totalRooms} phòng</Text>
+          <Text className="text-xs font-bold text-teal-700">{rooms.length} phòng</Text>
         </View>
       </View>
 
@@ -240,7 +247,7 @@ export default function MyRoomsScreen() {
 
       {/* Danh sách phòng dạng FlatList */}
       <FlatList
-        data={paginatedRooms}
+        data={visibleRooms}
         keyExtractor={(item) => item.id}
         renderItem={renderRoomItem}
         contentContainerStyle={{ padding: 16, paddingBottom: 120, flexGrow: 1 }}
@@ -265,64 +272,21 @@ export default function MyRoomsScreen() {
             </Text>
           </Card>
         }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         ListFooterComponent={
-          totalPages > 1 ? (
-            <View className="mt-2 pt-3 border-t border-gray-200">
-              <View className="flex-row items-center justify-center gap-2">
-                {/* Nút Trước */}
-                <Pressable
-                  onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-1 ${
-                    currentPage === 1
-                      ? 'bg-gray-100 border-gray-200 opacity-50'
-                      : 'bg-white border-gray-300 active:bg-gray-50'
-                  }`}
-                >
-                  <Ionicons name="chevron-back" size={14} color="#374151" />
-                  <Text className="text-xs font-semibold text-gray-700">Trước</Text>
-                </Pressable>
-
-                {/* Các nút số trang */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                  const isActive = pageNum === currentPage;
-                  return (
-                    <Pressable
-                      key={pageNum}
-                      onPress={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 rounded-xl items-center justify-center border ${
-                        isActive
-                          ? 'bg-teal-700 border-teal-700'
-                          : 'bg-white border-gray-200 active:bg-gray-50'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold ${
-                          isActive ? 'text-white' : 'text-gray-700'
-                        }`}
-                      >
-                        {pageNum}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-
-                {/* Nút Sau */}
-                <Pressable
-                  onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-1 ${
-                    currentPage === totalPages
-                      ? 'bg-gray-100 border-gray-200 opacity-50'
-                      : 'bg-white border-gray-300 active:bg-gray-50'
-                  }`}
-                >
-                  <Text className="text-xs font-semibold text-gray-700">Sau</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#374151" />
-                </Pressable>
-              </View>
+          loadingMore ? (
+            <View className="py-4 items-center flex-row justify-center gap-2">
+              <ActivityIndicator size="small" color="#0f766e" />
+              <Text className="text-xs text-gray-500 font-medium">Đang tải thêm phòng...</Text>
             </View>
-          ) : undefined
+          ) : rooms.length > PAGE_SIZE && visibleLimit >= rooms.length ? (
+            <View className="py-4 items-center">
+              <Text className="text-xs text-gray-400 font-medium">Đã hiển thị tất cả {rooms.length} phòng</Text>
+            </View>
+          ) : (
+            <View className="h-10" />
+          )
         }
       />
 

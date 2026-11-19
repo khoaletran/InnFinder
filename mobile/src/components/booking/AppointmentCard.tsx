@@ -191,7 +191,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         {item.trangThai === "HUY" ? (
           <View className="flex-row items-center justify-between pt-2 mt-2 border-t border-slate-100">
             <Text className="text-[11px] text-slate-400">
-              Trạng thái
+              Lý do hủy
             </Text>
             <View className="flex-row items-center gap-1">
               <Ionicons name="close-circle-outline" size={13} color="#E11D48" />

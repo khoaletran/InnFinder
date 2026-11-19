@@ -84,7 +84,7 @@ public class UserService {
         NguoiDung user = getCurrentUser();
 
         if (!passwordEncoder.matches(request.getMatKhauCu(), user.getMatKhau())) {
-            throw new RuntimeException("Mật khẩu hiện tại không chính xác!");
+            throw new AppException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
 
         user.setMatKhau(passwordEncoder.encode(request.getMatKhauMoi()));
@@ -113,7 +113,7 @@ public class UserService {
                 .stream()
                 .anyMatch(tk -> tk.getSoTaiKhoan().equals(request.getSoTaiKhoan()));
         if (exists) {
-            throw new RuntimeException("Số tài khoản ngân hàng này đã được liên kết trong tài khoản của bạn!");
+            throw new AppException(ErrorCode.BANK_ACCOUNT_EXISTED);
         }
 
         TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
@@ -134,9 +134,9 @@ public class UserService {
     public void deleteBankAccount(Long id) {
         NguoiDung user = getCurrentUser();
         TaiKhoanNganHang tk = taiKhoanNganHangRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản ngân hàng này!"));
+                .orElseThrow(() -> new AppException(ErrorCode.BANK_ACCOUNT_NOT_FOUND));
         if (!tk.getNguoiDung().getMaNguoiDung().equals(user.getMaNguoiDung())) {
-            throw new RuntimeException("Bạn không có quyền xóa tài khoản ngân hàng này!");
+            throw new AppException(ErrorCode.BANK_ACCOUNT_NOT_OWNED);
         }
         taiKhoanNganHangRepository.delete(tk);
     }
@@ -147,12 +147,12 @@ public class UserService {
         NguoiDung user = getCurrentUser();
 
         if (Boolean.TRUE.equals(user.getChuTro())) {
-            throw new RuntimeException("Tài khoản của bạn đã là Chủ trọ rồi!");
+            throw new AppException(ErrorCode.ALREADY_A_LANDLORD);
         }
 
         if (yeuCauChuTroRepository.existsByNguoiDung_MaNguoiDungAndTrangThai(
                 user.getMaNguoiDung(), TrangThaiYeuCauChuTro.CHO_DUYET)) {
-            throw new RuntimeException("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Admin xét duyệt!");
+            throw new AppException(ErrorCode.LANDLORD_REQUEST_PENDING);
         }
 
         String maYeuCau = "YC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyyHHmmss"));

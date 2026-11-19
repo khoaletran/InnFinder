@@ -316,15 +316,62 @@ export default function DepositPaymentScreen() {
           })}
         </View>
 
-        {/* VietQR */}
+        {/* VietQR Động chuẩn Napas */}
         {selectedMethod === "VIETQR" && (
-          <View className="items-center bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300 mb-6">
-            <Ionicons name="qr-code" size={120} color="#0F172A" />
-            <Text className="text-xs font-bold text-slate-700 mt-2">
-              Quét mã QR qua ứng dụng Ngân hàng
+          <View className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6 items-center">
+            <Text className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              Quét mã VietQR bằng App Ngân Hàng
             </Text>
-            <Text className="text-[11px] text-slate-400 mt-0.5">
-              Tự động điền: {formatCurrency(amount)}
+            <View className="p-2 bg-white rounded-2xl shadow-sm border border-slate-200 mb-3">
+              <Image
+                source={{
+                  uri: `https://img.vietqr.io/image/MB-0392833222-compact2.png?amount=${amount}&addInfo=IFCOC${(params.appointmentId || "").replace(/\D/g, "")}&accountName=INNFINDER%20SAN%20GIAO%20DICH`,
+                }}
+                className="w-56 h-56 rounded-xl"
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Bảng chi tiết chuyển khoản */}
+            <View className="w-full bg-white rounded-xl p-3 border border-slate-200 gap-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate-500">Ngân hàng:</Text>
+                <Text className="text-xs font-bold text-slate-800">MB Bank (Quân Đội)</Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate-500">Số tài khoản:</Text>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Số tài khoản", "0392833222\n(Đã chọn sao chép)")}
+                  className="flex-row items-center gap-1"
+                >
+                  <Text className="text-xs font-bold text-teal-700">0392833222</Text>
+                  <Ionicons name="copy-outline" size={13} color="#0D9488" />
+                </TouchableOpacity>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate-500">Chủ tài khoản:</Text>
+                <Text className="text-xs font-bold text-slate-800">CONG TY INNFINDER</Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate-500">Số tiền cọc:</Text>
+                <Text className="text-xs font-bold text-teal-700">{formatCurrency(amount)}</Text>
+              </View>
+              <View className="flex-row justify-between items-center pt-1.5 border-t border-slate-100">
+                <Text className="text-xs font-bold text-slate-600">Nội dung CK:</Text>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Nội dung chuyển khoản", `IFCOC${(params.appointmentId || "").replace(/\D/g, "")}\n(Đã chọn sao chép)`)}
+                  className="flex-row items-center gap-1"
+                >
+                  <Text className="text-xs font-extrabold text-amber-700">
+                    {`IFCOC${(params.appointmentId || "").replace(/\D/g, "")}`}
+                  </Text>
+                  <Ionicons name="copy-outline" size={13} color="#B45309" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text className="text-[11px] text-slate-400 text-center mt-2 leading-4">
+              Hệ thống tự động ghi nhận trong 1 - 3 giây sau khi bạn chuyển khoản thành công.
             </Text>
           </View>
         )}
@@ -343,7 +390,9 @@ export default function DepositPaymentScreen() {
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Button.Label className="font-bold text-white text-base">
-              Xác nhận thanh toán {formatCurrency(amount)}
+              {selectedMethod === "VIETQR"
+                ? "Tôi đã chuyển khoản xong"
+                : `Xác nhận thanh toán ${formatCurrency(amount)}`}
             </Button.Label>
           )}
         </Button>

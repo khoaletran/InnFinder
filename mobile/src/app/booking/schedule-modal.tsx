@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
@@ -16,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { Button, Chip } from "heroui-native";
+import { Button } from "heroui-native";
 
 import { bookingService } from "../../services/booking.service";
 import { roomService } from "../../services/room.service";
@@ -139,7 +141,9 @@ export default function ScheduleModalScreen() {
 
   // Chọn ngày từ DateTimePicker
   const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
     if (event.type === "set" && date) {
       const updated = new Date(selectedDateTime);
       updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
@@ -372,13 +376,10 @@ export default function ScheduleModalScreen() {
 
         {/* 3. THÔNG TIN CỌC GIỮ CHÂN (Theo Loại phòng từ DB) */}
         <View className="bg-teal-50/60 border border-teal-200 p-4 rounded-2xl mb-5">
-          <View className="flex-row justify-between items-center mb-1">
+          <View className="mb-1">
             <Text className="text-xs font-bold text-teal-900 uppercase tracking-wide">
               Mức cọc xem phòng (Dự kiến)
             </Text>
-            <Chip size="sm" variant="soft" color="accent">
-              <Chip.Label>{categoryName}</Chip.Label>
-            </Chip>
           </View>
 
           <View className="flex-row justify-between items-baseline my-1">
@@ -391,9 +392,9 @@ export default function ScheduleModalScreen() {
           <View className="flex-row items-center gap-1.5 mt-2 pt-2 border-t border-teal-100">
             <Ionicons name="information-circle" size={16} color="#0D9488" />
             <Text className="text-[11px] text-teal-800 flex-1 leading-4">
-              Lưu ý: Bạn chưa cần nộp tiền lúc này. Sau khi Chủ trọ xác nhận
-              lịch hẹn, bạn mới tiến hành nộp cọc giữ chân. InnFinder cam kết
-              hoàn trả 100% khi đi xem phòng.
+              Lưu ý: Bạn sẽ tiến hành nộp cọc giữ chân ở bước tiếp theo để hệ thống gửi phiếu hẹn tới Chủ trọ xét duyệt. InnFinder cam kết hoàn trả 100% sau buổi xem phòng.
+
+
             </Text>
           </View>
         </View>
@@ -482,15 +483,71 @@ export default function ScheduleModalScreen() {
         </View>
       </ScrollView>
 
-      {/* DateTimePicker native */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDateTime}
-          mode="date"
-          display="default"
-          minimumDate={new Date()}
-          onChange={handleDateChange}
-        />
+      {/* DateTimePicker chuẩn đa nền tảng (iOS Modal tờ lịch & Android Dialog) */}
+      {Platform.OS === 'ios' ? (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View className="flex-1 bg-black/50 justify-center items-center px-4">
+            <Pressable
+              className="absolute inset-0"
+              onPress={() => setShowDatePicker(false)}
+            />
+            <View className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 z-10">
+              {/* Header Modal */}
+              <View className="flex-row items-center justify-between pb-3 border-b border-slate-100 mb-2">
+                <View className="flex-row items-center gap-2">
+                  <View className="w-8 h-8 rounded-full bg-teal-50 items-center justify-center">
+                    <Ionicons name="calendar-outline" size={18} color="#0D9488" />
+                  </View>
+                  <Text className="text-base font-bold text-slate-900">
+                    Chọn ngày xem phòng
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  className="p-1 rounded-full bg-slate-100"
+                >
+                  <Ionicons name="close" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Tờ lịch Apple xịn xò hiển thị trực tiếp */}
+              <DateTimePicker
+                value={selectedDateTime}
+                mode="date"
+                display="inline"
+                minimumDate={new Date()}
+                onChange={handleDateChange}
+                themeVariant="light"
+                accentColor="#0D9488"
+              />
+
+              {/* Nút chốt ngày */}
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(false)}
+                className="mt-3 bg-teal-600 py-3 rounded-xl items-center active:bg-teal-700"
+              >
+                <Text className="text-white font-bold text-sm">
+                  Xác nhận ngày này
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      ) : (
+        showDatePicker && (
+          <DateTimePicker
+            value={selectedDateTime}
+            mode="date"
+            display="default"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+          />
+        )
       )}
 
       {/* Modal chọn giờ riêng biệt chuẩn UI InnFinder (hỗ trợ cả iOS & Android) */}
@@ -514,7 +571,7 @@ export default function ScheduleModalScreen() {
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Button.Label className="font-bold text-white text-base">
-              Gửi yêu cầu đặt lịch xem phòng
+              Gửi yêu cầu & Nộp cọc xem phòng
             </Button.Label>
           )}
         </Button>

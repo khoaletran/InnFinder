@@ -54,4 +54,7 @@ public class PhieuKhieuNai {
     @Column(name = "muc_do_vi_pham", nullable = false)
     @Builder.Default
     private MucDoViPham mucDoViPham = MucDoViPham.NHE;
+
+    @Column(name = "ket_qua", columnDefinition = "TEXT")
+    private String ketQua;
 }

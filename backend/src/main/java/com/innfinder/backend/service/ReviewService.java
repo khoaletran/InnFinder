@@ -104,11 +104,15 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public List<ReviewResponseDTO> getReviewsForCurrentLandlord() {
         String username = SecurityUtils.getCurrentUsername();
-        if (username == null) {
+        if (username == null || "anonymousUser".equals(username)) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
         NguoiDung user = nguoiDungRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(user.isChuTro())) {
+            throw new AppException(ErrorCode.NOT_A_LANDLORD);
+        }
 
         List<DanhGia> list = danhGiaRepository
                 .findByPhongTro_ChuPhongTro_MaChuTroOrderByNgayDanhGiaDesc(user.getMaNguoiDung());

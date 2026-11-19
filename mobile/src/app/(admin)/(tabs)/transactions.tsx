@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from 'heroui-native';
@@ -21,42 +21,50 @@ export default function AdminTransactionsTabScreen() {
   });
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
-    const [list, stats] = await Promise.all([
-      adminService.getTransactions(),
-      adminService.getTreasuryStats(),
-    ]);
-    setTransactions(list);
-    setTreasury(stats);
+  const fetchTransactions = async (keyword: string) => {
+    try {
+      setLoading(true);
+      const list = await adminService.getTransactions(keyword);
+      setTransactions(list);
+    } catch (e) {
+      console.warn('Lỗi tải danh sách giao dịch:', e);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadData();
+    adminService.getTreasuryStats().then(setTreasury);
   }, []);
+
+  // Debounce 400ms khi gõ tìm kiếm thông tin người dùng / mã giao dịch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTransactions(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([
+      adminService.getTreasuryStats().then(setTreasury),
+      fetchTransactions(search),
+    ]);
     setRefreshing(false);
   };
+
+  const isSearching = Boolean(search.trim());
 
   const filtered = transactions.filter((t) => {
     const loai = (t.loaiGiaoDich || '').toUpperCase();
     if (activeTab === 'Rút tiền' && !loai.includes('RUT_TIEN')) return false;
     if (activeTab === 'Cọc giữ chỗ' && !loai.includes('COC_') && !loai.includes('GIU_CHO')) return false;
-    if (activeTab === 'Hoàn cọc' && !loai.includes('HOAN_COC')) return false;
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        t.maGiaoDich.toLowerCase().includes(q) ||
-        (t.phongTro && t.phongTro.toLowerCase().includes(q)) ||
-        (t.nguoiThucHien && t.nguoiThucHien.toLowerCase().includes(q)) ||
-        (t.sdtNguoiThucHien && t.sdtNguoiThucHien.includes(q))
-      );
-    }
+    if (activeTab === 'Hoàn cọc' && !loai.includes('HOAN_COC') && !loai.includes('HOAN_TIEN')) return false;
     return true;
   });
 
@@ -65,21 +73,28 @@ export default function AdminTransactionsTabScreen() {
       {/* Header */}
       <View className="px-4 py-3 bg-white border-b border-slate-200/80">
         <View className="flex-row items-center justify-between mb-2">
-          <View>
+          <View className="flex-1 mr-2">
             <Text className="text-xl font-bold text-slate-900">Quản lý giao dịch</Text>
-            <Text className="text-xs text-slate-500 mt-0.5">
-              Ngân khố hệ thống, yêu cầu rút tiền & biến động cọc
+            <Text className="text-xs text-slate-500 mt-0.5" numberOfLines={1}>
+              {isSearching
+                ? `Tra cứu lịch sử của: "${search.trim()}"`
+                : 'Danh sách giao dịch hệ thống'}
             </Text>
           </View>
-          {treasury.soLenhRutChoDuyet > 0 ? (
+
+          {isSearching ? (
+            <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
+              <Text className="text-xs font-bold text-teal-700">{filtered.length} kết quả</Text>
+            </View>
+          ) : treasury.soLenhRutChoDuyet > 0 ? (
             <View className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">
               <Text className="text-xs font-bold text-amber-700">
                 {treasury.soLenhRutChoDuyet} lệnh rút chờ duyệt
               </Text>
             </View>
           ) : (
-            <View className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">
-              <Text className="text-xs font-bold text-teal-700">{filtered.length} giao dịch</Text>
+            <View className="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
+              <Text className="text-xs font-bold text-slate-600">{filtered.length} chờ xử lý</Text>
             </View>
           )}
         </View>
@@ -131,22 +146,42 @@ export default function AdminTransactionsTabScreen() {
           </View>
         </Card>
 
-        {/* Ô tìm kiếm */}
-        <View className="flex-row items-center bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-full mb-2.5">
+        {/* Ô tìm kiếm thông tin người dùng */}
+        <View className="flex-row items-center bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-full mb-2">
           <Ionicons name="search" size={16} color="#94A3B8" />
           <TextInput
-            placeholder="Tìm theo mã GD, tên người dùng, SĐT, nội dung..."
+            placeholder="Tra cứu: SĐT, Email, Tên, CCCD, Mã ND, Mã GD…"
             placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={setSearch}
             className="flex-1 ml-2 text-xs text-slate-900 py-0"
+            autoComplete="off"
+            spellCheck={false}
           />
           {search ? (
-            <Pressable onPress={() => setSearch('')}>
+            <Pressable
+              onPress={() => setSearch('')}
+              accessibilityLabel="Xóa nội dung tìm kiếm"
+            >
               <Ionicons name="close-circle" size={16} color="#94A3B8" />
             </Pressable>
           ) : null}
         </View>
+
+        {/* Banner kết quả tìm kiếm (chỉ hiện khi đang tra cứu) */}
+        {isSearching && (
+          <View className="flex-row items-center justify-between px-3 py-1.5 bg-teal-50 border border-teal-200/80 rounded-xl mb-2">
+            <View className="flex-row items-center gap-1.5 flex-1 mr-2">
+              <Ionicons name="search-outline" size={14} color="#0D9488" />
+              <Text className="text-[11px] text-teal-800" numberOfLines={1}>
+                Đang hiển thị toàn bộ giao dịch của: <Text className="font-bold">{search.trim()}</Text>
+              </Text>
+            </View>
+            <Pressable onPress={() => setSearch('')} accessibilityLabel="Quay lại danh sách chờ xử lý">
+              <Text className="text-[11px] font-semibold text-teal-700 underline">Quay lại</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Tab lọc loại giao dịch */}
         <View className="flex-row items-center gap-2">
@@ -182,13 +217,24 @@ export default function AdminTransactionsTabScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {filtered.length === 0 ? (
+        {loading && !refreshing ? (
+          <View className="py-12 items-center justify-center">
+            <ActivityIndicator size="small" color="#0D9488" />
+            <Text className="text-xs text-slate-400 mt-2">Đang tải dữ liệu giao dịch…</Text>
+          </View>
+        ) : filtered.length === 0 ? (
           <View className="items-center justify-center py-16">
             <View className="w-16 h-16 rounded-full bg-slate-100 items-center justify-center mb-3">
               <Ionicons name="receipt-outline" size={32} color="#94A3B8" />
             </View>
-            <Text className="text-sm font-semibold text-slate-600">Không có giao dịch nào</Text>
-            <Text className="text-xs text-slate-400 mt-1">Dữ liệu giao dịch mới sẽ hiển thị tại đây</Text>
+            <Text className="text-sm font-semibold text-slate-600">
+              {isSearching ? 'Không tìm thấy giao dịch nào' : 'Không có giao dịch chờ xử lý'}
+            </Text>
+            <Text className="text-xs text-slate-400 mt-1 text-center px-6 leading-5">
+              {isSearching
+                ? `Không có giao dịch nào khớp với thông tin "${search.trim()}". Bạn có thể thử tìm bằng Số điện thoại, Email, Tên đăng nhập, CCCD hoặc Mã GD.`
+                : 'Hiện tại hệ thống không có giao dịch nào đang ở trạng thái chờ duyệt hoặc cần can thiệp.'}
+            </Text>
           </View>
         ) : (
           filtered.map((item) => (

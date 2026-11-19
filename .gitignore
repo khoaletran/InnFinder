@@ -11,9 +11,7 @@ Thumbs.db
 .idea/
 .vscode/
 
-# AI Agent & Tools
-.agents/
-.cursor/
-skills-lock.json
-mobile/AGENTS.md
-plan/
+# Graphify
+graphify-out/
+.graphify*
+*graphify*

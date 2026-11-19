@@ -24,9 +24,10 @@ app:
   jwt-secret: ${APP_JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   jwt-expiration-milliseconds: ${APP_JWT_EXPIRATION_MILLISECONDS:86400000}
 
-# Cấu hình DataSource Failover: Ưu tiên Cloud, tự động fallback sang Docker Local khi mất mạng
+# Cấu hình DataSource Failover: Mặc định AUTO (Ưu tiên TiDB Cloud, tự động fallback sang Docker Local port 3307 khi mất mạng; hoặc đặt LOCAL/CLOUD)
 innfinder:
   datasource:
+    mode: ${INNFINDER_DB_MODE:AUTO}
     cloud:
       host: ${INNFINDER_CLOUD_DB_HOST:gateway01.ap-southeast-1.prod.aws.tidbcloud.com}
       port: ${INNFINDER_CLOUD_DB_PORT:4000}

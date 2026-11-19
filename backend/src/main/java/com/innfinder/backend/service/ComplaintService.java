@@ -3,7 +3,6 @@ package com.innfinder.backend.service;
 import com.innfinder.backend.dto.request.ComplaintRequestDTO;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
 import com.innfinder.backend.dto.response.ComplaintResponseDTO;
-import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.PhieuKhieuNai;
 import com.innfinder.backend.entity.enums.MucDoViPham;
@@ -34,16 +33,14 @@ public class ComplaintService {
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
         String username = SecurityUtils.getCurrentUsername();
-        NguoiDung nguoiGui;
-        if (username != null) {
-            nguoiGui = nguoiDungRepository.findByTenDangNhap(username)
-                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        } else {
-            nguoiGui = nguoiDungRepository.findById(request.getMaNguoiGui())
-                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (username == null || "anonymousUser".equals(username)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
+        NguoiDung nguoiGui = nguoiDungRepository.findByTenDangNhap(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        NguoiDung doiTuong = nguoiDungRepository.findById(request.getDoiTuongKhieuNai()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        NguoiDung doiTuong = nguoiDungRepository.findById(request.getDoiTuongKhieuNai())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String maKhieuNai = "KN" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
 
@@ -100,15 +97,22 @@ public class ComplaintService {
 
     @Transactional
     public ComplaintResponseDTO resolveComplaint(String id, ComplaintResolveDTO request) {
-        PhieuKhieuNai kn = phieuKhieuNaiRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.COMPLAINT_NOT_FOUND));
+        PhieuKhieuNai kn = phieuKhieuNaiRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.COMPLAINT_NOT_FOUND));
 
-        if (request.getNguoiDuyet() != null && !request.getNguoiDuyet().isBlank()) {
-            NguoiDung nguoiDuyet = nguoiDungRepository.findById(request.getNguoiDuyet()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-            kn.setNguoiDuyet(nguoiDuyet);
+        String adminUsername = SecurityUtils.getCurrentUsername();
+        if (adminUsername == null || "anonymousUser".equals(adminUsername)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
+        NguoiDung nguoiDuyet = nguoiDungRepository.findByTenDangNhap(adminUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        kn.setNguoiDuyet(nguoiDuyet);
 
         if (request.getTrangThai() != null) {
             kn.setTrangThai(request.getTrangThai());
+        }
+        if (request.getKetQua() != null && !request.getKetQua().isBlank()) {
+            kn.setKetQua(request.getKetQua());
         }
         if (request.getMucDoViPham() != null) {
             kn.setMucDoViPham(request.getMucDoViPham());
@@ -149,6 +153,7 @@ public class ComplaintService {
                 .trangThai(kn.getTrangThai())
                 .mucDoUuTien(kn.getMucDoUuTien())
                 .mucDoViPham(kn.getMucDoViPham())
+                .ketQua(kn.getKetQua())
                 .build();
     }
 }
