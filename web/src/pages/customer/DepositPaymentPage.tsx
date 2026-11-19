@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -207,7 +207,7 @@ export const DepositPaymentPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between items-baseline pt-2 border-t border-slate-200/70">
-                <span className="font-bold text-slate-700 text-sm">Mức cọc giữ chân (`coc`):</span>
+                <span className="font-bold text-slate-700 text-sm">Mức cọc giữ chân:</span>
                 <span className="text-xl font-extrabold text-teal-700 font-mono">
                   {formatVND(amount)}
                 </span>
@@ -240,12 +240,12 @@ export const DepositPaymentPage: React.FC = () => {
                 onClick={() => setSelectedMethod('VIETQR')}
                 className={`p-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                   selectedMethod === 'VIETQR'
-                    ? 'border-blue-600 bg-blue-50/40 shadow-2xs'
+                    ? 'border-teal-600 bg-teal-50/40 shadow-2xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-blue-100/60 text-blue-700 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-teal-100/60 text-teal-700 flex items-center justify-center shrink-0">
                     <QrCode className="w-5 h-5" />
                   </div>
                   <div>
@@ -259,11 +259,11 @@ export const DepositPaymentPage: React.FC = () => {
                 </div>
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    selectedMethod === 'VIETQR' ? 'border-blue-600' : 'border-slate-300'
+                    selectedMethod === 'VIETQR' ? 'border-teal-600' : 'border-slate-300'
                   }`}
                 >
                   {selectedMethod === 'VIETQR' && (
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
                   )}
                 </div>
               </div>
@@ -341,14 +341,14 @@ export const DepositPaymentPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-100">
                     <span className="text-slate-500">Số tiền cọc:</span>
-                    <strong className="text-blue-700 font-bold">{formatVND(amount)}</strong>
+                    <strong className="text-teal-700 font-bold">{formatVND(amount)}</strong>
                   </div>
                   <div className="flex justify-between items-center py-1">
                     <span className="text-slate-500">Nội dung đối soát:</span>
                     <button
                       type="button"
                       onClick={() => handleCopy(vietQrTransferInfo, 'content')}
-                      className="inline-flex items-center gap-1 font-bold text-blue-700 font-mono cursor-pointer"
+                      className="inline-flex items-center gap-1 font-bold text-teal-700 font-mono cursor-pointer"
                     >
                       <span>{vietQrTransferInfo}</span>
                       {copiedField === 'content' ? (

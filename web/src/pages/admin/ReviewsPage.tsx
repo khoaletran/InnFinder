@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Chip, Spinner } from '@heroui/react';
-import { Star, Trash2, EyeOff, Eye, RefreshCw, MessageSquare } from 'lucide-react';
+import { Star, Trash2, RefreshCw, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
@@ -12,7 +12,6 @@ import type { AdminReviewItem } from '@/types/admin.types';
 export const ReviewsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [ratingFilter, setRatingFilter] = useState<number | 'ALL'>('ALL');
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deletingReview, setDeletingReview] = useState<AdminReviewItem | null>(null);
 
   const {
@@ -36,20 +35,6 @@ export const ReviewsPage: React.FC = () => {
       toast.error(err instanceof Error ? err.message : 'Lỗi xóa đánh giá');
     },
   });
-
-  const handleToggleHide = (id: string) => {
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        toast.success('Đã hiển thị lại đánh giá');
-      } else {
-        next.add(id);
-        toast.success('Đã tạm ẩn đánh giá trên giao diện kiểm duyệt');
-      }
-      return next;
-    });
-  };
 
   const filteredReviews = reviews.filter((r) =>
     ratingFilter === 'ALL' ? true : r.diem === ratingFilter,
@@ -129,7 +114,7 @@ export const ReviewsPage: React.FC = () => {
 
           <Card.Content className="p-0 divide-y divide-slate-100">
             {filteredReviews.map((rev) => {
-              const isHidden = rev.trangThai === 'AN' || hiddenIds.has(rev.maDanhGia);
+              const isHidden = rev.trangThai === 'AN';
               return (
                 <div key={rev.maDanhGia} className="p-5 hover:bg-slate-50/50 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
@@ -176,23 +161,6 @@ export const ReviewsPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Thời gian gửi: {formatDateTime(rev.thoiGian)}</span>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHide(rev.maDanhGia)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        {isHidden ? (
-                          <>
-                            <Eye className="w-3.5 h-3.5" />
-                            Hiện lại
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-3.5 h-3.5" />
-                            Tạm ẩn
-                          </>
-                        )}
-                      </button>
                       <button
                         type="button"
                         onClick={() => setDeletingReview(rev)}

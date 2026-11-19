@@ -1,25 +1,49 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AlertCircle,
   ArrowUpDown,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MapPin,
+  List,
+  Map as MapIcon,
   Search,
-  SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Header } from '@/components/common/Header';
+import { AppButton } from '@/components/common/AppButton';
+import { EmptyState } from '@/components/common/EmptyState';
+import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomMap } from '@/components/map/RoomMap';
-import { FilterModal } from '@/components/room/FilterModal';
 import { RoomCard } from '@/components/room/RoomCard';
 import { roomService } from '@/services/room.service';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { getValidCoords } from '@/utils/formatters';
+
+type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'radius' | null;
+
+const PRICE_PRESETS: Array<{ label: string; min?: number; max?: number }> = [
+  { label: 'Tất cả mức giá' },
+  { label: 'Dưới 3 triệu', min: 0, max: 3_000_000 },
+  { label: '3 – 5 triệu', min: 3_000_000, max: 5_000_000 },
+  { label: '5 – 8 triệu', min: 5_000_000, max: 8_000_000 },
+  { label: 'Trên 8 triệu', min: 8_000_000, max: undefined },
+];
+
+const AREA_PRESETS: Array<{ label: string; min?: number; max?: number }> = [
+  { label: 'Tất cả diện tích' },
+  { label: 'Dưới 20 m²', min: 0, max: 20 },
+  { label: '20 – 35 m²', min: 20, max: 35 },
+  { label: '35 – 50 m²', min: 35, max: 50 },
+  { label: 'Trên 50 m²', min: 50, max: undefined },
+];
+
+const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
 
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -48,8 +72,12 @@ export const SearchPage: React.FC = () => {
 
   const [useAiSearch, setUseAiSearch] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummaryResponse | null>(null);
+  const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+
+  const popoverBarRef = useRef<HTMLDivElement>(null);
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(
     filterStore.userLat && filterStore.userLng
@@ -59,7 +87,33 @@ export const SearchPage: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
 
-  const { data: queryResult, isLoading, isFetching } = useQuery({
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (popoverBarRef.current && !popoverBarRef.current.contains(e.target as Node)) {
+        setActivePopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ['categories', 'room-types'],
+    queryFn: roomService.getRoomTypes,
+  });
+
+  const { data: amenities = [] } = useQuery({
+    queryKey: ['categories', 'amenities'],
+    queryFn: roomService.getAmenities,
+  });
+
+  const {
+    data: queryResult,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: [
       'rooms',
       'search',
@@ -99,7 +153,7 @@ export const SearchPage: React.FC = () => {
         maLpt: filterStore.categoryId,
         dsTienIch: filterStore.selectedAmenities,
         page: currentPage,
-        size: 15,
+        size: 16,
         sortBy: sortField,
         sortDirection,
       });
@@ -155,6 +209,7 @@ export const SearchPage: React.FC = () => {
     setManualKeyword(trimmed);
     setSearchInputDraft(null);
     setCurrentPage(0);
+    setActivePopover(null);
     if (trimmed) {
       setSearchParams({ keyword: trimmed });
     } else {
@@ -184,254 +239,554 @@ export const SearchPage: React.FC = () => {
     );
   };
 
-  const removeFilter = (type: string) => {
-    if (type === 'price') filterStore.setPriceRange(undefined, undefined);
-    if (type === 'area') filterStore.setAreaRange(undefined, undefined);
-    if (type === 'capacity') filterStore.setCapacity(undefined);
-    if (type === 'category') filterStore.setCategoryId(undefined);
-    if (type === 'radius') filterStore.setRadiusKm(undefined);
-    if (type === 'amenities') filterStore.setSelectedAmenities([]);
+  const handleResetFilters = () => {
+    filterStore.resetFilter();
+    setManualKeyword('');
+    setSearchInputDraft('');
+    setSearchParams({});
+    setCurrentPage(0);
+    setActivePopover(null);
+  };
+
+  const handleExpandRadius = () => {
+    if (!filterStore.radiusKm) {
+      filterStore.setRadiusKm(15);
+      toast.info('Đã mở rộng phạm vi tìm kiếm lên 15 km quanh khu vực hiện tại');
+    } else if (filterStore.radiusKm < 20) {
+      const nextRadius = Math.min(20, filterStore.radiusKm + 5);
+      filterStore.setRadiusKm(nextRadius);
+      toast.info(`Đã mở rộng bán kính lên ${nextRadius} km`);
+    } else {
+      filterStore.setRadiusKm(undefined);
+      toast.info('Đã bỏ giới hạn bán kính để hiển thị tất cả khu vực');
+    }
     setCurrentPage(0);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header />
+  const hasPriceFilter =
+    filterStore.minPrice !== undefined || filterStore.maxPrice !== undefined;
+  const priceLabel = hasPriceFilter
+    ? `${filterStore.minPrice ? `${filterStore.minPrice / 1e6}tr` : '0'} – ${
+        filterStore.maxPrice ? `${filterStore.maxPrice / 1e6}tr` : 'Max'
+      }`
+    : 'Giá';
 
-      <section className="bg-white border-b border-slate-200/90 py-3.5 px-4 sm:px-6 lg:px-8 sticky top-16 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto space-y-3">
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-4xl">
+  const selectedCategoryObj = roomTypes.find(
+    (c) => (c.maLpt || c.maLoaiPhong) === filterStore.categoryId,
+  );
+  const categoryLabel =
+    selectedCategoryObj?.tenLoaiPhongTro || selectedCategoryObj?.tenLoaiPhong || 'Loại phòng';
+
+  const hasAreaFilter =
+    filterStore.minArea !== undefined || filterStore.maxArea !== undefined;
+  const areaLabel = hasAreaFilter
+    ? `${filterStore.minArea ?? 0} – ${filterStore.maxArea ?? 'Max'} m²`
+    : 'Diện tích';
+
+  const amenityCount = filterStore.selectedAmenities.length;
+  const radiusLabel = filterStore.radiusKm ? `≤ ${filterStore.radiusKm} km` : 'Bán kính';
+
+  return (
+    <div className="flex-1 bg-slate-50 flex flex-col w-full h-full min-h-0 overflow-hidden">
+      {/* THANH LỌC DẠNG CHIP NẰM NGANG CỐ ĐỊNH DƯỚI NAVBAR (FULL-BLEED) */}
+      <section
+        ref={popoverBarRef}
+        className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 z-30 shrink-0"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          {/* Ô tìm kiếm */}
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 lg:w-[440px] shrink-0">
             <div className="flex-1 relative flex items-center">
-              <div className="absolute left-3.5 text-slate-400">
+              <div className="absolute left-3.5 text-slate-500">
                 {useAiSearch && isFetching ? (
-                  <Sparkles className="w-5 h-5 text-teal-600 animate-spin" />
+                  <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
                 ) : (
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4" />
                 )}
               </div>
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInputDraft(e.target.value)}
-                placeholder="Nhập địa điểm, quận hoặc mô tả tự nhiên (AI Vector Search)..."
-                className="w-full pl-11 pr-28 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-sm font-semibold text-slate-900 rounded-full border border-slate-200 focus:border-teal-600 outline-none transition-all placeholder:text-slate-400"
+                placeholder="Quận, tên đường hoặc mô tả tự nhiên..."
+                className="w-full h-10 pl-10 pr-24 bg-slate-50 focus:bg-white text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
               />
-
               <button
                 type="button"
                 onClick={() => setUseAiSearch(!useAiSearch)}
-                title="Bật tìm kiếm ngữ nghĩa AI Gemini"
-                className={`absolute right-2 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                title="Tìm kiếm ngữ nghĩa AI"
+                className={`absolute right-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                   useAiSearch
-                    ? 'bg-teal-600 text-white shadow-2xs'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:text-teal-700'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:text-teal-700'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Search</span>
+                <span>AI</span>
               </button>
             </div>
 
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-full shadow-md shadow-blue-600/20 transition-all shrink-0 cursor-pointer"
-            >
-              Tìm kiếm
-            </button>
+            <AppButton type="submit" variant="primary" size="md">
+              Tìm
+            </AppButton>
           </form>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0">
-              <MapPin className="w-3.5 h-3.5 text-teal-600" />
-              <span>{submittedKeyword || 'Toàn quốc'}</span>
-            </div>
-
-            {filterStore.minPrice !== undefined || filterStore.maxPrice !== undefined ? (
+          {/* Hàng Chip bộ lọc mở Popover */}
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            {/* 1. Chip Giá */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => removeFilter('price')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
+                onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  hasPriceFilter || activePopover === 'price'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
               >
-                <span>
-                  {filterStore.minPrice ? `${filterStore.minPrice / 1e6}tr` : '0'} –{' '}
-                  {filterStore.maxPrice ? `${filterStore.maxPrice / 1e6}tr` : 'Max'}
-                </span>
-                <X className="w-3 h-3 text-teal-600" />
+                <span>{priceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
               </button>
-            ) : null}
 
-            {filterStore.minArea !== undefined || filterStore.maxArea !== undefined ? (
-              <button
-                type="button"
-                onClick={() => removeFilter('area')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
-              >
-                <span>
-                  {filterStore.minArea || '0'} – {filterStore.maxArea || 'Max'} m²
-                </span>
-                <X className="w-3 h-3 text-teal-600" />
-              </button>
-            ) : null}
-
-            {filterStore.selectedAmenities.length > 0 && (
-              <button
-                type="button"
-                onClick={() => removeFilter('amenities')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
-              >
-                <span>Tiện ích · {filterStore.selectedAmenities.length}</span>
-                <X className="w-3 h-3 text-teal-600" />
-              </button>
-            )}
-
-            {filterStore.radiusKm ? (
-              <button
-                type="button"
-                onClick={() => removeFilter('radius')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 shrink-0 cursor-pointer"
-              >
-                <span>≤ {filterStore.radiusKm} km</span>
-                <X className="w-3 h-3 text-teal-600" />
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => setIsFilterModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Bộ lọc nâng cao</span>
-              {filterStore.getActiveFilterCount() > 0 && (
-                <span className="w-4 h-4 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">
-                  {filterStore.getActiveFilterCount()}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)] min-h-[600px]">
-          <div className="lg:col-span-5 flex flex-col h-full bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  {filteredRooms.length} phòng phù hợp
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Đồng bộ trực tiếp với bản đồ tương tác
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSortBy((prev) =>
-                    prev === 'NEWEST'
-                      ? 'PRICE_ASC'
-                      : prev === 'PRICE_ASC'
-                        ? 'PRICE_DESC'
-                        : 'NEWEST',
-                  )
-                }
-                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-                <span>
-                  {sortBy === 'NEWEST'
-                    ? 'Mới nhất'
-                    : sortBy === 'PRICE_ASC'
-                      ? 'Giá tăng dần'
-                      : 'Giá giảm dần'}
-                </span>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-              {isLoading ? (
-                [1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="p-3 bg-slate-50 rounded-2xl border border-slate-200 animate-pulse flex gap-3"
-                  >
-                    <div className="w-36 h-28 bg-slate-200 rounded-xl shrink-0" />
-                    <div className="flex-1 space-y-2 py-1">
-                      <div className="h-4 bg-slate-200 rounded w-3/4" />
-                      <div className="h-4 bg-slate-200 rounded w-1/3" />
-                      <div className="h-3 bg-slate-200 rounded w-1/2" />
-                    </div>
-                  </div>
-                ))
-              ) : filteredRooms.length > 0 ? (
-                filteredRooms.map(({ room, distanceInKm }) => (
-                  <RoomCard
-                    key={room.maPhongTro}
-                    room={room}
-                    layout="horizontal"
-                    distanceInKm={distanceInKm}
-                    onSelect={(r) => setSelectedRoom(r)}
-                    isSelected={activeSelectedRoom?.maPhongTro === room.maPhongTro}
-                  />
-                ))
-              ) : (
-                <div className="py-16 text-center text-slate-500">
-                  <p className="text-sm font-bold text-slate-700">Không tìm thấy phòng phù hợp</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Hãy thử nới lỏng bộ lọc hoặc tìm kiếm theo từ khóa khác.
-                  </p>
+              {activePopover === 'price' && (
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {PRICE_PRESETS.map((preset) => {
+                    const selected =
+                      filterStore.minPrice === preset.min && filterStore.maxPrice === preset.max;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          filterStore.setPriceRange(preset.min, preset.max);
+                          setCurrentPage(0);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{preset.label}</span>
+                        {selected && <Check className="w-4 h-4 text-teal-700" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-600">
-              <span>
-                {filteredRooms.length > 0
-                  ? `Trang ${currentPage + 1}/${totalPages} (${totalElements} phòng)`
-                  : '0 phòng'}
-              </span>
+            {/* 2. Chip Loại phòng */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  filterStore.categoryId || activePopover === 'category'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{categoryLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
 
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={currentPage === 0}
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Trước
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages - 1}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-all font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  Tiếp <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+              {activePopover === 'category' && (
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1 max-h-72 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      filterStore.setCategoryId(undefined);
+                      setCurrentPage(0);
+                      setActivePopover(null);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                      !filterStore.categoryId
+                        ? 'bg-teal-50 text-teal-800 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Tất cả loại phòng</span>
+                    {!filterStore.categoryId && <Check className="w-4 h-4 text-teal-700" />}
+                  </button>
+                  {roomTypes.map((c) => {
+                    const code = c.maLpt || c.maLoaiPhong || '';
+                    const label = c.tenLoaiPhongTro || c.tenLoaiPhong || code;
+                    const selected = filterStore.categoryId === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => {
+                          filterStore.setCategoryId(code);
+                          setCurrentPage(0);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-left ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{label}</span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Chip Diện tích */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  hasAreaFilter || activePopover === 'area'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{areaLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'area' && (
+                <div className="absolute left-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {AREA_PRESETS.map((preset) => {
+                    const selected =
+                      filterStore.minArea === preset.min && filterStore.maxArea === preset.max;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          filterStore.setAreaRange(preset.min, preset.max);
+                          setCurrentPage(0);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{preset.label}</span>
+                        {selected && <Check className="w-4 h-4 text-teal-700" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 4. Chip Tiện ích */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  amenityCount > 0 || activePopover === 'amenities'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{amenityCount > 0 ? `Tiện ích (${amenityCount})` : 'Tiện ích'}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'amenities' && (
+                <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {amenities.map((am) => {
+                      const active = filterStore.selectedAmenities.includes(am.maTienIch);
+                      return (
+                        <button
+                          key={am.maTienIch}
+                          type="button"
+                          onClick={() => {
+                            const next = active
+                              ? filterStore.selectedAmenities.filter((id) => id !== am.maTienIch)
+                              : [...filterStore.selectedAmenities, am.maTienIch];
+                            filterStore.setSelectedAmenities(next);
+                            setCurrentPage(0);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer text-left ${
+                            active
+                              ? 'bg-teal-50 text-teal-800 font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{am.tenTienIch}</span>
+                          {active && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {amenityCount > 0 && (
+                    <div className="pt-2 border-t border-slate-100 flex justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          filterStore.setSelectedAmenities([]);
+                          setCurrentPage(0);
+                        }}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                      >
+                        Bỏ chọn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePopover(null)}
+                        className="text-xs font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
+                      >
+                        Xong
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 5. Chip Bán kính */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'radius' ? null : 'radius'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  filterStore.radiusKm || activePopover === 'radius'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{radiusLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'radius' && (
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      filterStore.setRadiusKm(undefined);
+                      setCurrentPage(0);
+                      setActivePopover(null);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
+                      !filterStore.radiusKm
+                        ? 'bg-teal-50 text-teal-800 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Không giới hạn</span>
+                    {!filterStore.radiusKm && <Check className="w-4 h-4 text-teal-700" />}
+                  </button>
+                  {RADIUS_OPTIONS.map((km) => (
+                    <button
+                      key={km}
+                      type="button"
+                      onClick={() => {
+                        filterStore.setRadiusKm(km);
+                        setCurrentPage(0);
+                        setActivePopover(null);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
+                        filterStore.radiusKm === km
+                          ? 'bg-teal-50 text-teal-800 font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Trong {km} km</span>
+                      {filterStore.radiusKm === km && (
+                        <Check className="w-4 h-4 text-teal-700" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {filterStore.getActiveFilterCount() > 0 && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1 h-9 px-3 rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Xóa lọc</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* FULL-BLEED SPLIT 45/55 (DESKTOP) & LIST/MAP TOGGLE (MOBILE) */}
+      <div className="flex-1 w-full min-h-0 grid grid-cols-1 lg:grid-cols-[45%_55%] h-full overflow-hidden">
+        {/* CỘT TRÁI (45%): DANH SÁCH CARD ẢNH LỚN */}
+        <div
+          className={`${
+            mobileView === 'map' ? 'hidden lg:flex' : 'flex'
+          } flex-col h-full min-h-0 bg-slate-50 border-r border-slate-200 overflow-hidden`}
+        >
+          <div className="shrink-0 px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
+            <div>
+              <h1 className="text-base font-bold text-slate-900">
+                {filteredRooms.length} phòng phù hợp
+                {submittedKeyword ? ` · "${submittedKeyword}"` : ''}
+              </h1>
+              <p className="text-xs text-slate-600">
+                Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setSortBy((prev) =>
+                  prev === 'NEWEST'
+                    ? 'PRICE_ASC'
+                    : prev === 'PRICE_ASC'
+                      ? 'PRICE_DESC'
+                      : 'NEWEST',
+                )
+              }
+              className="h-9 px-3 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
+              <span>
+                {sortBy === 'NEWEST'
+                  ? 'Mới nhất'
+                  : sortBy === 'PRICE_ASC'
+                    ? 'Giá tăng'
+                    : 'Giá giảm'}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+            {error ? (
+              <div className="bg-white rounded-2xl border border-red-200 p-6 text-center space-y-3 shadow-xs">
+                <AlertCircle className="w-8 h-8 text-red-600 mx-auto" />
+                <p className="text-sm font-bold text-slate-900">
+                  Không thể tải danh sách phòng trọ
+                </p>
+                <p className="text-xs text-slate-600">
+                  {error instanceof Error ? error.message : 'Vui lòng kiểm tra kết nối mạng.'}
+                </p>
+                <AppButton variant="primary" size="sm" onClick={() => void refetch()}>
+                  Thử lại
+                </AppButton>
               </div>
+            ) : isLoading ? (
+              <SkeletonList
+                variant="cards"
+                count={4}
+                columnsClassName="grid-cols-1 sm:grid-cols-2"
+              />
+            ) : filteredRooms.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredRooms.map(({ room, distanceInKm }) => (
+                  <RoomCard
+                    key={room.maPhongTro}
+                    room={room}
+                    layout="vertical"
+                    distanceInKm={distanceInKm}
+                    onSelect={(r) => setSelectedRoom(r)}
+                    isSelected={activeSelectedRoom?.maPhongTro === room.maPhongTro}
+                    isHighlighted={hoveredRoomId === room.maPhongTro}
+                    onHoverChange={setHoveredRoomId}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Không tìm thấy phòng phù hợp"
+                description="Hãy xóa bớt tiêu chí lọc hoặc mở rộng bán kính tìm kiếm để xem thêm phòng gần khu vực này."
+                action={
+                  <>
+                    <AppButton variant="primary" size="md" onClick={handleResetFilters}>
+                      Xóa bộ lọc
+                    </AppButton>
+                    <AppButton variant="secondary" size="md" onClick={handleExpandRadius}>
+                      Mở rộng bán kính
+                    </AppButton>
+                  </>
+                }
+              />
+            )}
+          </div>
+
+          {/* Phân trang */}
+          <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-white flex items-center justify-between text-xs text-slate-700">
+            <span className="font-medium">
+              {filteredRooms.length > 0
+                ? `Trang ${currentPage + 1}/${totalPages} (${totalElements} phòng)`
+                : '0 phòng'}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Trước
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages - 1}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                Tiếp <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="lg:col-span-7 h-full bg-slate-100 rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm relative">
-            <RoomMap
-              rooms={rooms}
-              selectedRoom={activeSelectedRoom}
-              onSelectRoom={(r) => setSelectedRoom(r)}
-              userCoords={userCoords}
-              radiusKm={filterStore.radiusKm}
-              onLocateUser={handleLocateUser}
-              isLocating={isLocating}
-            />
-          </div>
+        {/* CỘT PHẢI (55%): BẢN ĐỒ TƯƠNG TÁC */}
+        <div
+          className={`${
+            mobileView === 'list' ? 'hidden lg:block' : 'block'
+          } h-full w-full bg-slate-100 relative overflow-hidden`}
+        >
+          <RoomMap
+            rooms={rooms}
+            selectedRoom={activeSelectedRoom}
+            hoveredRoomId={hoveredRoomId}
+            onSelectRoom={(r) => setSelectedRoom(r)}
+            onHoverRoom={setHoveredRoomId}
+            userCoords={userCoords}
+            radiusKm={filterStore.radiusKm}
+            onLocateUser={handleLocateUser}
+            isLocating={isLocating}
+          />
         </div>
       </div>
 
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        onApply={() => setCurrentPage(0)}
-      />
+      {/* NÚT NỔI CHUYỂN VIEW DANH SÁCH <-> BẢN ĐỒ TRÊN MOBILE */}
+      <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30">
+        <button
+          type="button"
+          onClick={() => setMobileView((v) => (v === 'list' ? 'map' : 'list'))}
+          className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold shadow-lg cursor-pointer"
+        >
+          {mobileView === 'list' ? (
+            <>
+              <MapIcon className="w-4 h-4" />
+              <span>Bản đồ</span>
+            </>
+          ) : (
+            <>
+              <List className="w-4 h-4" />
+              <span>Danh sách</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 };

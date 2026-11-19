@@ -238,15 +238,15 @@ export const ViewingsPage: React.FC = () => {
 
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1.5">
               <div className="flex justify-between font-bold text-emerald-950">
-                <span>Tiền cọc giữ chân tạm giữ trên sàn (`coc`):</span>
+                <span>Tiền cọc giữ chân tạm giữ trên sàn:</span>
                 <span>{formatVND(selectedViewing.tienCoc)}</span>
               </div>
               <div className="flex justify-between text-emerald-800 text-[11px]">
-                <span>Phí hoa hồng trích thu khi thuê thành công (`phiThu`):</span>
+                <span>Phí hoa hồng trích thu khi thuê thành công:</span>
                 <span>{formatVND(selectedViewing.phiThu)}</span>
               </div>
               <p className="text-[10px] text-emerald-700 pt-1.5 border-t border-emerald-200/60 leading-relaxed">
-                Quy trình chuẩn: Chủ trọ trực tiếp trả 100% cọc cho khách tại buổi gặp. Sàn hoàn `(coc - phiThu)` vào ví Chủ trọ nếu cả 2 bên xác nhận thuê (`HOAN_THANH`), hoặc hoàn đủ 100% `coc` cho Chủ trọ (hoa hồng = 0 ₫) nếu không thuê (`HUY`).
+                Quy trình chuẩn: Chủ trọ trực tiếp trả 100% cọc cho khách tại buổi gặp. Sàn trích thu hoa hồng và hoàn phần còn lại vào ví Chủ trọ nếu cả 2 bên xác nhận thuê, hoặc hoàn đủ 100% cọc cho Chủ trọ nếu không thuê.
               </p>
             </div>
           </div>

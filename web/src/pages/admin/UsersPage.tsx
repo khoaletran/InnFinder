@@ -105,9 +105,10 @@ export const UsersPage: React.FC = () => {
 
   const handleConfirmRejectLandlord = () => {
     if (!rejectingRequest) return;
+    const reqId = rejectingRequest.maYeuCau || rejectingRequest.id;
     const trimmedReason =
       rejectReason.trim() || 'Ảnh CCCD không rõ hoặc số tài khoản ngân hàng không trùng khớp';
-    rejectLandlordMutation.mutate({ id: rejectingRequest.id, reason: trimmedReason });
+    rejectLandlordMutation.mutate({ id: reqId, reason: trimmedReason });
   };
 
   const renderLandlordStatusBadge = (status: TrangThaiYeuCauChuTro) => {
@@ -366,9 +367,11 @@ export const UsersPage: React.FC = () => {
             </div>
           ) : landlordRequests.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {landlordRequests.map((req) => (
+              {landlordRequests.map((req) => {
+                const reqId = req.maYeuCau || req.id;
+                return (
                 <Card
-                  key={req.id}
+                  key={reqId}
                   className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4"
                 >
                   <Card.Header className="p-0 flex flex-row items-start justify-between gap-3">
@@ -486,7 +489,7 @@ export const UsersPage: React.FC = () => {
                       <button
                         type="button"
                         disabled={approveLandlordMutation.isPending || rejectLandlordMutation.isPending}
-                        onClick={() => approveLandlordMutation.mutate(req.id)}
+                        onClick={() => approveLandlordMutation.mutate(reqId)}
                         className="w-1/2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer"
                       >
                         Phê duyệt Chủ trọ
@@ -494,7 +497,8 @@ export const UsersPage: React.FC = () => {
                     </Card.Footer>
                   )}
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Card className="p-12 text-center bg-white rounded-2xl border border-slate-200">

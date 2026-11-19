@@ -13,7 +13,43 @@ import type {
 } from '@/types/admin.types';
 import type { PageResponse } from '@/types/api.types';
 import type { MucDoViPham, TrangThaiKhieuNai } from '@/types/auth-user.types';
-import type { AmenityResponse, CategoryResponse } from '@/types/room.types';
+import type { AmenityResponse, CategoryResponse, TrangThaiPhongTro } from '@/types/room.types';
+
+function mapRoomToAdminPost(r: Record<string, unknown>): AdminPostItem {
+  const hinhAnhUrls = Array.isArray(r.hinhAnhUrls)
+    ? r.hinhAnhUrls.map(String)
+    : Array.isArray(r.hinhAnh)
+      ? r.hinhAnh.map(String)
+      : r.anhDaiDien
+        ? [String(r.anhDaiDien)]
+        : [];
+  const loaiPhong = String(r.tenLoaiPhong || r.loaiPhong || 'Phòng trọ');
+  const diaChi = String(r.diaChi || '');
+  const maPhongTro = String(r.maPhongTro || '');
+
+  return {
+    maPhongTro,
+    tieuDe: String(r.tieuDe || `${loaiPhong}${diaChi ? ` - ${diaChi}` : ''}` || `Phòng #${maPhongTro}`),
+    diaChi,
+    giaThue: Number(r.giaThue ?? 0),
+    dienTich: Number(r.dienTich ?? 0),
+    soNguoi: Number(r.soNguoi ?? 1),
+    loaiPhong,
+    trangThai: (r.trangThai as TrangThaiPhongTro) || 'CHO_DUYET',
+    thoiGianDang: String(r.thoiGianDang || ''),
+    tenChuTro: String(r.tenChuTro || 'Chủ trọ'),
+    sdtChuTro: String(r.sdtChuTro || ''),
+    maChuTro: r.maChuTro as string | undefined,
+    avatarChuTro: r.avatarChuTro as string | undefined,
+    hinhAnh: hinhAnhUrls,
+    moTa: String(r.moTa || ''),
+    tienIch: Array.isArray(r.tienIch) ? r.tienIch.map(String) : [],
+    cocPhong: Number(r.coc ?? r.cocPhong ?? 0),
+    kinhDo: r.kinhDo as string | undefined,
+    viDo: r.viDo as string | undefined,
+    lyDoTuChoi: r.lyDoTuChoi as string | undefined,
+  };
+}
 
 export const adminService = {
   // 1. Dashboard & Thống kê hệ thống (Doanh thu sàn = SUM(phiThu) từ PhieuDatLich HOAN_THANH)
@@ -39,16 +75,13 @@ export const adminService = {
       const soPhongChoDuyet = Number(d?.soPhongChoDuyet ?? 0);
       const soChuTroChoDuyet = Number(d?.soChuTroChoDuyet ?? 0);
 
-      // Phân bổ biểu đồ tăng trưởng hoa hồng sàn dựa trên doanh thu thực tế (phiThu HOAN_THANH)
       const currentMonth = new Date().getMonth() + 1;
-      const tangTruongGiaoDich = Array.from({ length: 6 }, (_, idx) => {
-        const m = ((currentMonth - 6 + idx + 12) % 12) + 1;
-        const isCurrent = idx === 5;
-        return {
-          thang: `T${m}`,
-          giaTri: isCurrent ? tongDoanhThu : 0,
-        };
-      });
+      const tangTruongGiaoDich = [
+        {
+          thang: `Tháng ${currentMonth}`,
+          giaTri: tongDoanhThu,
+        },
+      ];
 
       return {
         nguoiDung: { total: tongNguoiDung, label: 'Người dùng hệ thống' },
@@ -143,10 +176,29 @@ export const adminService = {
   },
 
   getLandlordRequests: async (): Promise<AdminLandlordRequestItem[]> => {
-    const res = await axiosClient.get<unknown, AdminLandlordRequestItem[]>(
+    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
       '/api/admin/landlord-requests',
     );
-    return Array.isArray(res) ? res : [];
+    if (!Array.isArray(res)) return [];
+    return res.map((r) => ({
+      id: (r.maYeuCau as string | number) ?? (r.id as string | number) ?? '',
+      maYeuCau: r.maYeuCau as string | undefined,
+      maNguoiDung: String(r.maNguoiDung ?? ''),
+      hoVaTen: String(r.hoVaTen || r.tenDangNhap || 'Người dùng'),
+      email: String(r.email ?? ''),
+      sdt: String(r.sdt ?? ''),
+      cccd: String(r.cccd ?? ''),
+      anhCccdTruoc: r.anhCccdTruoc as string | undefined,
+      anhCccdSau: r.anhCccdSau as string | undefined,
+      tenNganHang: String(r.tenNganHang ?? ''),
+      soTaiKhoan: String(r.soTaiKhoan ?? ''),
+      tenChuTaiKhoan: (r.tenChuTaiKhoan as string | undefined) || String(r.hoVaTen ?? ''),
+      ngayGui: String(r.ngayGui ?? ''),
+      trangThai: (r.trangThai as AdminLandlordRequestItem['trangThai']) || 'CHO_DUYET',
+      lyDoTuChoi: r.lyDoTuChoi as string | undefined,
+      avatarUrl: r.avatarUrl as string | undefined,
+      diemUyTin: typeof r.diemUyTin === 'number' ? r.diemUyTin : 100,
+    }));
   },
 
   approveLandlordRequest: (id: string | number) => {
@@ -163,17 +215,31 @@ export const adminService = {
   },
 
   getPendingRooms: async (): Promise<AdminPostItem[]> => {
-    const res = await axiosClient.get<unknown, AdminPostItem[]>('/api/admin/rooms/pending');
-    return Array.isArray(res) ? res : [];
+    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
+      '/api/admin/rooms/pending',
+    );
+    if (!Array.isArray(res)) return [];
+    return res.map(mapRoomToAdminPost);
   },
 
   getAllRooms: async (): Promise<AdminPostItem[]> => {
     try {
-      const res = await axiosClient.get<unknown, PageResponse<AdminPostItem> | AdminPostItem[]>(
-        '/api/rooms',
-      );
-      if (Array.isArray(res)) return res;
-      return res?.content || [];
+      const [approvedRes, pendingList] = await Promise.all([
+        axiosClient.get<
+          unknown,
+          PageResponse<Record<string, unknown>> | Array<Record<string, unknown>>
+        >('/api/rooms', { params: { page: 0, size: 100 } }),
+        adminService.getPendingRooms().catch(() => [] as AdminPostItem[]),
+      ]);
+      const rawApproved = Array.isArray(approvedRes) ? approvedRes : approvedRes?.content || [];
+      const mappedApproved = rawApproved.map(mapRoomToAdminPost);
+      const merged = new Map<string, AdminPostItem>();
+      for (const item of [...pendingList, ...mappedApproved]) {
+        if (item.maPhongTro && !merged.has(item.maPhongTro)) {
+          merged.set(item.maPhongTro, item);
+        }
+      }
+      return Array.from(merged.values());
     } catch {
       return [];
     }
@@ -192,10 +258,30 @@ export const adminService = {
   getTransactions: async (keyword?: string): Promise<AdminTransactionItem[]> => {
     const params: Record<string, string> = {};
     if (keyword && keyword.trim()) params.keyword = keyword.trim();
-    const res = await axiosClient.get<unknown, AdminTransactionItem[]>('/api/admin/transactions', {
-      params,
-    });
-    return Array.isArray(res) ? res : [];
+    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
+      '/api/admin/transactions',
+      { params },
+    );
+    if (!Array.isArray(res)) return [];
+    return res.map((t) => ({
+      maGiaoDich: String(t.maGiaoDich ?? ''),
+      maDatLich: t.maDatLich as string | undefined,
+      phongTro: String(t.noiDung || t.phongTro || 'Giao dịch hệ thống'),
+      diaChiPhong: String(t.diaChiPhong || 'Hệ thống ví InnFinder'),
+      soTien: Number(t.soTien ?? 0),
+      loaiGiaoDich: String(t.loaiGiaoDich || 'GIAO_DICH'),
+      trangThai: (t.trangThai as AdminTransactionItem['trangThai']) || 'CHO_THANH_TOAN',
+      thoiGian: String(t.ngayGiaoDich || t.thoiGian || ''),
+      nguoiThucHien: String(t.hoVaTen || t.tenNguoiDung || t.nguoiThucHien || 'Người dùng'),
+      sdtNguoiThucHien: String(t.sdt || t.sdtNguoiThucHien || ''),
+      chuTro: String(t.tenNguoiDung || t.chuTro || 'Hệ thống'),
+      tienCoc: Number(t.tienCoc ?? t.soTien ?? 0),
+      phiDichVu: Number(t.phiDichVu ?? 0),
+      thucNhan: Number(t.thucNhan ?? t.soTien ?? 0),
+      tenNganHang: t.tenNganHang as string | undefined,
+      soTaiKhoan: t.soTaiKhoan as string | undefined,
+      ghiChu: (t.noiDung as string | undefined) || (t.ghiChu as string | undefined),
+    }));
   },
 
   approveWithdrawal: (id: string) => {
@@ -212,8 +298,31 @@ export const adminService = {
   },
 
   getAllComplaints: async (): Promise<AdminComplaintItem[]> => {
-    const res = await axiosClient.get<unknown, AdminComplaintItem[]>('/api/admin/complaints');
-    return Array.isArray(res) ? res : [];
+    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
+      '/api/admin/complaints',
+    );
+    if (!Array.isArray(res)) return [];
+    return res.map((c) => {
+      const rawImages = c.hinhAnh;
+      const hinhAnh = Array.isArray(rawImages)
+        ? rawImages.map(String)
+        : rawImages
+          ? [String(rawImages)]
+          : [];
+      return {
+        maKhieuNai: String(c.maKhieuNai ?? ''),
+        nguoiKhieuNai: String(c.tenNguoiGui || c.nguoiKhieuNai || c.maNguoiGui || 'Người dùng'),
+        doiTuongBiKhieuNai: String(
+          c.tenDoiTuongKhieuNai || c.doiTuongBiKhieuNai || c.doiTuongKhieuNai || 'Đối tượng',
+        ),
+        vanDe: String(c.vanDe ?? ''),
+        thoiGian: String(c.ngayGui || c.thoiGian || ''),
+        trangThai: (c.trangThai as TrangThaiKhieuNai) || 'CHO_DUYET',
+        hinhAnh,
+        mucDoViPham: c.mucDoViPham as MucDoViPham | undefined,
+        ghiChuXuLy: (c.ketQua as string | undefined) || (c.ghiChuXuLy as string | undefined),
+      };
+    });
   },
 
   resolveComplaint: (
@@ -308,18 +417,14 @@ export const adminService = {
     }
   },
 
-  // Suy xuất lịch xem phòng qua sổ cái giao dịch cọc đối soát (nếu chưa có endpoint riêng)
+  // Suy xuất lịch xem phòng qua sổ cái giao dịch cọc đối soát (khi chưa có /api/admin/appointments)
   getMonitoredViewings: async (): Promise<AdminAppointmentItem[]> => {
     try {
-      const txList = await axiosClient.get<unknown, AdminTransactionItem[]>(
-        '/api/admin/transactions',
-        { params: { keyword: 'PT' } },
-      );
-      if (!Array.isArray(txList)) return [];
+      const txList = await adminService.getTransactions('PT');
       return txList
         .filter((tx) => tx.maDatLich || tx.loaiGiaoDich?.includes('COC'))
         .map((tx, idx) => ({
-          maDatLich: tx.maDatLich || `DL-${idx + 1}`,
+          maDatLich: tx.maDatLich || `DL-${tx.maGiaoDich || idx + 1}`,
           tenKhachHang: tx.nguoiThucHien || 'Khách hàng',
           sdtKhachHang: tx.sdtNguoiThucHien || '---',
           tenChuTro: tx.chuTro || 'Chủ trọ hệ thống',

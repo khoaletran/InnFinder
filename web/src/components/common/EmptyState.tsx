@@ -16,19 +16,23 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   action,
 }) => {
   return (
-    <Card className="p-8 text-center border border-slate-200/80 bg-white rounded-2xl shadow-2xs">
-      <Card.Header className="flex flex-col items-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-          {icon || <Inbox className="w-7 h-7" />}
+    <Card className="p-8 text-center border border-slate-200 bg-white rounded-2xl shadow-xs">
+      <Card.Header className="flex flex-col items-center gap-3 p-0">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
+          {icon || <Inbox className="w-6 h-6" />}
         </div>
-        <Card.Title className="text-base font-bold text-slate-800">{title}</Card.Title>
+        <Card.Title className="text-base font-bold text-slate-900">{title}</Card.Title>
         {description && (
-          <Card.Description className="text-xs text-slate-500 max-w-md mx-auto">
+          <Card.Description className="text-sm text-slate-600 max-w-md mx-auto">
             {description}
           </Card.Description>
         )}
       </Card.Header>
-      {action && <Card.Footer className="pt-4 flex justify-center">{action}</Card.Footer>}
+      {action && (
+        <Card.Footer className="pt-5 p-0 flex flex-wrap items-center justify-center gap-3">
+          {action}
+        </Card.Footer>
+      )}
     </Card>
   );
 };

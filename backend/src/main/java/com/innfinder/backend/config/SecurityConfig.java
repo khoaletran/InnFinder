@@ -69,7 +69,10 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
+                "http://192.168.*:*",
+                "http://10.*:*",
                 "https://*.ngrok-free.app",
+                "https://*.ngrok-free.dev",
                 "https://*.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

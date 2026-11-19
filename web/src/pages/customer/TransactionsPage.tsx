@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { Card } from '@heroui/react';
+﻿import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -10,17 +9,37 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AppButton } from '@/components/common/AppButton';
+import { EmptyState } from '@/components/common/EmptyState';
+import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import { SkeletonList } from '@/components/common/SkeletonList';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { transactionService } from '@/services/transaction.service';
 import {
   formatDateTime,
   formatTransactionType,
   formatVND,
-  getTransactionStatusBadge,
   resolveRoomInfo,
 } from '@/utils/formatters';
 
+function isIncomingTransaction(loaiGiaoDich: string, trangThai: string): boolean {
+  if (trangThai === 'HOAN_TIEN') return true;
+  return (
+    loaiGiaoDich === 'HOAN_COC' ||
+    loaiGiaoDich === 'CONG_TIEN_COC' ||
+    loaiGiaoDich === 'HOAN_TIEN'
+  );
+}
+
+function extractAppointmentRef(noiDung?: string): string | null {
+  if (!noiDung) return null;
+  const match = noiDung.match(/(DL\d{6,}|PT\d{6,})/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
 export const TransactionsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -82,66 +101,61 @@ export const TransactionsPage: React.FC = () => {
     return filteredList.slice(start, start + pageSize);
   }, [filteredList, currentPage]);
 
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSelectedStatus('ALL');
+    setSelectedType('ALL');
+    setCurrentPage(1);
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Sổ cái giao dịch
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi biến động dòng tiền cọc giữ chân, hoàn cọc và rút tiền của tài khoản
-          </p>
+    <PageContainer width="wide" className="space-y-6">
+      <PageHeader
+        title="Lịch sử giao dịch"
+        subtitle="Theo dõi biến động dòng tiền cọc giữ chân, hoàn cọc và rút tiền của tài khoản"
+        action={
+          <AppButton
+            variant="secondary"
+            size="md"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-teal-600' : ''}`} />
+            <span>Làm mới</span>
+          </AppButton>
+        }
+      />
+
+      {/* 1 dải số liệu mỏng thay cho 4 thẻ KPI lớn */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-4 grid grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
+        <div className="lg:pr-4">
+          <span className="text-xs font-semibold text-slate-600 block">
+            Tổng tiền thành công
+          </span>
+          <span className="text-lg font-extrabold text-slate-900">{formatVND(totalPaid)}</span>
         </div>
-
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer shadow-2xs self-start sm:self-auto disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-          <span>Làm mới sổ cái</span>
-        </button>
+        <div className="lg:px-4">
+          <span className="text-xs font-semibold text-slate-600 block">Đã hoàn lại</span>
+          <span className="text-lg font-extrabold text-emerald-700">
+            {formatVND(totalRefunded)}
+          </span>
+        </div>
+        <div className="lg:px-4">
+          <span className="text-xs font-semibold text-slate-600 block">Số lệnh hoàn tất</span>
+          <span className="text-lg font-extrabold text-slate-900">
+            {successCount} giao dịch
+          </span>
+        </div>
+        <div className="lg:pl-4">
+          <span className="text-xs font-semibold text-slate-600 block">Chờ thanh toán</span>
+          <span className="text-lg font-extrabold text-amber-700">{pendingCount} giao dịch</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Tổng dòng tiền thành công
-          </span>
-          <p className="text-xl font-extrabold text-slate-900 mt-1">{formatVND(totalPaid)}</p>
-        </Card>
-
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Giao dịch thành công
-          </span>
-          <p className="text-xl font-extrabold text-emerald-600 mt-1">
-            {String(successCount).padStart(2, '0')}
-          </p>
-        </Card>
-
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Chờ thanh toán
-          </span>
-          <p className="text-xl font-extrabold text-amber-600 mt-1">
-            {String(pendingCount).padStart(2, '0')}
-          </p>
-        </Card>
-
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Đã hoàn tiền
-          </span>
-          <p className="text-xl font-extrabold text-blue-600 mt-1">{formatVND(totalRefunded)}</p>
-        </Card>
-      </div>
-
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-center gap-3">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      {/* Bộ lọc tìm kiếm */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
@@ -149,21 +163,21 @@ export const TransactionsPage: React.FC = () => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Tìm mã giao dịch hoặc nội dung..."
-            className="w-full pl-10 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50"
+            placeholder="Tìm mã giao dịch, tên phòng hoặc nội dung..."
+            className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 bg-slate-50 focus:bg-white text-slate-900 placeholder:text-slate-500"
           />
         </div>
 
-        <div className="w-full md:w-auto flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <select
             value={selectedStatus}
             onChange={(e) => {
               setSelectedStatus(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full md:w-auto px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white text-slate-700 cursor-pointer"
+            className="h-10 px-3 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 cursor-pointer"
           >
-            <option value="ALL">Tất cả trạng thái (TrangThaiGD)</option>
+            <option value="ALL">Tất cả trạng thái</option>
             <option value="THANH_CONG">Thành công</option>
             <option value="CHO_THANH_TOAN">Chờ thanh toán</option>
             <option value="HOAN_TIEN">Hoàn tiền</option>
@@ -176,9 +190,9 @@ export const TransactionsPage: React.FC = () => {
               setSelectedType(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full md:w-auto px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white text-slate-700 cursor-pointer"
+            className="h-10 px-3 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 cursor-pointer"
           >
-            <option value="ALL">Tất cả loại giao dịch</option>
+            <option value="ALL">Tất cả loại</option>
             <option value="COC_XEM_PHONG">Cọc xem phòng</option>
             <option value="HOAN_COC">Hoàn cọc</option>
             <option value="CONG_TIEN_COC">Cộng cọc chủ trọ</option>
@@ -187,144 +201,202 @@ export const TransactionsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Error State */}
       {error instanceof Error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error.message}</span>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-sm flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+            <span>{error.message}</span>
+          </div>
+          <AppButton variant="secondary" size="sm" onClick={() => refetch()}>
+            Thử lại
+          </AppButton>
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <th className="py-3 px-4">Mã giao dịch</th>
-                <th className="py-3 px-4">Nội dung</th>
-                <th className="py-3 px-4">Số tiền</th>
-                <th className="py-3 px-4">Thời gian</th>
-                <th className="py-3 px-4">Kênh đối soát</th>
-                <th className="py-3 px-4">Trạng thái</th>
-                <th className="py-3 px-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              {isLoading && transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-                    <span>Đang tải lịch sử giao dịch...</span>
-                  </td>
-                </tr>
-              ) : paginatedList.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400">
-                    <CreditCard className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    <p className="font-semibold text-slate-700">Chưa có giao dịch nào</p>
-                  </td>
-                </tr>
-              ) : (
-                paginatedList.map((tx) => {
-                  const badge = getTransactionStatusBadge(tx.trangThai);
-                  const typeInfo = formatTransactionType(tx.loaiGiaoDich);
-                  const room = resolveRoomInfo(tx.noiDung);
+      {/* Content: Loading / Empty / Desktop Table + Mobile List */}
+      {isLoading && transactions.length === 0 ? (
+        <SkeletonList variant="rows" count={4} />
+      ) : paginatedList.length === 0 ? (
+        <EmptyState
+          title="Chưa có giao dịch nào"
+          description={
+            searchTerm || selectedStatus !== 'ALL' || selectedType !== 'ALL'
+              ? 'Không có giao dịch nào khớp với bộ lọc hiện tại.'
+              : 'Lịch sử cọc giữ chân xem phòng và hoàn cọc của bạn sẽ hiển thị tại đây.'
+          }
+          icon={<CreditCard className="w-6 h-6" />}
+          action={
+            searchTerm || selectedStatus !== 'ALL' || selectedType !== 'ALL' ? (
+              <AppButton variant="primary" size="md" onClick={resetFilters}>
+                Xóa bộ lọc
+              </AppButton>
+            ) : (
+              <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
+                Tìm phòng ngay
+              </AppButton>
+            )
+          }
+        />
+      ) : (
+        <>
+          {/* MOBILE LIST VIEW (< md) */}
+          <div className="md:hidden space-y-3">
+            {paginatedList.map((tx) => {
+              const typeInfo = formatTransactionType(tx.loaiGiaoDich);
+              const room = resolveRoomInfo(tx.noiDung);
+              const refCode = extractAppointmentRef(tx.noiDung);
+              const incoming = isIncomingTransaction(tx.loaiGiaoDich, tx.trangThai);
 
-                  return (
-                    <tr key={tx.maGiaoDich} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-blue-600">
-                        <Link to={`/transactions/${tx.maGiaoDich}`} className="hover:underline">
-                          {tx.maGiaoDich}
-                        </Link>
-                      </td>
-
-                      <td className="py-3.5 px-4 max-w-xs">
-                        {room ? (
-                          <div>
-                            <span className="font-bold text-slate-900 block truncate">
-                              {room.title}
-                            </span>
-                            <span className="text-[11px] text-slate-400 truncate block">
-                              {tx.noiDung}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="font-semibold text-slate-800 line-clamp-1">
-                            {tx.noiDung || typeInfo.label}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 font-extrabold text-slate-900 whitespace-nowrap">
-                        {formatVND(tx.soTien)}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                        {formatDateTime(tx.ngayGiaoDich)}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px]">
-                          {typeInfo.method}
+              return (
+                <Link
+                  key={tx.maGiaoDich}
+                  to={`/transactions/${tx.maGiaoDich}`}
+                  className="block bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-xs font-mono font-semibold text-teal-700 block">
+                        #{tx.maGiaoDich}
+                      </span>
+                      <h3 className="text-sm font-bold text-slate-900 mt-0.5 line-clamp-1">
+                        {room ? room.title : tx.noiDung || typeInfo.label}
+                      </h3>
+                      {refCode && (
+                        <span className="text-xs text-slate-600 block mt-0.5">
+                          Liên quan: #{refCode}
                         </span>
-                      </td>
+                      )}
+                    </div>
+                    <span
+                      className={`text-sm font-extrabold whitespace-nowrap ${
+                        incoming ? 'text-emerald-700' : 'text-slate-900'
+                      }`}
+                    >
+                      {incoming ? '+' : '−'}
+                      {formatVND(tx.soTien)}
+                    </span>
+                  </div>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bgClass} ${badge.textClass} ${badge.borderClass}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
-                          {badge.label}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <Link
-                          to={`/transactions/${tx.maGiaoDich}`}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-0.5 transition-colors"
-                        >
-                          <span>Chi tiết</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>
-            Hiển thị {paginatedList.length} / {filteredList.length} giao dịch
-          </span>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer flex items-center gap-1"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Trước</span>
-            </button>
-            <span className="font-semibold text-slate-700">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer flex items-center gap-1"
-            >
-              <span>Sau</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <span className="text-slate-600">{formatDateTime(tx.ngayGiaoDich)}</span>
+                    <StatusBadge status={tx.trangThai} />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        </div>
-      </div>
-    </div>
+
+          {/* DESKTOP TABLE VIEW (md+) */}
+          <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Mã giao dịch</th>
+                    <th className="py-3.5 px-4">Phòng &amp; Lịch liên quan</th>
+                    <th className="py-3.5 px-4">Số tiền</th>
+                    <th className="py-3.5 px-4">Thời gian</th>
+                    <th className="py-3.5 px-4">Trạng thái</th>
+                    <th className="py-3.5 px-4 text-right">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {paginatedList.map((tx) => {
+                    const typeInfo = formatTransactionType(tx.loaiGiaoDich);
+                    const room = resolveRoomInfo(tx.noiDung);
+                    const refCode = extractAppointmentRef(tx.noiDung);
+                    const incoming = isIncomingTransaction(tx.loaiGiaoDich, tx.trangThai);
+
+                    return (
+                      <tr key={tx.maGiaoDich} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-4 px-4 font-mono text-xs font-bold text-teal-700 whitespace-nowrap">
+                          <Link to={`/transactions/${tx.maGiaoDich}`} className="hover:underline">
+                            {tx.maGiaoDich}
+                          </Link>
+                        </td>
+
+                        <td className="py-4 px-4 max-w-sm">
+                          <div className="font-semibold text-slate-900 line-clamp-1">
+                            {room ? room.title : tx.noiDung || typeInfo.label}
+                          </div>
+                          <div className="text-xs text-slate-600 mt-0.5 flex flex-wrap items-center gap-2">
+                            <span>{typeInfo.label}</span>
+                            {refCode && (
+                              <span className="font-mono font-semibold text-slate-700">
+                                · #{refCode}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td
+                          className={`py-4 px-4 font-extrabold whitespace-nowrap ${
+                            incoming ? 'text-emerald-700' : 'text-slate-900'
+                          }`}
+                        >
+                          {incoming ? '+' : '−'}
+                          {formatVND(tx.soTien)}
+                        </td>
+
+                        <td className="py-4 px-4 text-xs text-slate-600 whitespace-nowrap">
+                          {formatDateTime(tx.ngayGiaoDich)}
+                        </td>
+
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <StatusBadge status={tx.trangThai} />
+                        </td>
+
+                        <td className="py-4 px-4 text-right whitespace-nowrap">
+                          <Link
+                            to={`/transactions/${tx.maGiaoDich}`}
+                            className="text-sm font-semibold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1"
+                          >
+                            <span>Chi tiết</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Phân trang */}
+          <div className="bg-white rounded-2xl border border-slate-200 px-4 py-3 flex items-center justify-between text-xs text-slate-700 shadow-xs">
+            <span className="font-medium">
+              Hiển thị {paginatedList.length} / {filteredList.length} giao dịch
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer flex items-center gap-1 font-semibold"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Trước</span>
+              </button>
+              <span className="font-semibold text-slate-900">
+                Trang {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 px-3 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer flex items-center gap-1 font-semibold"
+              >
+                <span>Sau</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </PageContainer>
   );
 };
 

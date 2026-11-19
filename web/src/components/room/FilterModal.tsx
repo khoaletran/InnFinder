@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { roomService } from '@/services/room.service';
@@ -306,7 +306,7 @@ const FilterModalContent: React.FC<Omit<FilterModalProps, 'isOpen'>> = ({ onClos
             <button
               type="button"
               onClick={handleApply}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-md shadow-teal-600/20 transition-all cursor-pointer"
             >
               Áp dụng kết quả
             </button>

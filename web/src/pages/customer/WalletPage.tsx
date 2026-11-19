@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   Building2,
-  CreditCard,
   Plus,
   ShieldCheck,
   Trash2,
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { BankSelect } from '@/components/common/BankSelect';
 import { Modal } from '@/components/common/Modal';
 import { BANKS } from '@/constants/banks';
 import { authUserService } from '@/services/authUser.service';
@@ -28,6 +28,19 @@ export const WalletPage: React.FC = () => {
   const [tenNganHang, setTenNganHang] = useState(BANKS[0]?.shortName || 'Vietcombank');
   const [soTaiKhoan, setSoTaiKhoan] = useState('');
   const [tenChuTaiKhoan, setTenChuTaiKhoan] = useState('');
+
+  const getBankLogo = (bankName?: string) => {
+    if (!bankName) return null;
+    const normalized = bankName.trim().toLowerCase();
+    const found = BANKS.find(
+      (b) =>
+        b.shortName.toLowerCase() === normalized ||
+        b.code.toLowerCase() === normalized ||
+        normalized.includes(b.shortName.toLowerCase()) ||
+        b.fullName.toLowerCase().includes(normalized),
+    );
+    return found?.logoUrl || null;
+  };
 
   const { data: bankAccounts = [], isLoading: loadingBanks } = useQuery({
     queryKey: ['users', 'bank-accounts'],
@@ -93,21 +106,21 @@ export const WalletPage: React.FC = () => {
     .reduce((sum, t) => sum + t.soTien, 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-7xl w-full mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             Quản lý Ví & Tài khoản Ngân hàng
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Quản lý danh sách ngân hàng nhận hoàn cọc (`TaiKhoanNganHang`) và đối soát dòng tiền
+            Quản lý danh sách ngân hàng nhận hoàn cọc và đối soát dòng tiền
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setIsAddBankOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm cursor-pointer self-start sm:self-auto transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>Liên kết ngân hàng mới</span>
@@ -149,7 +162,7 @@ export const WalletPage: React.FC = () => {
         <Card className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs">
           <Card.Header className="p-0 flex flex-row items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {isChuTro ? 'Số dư Ví Chủ trọ (`ChuTro.soDu`)' : 'Tài khoản ngân hàng liên kết'}
+              {isChuTro ? 'Số dư Ví Chủ trọ' : 'Tài khoản ngân hàng liên kết'}
             </span>
             <Building2 className="w-5 h-5 text-teal-600" />
           </Card.Header>
@@ -183,7 +196,7 @@ export const WalletPage: React.FC = () => {
         <Card.Header className="p-0 pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
           <div>
             <Card.Title className="text-base font-bold text-slate-900">
-              Tài khoản ngân hàng đã liên kết (`TaiKhoanNganHang`)
+              Tài khoản ngân hàng đã liên kết
             </Card.Title>
             <Card.Description className="text-xs text-slate-500 mt-0.5">
               Ràng buộc chuẩn: Số tài khoản 6–20 chữ số, tên ngân hàng chỉ chứa chữ cái và khoảng trắng
@@ -200,35 +213,48 @@ export const WalletPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {bankAccounts.map((acc) => (
-                <div
-                  key={acc.id || acc.soTaiKhoan}
-                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                      <CreditCard className="w-5 h-5" />
+              {bankAccounts.map((acc) => {
+                const logoUrl = getBankLogo(acc.tenNganHang);
+                return (
+                  <div
+                    key={acc.id || acc.soTaiKhoan}
+                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 flex items-center justify-between hover:border-slate-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={acc.tenNganHang}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <Building2 className="w-6 h-6 text-teal-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{acc.tenNganHang}</p>
+                        <p className="text-xs font-mono text-slate-600">{acc.soTaiKhoan}</p>
+                        {acc.tenChuTaiKhoan && (
+                          <p className="text-[11px] text-slate-400 uppercase">
+                            {acc.tenChuTaiKhoan}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{acc.tenNganHang}</p>
-                      <p className="text-xs font-mono text-slate-600">{acc.soTaiKhoan}</p>
-                      {acc.tenChuTaiKhoan && (
-                        <p className="text-[11px] text-slate-400 uppercase">{acc.tenChuTaiKhoan}</p>
-                      )}
-                    </div>
+                    {acc.id && (
+                      <button
+                        type="button"
+                        onClick={() => deleteBankMutation.mutate(acc.id!)}
+                        title="Hủy liên kết"
+                        className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
-                  {acc.id && (
-                    <button
-                      type="button"
-                      onClick={() => deleteBankMutation.mutate(acc.id!)}
-                      title="Hủy liên kết"
-                      className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card.Content>
@@ -283,18 +309,14 @@ export const WalletPage: React.FC = () => {
       >
         <form onSubmit={handleAddBank} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Ngân hàng *</label>
-            <select
+            <BankSelect
+              label="Ngân hàng"
+              required
               value={tenNganHang}
-              onChange={(e) => setTenNganHang(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
-            >
-              {BANKS.map((b) => (
-                <option key={b.code} value={b.shortName.replace(/[^A-Za-zÀ-ỹ\s]/g, '').trim()}>
-                  {b.shortName} — {b.name}
-                </option>
-              ))}
-            </select>
+              onChange={(shortName) =>
+                setTenNganHang(shortName.replace(/[^A-Za-zÀ-ỹ\s]/g, '').trim())
+              }
+            />
           </div>
 
           <div>
@@ -308,7 +330,7 @@ export const WalletPage: React.FC = () => {
               maxLength={20}
               placeholder="VD: 1029384756"
               required
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
             />
           </div>
 
@@ -321,7 +343,7 @@ export const WalletPage: React.FC = () => {
               value={tenChuTaiKhoan}
               onChange={(e) => setTenChuTaiKhoan(e.target.value)}
               placeholder="VD: NGUYEN VAN A"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs uppercase text-slate-800"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs uppercase text-slate-800 focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
             />
           </div>
 
@@ -329,14 +351,14 @@ export const WalletPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAddBankOpen(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={addBankMutation.isPending}
-              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-colors"
             >
               {addBankMutation.isPending ? 'Đang lưu...' : 'Lưu liên kết'}
             </button>

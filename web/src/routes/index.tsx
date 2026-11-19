@@ -70,22 +70,19 @@ const LegacyReviewRedirect: React.FC = () => {
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* 1. PUBLIC DISCOVERY ROUTES (Thành viên 2) */}
-      <Route path="/" element={<HomePage />} />
-      <Route path="/search" element={<SearchPage />} />
-      <Route path="/room/:id" element={<RoomDetailPage />} />
+      {/* 1. CUSTOMER PUBLIC & DISCOVERY ROUTES */}
+      <Route element={<CustomerLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/room/:id" element={<RoomDetailPage />} />
+        <Route path="/favorites" element={<FavoritesPage />} />
+      </Route>
 
       {/* 2. PUBLIC AUTH ROUTES (Thành viên 1) */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      </Route>
-
-      {/* 3. CUSTOMER PORTAL ROUTES — Chuẩn hóa 100% theo AGENTS.md Mục 6.2 */}
-      <Route element={<CustomerLayout />}>
-        {/* Phòng yêu thích cho phép xem cả khi khách vãng lai đã lưu tạm */}
-        <Route path="/favorites" element={<FavoritesPage />} />
       </Route>
 
       <Route

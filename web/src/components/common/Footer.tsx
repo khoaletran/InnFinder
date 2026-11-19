@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Headphones, Heart, Home, ShieldCheck } from 'lucide-react';
+import { Headphones, Heart, ShieldCheck } from 'lucide-react';
+import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 
 export const Footer: React.FC = () => {
   return (
@@ -9,9 +10,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-10 border-b border-slate-800">
           <div className="md:col-span-1 space-y-4">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
-                <Home className="w-5 h-5 stroke-[2.5]" />
-              </div>
+              <InnFinderLogo variant="pin" size="md" />
               <span className="text-xl font-extrabold tracking-tight text-white">InnFinder</span>
             </Link>
             <p className="text-xs text-slate-400 leading-relaxed">

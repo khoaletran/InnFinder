@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -46,7 +46,7 @@ export const TransactionDetailPage: React.FC = () => {
         action={
           <Link
             to="/transactions"
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-full text-xs font-bold"
+            className="px-5 py-2.5 bg-teal-600 text-white rounded-full text-xs font-bold"
           >
             Quay lại lịch sử giao dịch
           </Link>
@@ -106,7 +106,7 @@ export const TransactionDetailPage: React.FC = () => {
             <div className="flex items-start justify-between pb-5 border-b border-slate-100">
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
                     IF
                   </div>
                   <span className="text-base font-extrabold text-slate-900 tracking-tight">
@@ -152,7 +152,7 @@ export const TransactionDetailPage: React.FC = () => {
             </div>
 
             <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
                 <Home className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
@@ -163,7 +163,7 @@ export const TransactionDetailPage: React.FC = () => {
                 {roomInfo && (
                   <Link
                     to={`/room/${roomInfo.code}`}
-                    className="text-[11px] text-blue-600 font-semibold hover:underline mt-1 inline-block"
+                    className="text-[11px] text-teal-600 font-semibold hover:underline mt-1 inline-block"
                   >
                     Xem thông tin phòng #{roomInfo.code}
                   </Link>
@@ -182,7 +182,7 @@ export const TransactionDetailPage: React.FC = () => {
               </div>
               <div className="pt-3 border-t border-slate-100 flex justify-between items-baseline">
                 <span className="text-sm font-bold text-slate-900">Tổng giá trị:</span>
-                <span className="text-xl font-extrabold text-blue-600">
+                <span className="text-xl font-extrabold text-teal-600">
                   {formatVND(tx.soTien)}
                 </span>
               </div>
@@ -219,7 +219,7 @@ export const TransactionDetailPage: React.FC = () => {
           </Card>
 
           <Card className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
               <HelpCircle className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-bold text-slate-900">Cần hỗ trợ đối soát?</h4>
@@ -241,7 +241,7 @@ export const TransactionDetailPage: React.FC = () => {
       {showSupportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
           <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 text-center">
-            <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-3 text-blue-600">
+            <div className="w-14 h-14 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto mb-3 text-teal-600">
               <Phone className="w-7 h-7 stroke-[2.2]" />
             </div>
             <h3 className="text-lg font-bold text-slate-900 mb-1">Tổng đài CSKH InnFinder</h3>
@@ -249,7 +249,7 @@ export const TransactionDetailPage: React.FC = () => {
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 mb-5 text-left space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Hotline:</span>
-                <span className="font-bold text-blue-600">1900 6868</span>
+                <span className="font-bold text-teal-600">1900 6868</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Email:</span>

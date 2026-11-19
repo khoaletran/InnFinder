@@ -8,7 +8,9 @@ import { formatVNDShort, getValidCoords } from '@/utils/formatters';
 export interface RoomMapProps {
   rooms: RoomSummaryResponse[];
   selectedRoom?: RoomSummaryResponse | null;
+  hoveredRoomId?: string | null;
   onSelectRoom?: (room: RoomSummaryResponse) => void;
+  onHoverRoom?: (roomId: string | null) => void;
   userCoords?: { lat: number; lng: number } | null;
   radiusKm?: number;
   onLocateUser?: () => void;
@@ -19,7 +21,9 @@ export interface RoomMapProps {
 export const RoomMap: React.FC<RoomMapProps> = ({
   rooms,
   selectedRoom = null,
+  hoveredRoomId = null,
   onSelectRoom,
+  onHoverRoom,
   userCoords = null,
   radiusKm,
   onLocateUser,
@@ -58,7 +62,19 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    if (mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
     };
@@ -119,29 +135,34 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       if (!coords) return;
 
       const isSelected = selectedRoom?.maPhongTro === room.maPhongTro;
+      const isHovered = hoveredRoomId === room.maPhongTro;
       const millions = room.giaThue ? room.giaThue / 1_000_000 : 0;
       const priceText =
         millions > 0 ? `${millions % 1 === 0 ? millions : millions.toFixed(1)}tr` : 'Xem';
 
       const customIcon = L.divIcon({
         className: '',
-        html: `<div class="custom-price-marker ${isSelected ? 'active' : ''}">${priceText}</div>`,
-        iconSize: [60, 28],
-        iconAnchor: [30, 14],
+        html: `<div class="custom-price-marker ${isSelected ? 'active' : ''} ${isHovered ? 'hovered' : ''}">${priceText}</div>`,
+        iconSize: [64, 30],
+        iconAnchor: [32, 15],
       });
 
       const marker = L.marker([coords.lat, coords.lng], {
         icon: customIcon,
-        zIndexOffset: isSelected ? 500 : 100,
+        zIndexOffset: isSelected || isHovered ? 600 : 100,
       });
 
       if (onSelectRoom) {
         marker.on('click', () => onSelectRoom(room));
       }
+      if (onHoverRoom) {
+        marker.on('mouseover', () => onHoverRoom(room.maPhongTro));
+        marker.on('mouseout', () => onHoverRoom(null));
+      }
 
       markersLayer.addLayer(marker);
     });
-  }, [rooms, selectedRoom, onSelectRoom]);
+  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;

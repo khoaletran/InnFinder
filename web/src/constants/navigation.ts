@@ -2,12 +2,10 @@ import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
   BarChart3,
-  Bell,
   Building2,
   Calendar,
   CalendarCheck,
   CreditCard,
-  FileCheck2,
   Heart,
   Home,
   LayoutDashboard,
@@ -27,24 +25,23 @@ export interface NavItemConfig {
   path: string;
   icon: LucideIcon;
   end?: boolean;
+  group?: string;
 }
 
 export const PUBLIC_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Trang chủ', path: '/', icon: Home, end: true },
-  { label: 'Tìm phòng & Bản đồ', path: '/search', icon: Search },
+  { label: 'Tìm phòng', path: '/search', icon: Search },
   { label: 'Yêu thích', path: '/favorites', icon: Heart },
 ];
 
 export const CUSTOMER_NAV_ITEMS: NavItemConfig[] = [
-  { label: 'Khám phá phòng', path: '/', icon: Home, end: true },
-  { label: 'Phòng yêu thích', path: '/favorites', icon: Heart },
-  { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar },
-  { label: 'Quyết định thuê', path: '/rentals', icon: FileCheck2 },
-  { label: 'Quản lý ví', path: '/wallet', icon: Wallet },
-  { label: 'Sổ cái giao dịch', path: '/transactions', icon: Receipt },
-  { label: 'Thông báo', path: '/notifications', icon: Bell },
-  { label: 'Hồ sơ cá nhân', path: '/profile', icon: User },
-  { label: 'Gửi khiếu nại', path: '/complaints', icon: AlertTriangle },
+  { label: 'Trang chủ', path: '/', icon: Home, end: true, group: 'Khám phá & Đặt lịch' },
+  { label: 'Tìm phòng & Bản đồ', path: '/search', icon: Search, group: 'Khám phá & Đặt lịch' },
+  { label: 'Phòng yêu thích', path: '/favorites', icon: Heart, group: 'Khám phá & Đặt lịch' },
+  { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar, group: 'Khám phá & Đặt lịch' },
+  { label: 'Lịch sử giao dịch', path: '/transactions', icon: Receipt, group: 'Tài khoản & Giao dịch' },
+  { label: 'Hồ sơ cá nhân', path: '/profile', icon: User, group: 'Tài khoản & Giao dịch' },
+  { label: 'Khiếu nại & Hỗ trợ', path: '/complaints', icon: AlertTriangle, group: 'Tài khoản & Giao dịch' },
 ];
 
 export const LANDLORD_NAV_ITEMS: NavItemConfig[] = [

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertCircle, Check, Clock } from 'lucide-react';
 import type { TrangThaiDatLich } from '@/types/booking.types';
 
@@ -49,7 +49,7 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
                   stepStatus === 'completed'
                     ? 'bg-emerald-500 text-white border-2 border-white ring-2 ring-emerald-500/20'
                     : stepStatus === 'current'
-                      ? 'bg-blue-600 text-white border-2 border-white ring-2 ring-blue-500/20 animate-pulse'
+                      ? 'bg-teal-600 text-white border-2 border-white ring-2 ring-blue-500/20 animate-pulse'
                       : stepStatus === 'cancelled'
                         ? 'bg-rose-500 text-white border-2 border-white'
                         : 'bg-slate-100 text-slate-400 border-2 border-white'
@@ -71,7 +71,7 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
                   stepStatus === 'completed'
                     ? 'text-slate-800 font-semibold'
                     : stepStatus === 'current'
-                      ? 'text-blue-600 font-bold'
+                      ? 'text-teal-600 font-bold'
                       : 'text-slate-400'
                 }`}
               >
