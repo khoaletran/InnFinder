@@ -5,34 +5,90 @@ import type { TrangThaiDatLich } from '@/types/booking.types';
 export interface RentalProgressBarProps {
   status: TrangThaiDatLich;
   sentDate?: string;
+  daNhanLaiCoc?: boolean;
+  daNopCoc?: boolean;
+  khachHangDongY?: boolean | null;
+  chuTroDongY?: boolean | null;
 }
 
 export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
   status,
   sentDate = '--/--',
+  daNhanLaiCoc = false,
+  khachHangDongY = null,
+  chuTroDongY = null,
 }) => {
-  const steps = [
-    { label: 'Đã gửi lịch', date: sentDate },
-    { label: 'Chủ trọ xác nhận', date: sentDate },
-    { label: 'Xem phòng & nhận cọc', date: 'Đang xử lý' },
-    { label: 'Quyết định 2 bên', date: 'Hoàn tất' },
-  ];
-
-  const getStepStatus = (index: number) => {
+  const getStepStatus = (index: number): 'completed' | 'current' | 'cancelled' | 'upcoming' => {
+    // 1. Trường hợp đơn bị hủy
     if (status === 'HUY') {
       if (index === 0) return 'completed';
-      if (index === 1) return 'cancelled';
+      if (daNhanLaiCoc && index <= 2) return 'completed';
+      if (index === (daNhanLaiCoc ? 3 : 1)) return 'cancelled';
       return 'upcoming';
     }
-    if (status === 'HOAN_THANH') return 'completed';
-    if (status === 'XAC_NHAN') {
-      if (index <= 2) return 'completed';
-      return 'current';
+
+    // 2. Trường hợp hoàn tất (cả 2 bên cùng chốt thuê)
+    if (status === 'HOAN_THANH') {
+      return 'completed';
     }
-    if (index === 0) return 'completed';
-    if (index === 1) return 'current';
+
+    // 3. Trường hợp mới tạo lịch hẹn, chờ chủ trọ xác nhận
+    if (status === 'CHO_XAC_NHAN') {
+      if (index === 0) return 'completed';
+      if (index === 1) return 'current';
+      return 'upcoming';
+    }
+
+    // 4. Trường hợp chủ trọ đã xác nhận lịch (XAC_NHAN)
+    if (status === 'XAC_NHAN') {
+      if (index <= 1) return 'completed'; // Đã gửi lịch & Chủ trọ đã xác nhận
+
+      // Kiểm tra bước 2: Xem phòng & hoàn cọc trực tiếp
+      if (!daNhanLaiCoc) {
+        if (index === 2) return 'current'; // Đang diễn ra bước gặp xem phòng & nhận lại cọc
+        return 'upcoming'; // Bước 3 (Quyết định 2 bên) đang khóa
+      }
+
+      // Khi đã nhận lại cọc (daNhanLaiCoc === true)
+      if (index === 2) return 'completed'; // Bước 2 đã xong
+      if (index === 3) return 'current';   // Bước 3 đang mở khóa để 2 bên đưa ra quyết định
+      return 'upcoming';
+    }
+
     return 'upcoming';
   };
+
+  const getStepSubtext = (
+    index: number,
+    stepStatus: 'completed' | 'current' | 'cancelled' | 'upcoming',
+  ): string => {
+    if (stepStatus === 'cancelled') return 'Đã hủy';
+    if (stepStatus === 'completed') {
+      if (index === 0 || index === 1) return sentDate;
+      if (index === 2) return 'Đã nhận lại cọc';
+      if (index === 3) return 'Đã chốt thuê';
+      return 'Hoàn tất';
+    }
+    if (stepStatus === 'current') {
+      if (index === 1) return 'Chờ phản hồi';
+      if (index === 2) return 'Đang xử lý';
+      if (index === 3) {
+        if (khachHangDongY === true && chuTroDongY === null) return 'Chờ chủ trọ';
+        if (chuTroDongY === true && khachHangDongY === null) return 'Chờ khách thuê';
+        return 'Chờ quyết định';
+      }
+      return 'Hiện tại';
+    }
+    if (index === 3) return 'Chờ mở khóa';
+    return '--';
+  };
+
+  const steps = [
+    { label: 'Đã gửi lịch' },
+    { label: 'Chủ trọ xác nhận' },
+    { label: 'Xem phòng & nhận cọc' },
+    { label: 'Quyết định 2 bên' },
+  ];
 
   return (
     <div className="w-full py-2">
@@ -41,6 +97,7 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
 
         {steps.map((step, idx) => {
           const stepStatus = getStepStatus(idx);
+          const subtext = getStepSubtext(idx, stepStatus);
 
           return (
             <div key={idx} className="flex flex-col items-center text-center z-10 px-1">
@@ -78,11 +135,7 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
                 {step.label}
               </span>
               <span className="text-[10px] text-slate-400 mt-0.5">
-                {stepStatus === 'completed'
-                  ? step.date
-                  : stepStatus === 'current'
-                    ? 'Hiện tại'
-                    : '--'}
+                {subtext}
               </span>
             </div>
           );

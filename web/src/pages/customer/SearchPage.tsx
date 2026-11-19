@@ -79,10 +79,14 @@ export const SearchPage: React.FC = () => {
 
   const popoverBarRef = useRef<HTMLDivElement>(null);
 
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(
+  // Bán kính quét động (km) tự động thay đổi theo mức độ mở rộng / thu nhỏ của bản đồ
+  const [dynamicRadiusKm, setDynamicRadiusKm] = useState<number>(5);
+
+  // Vị trí GPS thật khi người dùng bấm định vị hoặc cấp quyền
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(
     filterStore.userLat && filterStore.userLng
       ? { lat: filterStore.userLat, lng: filterStore.userLng }
-      : { lat: 10.7845, lng: 106.6844 },
+      : null,
   );
   const [isLocating, setIsLocating] = useState(false);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
@@ -96,6 +100,23 @@ export const SearchPage: React.FC = () => {
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
+
+  // Tự động nhận diện GPS thực tế của người dùng khi vừa mở trang
+  const setUserLocation = filterStore.setUserLocation;
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGpsCoords(coords);
+        setUserLocation(coords.lat, coords.lng);
+      },
+      (err) => {
+        console.warn('Geolocation tự động không khả dụng hoặc bị từ chối:', err);
+      },
+      { timeout: 8000, enableHighAccuracy: true },
+    );
+  }, [setUserLocation]);
 
   const { data: roomTypes = [] } = useQuery({
     queryKey: ['categories', 'room-types'],
@@ -133,7 +154,7 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       if (useAiSearch && submittedKeyword.trim()) {
-        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 20);
+        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 30);
         const content = aiRooms || [];
         return {
           content,
@@ -153,7 +174,7 @@ export const SearchPage: React.FC = () => {
         maLpt: filterStore.categoryId,
         dsTienIch: filterStore.selectedAmenities,
         page: currentPage,
-        size: 16,
+        size: 50,
         sortBy: sortField,
         sortDirection,
       });
@@ -169,6 +190,16 @@ export const SearchPage: React.FC = () => {
   const totalElements = queryResult?.totalElements || 0;
   const totalPages = queryResult?.totalPages || 1;
 
+  // 3. Tâm quét hiệu lực: Ưu tiên GPS thật, nếu chưa có thì tự động căn vào phòng đầu tiên đang xem
+  const activeCenterCoords = useMemo(() => {
+    if (gpsCoords) return gpsCoords;
+    if (rooms.length > 0) {
+      const firstValid = getValidCoords(rooms[0]);
+      if (firstValid) return firstValid;
+    }
+    return { lat: 21.0285, lng: 105.8542 };
+  }, [gpsCoords, rooms]);
+
   const activeSelectedRoom = useMemo(() => {
     if (selectedRoom && rooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
       return selectedRoom;
@@ -176,15 +207,16 @@ export const SearchPage: React.FC = () => {
     return rooms[0] ?? null;
   }, [rooms, selectedRoom]);
 
+  // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
   const roomsWithDistance = useMemo(() => {
     return rooms.map((room) => {
       let distanceInKm: number | null = null;
-      if (userCoords) {
+      if (activeCenterCoords) {
         const coords = getValidCoords(room);
         if (coords) {
           distanceInKm = getDistanceInKm(
-            userCoords.lat,
-            userCoords.lng,
+            activeCenterCoords.lat,
+            activeCenterCoords.lng,
             coords.lat,
             coords.lng,
           );
@@ -192,15 +224,19 @@ export const SearchPage: React.FC = () => {
       }
       return { room, distanceInKm };
     });
-  }, [rooms, userCoords]);
+  }, [rooms, activeCenterCoords]);
 
+  // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
+  const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
+
+  // Lọc các phòng nằm trong bán kính quét hiện tại
   const filteredRooms = useMemo(() => {
-    if (!filterStore.radiusKm || !userCoords) return roomsWithDistance;
+    if (!activeCenterCoords) return roomsWithDistance;
     return roomsWithDistance.filter((item) => {
       if (item.distanceInKm === null) return true;
-      return item.distanceInKm <= (filterStore.radiusKm || 999);
+      return item.distanceInKm <= effectiveRadius;
     });
-  }, [roomsWithDistance, filterStore.radiusKm, userCoords]);
+  }, [roomsWithDistance, effectiveRadius, activeCenterCoords]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,8 +262,8 @@ export const SearchPage: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(coords);
-        filterStore.setUserLocation(coords.lat, coords.lng);
+        setGpsCoords(coords);
+        setUserLocation(coords.lat, coords.lng);
         setIsLocating(false);
         toast.success('Đã cập nhật vị trí hiện tại của bạn');
       },
@@ -759,8 +795,9 @@ export const SearchPage: React.FC = () => {
             hoveredRoomId={hoveredRoomId}
             onSelectRoom={(r) => setSelectedRoom(r)}
             onHoverRoom={setHoveredRoomId}
-            userCoords={userCoords}
-            radiusKm={filterStore.radiusKm}
+            userCoords={activeCenterCoords}
+            radiusKm={effectiveRadius}
+            onRadiusChange={(r) => setDynamicRadiusKm(r)}
             onLocateUser={handleLocateUser}
             isLocating={isLocating}
           />

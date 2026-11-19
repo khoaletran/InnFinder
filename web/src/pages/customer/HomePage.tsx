@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -116,10 +116,11 @@ export const HomePage: React.FC = () => {
     refetch,
   } = useQuery({
     queryKey: ['rooms', 'home-recent'],
-    queryFn: () => roomService.searchRooms({ page: 0, size: 8 }),
+    queryFn: () => roomService.searchRooms({ page: 0, size: 16 }),
   });
 
-  const recentRooms = roomsPage?.content || [];
+  const allRooms = useMemo(() => roomsPage?.content || [], [roomsPage?.content]);
+  const recentRooms = useMemo(() => allRooms.slice(0, 8), [allRooms]);
 
   const handleHeroSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +214,7 @@ export const HomePage: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {POPULAR_AREAS.map((area) => {
-            const matched = recentRooms.filter((r) =>
+            const matched = allRooms.filter((r) =>
               r.diaChi?.toLowerCase().includes(area.keyword.toLowerCase()),
             );
             const minPrice = matched.reduce(

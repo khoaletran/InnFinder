@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   Building2,
   Calendar,
   CalendarCheck,
@@ -40,6 +41,7 @@ export const CUSTOMER_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Phòng yêu thích', path: '/favorites', icon: Heart, group: 'Khám phá & Đặt lịch' },
   { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar, group: 'Khám phá & Đặt lịch' },
   { label: 'Lịch sử giao dịch', path: '/transactions', icon: Receipt, group: 'Tài khoản & Giao dịch' },
+  { label: 'Thông báo', path: '/notifications', icon: Bell, group: 'Tài khoản & Giao dịch' },
   { label: 'Hồ sơ cá nhân', path: '/profile', icon: User, group: 'Tài khoản & Giao dịch' },
   { label: 'Khiếu nại & Hỗ trợ', path: '/complaints', icon: AlertTriangle, group: 'Tài khoản & Giao dịch' },
 ];

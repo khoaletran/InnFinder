@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal';
 import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
 import { TimeSlotPicker } from '@/components/booking/TimeSlotPicker';
@@ -154,7 +155,8 @@ export const SchedulePage: React.FC = () => {
       const formattedDateDisplay = `${pad(day)}/${pad(month)}/${year} lúc ${pad(hours)}:${pad(minutes)}`;
       setSubmittedDateTime(formattedDateDisplay);
 
-      if (coc > 0 && createdAppointmentId && response?.trangThai === 'XAC_NHAN') {
+      if (coc > 0 && createdAppointmentId) {
+        toast.success('Đặt lịch thành công! Đang chuyển sang bước nộp cọc giữ chân...');
         navigate(`/appointments/deposit/${createdAppointmentId}`, {
           state: {
             roomId,

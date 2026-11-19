@@ -37,7 +37,6 @@ import { ProfilePage } from '@/pages/customer/ProfilePage';
 import { AppointmentDetailPage } from '@/pages/customer/AppointmentDetailPage';
 import { AppointmentsPage } from '@/pages/customer/AppointmentsPage';
 import { DepositPaymentPage } from '@/pages/customer/DepositPaymentPage';
-import { RentalsPage } from '@/pages/customer/RentalsPage';
 import { ReviewPage } from '@/pages/customer/ReviewPage';
 import { SchedulePage } from '@/pages/customer/SchedulePage';
 import { TransactionDetailPage } from '@/pages/customer/TransactionDetailPage';
@@ -103,8 +102,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/appointments/schedule/:roomId" element={<SchedulePage />} />
         <Route path="/appointments/deposit/:appointmentId" element={<DepositPaymentPage />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
-        <Route path="/rentals" element={<RentalsPage />} />
-        <Route path="/rentals/:appointmentId" element={<AppointmentDetailPage />} />
+        <Route path="/rentals" element={<Navigate to="/appointments" replace />} />
+        <Route path="/rentals/:appointmentId" element={<LegacyRentalRedirect />} />
         <Route path="/wallet" element={<CustomerWalletPage />} />
         <Route path="/transactions" element={<CustomerTransactionsPage />} />
         <Route path="/transactions/:transactionId" element={<TransactionDetailPage />} />
@@ -116,7 +115,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/customer/notifications" element={<Navigate to="/notifications" replace />} />
         <Route path="/customer/complaints" element={<Navigate to="/complaints" replace />} />
         <Route path="/booking/appointments" element={<Navigate to="/appointments" replace />} />
-        <Route path="/booking/rental-requests" element={<Navigate to="/rentals" replace />} />
+        <Route path="/booking/rental-requests" element={<Navigate to="/appointments" replace />} />
         <Route path="/booking/schedule" element={<SchedulePage />} />
         <Route path="/booking/schedule/:roomId" element={<SchedulePage />} />
         <Route path="/booking/deposit/:appointmentId" element={<LegacyDepositRedirect />} />

@@ -12,8 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Button } from "heroui-native";
 
 import { StarRatingInput } from "../../components/booking/StarRatingInput";
@@ -58,9 +56,6 @@ const CRITERIA = [
   },
 ];
 
-const getStorageKey = (userId?: string, roomId?: string) =>
-  `innfinder_review_images_${userId || "guest"}_${roomId || "unknown"}`;
-
 export default function ReviewScreen() {
   const params = useLocalSearchParams<{
     roomId?: string;
@@ -77,7 +72,6 @@ export default function ReviewScreen() {
   // Điểm đánh giá chung
   const [overallScore, setOverallScore] = useState<number>(5);
   const [content, setContent] = useState<string>("");
-  const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState<boolean>(false);
   const [existingReviewDate, setExistingReviewDate] = useState<string | null>(
@@ -93,25 +87,10 @@ export default function ReviewScreen() {
     dichVu: 4,
   });
 
-  // Tải đánh giá đã có trước đó của người dùng trên phòng này & ảnh đã lưu trên máy
+  // Tải đánh giá đã có trước đó của người dùng trên phòng này
   useEffect(() => {
     if (params.roomId && user?.maNguoiDung) {
       setIsLoadingExisting(true);
-      const storageKey = getStorageKey(user.maNguoiDung, params.roomId);
-
-      // Đọc ảnh đã lưu trên bộ nhớ máy điện thoại
-      AsyncStorage.getItem(storageKey)
-        .then((savedJson) => {
-          if (savedJson) {
-            try {
-              const parsed = JSON.parse(savedJson);
-              if (Array.isArray(parsed)) {
-                setImages(parsed);
-              }
-            } catch {}
-          }
-        })
-        .catch(() => {});
 
       bookingService
         .getRoomReviews(params.roomId)
@@ -137,41 +116,6 @@ export default function ReviewScreen() {
     }
   }, [params.roomId, user?.maNguoiDung]);
 
-  const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets) {
-      const newUris = result.assets.map((a) => a.uri);
-      setImages((prev) => {
-        const updated = [...prev, ...newUris];
-        if (params.roomId && user?.maNguoiDung) {
-          AsyncStorage.setItem(
-            getStorageKey(user.maNguoiDung, params.roomId),
-            JSON.stringify(updated),
-          ).catch(() => {});
-        }
-        return updated;
-      });
-    }
-  };
-
-  const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => {
-      const updated = prev.filter((_, idx) => idx !== indexToRemove);
-      if (params.roomId && user?.maNguoiDung) {
-        AsyncStorage.setItem(
-          getStorageKey(user.maNguoiDung, params.roomId),
-          JSON.stringify(updated),
-        ).catch(() => {});
-      }
-      return updated;
-    });
-  };
-
   const handleSubmit = async () => {
     if (!user?.maNguoiDung) {
       Alert.alert("Yêu cầu đăng nhập", "Vui lòng đăng nhập để đánh giá.");
@@ -196,12 +140,6 @@ export default function ReviewScreen() {
 
     setIsSubmitting(true);
     try {
-      if (params.roomId && user?.maNguoiDung) {
-        await AsyncStorage.setItem(
-          getStorageKey(user.maNguoiDung, params.roomId),
-          JSON.stringify(images),
-        ).catch(() => {});
-      }
       await bookingService.createReview(params.roomId, payload);
       await markRoomAsReviewed(params.roomId);
       setIsSubmitting(false);
@@ -356,48 +294,6 @@ export default function ReviewScreen() {
             multiline
             textAlignVertical="top"
           />
-        </View>
-
-        {/* Hình ảnh minh chứng */}
-        <View className="mb-4">
-          <View className="flex-row justify-between items-center mb-2.5">
-            <Text className="text-sm font-bold text-slate-900">
-              Hình ảnh minh chứng thực tế
-            </Text>
-            {images.length > 0 && (
-              <Text className="text-xs text-teal-600 font-semibold">
-                Đã chọn ({images.length})
-              </Text>
-            )}
-          </View>
-          <View className="flex-row flex-wrap gap-3">
-            <TouchableOpacity
-              onPress={handlePickImage}
-              activeOpacity={0.7}
-              className="w-20 h-20 rounded-2xl border-2 border-dashed border-teal-300 items-center justify-center bg-teal-50/40 active:bg-teal-50"
-            >
-              <Ionicons name="camera-outline" size={24} color="#0D9488" />
-              <Text className="text-[11px] font-semibold text-teal-700 mt-1">
-                Thêm ảnh
-              </Text>
-            </TouchableOpacity>
-            {images.map((uri, idx) => (
-              <View key={idx} className="relative w-20 h-20">
-                <Image
-                  source={{ uri }}
-                  className="w-20 h-20 rounded-2xl bg-slate-100"
-                  resizeMode="cover"
-                />
-                <TouchableOpacity
-                  onPress={() => handleRemoveImage(idx)}
-                  activeOpacity={0.8}
-                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-slate-900/80 items-center justify-center border border-white shadow-sm"
-                >
-                  <Ionicons name="close" size={14} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
         </View>
       </ScrollView>
 

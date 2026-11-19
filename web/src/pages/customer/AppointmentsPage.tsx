@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Card } from '@heroui/react';
 import {
   AlertCircle,
+  ArrowRight,
   ArrowUpDown,
   Calendar,
   CheckCircle2,
@@ -13,10 +15,11 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppointmentCard } from '@/components/booking/AppointmentCard';
 import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
+import { RentalProgressBar } from '@/components/booking/RentalProgressBar';
 import { RentalRequestCard } from '@/components/booking/RentalRequestCard';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -82,6 +85,13 @@ export const AppointmentsPage: React.FC = () => {
     return counts;
   }, [appointments]);
 
+  const activeRental = useMemo(() => {
+    return (
+      appointments.find(
+        (a) => a.trangThai === 'XAC_NHAN' || a.trangThai === 'CHO_XAC_NHAN',
+      ) || null
+    );
+  }, [appointments]);
   const filteredAppointments = useMemo(() => {
     let list = [...appointments];
 
@@ -210,6 +220,43 @@ export const AppointmentsPage: React.FC = () => {
           </>
         }
       />
+
+      {activeRental && (
+        <Card className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <Card.Header className="p-0 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+            <div>
+              <Card.Title className="text-sm sm:text-base font-bold text-slate-900">
+                Tiến trình xem & thuê phòng gần nhất
+              </Card.Title>
+              <Card.Description className="text-xs text-slate-500 mt-0.5">
+                {activeRental.tieuDePhong || `Phòng trọ mã #${activeRental.maPhongTro}`} · Mã lịch: #{activeRental.maDatLich}
+              </Card.Description>
+            </div>
+
+            <Link
+              to={`/appointments/${activeRental.maDatLich}`}
+              className="text-xs font-bold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1 transition-colors"
+            >
+              Xem chi tiết tiến trình <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </Card.Header>
+
+          <Card.Content className="p-0 pt-2">
+            <RentalProgressBar
+              status={activeRental.trangThai}
+              sentDate={
+                activeRental.thoiGianDat
+                  ? `${new Date(activeRental.thoiGianDat).getDate()}/${new Date(activeRental.thoiGianDat).getMonth() + 1}`
+                  : '--/--'
+              }
+              daNhanLaiCoc={Boolean(activeRental.daNhanLaiCoc)}
+              daNopCoc={Boolean(activeRental.daNopCoc)}
+              khachHangDongY={activeRental.khachHangDongY}
+              chuTroDongY={activeRental.chuTroDongY}
+            />
+          </Card.Content>
+        </Card>
+      )}
 
       {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
