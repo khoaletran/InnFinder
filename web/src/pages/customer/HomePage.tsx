@@ -1,24 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  ArrowRight,
-  CalendarCheck,
-  Eye,
-  Home as HomeIcon,
-  Search,
-  ShieldCheck,
-  Wallet,
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
-import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer } from '@/components/common/PageContainer';
-import { SkeletonList } from '@/components/common/SkeletonList';
 import { PopularAreaCard } from '@/components/room/PopularAreaCard';
-import { RoomCard } from '@/components/room/RoomCard';
+import { DepositMechanismSection } from '@/components/room/landing/DepositMechanismSection';
+import { FaqSection } from '@/components/room/landing/FaqSection';
+import { FeaturedRoomsSection } from '@/components/room/landing/FeaturedRoomsSection';
+import { HeroSection } from '@/components/room/landing/HeroSection';
+import { TrustMetricsStrip } from '@/components/room/landing/TrustMetricsStrip';
 import { roomService } from '@/services/room.service';
-import { useRoomFilterStore } from '@/store/useRoomFilterStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { formatVNDShort } from '@/utils/formatters';
 
 const POPULAR_AREAS = [
@@ -72,127 +65,38 @@ const POPULAR_AREAS = [
   },
 ];
 
-const QUICK_TAGS = [
-  'Bình Thạnh',
-  'Quận 3',
-  'TP. Thủ Đức',
-  'Gần ĐH Bách Khoa',
-  'Gần tuyến Metro',
-];
-
-const HOW_IT_WORKS_STEPS = [
-  {
-    step: '01',
-    title: 'Tìm phòng minh bạch',
-    description:
-      'Lọc phòng theo giá, diện tích, tiện ích và đối chiếu vị trí thực tế trực tiếp trên bản đồ.',
-    icon: Search,
-  },
-  {
-    step: '02',
-    title: 'Đặt lịch & Cọc giữ chân',
-    description:
-      'Chọn khung giờ xem phòng và đặt cọc giữ chân trên sàn để đảm bảo lịch hẹn không bị hủy ngang.',
-    icon: CalendarCheck,
-  },
-  {
-    step: '03',
-    title: 'Xem phòng & Nhận lại cọc',
-    description:
-      'Gặp chủ trọ xem phòng thực tế và nhận lại 100% tiền cọc ngay tại buổi gặp trước khi quyết định thuê.',
-    icon: Eye,
-  },
-];
-
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { setKeyword, resetFilter } = useRoomFilterStore();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { isAuthenticated, isChuTro } = useAuthStore();
 
-  const {
-    data: roomsPage,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['rooms', 'home-recent'],
+  const { data: roomsPage } = useQuery({
+    queryKey: ['rooms', 'home-area-stats'],
     queryFn: () => roomService.searchRooms({ page: 0, size: 16 }),
   });
 
   const allRooms = useMemo(() => roomsPage?.content || [], [roomsPage?.content]);
-  const recentRooms = useMemo(() => allRooms.slice(0, 8), [allRooms]);
 
-  const handleHeroSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = searchQuery.trim();
-    resetFilter();
-    setKeyword(trimmed);
-    navigate(trimmed ? `/search?keyword=${encodeURIComponent(trimmed)}` : '/search');
-  };
-
-  const handleQuickTagClick = (tag: string) => {
-    resetFilter();
-    setKeyword(tag);
-    navigate(`/search?keyword=${encodeURIComponent(tag)}`);
+  const handleLandlordAction = () => {
+    if (isAuthenticated && isChuTro) {
+      navigate('/landlord/rooms/create');
+      return;
+    }
+    if (isAuthenticated) {
+      navigate('/profile');
+      return;
+    }
+    navigate('/register');
   };
 
   return (
     <div className="flex-1 bg-slate-50 flex flex-col">
-      {/* HERO GỌN, Ô TÌM KIẾM DUY NHẤT Ở TRUNG TÂM */}
-      <section className="bg-white border-b border-slate-200">
-        <PageContainer width="wide" className="py-10 sm:py-12">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-teal-600" />
-              <span>100% phòng trọ đã qua kiểm duyệt thực tế</span>
-            </div>
+      {/* 1. Hero Section + Tìm kiếm thường / AI */}
+      <HeroSection />
 
-            <h1 className="text-[28px] sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Tìm phòng trọ phù hợp, đặt lịch xem an toàn
-            </h1>
+      {/* 2. Dải cam kết tin cậy */}
+      <TrustMetricsStrip />
 
-            <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
-              Xem giá thuê, ảnh thật và vị trí trên bản đồ. Đặt lịch hẹn minh bạch với cơ chế hoàn cọc giữ chân 100%.
-            </p>
-
-            {/* 1 ô tìm kiếm duy nhất */}
-            <form
-              onSubmit={handleHeroSearch}
-              className="bg-white rounded-2xl p-2 border border-slate-300 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-2xl mx-auto focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-500/20"
-            >
-              <div className="flex-1 flex items-center gap-3 px-3">
-                <Search className="w-5 h-5 text-teal-600 shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nhập quận, tên đường, trường học hoặc mô tả phòng..."
-                  className="w-full h-10 text-sm font-medium text-slate-900 bg-transparent outline-none placeholder:text-slate-500"
-                />
-              </div>
-              <AppButton type="submit" variant="primary" size="lg">
-                Tìm phòng ngay
-              </AppButton>
-            </form>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="font-semibold text-slate-600">Gợi ý:</span>
-              {QUICK_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => handleQuickTagClick(tag)}
-                  className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-700 hover:text-teal-800 font-medium transition-colors cursor-pointer"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-        </PageContainer>
-      </section>
-
-      {/* KHU VỰC PHỔ BIẾN */}
+      {/* 3. Khu vực phổ biến */}
       <PageContainer width="wide" className="py-10 space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -240,117 +144,35 @@ export const HomePage: React.FC = () => {
         </div>
       </PageContainer>
 
-      {/* PHÒNG MỚI ĐĂNG */}
-      <PageContainer width="wide" className="pb-10 space-y-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-              Phòng mới đăng
-            </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Các tin phòng vừa được Quản trị viên kiểm duyệt thông tin và hình ảnh
-            </p>
-          </div>
-          <Link
-            to="/search"
-            className="text-sm font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 shrink-0"
-          >
-            <span>Xem tất cả</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
+      {/* 4. Phòng mới đăng & Lọc theo Loại phòng */}
+      <FeaturedRoomsSection />
 
-        {error ? (
-          <div className="bg-white rounded-2xl border border-red-200 p-6 text-center space-y-3 shadow-xs">
-            <AlertCircle className="w-7 h-7 text-red-600 mx-auto" />
-            <p className="text-sm font-bold text-slate-900">Không thể tải danh sách phòng mới</p>
-            <AppButton variant="primary" size="sm" onClick={() => void refetch()}>
-              Thử lại
-            </AppButton>
-          </div>
-        ) : isLoading ? (
-          <SkeletonList
-            variant="cards"
-            count={4}
-            columnsClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-          />
-        ) : recentRooms.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {recentRooms.map((room) => (
-              <RoomCard key={room.maPhongTro} room={room} layout="vertical" />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="Chưa có phòng mới nào"
-            description="Hãy chuyển sang trang Tìm phòng để xem toàn bộ phòng trên bản đồ."
-            icon={<HomeIcon className="w-6 h-6" />}
-            action={
-              <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
-                Tìm phòng trên bản đồ
-              </AppButton>
-            }
-          />
-        )}
-      </PageContainer>
+      {/* 5. Quy trình đặt lịch & Bảo chứng cọc 4 bước */}
+      <DepositMechanismSection />
 
-      {/* CÁCH HOẠT ĐỘNG (3 BƯỚC) & CAM KẾT HOÀN CỌC */}
-      <section className="bg-white border-t border-slate-200 py-10">
-        <PageContainer width="wide" className="space-y-8">
-          <div className="text-center max-w-xl mx-auto space-y-1">
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-              Cách hoạt động trên InnFinder
-            </h2>
-            <p className="text-sm text-slate-600">
-              Quy trình đặt lịch xem phòng rõ ràng chỉ với 3 bước
-            </p>
-          </div>
+      {/* 6. Câu hỏi thường gặp */}
+      <FaqSection />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {HOW_IT_WORKS_STEPS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.step}
-                  className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-sm font-mono font-bold text-teal-700">{item.step}</span>
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">{item.description}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Cam kết hoàn cọc */}
-          <div className="bg-teal-50 rounded-2xl border border-teal-200 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-start gap-4 max-w-2xl">
-              <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center shrink-0">
-                <Wallet className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                  Cam kết hoàn trả 100% cọc giữ chân xem phòng
-                </h3>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  Tiền cọc giữ chân chỉ nhằm xác nhận thiện chí lịch hẹn. Chủ trọ hoàn lại đủ 100% tiền cọc trực tiếp cho bạn tại buổi xem phòng; nếu không thuê, bạn không mất bất kỳ khoản phí sàn nào.
-                </p>
-              </div>
+      {/* 8. Final Conversion CTA */}
+      <section className="bg-slate-900 text-white py-12 border-t border-slate-800">
+        <PageContainer width="wide">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                Sẵn sàng tìm phòng ưng ý hoặc cho thuê phòng minh bạch?
+              </h2>
+              <p className="text-sm text-slate-300">
+                Trải nghiệm tìm kiếm trên bản đồ, đặt lịch xem phòng an toàn và quản lý giao dịch rõ ràng ngay hôm nay.
+              </p>
             </div>
-
-            <AppButton
-              variant="primary"
-              size="lg"
-              onClick={() => navigate('/search')}
-              className="shrink-0"
-            >
-              Bắt đầu tìm phòng
-            </AppButton>
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <AppButton variant="primary" size="lg" onClick={() => navigate('/search')}>
+                Tìm phòng ngay
+              </AppButton>
+              <AppButton variant="secondary" size="lg" onClick={handleLandlordAction}>
+                Đăng tin cho thuê
+              </AppButton>
+            </div>
           </div>
         </PageContainer>
       </section>

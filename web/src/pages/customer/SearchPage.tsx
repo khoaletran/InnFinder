@@ -70,7 +70,7 @@ export const SearchPage: React.FC = () => {
   const submittedKeyword = searchParams.get('keyword') ?? manualKeyword;
   const searchInput = searchInputDraft ?? submittedKeyword;
 
-  const [useAiSearch, setUseAiSearch] = useState(false);
+  const [useAiSearch, setUseAiSearch] = useState(() => searchParams.get('ai') === '1');
   const [currentPage, setCurrentPage] = useState(0);
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummaryResponse | null>(null);
