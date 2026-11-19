@@ -17,6 +17,7 @@ import {
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BottomTabBar } from '@/components/common/BottomTabBar';
+import { RoomChatbot } from '@/components/chat/RoomChatbot';
 import { Footer } from '@/components/common/Footer';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 import { NotificationModal } from '@/components/notification/NotificationModal';
@@ -331,6 +332,8 @@ export const CustomerLayout: React.FC = () => {
 
       {/* Mobile Bottom Tab Bar (4 mục) */}
       <BottomTabBar />
+      {(location.pathname === '/' || location.pathname === '/search' ||
+        /^\/room\/[^/]+\/?$/.test(location.pathname) || location.pathname === '/favorites') && <RoomChatbot />}
     </div>
   );
 };

@@ -89,6 +89,7 @@ export const SearchPage: React.FC = () => {
       : null,
   );
   const [isLocating, setIsLocating] = useState(false);
+  const [locateTrigger, setLocateTrigger] = useState(0);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
 
   useEffect(() => {
@@ -154,12 +155,20 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       if (useAiSearch && submittedKeyword.trim()) {
-        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 30);
-        const content = aiRooms || [];
+        const result = await roomService.aiSearchWithDetails(submittedKeyword.trim(), {
+          minGia: filterStore.minPrice, maxGia: filterStore.maxPrice,
+          minDienTich: filterStore.minArea, maxDienTich: filterStore.maxArea,
+          soNguoi: filterStore.capacity, maLpt: filterStore.categoryId,
+          dsTienIch: filterStore.selectedAmenities,
+          sortBy: sortBy === 'NEWEST' ? undefined : 'giaThue',
+          sortDirection: sortBy === 'PRICE_ASC' ? 'ASC' : 'DESC',
+        });
+        const content = result.rooms || [];
         return {
           content,
           totalElements: content.length,
           totalPages: 1,
+          searchMode: result.searchMode,
         };
       }
       const sortField = sortBy === 'NEWEST' ? 'thoiGianDang' : 'giaThue';
@@ -182,6 +191,7 @@ export const SearchPage: React.FC = () => {
         content: res.content || [],
         totalElements: res.totalElements || (res.content || []).length,
         totalPages: res.totalPages || 1,
+        searchMode: 'FILTERED' as const,
       };
     },
   });
@@ -199,13 +209,6 @@ export const SearchPage: React.FC = () => {
     }
     return { lat: 21.0285, lng: 105.8542 };
   }, [gpsCoords, rooms]);
-
-  const activeSelectedRoom = useMemo(() => {
-    if (selectedRoom && rooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
-      return selectedRoom;
-    }
-    return rooms[0] ?? null;
-  }, [rooms, selectedRoom]);
 
   // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
   const roomsWithDistance = useMemo(() => {
@@ -228,15 +231,26 @@ export const SearchPage: React.FC = () => {
 
   // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
   const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
+  // Natural-language searches may name a different city; only restrict by GPS when explicitly requested.
+  const useRadiusFilter = !useAiSearch || filterStore.radiusKm !== undefined;
 
-  // Lọc các phòng nằm trong bán kính quét hiện tại
+  // Lọc CHỈ lấy các phòng nằm trong phạm vi vòng tròn quét hiện tại (chưa quét tới thì không hiện)
   const filteredRooms = useMemo(() => {
-    if (!activeCenterCoords) return roomsWithDistance;
+    if (!useRadiusFilter || !activeCenterCoords) return roomsWithDistance;
     return roomsWithDistance.filter((item) => {
-      if (item.distanceInKm === null) return true;
+      if (item.distanceInKm === null) return false;
       return item.distanceInKm <= effectiveRadius;
     });
-  }, [roomsWithDistance, effectiveRadius, activeCenterCoords]);
+  }, [roomsWithDistance, effectiveRadius, activeCenterCoords, useRadiusFilter]);
+
+  const scannedRooms = useMemo(() => filteredRooms.map((item) => item.room), [filteredRooms]);
+
+  const activeSelectedRoom = useMemo(() => {
+    if (selectedRoom && scannedRooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
+      return selectedRoom;
+    }
+    return null;
+  }, [scannedRooms, selectedRoom]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,13 +261,17 @@ export const SearchPage: React.FC = () => {
     setCurrentPage(0);
     setActivePopover(null);
     if (trimmed) {
-      setSearchParams({ keyword: trimmed });
+      setSearchParams({ keyword: trimmed, ...(useAiSearch ? { ai: '1' } : {}) });
     } else {
-      setSearchParams({});
+      setSearchParams(useAiSearch ? { ai: '1' } : {});
     }
   };
 
   const handleLocateUser = () => {
+    setSelectedRoom(null);
+    if (gpsCoords) {
+      setLocateTrigger((c) => c + 1);
+    }
     if (!navigator.geolocation) {
       toast.error('Trình duyệt của bạn không hỗ trợ định vị GPS.');
       return;
@@ -264,11 +282,15 @@ export const SearchPage: React.FC = () => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGpsCoords(coords);
         setUserLocation(coords.lat, coords.lng);
+        setLocateTrigger((c) => c + 1);
         setIsLocating(false);
-        toast.success('Đã cập nhật vị trí hiện tại của bạn');
+        toast.success('Đã di chuyển tới vị trí hiện tại của bạn');
       },
       () => {
-        toast.warning('Không thể lấy vị trí hiện tại. Vui lòng cấp quyền định vị cho trình duyệt.');
+        if (activeCenterCoords) {
+          setLocateTrigger((c) => c + 1);
+        }
+        toast.warning('Không thể lấy GPS mới. Đã đưa bản đồ về tâm vị trí hiện tại.');
         setIsLocating(false);
       },
       { timeout: 10000, enableHighAccuracy: true },
@@ -349,7 +371,16 @@ export const SearchPage: React.FC = () => {
               />
               <button
                 type="button"
-                onClick={() => setUseAiSearch(!useAiSearch)}
+                onClick={() => {
+                  const next = !useAiSearch;
+                  setUseAiSearch(next);
+                  setCurrentPage(0);
+                  setSearchParams((previous) => {
+                    const params = new URLSearchParams(previous);
+                    if (next) params.set('ai', '1'); else params.delete('ai');
+                    return params;
+                  });
+                }}
                 title="Tìm kiếm ngữ nghĩa AI"
                 className={`absolute right-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                   useAiSearch
@@ -673,7 +704,9 @@ export const SearchPage: React.FC = () => {
                 {submittedKeyword ? ` · "${submittedKeyword}"` : ''}
               </h1>
               <p className="text-xs text-slate-600">
-                Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí
+                {useAiSearch && queryResult?.searchMode === 'FILTERED'
+                  ? 'AI đã hiểu tiêu chí; đang gợi ý theo bộ lọc và từ khóa'
+                  : 'Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí'}
               </p>
             </div>
 
@@ -790,16 +823,17 @@ export const SearchPage: React.FC = () => {
           } h-full w-full bg-slate-100 relative overflow-hidden`}
         >
           <RoomMap
-            rooms={rooms}
+            rooms={scannedRooms}
             selectedRoom={activeSelectedRoom}
             hoveredRoomId={hoveredRoomId}
             onSelectRoom={(r) => setSelectedRoom(r)}
             onHoverRoom={setHoveredRoomId}
-            userCoords={activeCenterCoords}
+            userCoords={useRadiusFilter ? activeCenterCoords : null}
             radiusKm={effectiveRadius}
             onRadiusChange={(r) => setDynamicRadiusKm(r)}
             onLocateUser={handleLocateUser}
             isLocating={isLocating}
+            locateTrigger={locateTrigger}
           />
         </div>
       </div>
