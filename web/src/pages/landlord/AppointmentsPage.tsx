@@ -103,7 +103,7 @@ export const AppointmentsPage: React.FC = () => {
       invalidateRelated();
       setSelectedNoShowTarget(null);
       toast.success(
-        'Đã ghi nhận khách vắng mặt (No-show) và chuyển bồi thường toàn bộ tiền cọc vào ví của bạn!',
+        'Đã ghi nhận báo cáo khách vắng mặt (No-show). Sàn đang tạm giữ cọc đối soát 24h trước khi giải ngân vào ví của bạn.',
       );
     },
     onError: (err) => {
@@ -755,7 +755,7 @@ export const AppointmentsPage: React.FC = () => {
               ) : (
                 <AlertCircle className="w-3.5 h-3.5" />
               )}
-              <span>Xác nhận No-show &amp; Nhận bồi thường</span>
+              <span>Xác nhận báo khách vắng mặt</span>
             </button>
           </div>
         }
@@ -765,20 +765,20 @@ export const AppointmentsPage: React.FC = () => {
             <p>
               Bạn xác nhận khách hàng <strong>{selectedNoShowTarget.khachHangTen}</strong> đã không đến điểm hẹn xem phòng sau giờ hẹn quá 30 phút?
             </p>
-            <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200 text-rose-800 space-y-1.5 text-xs">
-              <div className="font-bold flex items-center gap-1.5 text-rose-900">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>Quyền lợi bồi thường cọc giữ chân:</span>
+            <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-800 space-y-1.5 text-xs">
+              <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Quy trình đối soát cọc giữ chân:</span>
               </div>
               <p>
-                Toàn bộ tiền cọc giữ chân{' '}
-                <strong className="text-rose-950 font-black">
+                Tiền cọc giữ chân{' '}
+                <strong className="text-amber-950 font-black">
                   {formatVND(selectedNoShowTarget.coc)}
                 </strong>{' '}
-                sẽ được hệ thống bồi thường và chuyển thẳng vào số dư Ví Chủ trọ của bạn.
+                sẽ được Sàn tạm giữ đối soát trong vòng 24 giờ.
               </p>
-              <p className="text-[11px] text-rose-700">
-                Lịch hẹn sẽ kết thúc với trạng thái Hủy.
+              <p className="text-[11px] text-amber-700">
+                Sau 24 giờ nếu khách hàng không khiếu nại (hoặc khiếu nại không hợp lệ), tiền bồi thường sẽ được giải ngân vào Ví Chủ trọ của bạn.
               </p>
             </div>
           </div>

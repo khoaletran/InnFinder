@@ -25,6 +25,7 @@ interface BookingState {
   cancelAppointment: (
     maDatLich: string,
     liDoHuy: string,
+    bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string },
   ) => Promise<{ success: boolean; message?: string }>;
   confirmReceivedDeposit: (
     maDatLich: string,
@@ -34,6 +35,9 @@ interface BookingState {
     dongY: boolean,
     liDoTuChoi?: string,
   ) => Promise<{ success: boolean; isCompleted?: boolean; message?: string }>;
+  reportLandlordNoShow: (
+    maDatLich: string,
+  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>()(
@@ -103,9 +107,13 @@ export const useBookingStore = create<BookingState>()(
         set({ reviewedRoomIds: nextReviewed });
       },
 
-      cancelAppointment: async (maDatLich: string, liDoHuy: string) => {
+      cancelAppointment: async (
+        maDatLich: string,
+        liDoHuy: string,
+        bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string },
+      ) => {
         try {
-          await appointmentService.cancelAppointment(maDatLich, liDoHuy);
+          await appointmentService.cancelAppointment(maDatLich, liDoHuy, bankInfo);
           const remainingPaid = get().paidAppointmentIds.filter((id) => id !== maDatLich);
           set((state) => ({
             paidAppointmentIds: remainingPaid,
@@ -173,6 +181,19 @@ export const useBookingStore = create<BookingState>()(
           return {
             success: false,
             message: err instanceof Error ? err.message : 'Gửi quyết định thuê thất bại',
+          };
+        }
+      },
+
+      reportLandlordNoShow: async (maDatLich: string) => {
+        try {
+          await appointmentService.reportLandlordNoShow(maDatLich);
+          await get().fetchAppointments(true);
+          return { success: true };
+        } catch (err: unknown) {
+          return {
+            success: false,
+            message: err instanceof Error ? err.message : 'Báo cáo chủ trọ vắng mặt thất bại',
           };
         }
       },

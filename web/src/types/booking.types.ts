@@ -18,6 +18,11 @@ export interface AppointmentResponse {
   liDoHuy?: string;
   daNopCoc?: boolean;
 
+  maGiaoDichHoanCoc?: string;
+  trangThaiHoanCoc?: TrangThaiGD;
+  thoiGianHoanCoc?: string;
+  lyDoTuChoiHoanCoc?: string;
+
   maPhongTro: string;
   diaChiPhong?: string;
   giaThue: number;
@@ -41,6 +46,9 @@ export interface AppointmentCreateRequest {
 
 export interface AppointmentCancelRequest {
   liDoHuy: string;
+  tenNganHang?: string;
+  soTaiKhoan?: string;
+  tenChuTaiKhoan?: string;
 }
 
 export interface AppointmentDecisionRequest {

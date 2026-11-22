@@ -44,9 +44,22 @@ export const appointmentService = {
     );
   },
 
-  cancelAppointment: async (maDatLich: string, liDoHuy: string): Promise<string> => {
-    const body: AppointmentCancelRequest = { liDoHuy };
+  cancelAppointment: async (
+    maDatLich: string,
+    liDoHuy: string,
+    bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string }
+  ): Promise<string> => {
+    const body: AppointmentCancelRequest = {
+      liDoHuy,
+      tenNganHang: bankInfo?.tenNganHang,
+      soTaiKhoan: bankInfo?.soTaiKhoan,
+      tenChuTaiKhoan: bankInfo?.tenChuTaiKhoan,
+    };
     return axiosClient.patch<unknown, string>(`/api/appointments/${maDatLich}/cancel`, body);
+  },
+
+  reportLandlordNoShow: async (maDatLich: string): Promise<string> => {
+    return axiosClient.post<unknown, string>(`/api/appointments/${maDatLich}/report-landlord-noshow`);
   },
 };
 
