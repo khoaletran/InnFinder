@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card, Spinner } from '@heroui/react';
 import { Coins, Edit3, Layers, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
@@ -203,19 +203,19 @@ export const CategoriesPage: React.FC = () => {
     <div className="space-y-6">
       {/* Title & Tabs */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
           Quản lý Danh mục & Biểu phí Sàn
         </h1>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap rounded-xl bg-slate-200/70 p-1 gap-1 text-xs font-semibold">
+          <div className="flex flex-wrap rounded-lg bg-surface-muted p-1 gap-1 text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('DEPOSIT_FEES')}
-              className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'DEPOSIT_FEES'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               <Coins className="w-3.5 h-3.5" />
@@ -224,10 +224,10 @@ export const CategoriesPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('ROOM_TYPES')}
-              className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'ROOM_TYPES'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -236,10 +236,10 @@ export const CategoriesPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('AMENITIES')}
-              className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'AMENITIES'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -259,52 +259,52 @@ export const CategoriesPage: React.FC = () => {
             onRetry={() => void refetchFees()}
           />
         ) : (
-          <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
+          <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Mã & Loại phòng trọ</th>
                     <th className="py-3 px-4">Mô tả đặc trưng</th>
-                    <th className="py-3 px-4">Cọc giữ chân</th>
-                    <th className="py-3 px-4">Hoa hồng sàn</th>
-                    <th className="py-3 px-4">Chủ trọ thực nhận</th>
+                    <th className="py-3 px-4 text-right">Cọc giữ chân</th>
+                    <th className="py-3 px-4 text-right">Hoa hồng sàn</th>
+                    <th className="py-3 px-4 text-right">Chủ trọ thực nhận</th>
                     <th className="py-3 px-4 text-right">Điều chỉnh</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border/70">
                   {isLoadingFees ? (
                     <AdminTableSkeleton rows={5} cols={6} />
                   ) : apiDepositFees.length > 0 ? (
                     apiDepositFees.map((f) => (
-                      <tr key={f.maLoaiPhong} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={f.maLoaiPhong} className="hover:bg-surface-subtle transition-colors">
                         <td className="py-3 px-4">
-                          <span className="font-bold text-slate-900 block">{f.tenLoaiPhong}</span>
-                          <Chip size="sm" variant="soft" color="accent" className="font-mono mt-1">
+                          <span className="font-medium text-text block">{f.tenLoaiPhong}</span>
+                          <span className="inline-block font-mono text-[11px] text-text-muted bg-surface-muted px-2 py-0.5 rounded-md mt-1">
                             {f.maLoaiPhong}
-                          </Chip>
+                          </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-600 max-w-xs">{f.moTa || '--'}</td>
-                        <td className="py-3 px-4 font-black text-slate-900 text-sm">
+                        <td className="py-3 px-4 text-text-secondary max-w-xs">{f.moTa || '--'}</td>
+                        <td className="py-3 px-4 text-right font-semibold text-text text-[13px] tabular-nums">
                           {formatVND(f.soTienCoc)}
                         </td>
                         <td
-                          className={`py-3 px-4 font-black text-sm ${
-                            f.phiThu > 0 ? 'text-teal-700' : 'text-slate-400'
+                          className={`py-3 px-4 text-right font-semibold text-[13px] tabular-nums ${
+                            f.phiThu > 0 ? 'text-accent' : 'text-text-muted'
                           }`}
                         >
                           {formatVND(f.phiThu)}
                         </td>
-                        <td className="py-3 px-4 font-bold text-emerald-600">
+                        <td className="py-3 px-4 text-right font-semibold text-success-text text-[13px] tabular-nums">
                           {formatVND(Math.max(f.soTienCoc - f.phiThu, 0))}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <button
                             type="button"
                             onClick={() => handleStartEditFee(f)}
-                            className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 ml-auto cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg border border-transparent hover:border-border hover:bg-surface-muted text-text-secondary text-xs font-medium inline-flex items-center gap-1.5 ml-auto cursor-pointer transition-colors"
                           >
-                            <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                            <Edit3 className="w-3.5 h-3.5 text-text-muted" />
                             Cập nhật phí
                           </button>
                         </td>
@@ -312,7 +312,7 @@ export const CategoriesPage: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <td colSpan={6} className="py-12 text-center text-text-muted">
                         Chưa có cấu hình biểu phí cọc giữ chân nào.
                       </td>
                     </tr>
@@ -331,10 +331,10 @@ export const CategoriesPage: React.FC = () => {
             onRetry={() => void refetchRoomTypes()}
           />
         ) : (
-          <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
+          <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Mã loại phòng</th>
                     <th className="py-3 px-4">Tên loại phòng trọ</th>
@@ -342,28 +342,28 @@ export const CategoriesPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">Chỉnh sửa</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border/70">
                   {isLoadingRoomTypes ? (
                     <AdminTableSkeleton rows={5} cols={4} />
                   ) : normalizedRoomTypes.length > 0 ? (
                     normalizedRoomTypes.map((rt) => (
-                      <tr key={rt.code} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={rt.code} className="hover:bg-surface-subtle transition-colors">
                         <td className="py-3 px-4">
-                          <Chip size="sm" variant="soft" color="accent" className="font-mono font-bold">
+                          <span className="inline-block font-mono text-[11px] font-medium text-text-secondary bg-surface-muted px-2 py-0.5 rounded-md">
                             {rt.code}
-                          </Chip>
+                          </span>
                         </td>
-                        <td className="py-3 px-4 font-bold text-slate-900">{rt.ten}</td>
-                        <td className="py-3 px-4 text-slate-600">{rt.moTa || '--'}</td>
+                        <td className="py-3 px-4 font-medium text-text">{rt.ten}</td>
+                        <td className="py-3 px-4 text-text-secondary">{rt.moTa || '--'}</td>
                         <td className="py-3 px-4 text-right">
                           <button
                             type="button"
                             onClick={() =>
                               setEditingRoomType({ code: rt.code, ten: rt.ten, moTa: rt.moTa })
                             }
-                            className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 ml-auto cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg border border-transparent hover:border-border hover:bg-surface-muted text-text-secondary text-xs font-medium inline-flex items-center gap-1.5 ml-auto cursor-pointer transition-colors"
                           >
-                            <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                            <Edit3 className="w-3.5 h-3.5 text-text-muted" />
                             Sửa tên / mô tả
                           </button>
                         </td>
@@ -371,7 +371,7 @@ export const CategoriesPage: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="py-12 text-center text-slate-400">
+                      <td colSpan={4} className="py-12 text-center text-text-muted">
                         Chưa có danh mục loại phòng nào.
                       </td>
                     </tr>
@@ -390,10 +390,10 @@ export const CategoriesPage: React.FC = () => {
             onRetry={() => void refetchAmenities()}
           />
         ) : (
-          <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
+          <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Mã tiện ích</th>
                     <th className="py-3 px-4">Tên tiện ích</th>
@@ -401,26 +401,21 @@ export const CategoriesPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">Chỉnh sửa</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border/70">
                   {isLoadingAmenities ? (
                     <AdminTableSkeleton rows={6} cols={4} />
                   ) : apiAmenities.length > 0 ? (
                     apiAmenities.map((am, idx) => {
                       const displayCode = am.maTienIch || `TI${String(idx + 1).padStart(4, '0')}`;
                       return (
-                        <tr key={displayCode} className="hover:bg-slate-50/60 transition-colors">
+                        <tr key={displayCode} className="hover:bg-surface-subtle transition-colors">
                           <td className="py-3 px-4">
-                            <Chip
-                              size="sm"
-                              variant="soft"
-                              color="success"
-                              className="font-mono font-bold"
-                            >
+                            <span className="inline-block font-mono text-[11px] font-medium text-text-secondary bg-surface-muted px-2 py-0.5 rounded-md">
                               {displayCode}
-                            </Chip>
+                            </span>
                           </td>
-                          <td className="py-3 px-4 font-bold text-slate-900">{am.tenTienIch}</td>
-                          <td className="py-3 px-4 text-slate-600">{am.moTa || '--'}</td>
+                          <td className="py-3 px-4 font-medium text-text">{am.tenTienIch}</td>
+                          <td className="py-3 px-4 text-text-secondary">{am.moTa || '--'}</td>
                           <td className="py-3 px-4 text-right">
                             <button
                               type="button"
@@ -429,9 +424,9 @@ export const CategoriesPage: React.FC = () => {
                                 setAmenityName(am.tenTienIch);
                                 setAmenityDesc(am.moTa || '');
                               }}
-                              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 ml-auto cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg border border-transparent hover:border-border hover:bg-surface-muted text-text-secondary text-xs font-medium inline-flex items-center gap-1.5 ml-auto cursor-pointer transition-colors"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                              <Edit3 className="w-3.5 h-3.5 text-text-muted" />
                               Sửa tiện ích
                             </button>
                           </td>
@@ -440,7 +435,7 @@ export const CategoriesPage: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="py-12 text-center text-slate-400">
+                      <td colSpan={4} className="py-12 text-center text-text-muted">
                         Chưa có danh mục tiện ích nào.
                       </td>
                     </tr>
@@ -466,7 +461,7 @@ export const CategoriesPage: React.FC = () => {
         {editingFeeItem && (
           <form onSubmit={handleSaveFee} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
                 Mức tiền cọc giữ chân xem phòng (VNĐ)
               </label>
               <input
@@ -478,12 +473,12 @@ export const CategoriesPage: React.FC = () => {
                   setEditCoc(Number(e.target.value));
                   setFeeError('');
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 font-bold"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent font-semibold tabular-nums"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
                 Mức phí hoa hồng trích thu sàn (nhỏ hơn tiền cọc)
               </label>
               <input
@@ -495,19 +490,19 @@ export const CategoriesPage: React.FC = () => {
                   setEditPhi(Number(e.target.value));
                   setFeeError('');
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 font-bold text-teal-700"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs focus:outline-none focus:border-accent font-semibold text-accent tabular-nums"
               />
             </div>
 
             {feeError && (
-              <p className="text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl p-2.5">
+              <p className="text-[11px] font-medium text-danger-text bg-danger-bg border border-danger-border rounded-lg p-2.5">
                 {feeError}
               </p>
             )}
 
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex justify-between">
+            <div className="p-2.5 rounded-lg bg-surface-subtle border border-border text-[11px] text-text-secondary flex justify-between">
               <span>Chủ trọ thực nhận khi thuê thành công:</span>
-              <strong className="text-emerald-600">
+              <strong className="font-semibold text-success-text tabular-nums">
                 {formatVND(Math.max(editCoc - editPhi, 0))}
               </strong>
             </div>
@@ -516,14 +511,14 @@ export const CategoriesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingFeeItem(null)}
-                className="w-1/2 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={updateDepositFeeMutation.isPending}
-                className="w-1/2 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
                 {updateDepositFeeMutation.isPending && <Spinner size="sm" color="current" />}
                 Lưu cấu hình
@@ -544,7 +539,7 @@ export const CategoriesPage: React.FC = () => {
         {editingRoomType && (
           <form onSubmit={handleSaveRoomType} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
                 Tên loại phòng trọ
               </label>
               <input
@@ -553,19 +548,19 @@ export const CategoriesPage: React.FC = () => {
                 onChange={(e) =>
                   setEditingRoomType((prev) => (prev ? { ...prev, ten: e.target.value } : null))
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Mô tả</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Mô tả</label>
               <textarea
                 rows={3}
                 value={editingRoomType.moTa}
                 onChange={(e) =>
                   setEditingRoomType((prev) => (prev ? { ...prev, moTa: e.target.value } : null))
                 }
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent"
               />
             </div>
 
@@ -573,14 +568,14 @@ export const CategoriesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingRoomType(null)}
-                className="w-1/2 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={updateRoomTypeMutation.isPending}
-                className="w-1/2 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
                 {updateRoomTypeMutation.isPending && <Spinner size="sm" color="current" />}
                 Lưu thay đổi
@@ -601,24 +596,24 @@ export const CategoriesPage: React.FC = () => {
         {editingAmenity && (
           <form onSubmit={handleSaveAmenity} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
                 Tên tiện ích
               </label>
               <input
                 type="text"
                 value={amenityName}
                 onChange={(e) => setAmenityName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Mô tả</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Mô tả</label>
               <textarea
                 rows={3}
                 value={amenityDesc}
                 onChange={(e) => setAmenityDesc(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent"
               />
             </div>
 
@@ -626,14 +621,14 @@ export const CategoriesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingAmenity(null)}
-                className="w-1/2 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={updateAmenityMutation.isPending}
-                className="w-1/2 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-1/2 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
                 {updateAmenityMutation.isPending && <Spinner size="sm" color="current" />}
                 Lưu tiện ích

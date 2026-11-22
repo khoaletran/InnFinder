@@ -19,9 +19,8 @@ import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { useChartColors } from '@/hooks/useChartColors';
 import { formatVND } from '@/utils/formatters';
-
-const PIE_COLORS = ['#0d9488', '#0f766e', '#10b981', '#f59e0b', '#64748b', '#06b6d4'];
 
 function getMaxDaysInMonth(month: number | null, year: number | null): number {
   if (month !== null && year !== null) {
@@ -90,6 +89,7 @@ function buildExportFilename(
 }
 
 export const StatisticsPage: React.FC = () => {
+  const chartColors = useChartColors();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -297,9 +297,9 @@ export const StatisticsPage: React.FC = () => {
       (stats?.coCauLoaiPhong ?? []).map((item, idx) => ({
         name: item.tenLoaiPhong,
         value: item.soLuong,
-        color: PIE_COLORS[idx % PIE_COLORS.length],
+        color: chartColors.pieSeries[idx % chartColors.pieSeries.length],
       })),
-    [stats?.coCauLoaiPhong],
+    [stats?.coCauLoaiPhong, chartColors.pieSeries],
   );
 
   if (isLoading && !stats) {
@@ -307,21 +307,21 @@ export const StatisticsPage: React.FC = () => {
       <div className="space-y-6 animate-pulse">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <div className="h-6 w-64 bg-slate-200 rounded-lg" />
-            <div className="h-3.5 w-80 bg-slate-200/80 rounded" />
+            <div className="h-6 w-64 bg-surface-muted rounded-lg" />
+            <div className="h-3.5 w-80 bg-surface-muted rounded" />
           </div>
           <div className="flex gap-2">
-            <div className="h-9 w-28 bg-slate-200 rounded-xl" />
-            <div className="h-9 w-36 bg-slate-200 rounded-xl" />
+            <div className="h-9 w-28 bg-surface-muted rounded-lg" />
+            <div className="h-9 w-36 bg-surface-muted rounded-lg" />
           </div>
         </div>
-        <div className="h-14 bg-slate-200/70 rounded-2xl" />
+        <div className="h-14 bg-surface-muted rounded-xl" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx} className="h-28 bg-white rounded-2xl border border-slate-200 p-5" />
+            <div key={idx} className="h-28 bg-surface rounded-xl border border-border p-5" />
           ))}
         </div>
-        <div className="h-72 bg-white rounded-2xl border border-slate-200" />
+        <div className="h-72 bg-surface rounded-xl border border-border" />
       </div>
     );
   }
@@ -333,7 +333,7 @@ export const StatisticsPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
             Thống kê doanh thu & ngân khố
           </h1>
           <AdminRefreshButton onClick={() => void refetch()} isRefreshing={isFetching} />
@@ -352,10 +352,10 @@ export const StatisticsPage: React.FC = () => {
       {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
             Thống kê doanh thu & ngân khố
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-text-muted mt-0.5">
             Theo dõi doanh thu hoa hồng, cơ cấu phòng trọ và tình hình quỹ hệ thống
           </p>
         </div>
@@ -369,7 +369,7 @@ export const StatisticsPage: React.FC = () => {
           <button
             type="button"
             onClick={handleExportReport}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+            className="px-3.5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Xuất báo cáo
@@ -380,12 +380,12 @@ export const StatisticsPage: React.FC = () => {
       {/* Compact Single-Row Filter Toolbar */}
       <div
         style={{ animationDelay: '0ms' }}
-        className="animate-fade-up px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-2.5"
+        className="animate-fade-up px-3.5 py-2.5 rounded-xl bg-surface border border-border flex flex-wrap items-center justify-between gap-2.5"
       >
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
-          <span className="text-xs font-bold text-slate-800">Kỳ lọc</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 text-[11px] font-semibold border border-teal-200/70">
+          <Calendar className="w-4 h-4 text-accent shrink-0" />
+          <span className="text-xs font-medium text-text">Kỳ lọc</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-accent-soft text-accent text-[11px] font-medium border border-accent-border">
             {activePeriodLabel}
           </span>
         </div>
@@ -396,14 +396,14 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Chọn nhanh theo lịch"
             value={dateInputValue}
             onChange={handleDateInputChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-surface-subtle border border-border text-xs font-medium text-text outline-none focus:bg-surface focus:border-accent transition-colors"
           />
 
           <select
             aria-label="Lọc theo ngày"
             value={selectedDay ?? ''}
             onChange={handleDayChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-surface-subtle border border-border text-xs font-medium text-text outline-none focus:bg-surface focus:border-accent cursor-pointer transition-colors"
           >
             <option value="">Tất cả ngày</option>
             {dayOptions.map((d) => (
@@ -417,7 +417,7 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Lọc theo tháng"
             value={selectedMonth ?? ''}
             onChange={handleMonthChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-surface-subtle border border-border text-xs font-medium text-text outline-none focus:bg-surface focus:border-accent cursor-pointer transition-colors"
           >
             <option value="">Tất cả tháng</option>
             {monthOptions.map((m) => (
@@ -431,7 +431,7 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Lọc theo năm"
             value={selectedYear ?? ''}
             onChange={handleYearChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-surface-subtle border border-border text-xs font-medium text-text outline-none focus:bg-surface focus:border-accent cursor-pointer transition-colors"
           >
             <option value="">Tất cả năm</option>
             {yearOptions.map((y) => (
@@ -445,7 +445,7 @@ export const StatisticsPage: React.FC = () => {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Đặt lại</span>
@@ -458,15 +458,15 @@ export const StatisticsPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card
           style={{ animationDelay: '60ms' }}
-          className="animate-fade-up p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+          className="animate-fade-up p-5 rounded-xl bg-surface border border-border"
         >
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
-              <span className="text-xs font-semibold text-slate-500">Doanh thu hoa hồng</span>
-              <div className="text-2xl font-black text-teal-700 tracking-tight tabular-nums">
+              <span className="text-xs font-medium text-text-muted">Doanh thu hoa hồng</span>
+              <div className="text-2xl font-semibold text-accent tracking-[-0.01em] tabular-nums">
                 {formatVND(stats?.tongDoanhThu ?? 0)}
               </div>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-text-muted">
                 {(stats?.soLichHoanThanh ?? 0).toLocaleString('vi-VN')} lịch hẹn đã hoàn tất
               </span>
             </div>
@@ -475,15 +475,15 @@ export const StatisticsPage: React.FC = () => {
 
         <Card
           style={{ animationDelay: '120ms' }}
-          className="animate-fade-up p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+          className="animate-fade-up p-5 rounded-xl bg-surface border border-border"
         >
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
-              <span className="text-xs font-semibold text-slate-500">Tổng quỹ luân chuyển</span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+              <span className="text-xs font-medium text-text-muted">Tổng quỹ luân chuyển</span>
+              <div className="text-2xl font-semibold text-text tracking-[-0.01em] tabular-nums">
                 {formatVND(stats?.tongQuyHeThong ?? 0)}
               </div>
-              <span className="text-[11px] text-slate-500 tabular-nums">
+              <span className="text-[11px] text-text-muted tabular-nums">
                 Tổng két thực tế: {formatVND(stats?.tongQuyThucTe ?? 0)} (gồm hoa hồng)
               </span>
             </div>
@@ -492,15 +492,15 @@ export const StatisticsPage: React.FC = () => {
 
         <Card
           style={{ animationDelay: '180ms' }}
-          className="animate-fade-up p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+          className="animate-fade-up p-5 rounded-xl bg-surface border border-border"
         >
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
-              <span className="text-xs font-semibold text-slate-500">Tổng phòng trọ</span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+              <span className="text-xs font-medium text-text-muted">Tổng phòng trọ</span>
+              <div className="text-2xl font-semibold text-text tracking-[-0.01em] tabular-nums">
                 {(stats?.tongSoPhong ?? 0).toLocaleString('vi-VN')} phòng
               </div>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-text-muted">
                 Đang hiển thị: {(stats?.soPhongDaDuyet ?? 0).toLocaleString('vi-VN')} · Chờ duyệt:{' '}
                 {(stats?.soPhongChoDuyet ?? 0).toLocaleString('vi-VN')}
               </span>
@@ -525,13 +525,13 @@ export const StatisticsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card
           style={{ animationDelay: '300ms' }}
-          className="animate-fade-up lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs"
+          className="animate-fade-up lg:col-span-7 bg-surface rounded-xl border border-border p-6"
         >
           <Card.Header className="p-0 pb-4">
-            <Card.Title className="text-sm font-bold text-slate-900">
+            <Card.Title className="text-sm font-semibold text-text">
               Cơ cấu doanh thu & quỹ hệ thống
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500 mt-0.5">
+            <Card.Description className="text-xs text-text-muted mt-0.5">
               Phân bổ doanh thu hoa hồng, tiền cọc tạm giữ, số dư ví chủ trọ và quỹ chờ rút (
               {activePeriodLabel})
             </Card.Description>
@@ -544,10 +544,10 @@ export const StatisticsPage: React.FC = () => {
                   data={treasuryBreakdownData}
                   margin={{ top: 10, right: 12, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="danhMuc" stroke="#64748b" fontSize={11} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                  <XAxis dataKey="danhMuc" stroke={chartColors.textMuted} fontSize={11} tickLine={false} />
                   <YAxis
-                    stroke="#64748b"
+                    stroke={chartColors.textMuted}
                     fontSize={11}
                     tickLine={false}
                     tickFormatter={(val: number) =>
@@ -559,12 +559,13 @@ export const StatisticsPage: React.FC = () => {
                   <Tooltip
                     formatter={(val: unknown) => [formatVND(Number(val ?? 0)), 'Số tiền']}
                     contentStyle={{
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      border: `1px solid ${chartColors.border}`,
+                      backgroundColor: chartColors.surface,
                       fontSize: '12px',
                     }}
                   />
-                  <Bar dataKey="soTien" fill="#0d9488" radius={[8, 8, 0, 0]} maxBarSize={56} />
+                  <Bar dataKey="soTien" fill={chartColors.primary} radius={[6, 6, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -573,13 +574,13 @@ export const StatisticsPage: React.FC = () => {
 
         <Card
           style={{ animationDelay: '300ms' }}
-          className="animate-fade-up lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col"
+          className="animate-fade-up lg:col-span-5 bg-surface rounded-xl border border-border p-6 flex flex-col"
         >
           <Card.Header className="p-0 pb-4">
-            <Card.Title className="text-sm font-bold text-slate-900">
+            <Card.Title className="text-sm font-semibold text-text">
               Cơ cấu loại phòng trọ
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500 mt-0.5">
+            <Card.Description className="text-xs text-text-muted mt-0.5">
               Phân bổ theo {(stats?.tongSoPhong ?? 0).toLocaleString('vi-VN')} phòng trọ trong kỳ (
               {activePeriodLabel})
             </Card.Description>
@@ -605,12 +606,18 @@ export const StatisticsPage: React.FC = () => {
                     </Pie>
                     <Tooltip
                       formatter={(val: unknown) => [`${Number(val ?? 0)} phòng`, 'Số lượng']}
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: `1px solid ${chartColors.border}`,
+                        backgroundColor: chartColors.surface,
+                        fontSize: '12px',
+                      }}
                     />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-center text-xs text-slate-400">
+                <div className="text-center text-xs text-text-muted">
                   Chưa có dữ liệu phòng trọ trong khoảng thời gian đã chọn.
                 </div>
               )}

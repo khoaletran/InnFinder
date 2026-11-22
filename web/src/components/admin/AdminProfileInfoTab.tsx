@@ -95,18 +95,18 @@ export const AdminProfileInfoTab: React.FC = () => {
 
   return (
     <section aria-labelledby={sectionHeadingId}>
-      <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+      <Card className="bg-surface rounded-xl border border-border p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-border">
           <div>
-            <h2 id={sectionHeadingId} className="text-base font-bold text-slate-900">
+            <h2 id={sectionHeadingId} className="text-base font-semibold text-text">
               Thông tin tài khoản Quản trị viên
             </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-xs text-text-muted mt-0.5">
               Cập nhật họ tên hiển thị, email và số điện thoại liên hệ nội bộ
             </p>
           </div>
           {isDirty && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold self-start sm:self-auto">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-warning-bg text-warning-text text-xs font-medium self-start sm:self-auto">
               Có thay đổi chưa lưu
             </span>
           )}
@@ -118,31 +118,31 @@ export const AdminProfileInfoTab: React.FC = () => {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label htmlFor={usernameId} className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label htmlFor={usernameId} className="block text-xs font-medium text-text-secondary mb-1.5">
               Tên đăng nhập
             </label>
             <div className="relative">
-              <Shield className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Shield className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id={usernameId}
                 type="text"
                 readOnly
                 disabled
                 value={user?.tenDangNhap ?? ''}
-                className="w-full h-11 pl-10 pr-3 rounded-xl border border-slate-200 text-sm font-mono bg-slate-50 text-slate-700"
+                className="w-full h-11 pl-10 pr-3 rounded-lg border border-border text-sm font-mono bg-surface-subtle text-text-secondary"
               />
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-text-muted mt-1">
               Tên đăng nhập quản trị không thể thay đổi.
             </p>
           </div>
 
           <div>
-            <label htmlFor={fullNameId} className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label htmlFor={fullNameId} className="block text-xs font-medium text-text-secondary mb-1.5">
               Họ và tên
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <User className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id={fullNameId}
                 type="text"
@@ -150,26 +150,26 @@ export const AdminProfileInfoTab: React.FC = () => {
                 aria-invalid={Boolean(errors.hoVaTen)}
                 aria-describedby={errors.hoVaTen ? `${fullNameId}-error` : undefined}
                 {...register('hoVaTen')}
-                className={`w-full h-11 pl-10 pr-3 rounded-xl border text-sm text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
+                className={`w-full h-11 pl-10 pr-3 rounded-lg border bg-surface text-sm text-text focus:outline-none transition-colors ${
                   errors.hoVaTen
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-teal-600 focus:ring-teal-100'
+                    ? 'border-danger-text focus:border-danger-text'
+                    : 'border-border focus:border-accent'
                 }`}
               />
             </div>
             {errors.hoVaTen && (
-              <p id={`${fullNameId}-error`} role="alert" className="text-xs text-red-700 mt-1">
+              <p id={`${fullNameId}-error`} role="alert" className="text-xs text-danger-text mt-1">
                 {errors.hoVaTen.message}
               </p>
             )}
           </div>
 
           <div>
-            <label htmlFor={emailId} className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label htmlFor={emailId} className="block text-xs font-medium text-text-secondary mb-1.5">
               Email
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id={emailId}
                 type="email"
@@ -178,26 +178,26 @@ export const AdminProfileInfoTab: React.FC = () => {
                 aria-invalid={Boolean(errors.email)}
                 aria-describedby={errors.email ? `${emailId}-error` : undefined}
                 {...register('email')}
-                className={`w-full h-11 pl-10 pr-3 rounded-xl border text-sm text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
+                className={`w-full h-11 pl-10 pr-3 rounded-lg border bg-surface text-sm text-text focus:outline-none transition-colors ${
                   errors.email
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-teal-600 focus:ring-teal-100'
+                    ? 'border-danger-text focus:border-danger-text'
+                    : 'border-border focus:border-accent'
                 }`}
               />
             </div>
             {errors.email && (
-              <p id={`${emailId}-error`} role="alert" className="text-xs text-red-700 mt-1">
+              <p id={`${emailId}-error`} role="alert" className="text-xs text-danger-text mt-1">
                 {errors.email.message}
               </p>
             )}
           </div>
 
           <div>
-            <label htmlFor={phoneId} className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label htmlFor={phoneId} className="block text-xs font-medium text-text-secondary mb-1.5">
               Số điện thoại
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Phone className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id={phoneId}
                 type="tel"
@@ -207,15 +207,15 @@ export const AdminProfileInfoTab: React.FC = () => {
                 aria-invalid={Boolean(errors.sdt)}
                 aria-describedby={errors.sdt ? `${phoneId}-error` : undefined}
                 {...register('sdt')}
-                className={`w-full h-11 pl-10 pr-3 rounded-xl border text-sm text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
+                className={`w-full h-11 pl-10 pr-3 rounded-lg border bg-surface text-sm text-text focus:outline-none transition-colors ${
                   errors.sdt
-                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                    : 'border-slate-200 focus:border-teal-600 focus:ring-teal-100'
+                    ? 'border-danger-text focus:border-danger-text'
+                    : 'border-border focus:border-accent'
                 }`}
               />
             </div>
             {errors.sdt && (
-              <p id={`${phoneId}-error`} role="alert" className="text-xs text-red-700 mt-1">
+              <p id={`${phoneId}-error`} role="alert" className="text-xs text-danger-text mt-1">
                 {errors.sdt.message}
               </p>
             )}
@@ -241,13 +241,13 @@ export const AdminProfileInfoTab: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="unsaved-admin-profile-title"
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-50"
         >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 space-y-4">
-            <h3 id="unsaved-admin-profile-title" className="text-base font-bold text-slate-900">
+          <div className="bg-surface rounded-2xl max-w-sm w-full p-6 border border-border shadow-lg space-y-4">
+            <h3 id="unsaved-admin-profile-title" className="text-base font-semibold text-text">
               Thay đổi chưa được lưu
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-text-muted leading-relaxed">
               Bạn đã chỉnh sửa thông tin hồ sơ nhưng chưa bấm lưu. Bạn muốn rời khỏi trang này?
             </p>
             <div className="flex gap-2 pt-1">

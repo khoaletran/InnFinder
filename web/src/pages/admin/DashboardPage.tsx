@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Chip } from '@heroui/react';
+import { Card } from '@heroui/react';
 import {
   Users,
   Building2,
@@ -61,10 +61,10 @@ export const DashboardPage: React.FC = () => {
             <div key={idx} className="h-28 bg-white rounded-2xl border border-slate-200 p-5" />
           ))}
         </div>
-        <div className="h-52 bg-slate-800/90 rounded-3xl" />
+        <div className="h-44 bg-surface rounded-[var(--radius-card)] border border-border" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 h-80 bg-white rounded-2xl border border-slate-200" />
-          <div className="lg:col-span-8 h-80 bg-white rounded-2xl border border-slate-200" />
+          <div className="lg:col-span-4 h-80 bg-surface rounded-[var(--radius-card)] border border-border" />
+          <div className="lg:col-span-8 h-80 bg-surface rounded-[var(--radius-card)] border border-border" />
         </div>
       </div>
     );
@@ -78,7 +78,9 @@ export const DashboardPage: React.FC = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Tổng quan vận hành sàn</h1>
+          <h1 className="text-2xl font-semibold text-text tracking-[-0.01em]">
+            Tổng quan vận hành sàn
+          </h1>
           <AdminRefreshButton onClick={handleRefresh} isRefreshing={isFetchingStats || isFetchingTreasury} />
         </div>
         <AdminErrorState
@@ -104,7 +106,9 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-6">
       {/* Page Title & Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Tổng quan vận hành sàn</h1>
+        <h1 className="text-2xl font-semibold text-text tracking-[-0.01em]">
+          Tổng quan vận hành sàn
+        </h1>
 
         <AdminRefreshButton
           onClick={handleRefresh}
@@ -115,179 +119,195 @@ export const DashboardPage: React.FC = () => {
 
       {/* 4 Core KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <Card className="p-5 rounded-[var(--radius-card)] bg-surface border border-border shadow-[var(--shadow-card)]">
           <Card.Content className="p-0 flex flex-row items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500">Tổng người dùng</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
+              <span className="text-xs font-medium text-text-muted">Tổng người dùng</span>
+              <div className="text-2xl font-semibold text-text mt-1 tabular-nums">
                 {(stats?.nguoiDung.total ?? 0).toLocaleString('vi-VN')}
               </div>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface-muted text-text-secondary flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5" />
             </div>
           </Card.Content>
         </Card>
 
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <Card className="p-5 rounded-[var(--radius-card)] bg-surface border border-border shadow-[var(--shadow-card)]">
           <Card.Content className="p-0 flex flex-row items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500">Tin đăng phòng trọ</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
+              <span className="text-xs font-medium text-text-muted">Tin đăng phòng trọ</span>
+              <div className="text-2xl font-semibold text-text mt-1 tabular-nums">
                 {(stats?.soTinDang.total ?? 0).toLocaleString('vi-VN')}
               </div>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-[var(--radius-control)] bg-surface-muted text-text-secondary flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5" />
             </div>
           </Card.Content>
         </Card>
 
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <Card className="p-5 rounded-[var(--radius-card)] bg-surface border border-border shadow-[var(--shadow-card)]">
           <Card.Content className="p-0 flex flex-row items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500">Doanh thu hoa hồng sàn</span>
-              <div className="text-2xl font-black text-teal-700 mt-1">
-                {stats?.doanhThu.total || '0 ₫'}
+              <span className="text-xs font-medium text-text-muted">Doanh thu hoa hồng sàn</span>
+              <div className="text-2xl font-semibold text-accent mt-1 tabular-nums">
+                {stats?.doanhThu.total || '0 đ'}
               </div>
-              <p className="text-[10px] text-slate-500 mt-1">
+              <p className="text-xs text-text-muted mt-1">
                 Từ các giao dịch thuê hoàn tất
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <DollarSign className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-[var(--radius-control)] bg-accent-soft text-accent flex items-center justify-center shrink-0">
+              <DollarSign className="w-5 h-5" />
             </div>
           </Card.Content>
         </Card>
 
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <Card className="p-5 rounded-[var(--radius-card)] bg-surface border border-border shadow-[var(--shadow-card)]">
           <Card.Content className="p-0 flex flex-row items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500">Khiếu nại chờ duyệt</span>
+              <span className="text-xs font-medium text-text-muted">Khiếu nại chờ duyệt</span>
               <div
-                className={`text-2xl font-black mt-1 ${
-                  stats?.khieuNai.isAlert ? 'text-rose-600' : 'text-slate-400'
+                className={`text-2xl font-semibold mt-1 tabular-nums ${
+                  stats?.khieuNai.isAlert ? 'text-danger-text' : 'text-text-muted'
                 }`}
               >
                 {stats?.khieuNai.total ?? 0}
               </div>
               <div className="mt-1">
                 {stats?.khieuNai.isAlert ? (
-                  <Chip size="sm" variant="soft" color="danger" className="font-bold">
+                  <span className="inline-flex px-2 py-0.5 rounded-[var(--radius-badge)] bg-danger-bg text-danger-text text-xs font-medium">
                     Cần xử lý ngay
-                  </Chip>
+                  </span>
                 ) : (
-                  <span className="text-[11px] text-slate-400 font-medium">
+                  <span className="text-xs text-text-muted font-normal">
                     Tất cả đã giải quyết
                   </span>
                 )}
               </div>
             </div>
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              className={`w-10 h-10 rounded-[var(--radius-control)] flex items-center justify-center shrink-0 ${
                 stats?.khieuNai.isAlert
-                  ? 'bg-rose-50 text-rose-600 animate-pulse'
-                  : 'bg-slate-100 text-slate-400'
+                  ? 'bg-danger-bg text-danger-text'
+                  : 'bg-surface-muted text-text-muted'
               }`}
             >
-              <AlertTriangle className="w-6 h-6" />
+              <AlertTriangle className="w-5 h-5" />
             </div>
           </Card.Content>
         </Card>
       </div>
 
-      {/* CENTRAL TREASURY LEDGER */}
-      <Card className="bg-slate-900 rounded-2xl p-6 lg:p-7 text-white shadow-md border border-slate-800 relative overflow-hidden">
-        <Card.Header className="p-0 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+      {/* CENTRAL TREASURY LEDGER — CARD TRẮNG VIỀN MẢNH */}
+      <Card className="bg-surface rounded-[var(--radius-card)] p-6 text-text border border-border shadow-[var(--shadow-card)]">
+        <Card.Header className="p-0 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-wider">
-              <Wallet className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-text-muted text-xs font-medium uppercase tracking-[0.04em]">
+              <Wallet className="w-4 h-4 text-accent" />
               Ngân khố hệ thống
             </div>
-            <Card.Title className="text-xl font-black text-white mt-1">
-              Tổng quỹ hệ thống đang luân chuyển:{' '}
-              <span className="text-emerald-400">{formatVND(treasury?.tongQuyHeThong)}</span>
+            <Card.Title className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <span className="text-sm font-medium text-text-secondary">
+                Tổng quỹ hệ thống đang luân chuyển:
+              </span>
+              <span className="text-[28px] leading-tight font-semibold text-text tabular-nums tracking-[-0.01em]">
+                {formatVND(treasury?.tongQuyHeThong)}
+              </span>
             </Card.Title>
-            <p className="text-[11px] text-slate-300 mt-1">
+            <p className="text-xs text-text-muted mt-1 tabular-nums">
               Tổng tiền thực tế trong két:{' '}
-              <strong className="text-white">{formatVND(treasury?.tongQuyThucTe)}</strong>{' '}
+              <strong className="font-semibold text-text">{formatVND(treasury?.tongQuyThucTe)}</strong>{' '}
               (Quỹ luân chuyển {formatVND(treasury?.tongQuyHeThong)} + Doanh thu sàn{' '}
               {formatVND(treasury?.tongDoanhThu)})
             </p>
           </div>
           <Link
             to="/admin/transactions"
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white flex items-center gap-1.5 self-start sm:self-auto transition-all"
+            className="px-3.5 py-2 rounded-[var(--radius-control)] bg-surface hover:bg-bg border border-border text-xs font-medium text-text-secondary flex items-center gap-1.5 self-start sm:self-auto transition-colors"
           >
             Quản lý dòng tiền
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </Card.Header>
 
-        <Card.Content className="p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Quỹ cọc giữ chân tạm giữ</span>
-            <div className={`text-lg font-bold ${quyTamGiuCoc > 0 ? 'text-amber-300' : 'text-slate-400'}`}>
+        <Card.Content className="p-0 pt-5 border-t border-border grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
+          <div className="py-3 sm:py-0 sm:pr-5">
+            <span className="text-xs font-medium text-text-muted block mb-1">
+              Quỹ cọc giữ chân tạm giữ
+            </span>
+            <div className="text-lg font-semibold text-text tabular-nums">
               {formatVND(quyTamGiuCoc)}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Đang chờ khách đi xem phòng thực tế</p>
+            <p className="text-xs text-text-muted mt-1">Đang chờ khách đi xem phòng thực tế</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Tổng số dư ví các Chủ trọ</span>
-            <div className={`text-lg font-bold ${tongSoDuViChuTro > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
+          <div className="py-3 sm:py-0 sm:px-5">
+            <span className="text-xs font-medium text-text-muted block mb-1">
+              Tổng số dư ví các Chủ trọ
+            </span>
+            <div className="text-lg font-semibold text-text tabular-nums">
               {formatVND(tongSoDuViChuTro)}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Khả dụng cho các chủ trọ rút về</p>
+            <p className="text-xs text-text-muted mt-1">Khả dụng cho các chủ trọ rút về</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Quỹ yêu cầu rút tiền</span>
-            <div className={`text-lg font-bold ${quyChoRut > 0 ? 'text-sky-300' : 'text-slate-400'}`}>
+          <div className="py-3 sm:py-0 sm:px-5">
+            <span className="text-xs font-medium text-text-muted block mb-1">
+              Quỹ yêu cầu rút tiền
+            </span>
+            <div className="text-lg font-semibold text-text tabular-nums">
               {formatVND(quyChoRut)}
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
+            <p className="text-xs text-text-muted mt-1">
               Đang đợi Admin phê duyệt chuyển khoản
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Lệnh rút tiền chờ duyệt</span>
-            <div className={`text-lg font-bold ${soLenhRutChoDuyet > 0 ? 'text-rose-300' : 'text-slate-400'}`}>
+          <div className="py-3 sm:py-0 sm:pl-5">
+            <span className="text-xs font-medium text-text-muted block mb-1">
+              Lệnh rút tiền chờ duyệt
+            </span>
+            <div
+              className={`text-lg font-semibold tabular-nums ${
+                soLenhRutChoDuyet > 0 ? 'text-danger-text' : 'text-text-muted'
+              }`}
+            >
               {soLenhRutChoDuyet} lệnh
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Cần đối soát tài khoản ngân hàng</p>
+            <p className="text-xs text-text-muted mt-1">Cần đối soát tài khoản ngân hàng</p>
           </div>
         </Card.Content>
       </Card>
 
       {/* Action Queue & PlatformRevenueChart Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+        <Card className="lg:col-span-4 bg-surface rounded-[var(--radius-card)] border border-border p-6 shadow-[var(--shadow-card)] flex flex-col justify-between">
           <div>
             <Card.Header className="p-0 pb-4 flex flex-row items-center justify-between">
-              <Card.Title className="text-sm font-bold text-slate-900">
+              <Card.Title className="text-sm font-semibold text-text tracking-[-0.01em]">
                 Hàng đợi hành động cần xử lý
               </Card.Title>
             </Card.Header>
 
-            <Card.Content className="p-0 space-y-3">
+            <Card.Content className="p-0 space-y-2.5">
               <Link
                 to="/admin/posts"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-teal-50/40 flex items-center justify-between transition-all"
+                className="p-3.5 rounded-[var(--radius-control)] border border-border hover:border-border-strong hover:bg-surface-subtle flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs">
+                  <div className="w-8 h-8 rounded-[var(--radius-control)] bg-surface-muted text-text-secondary flex items-center justify-center font-medium text-xs">
                     PT
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Tin đăng phòng mới</h4>
-                    <p className="text-[11px] text-slate-500">Chờ kiểm duyệt hình ảnh & giá</p>
+                    <h4 className="text-xs font-semibold text-text">Tin đăng phòng mới</h4>
+                    <p className="text-xs text-text-muted">Chờ kiểm duyệt hình ảnh & giá</p>
                   </div>
                 </div>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-black ${
-                    tinMoi > 0 ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500'
+                  className={`px-2.5 py-0.5 rounded-[var(--radius-badge)] text-xs font-medium tabular-nums ${
+                    tinMoi > 0 ? 'bg-accent-soft text-accent' : 'bg-surface-muted text-text-muted'
                   }`}
                 >
                   {tinMoi}
@@ -296,20 +316,22 @@ export const DashboardPage: React.FC = () => {
 
               <Link
                 to="/admin/users"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 flex items-center justify-between transition-all"
+                className="p-3.5 rounded-[var(--radius-control)] border border-border hover:border-border-strong hover:bg-surface-subtle flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                  <div className="w-8 h-8 rounded-[var(--radius-control)] bg-surface-muted text-text-secondary flex items-center justify-center font-medium text-xs">
                     CT
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Xác minh CCCD Chủ trọ</h4>
-                    <p className="text-[11px] text-slate-500">Chờ duyệt hồ sơ & số tài khoản</p>
+                    <h4 className="text-xs font-semibold text-text">Xác minh CCCD Chủ trọ</h4>
+                    <p className="text-xs text-text-muted">Chờ duyệt hồ sơ & số tài khoản</p>
                   </div>
                 </div>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-black ${
-                    xacMinhChuTro > 0 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                  className={`px-2.5 py-0.5 rounded-[var(--radius-badge)] text-xs font-medium tabular-nums ${
+                    xacMinhChuTro > 0
+                      ? 'bg-warning-bg text-warning-text'
+                      : 'bg-surface-muted text-text-muted'
                   }`}
                 >
                   {xacMinhChuTro}
@@ -318,20 +340,22 @@ export const DashboardPage: React.FC = () => {
 
               <Link
                 to="/admin/complaints"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 flex items-center justify-between transition-all"
+                className="p-3.5 rounded-[var(--radius-control)] border border-border hover:border-border-strong hover:bg-surface-subtle flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">
+                  <div className="w-8 h-8 rounded-[var(--radius-control)] bg-surface-muted text-text-secondary flex items-center justify-center font-medium text-xs">
                     KN
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Báo cáo khiếu nại</h4>
-                    <p className="text-[11px] text-slate-500">Tranh chấp cọc & vi phạm nội quy</p>
+                    <h4 className="text-xs font-semibold text-text">Báo cáo khiếu nại</h4>
+                    <p className="text-xs text-text-muted">Tranh chấp cọc & vi phạm nội quy</p>
                   </div>
                 </div>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-black ${
-                    baoCaoViPham > 0 ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500'
+                  className={`px-2.5 py-0.5 rounded-[var(--radius-badge)] text-xs font-medium tabular-nums ${
+                    baoCaoViPham > 0
+                      ? 'bg-danger-bg text-danger-text'
+                      : 'bg-surface-muted text-text-muted'
                   }`}
                 >
                   {baoCaoViPham}

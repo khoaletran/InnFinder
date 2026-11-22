@@ -217,25 +217,25 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
     switch (kind) {
       case 'ROOM':
         return (
-          <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-[var(--radius-control)] bg-accent-soft text-accent flex items-center justify-center shrink-0">
             <Building2 className="w-4 h-4" />
           </div>
         );
       case 'LANDLORD':
         return (
-          <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-[var(--radius-control)] bg-accent-soft text-accent flex items-center justify-center shrink-0">
             <ShieldCheck className="w-4 h-4" />
           </div>
         );
       case 'COMPLAINT':
         return (
-          <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-[var(--radius-control)] bg-danger-bg text-danger-text flex items-center justify-center shrink-0">
             <AlertTriangle className="w-4 h-4" />
           </div>
         );
       case 'WITHDRAWAL':
         return (
-          <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-[var(--radius-control)] bg-warning-bg text-warning-text flex items-center justify-center shrink-0">
             <Wallet className="w-4 h-4" />
           </div>
         );
@@ -252,11 +252,11 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
         aria-label="Thông báo Quản trị"
         aria-expanded={isOpen}
         aria-controls={isOpen ? 'admin-notifications-popover' : undefined}
-        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-teal-700 hover:bg-teal-50 border border-transparent hover:border-teal-200 transition-colors relative cursor-pointer"
+        className="w-9 h-9 rounded-[var(--radius-control)] flex items-center justify-center text-text-secondary hover:text-text hover:bg-surface-muted transition-colors relative cursor-pointer"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center leading-none tabular-nums shadow-xs">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger-text text-white text-[10px] font-semibold flex items-center justify-center leading-none tabular-nums">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -267,24 +267,24 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
           id="admin-notifications-popover"
           role="region"
           aria-label="Thông báo Quản trị"
-          className="absolute right-0 top-full mt-2.5 z-50 w-[400px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[min(520px,calc(100dvh-6rem))]"
+          className="absolute right-0 top-full mt-2.5 z-50 w-[400px] max-w-[calc(100vw-2rem)] bg-surface rounded-[var(--radius-modal)] shadow-[var(--shadow-modal)] border border-border overflow-hidden flex flex-col max-h-[min(520px,calc(100dvh-6rem))]"
         >
           {/* Header */}
-          <div className="p-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-2 shrink-0">
+          <div className="p-4 border-b border-border bg-surface-subtle flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-[var(--radius-control)] bg-accent-soft text-accent flex items-center justify-center shrink-0">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-slate-900">Thông báo Quản trị</h2>
+                  <h2 className="text-sm font-semibold text-text">Thông báo Quản trị</h2>
                   {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white tabular-nums">
+                    <span className="px-2 py-0.5 rounded-[var(--radius-badge)] text-[11px] font-medium bg-danger-bg text-danger-text tabular-nums">
                       {unreadCount} mới
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500">Hàng đợi cần xử lý theo thời gian thực</p>
+                <p className="text-xs text-text-muted">Hàng đợi cần xử lý theo thời gian thực</p>
               </div>
             </div>
 
@@ -295,7 +295,7 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
                 disabled={isFetching}
                 title="Làm mới thông báo"
                 aria-label="Làm mới thông báo"
-                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer disabled:opacity-50"
+                className="p-1.5 rounded-[var(--radius-control)] text-text-muted hover:text-text hover:bg-surface-muted transition-colors cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
               </button>
@@ -304,7 +304,7 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
                   type="button"
                   onClick={handleMarkAllRead}
                   title="Đánh dấu tất cả đã đọc"
-                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-50 flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-[var(--radius-control)] text-xs font-medium text-accent hover:bg-accent-soft flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   Đọc tất cả
@@ -314,41 +314,43 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
           </div>
 
           {/* Filter Pills */}
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0 bg-white">
-            {(
-              [
-                { key: 'ALL', label: 'Tất cả' },
-                { key: 'UNREAD', label: 'Chưa đọc' },
-                { key: 'MODERATION', label: 'Kiểm duyệt' },
-                { key: 'COMPLAINT', label: 'Khiếu nại' },
-                { key: 'WITHDRAWAL', label: 'Rút tiền' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  filter === tab.key
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="px-3 py-2 border-b border-border flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0 bg-surface">
+            <div className="inline-flex items-center gap-1 rounded-[10px] bg-surface-muted p-[3px]">
+              {(
+                [
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'UNREAD', label: 'Chưa đọc' },
+                  { key: 'MODERATION', label: 'Kiểm duyệt' },
+                  { key: 'COMPLAINT', label: 'Khiếu nại' },
+                  { key: 'WITHDRAWAL', label: 'Rút tiền' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setFilter(tab.key)}
+                  className={`px-2.5 py-1 rounded-[var(--radius-control)] text-xs whitespace-nowrap transition-colors cursor-pointer ${
+                    filter === tab.key
+                      ? 'bg-surface text-text font-semibold shadow-[var(--shadow-tab-active)]'
+                      : 'text-text-muted font-medium hover:text-text'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Notification List */}
-          <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+          <div className="overflow-y-auto flex-1 divide-y divide-surface-muted">
             {isLoading ? (
               <div className="p-4 space-y-3 animate-pulse">
                 {Array.from({ length: 3 }).map((_, idx) => (
                   <div key={idx} className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 shrink-0" />
+                    <div className="w-9 h-9 rounded-[var(--radius-control)] bg-surface-muted shrink-0" />
                     <div className="flex-1 space-y-1.5">
-                      <div className="h-3.5 w-2/3 bg-slate-100 rounded" />
-                      <div className="h-3 w-full bg-slate-100 rounded" />
+                      <div className="h-3.5 w-2/3 bg-surface-muted rounded" />
+                      <div className="h-3 w-full bg-surface-muted rounded" />
                     </div>
                   </div>
                 ))}
@@ -361,8 +363,8 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
                     key={item.id}
                     type="button"
                     onClick={() => handleItemClick(item)}
-                    className={`w-full text-left p-3.5 hover:bg-slate-50 transition-colors flex items-start gap-3 cursor-pointer ${
-                      isUnread ? 'bg-teal-50/35' : 'bg-white'
+                    className={`w-full text-left p-3.5 hover:bg-surface-subtle transition-colors flex items-start gap-3 cursor-pointer ${
+                      isUnread ? 'bg-accent-soft/45' : 'bg-surface'
                     }`}
                   >
                     {renderKindIcon(item.kind)}
@@ -371,21 +373,21 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
                       <div className="flex items-start justify-between gap-2">
                         <span
                           className={`text-xs leading-snug ${
-                            isUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'
+                            isUnread ? 'font-semibold text-text' : 'font-medium text-text-secondary'
                           }`}
                         >
                           {item.title}
                         </span>
                         {isUnread && (
-                          <span className="w-2 h-2 rounded-full bg-teal-600 shrink-0 mt-1" />
+                          <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1" />
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-text-muted mt-0.5 line-clamp-2">
                         {item.content}
                       </p>
-                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
+                      <div className="mt-1.5 flex items-center justify-between text-xs text-text-muted">
                         <span>{item.createdAt ? formatRelativeTime(item.createdAt) : 'Đang chờ'}</span>
-                        <span className="text-teal-700 font-semibold inline-flex items-center gap-0.5">
+                        <span className="text-accent font-medium inline-flex items-center gap-0.5">
                           Xử lý ngay
                           <ChevronRight className="w-3 h-3" />
                         </span>
@@ -396,13 +398,13 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
               })
             ) : (
               <div className="py-12 px-6 text-center">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
+                <div className="w-11 h-11 rounded-[var(--radius-card)] bg-surface-muted text-text-muted flex items-center justify-center mx-auto mb-2.5">
                   <Inbox className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">
+                <p className="text-xs font-semibold text-text-secondary">
                   Mọi hàng đợi đều đã được xử lý
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-text-muted mt-0.5">
                   Chưa có tin duyệt, khiếu nại hay lệnh rút tiền nào đang chờ.
                 </p>
               </div>

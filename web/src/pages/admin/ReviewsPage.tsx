@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card, Spinner } from '@heroui/react';
 import { Star, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
@@ -66,7 +66,7 @@ export const ReviewsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
           Kiểm duyệt Đánh giá & Nhận xét
         </h1>
 
@@ -100,66 +100,67 @@ export const ReviewsPage: React.FC = () => {
           onRetry={() => void refetch()}
         />
       ) : filteredReviews.length > 0 ? (
-        <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
-          <Card.Header className="p-4 border-b border-slate-100 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-800">
+        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
+          <Card.Header className="p-4 border-b border-border flex flex-row items-center justify-between">
+            <Card.Title className="text-xs font-semibold text-text">
               Danh sách đánh giá ({filteredReviews.length})
             </Card.Title>
           </Card.Header>
 
-          <Card.Content className="p-0 divide-y divide-slate-100">
+          <Card.Content className="p-0 divide-y divide-border/70">
             {filteredReviews.map((rev) => {
               const isHidden = rev.trangThai === 'AN';
               return (
-                <div key={rev.maDanhGia} className="p-5 hover:bg-slate-50/50 transition-colors">
+                <div key={rev.maDanhGia} className="p-5 hover:bg-surface-subtle transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                     <div>
-                      <span className="font-bold text-slate-900 text-xs">{rev.nguoiDanhGia}</span>
-                      <span className="text-slate-400 text-xs mx-2">•</span>
-                      <span className="text-slate-600 text-xs font-semibold">
+                      <span className="font-semibold text-text text-xs">{rev.nguoiDanhGia}</span>
+                      <span className="text-text-subtle text-xs mx-2">•</span>
+                      <span className="text-text-secondary text-xs font-medium">
                         {rev.tenPhongTro}
                       </span>
-                      <code className="ml-2 text-[10px] font-mono text-teal-700">
+                      <code className="ml-2 text-[11px] font-mono text-accent">
                         #{rev.phongTroId}
                       </code>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center text-amber-500">
+                      <div className="flex items-center">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
                             className={`w-3.5 h-3.5 ${
-                              i < rev.diem ? 'fill-amber-400 text-amber-400' : 'text-slate-200'
+                              i < rev.diem ? 'fill-current text-warning-text' : 'text-border'
                             }`}
                           />
                         ))}
                       </div>
-                      <Chip
-                        size="sm"
-                        variant="soft"
-                        color={isHidden ? 'default' : 'success'}
-                        className="font-bold"
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                          isHidden
+                            ? 'bg-surface-muted text-text-muted'
+                            : 'bg-success-bg text-success-text'
+                        }`}
                       >
                         {isHidden ? 'Tạm ẩn' : 'Hiển thị'}
-                      </Chip>
+                      </span>
                     </div>
                   </div>
 
                   <p
-                    className={`text-xs leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3 ${
-                      isHidden ? 'text-slate-400 italic' : 'text-slate-700'
+                    className={`text-xs leading-relaxed bg-surface-subtle p-3 rounded-lg border border-border mb-3 ${
+                      isHidden ? 'text-text-muted italic' : 'text-text-secondary'
                     }`}
                   >
                     "{rev.noiDung || 'Khách thuê đánh giá sao không kèm nhận xét'}"
                   </p>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-text-muted">
                     <span>Thời gian gửi: {formatDateTime(rev.thoiGian)}</span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setDeletingReview(rev)}
-                        className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-danger-bg hover:opacity-90 text-danger-text font-medium flex items-center gap-1 cursor-pointer transition-opacity"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         Xóa vĩnh viễn
@@ -195,7 +196,7 @@ export const ReviewsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeletingReview(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
             >
               Hủy
             </button>
@@ -203,7 +204,7 @@ export const ReviewsPage: React.FC = () => {
               type="button"
               disabled={deleteReviewMutation.isPending}
               onClick={() => deletingReview && deleteReviewMutation.mutate(deletingReview.maDanhGia)}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-danger-text hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-opacity"
             >
               {deleteReviewMutation.isPending && <Spinner size="sm" color="current" />}
               Xóa vĩnh viễn
@@ -212,12 +213,12 @@ export const ReviewsPage: React.FC = () => {
         }
       >
         {deletingReview && (
-          <div className="space-y-2 text-xs text-slate-600">
+          <div className="space-y-2 text-xs text-text-secondary">
             <p>
               Bạn có chắc chắn muốn xóa đánh giá của{' '}
-              <strong className="text-slate-900">{deletingReview.nguoiDanhGia}</strong> khỏi hệ thống không? Thao tác này không thể hoàn tác.
+              <strong className="font-semibold text-text">{deletingReview.nguoiDanhGia}</strong> khỏi hệ thống không? Thao tác này không thể hoàn tác.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 italic">
+            <div className="p-2.5 rounded-lg bg-surface-subtle border border-border text-text-secondary italic">
               "{deletingReview.noiDung}"
             </div>
           </div>

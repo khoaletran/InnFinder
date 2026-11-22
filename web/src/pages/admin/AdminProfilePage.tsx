@@ -127,19 +127,19 @@ export const AdminProfilePage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-semibold text-text tracking-[-0.01em]">
           Hồ sơ Quản trị viên
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 mt-1">
+        <p className="text-xs sm:text-sm text-text-muted mt-1">
           Quản lý thông tin tài khoản và thiết lập bảo mật cho phiên Quản trị
         </p>
       </div>
 
       {/* Header Card (phẳng, Teal/Slate) */}
-      <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+      <Card className="bg-surface rounded-xl border border-border p-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
           <div className="relative shrink-0">
-            <div className="w-20 h-20 rounded-full bg-teal-100 border-2 border-white shadow-xs text-teal-800 font-bold flex items-center justify-center text-2xl overflow-hidden">
+            <div className="w-20 h-20 rounded-full bg-surface-muted border border-border text-text font-semibold flex items-center justify-center text-2xl overflow-hidden">
               {avatarSrc ? (
                 <img
                   src={avatarSrc}
@@ -158,7 +158,7 @@ export const AdminProfilePage: React.FC = () => {
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploadingAvatar}
               aria-label="Đổi ảnh đại diện"
-              className="absolute -bottom-1 -right-1 min-h-[38px] min-w-[38px] p-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full shadow-sm cursor-pointer transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-600 disabled:opacity-60"
+              className="absolute -bottom-1 -right-1 min-h-[38px] min-w-[38px] p-2 bg-accent hover:bg-accent-hover text-white rounded-full cursor-pointer transition-colors flex items-center justify-center focus:outline-none disabled:opacity-60"
             >
               {isUploadingAvatar ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -178,31 +178,31 @@ export const AdminProfilePage: React.FC = () => {
 
           <div className="flex-1 text-center sm:text-left space-y-2 min-w-0">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <h2 className="text-lg font-bold text-slate-900 truncate">{displayName}</h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold">
+              <h2 className="text-lg font-semibold text-text truncate">{displayName}</h2>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent-soft text-accent border border-accent-border text-xs font-medium">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Quản trị viên
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-slate-600">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-text-muted">
               <span>Mã định danh:</span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200/80 pl-2.5 pr-1 py-0.5 rounded-lg">
-                <span className="font-mono font-semibold text-slate-800">{user?.maNguoiDung}</span>
+              <span className="inline-flex items-center gap-1 bg-surface-subtle border border-border pl-2.5 pr-1 py-0.5 rounded-lg">
+                <span className="font-mono font-medium text-text">{user?.maNguoiDung}</span>
                 <button
                   type="button"
                   onClick={() => void handleCopyUserId()}
                   aria-label="Sao chép mã định danh"
-                  className="min-h-[28px] min-w-[28px] inline-flex items-center justify-center rounded-md text-slate-600 hover:text-teal-700 hover:bg-white transition-colors cursor-pointer"
+                  className="min-h-[28px] min-w-[28px] inline-flex items-center justify-center rounded-md text-text-muted hover:text-accent hover:bg-surface transition-colors cursor-pointer"
                 >
                   {copiedId ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <Check className="w-3.5 h-3.5 text-success-text" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
                 </button>
               </span>
-              <span aria-hidden="true" className="text-slate-300">
+              <span aria-hidden="true" className="text-border-strong">
                 •
               </span>
               <span>Ngày tham gia: {formatDate(user?.thoiGianMoTaiKhoan)}</span>
@@ -214,7 +214,7 @@ export const AdminProfilePage: React.FC = () => {
       {/* URL-backed Navigation Tabs */}
       <nav
         aria-label="Danh mục hồ sơ quản trị"
-        className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto no-scrollbar"
+        className="flex items-center gap-2 border-b border-border pb-3 overflow-x-auto no-scrollbar"
       >
         {navTabs.map((tab) => {
           const Icon = tab.icon;
@@ -224,10 +224,10 @@ export const AdminProfilePage: React.FC = () => {
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `inline-flex items-center gap-2 min-h-[42px] px-4 rounded-xl text-xs sm:text-sm font-semibold transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                `inline-flex items-center gap-2 min-h-[42px] px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 focus:outline-none ${
                   isActive
-                    ? 'bg-teal-600 text-white shadow-xs'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    ? 'bg-accent text-white'
+                    : 'bg-surface text-text-secondary border border-border hover:bg-surface-subtle'
                 }`
               }
             >
