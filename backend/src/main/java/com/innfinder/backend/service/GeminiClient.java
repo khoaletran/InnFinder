@@ -32,24 +32,32 @@ public class GeminiClient {
     private final ObjectMapper mapper;
     private final String apiKey;
     private final String chatModel;
+    private final String fallbackChatModel;
     private final Semaphore slots = new Semaphore(3);
 
     @Autowired
     public GeminiClient(ObjectMapper mapper, @Value("${gemini.api-key:}") String apiKey,
-            @Value("${gemini.chat-model:gemini-3.5-flash-lite}") String chatModel,
-            @Value("${gemini.request-timeout-seconds:40}") int requestTimeout,
+            @Value("${gemini.chat-model:gemini-3.8-flash}") String chatModel,
+            @Value("${gemini.fallback-chat-model:gemini-3.5-flash-lite}") String fallbackChatModel,
+            @Value("${gemini.request-timeout-seconds:18}") int requestTimeout,
             @Value("${gemini.embedding-timeout-seconds:8}") int embeddingTimeout) {
-        this(mapper, apiKey, chatModel, httpClient(requestTimeout), httpClient(Math.clamp(embeddingTimeout, 1, 8)));
+        this(mapper, apiKey, chatModel, fallbackChatModel, httpClient(requestTimeout), httpClient(Math.clamp(embeddingTimeout, 1, 8)));
     }
 
     public GeminiClient(ObjectMapper mapper, String apiKey, String chatModel) {
-        this(mapper, apiKey, chatModel, 40, 8);
+        this(mapper, apiKey, chatModel, null, httpClient(18), httpClient(8));
     }
 
     GeminiClient(ObjectMapper mapper, String apiKey, String chatModel, RestClient client, RestClient embeddingClient) {
+        this(mapper, apiKey, chatModel, null, client, embeddingClient);
+    }
+
+    GeminiClient(ObjectMapper mapper, String apiKey, String chatModel, String fallbackChatModel,
+            RestClient client, RestClient embeddingClient) {
         this.mapper = mapper;
         this.apiKey = apiKey;
         this.chatModel = chatModel;
+        this.fallbackChatModel = fallbackChatModel;
         this.client = client;
         this.embeddingClient = embeddingClient;
     }
@@ -126,17 +134,37 @@ public class GeminiClient {
     private static long elapsed(long start) { return (System.nanoTime() - start) / 1_000_000; }
 
     public String generate(String instruction, String data, Map<String, Object> schema) {
+        try {
+            return generateWithModel(chatModel, instruction, data, schema);
+        } catch (AppException ex) {
+            if (isFallbackable(ex.getErrorCode())
+                    && fallbackChatModel != null && !fallbackChatModel.isBlank() && !fallbackChatModel.equals(chatModel)) {
+                log.warn("Gemini {} failed ({}); falling back to {}", chatModel, ex.getErrorCode().name(), fallbackChatModel);
+                return generateWithModel(fallbackChatModel, instruction, data, schema);
+            }
+            throw ex;
+        }
+    }
+
+    private static boolean isFallbackable(ErrorCode code) {
+        return code == ErrorCode.AI_UNAVAILABLE
+                || code == ErrorCode.AI_TIMEOUT
+                || code == ErrorCode.AI_QUOTA_EXCEEDED
+                || code == ErrorCode.AI_MODEL_UNAVAILABLE;
+    }
+
+    private String generateWithModel(String model, String instruction, String data, Map<String, Object> schema) {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("maxOutputTokens", schema == null ? 600 : 1200);
-        if (chatModel.startsWith("gemini-3")) {
-            String level = chatModel.matches("gemini-(3\\.5-flash-lite.*|3\\.1-flash-lite.*|3-flash.*|3\\.6-flash.*)") ? "MINIMAL" : "LOW";
+        if (model.startsWith("gemini-3")) {
+            String level = model.matches("gemini-(3\\.5-flash-lite.*|3\\.1-flash-lite.*|3-flash.*|3\\.6-flash.*)") ? "MINIMAL" : "LOW";
             config.put("thinkingConfig", Map.of("thinkingLevel", level));
         }
         if (schema != null) {
             config.put("responseMimeType", "application/json");
             config.put("responseSchema", schema);
         }
-        JsonNode result = post(chatModel, "generateContent", Map.of(
+        JsonNode result = post(model, "generateContent", Map.of(
                 "systemInstruction", Map.of("parts", List.of(Map.of("text", instruction))),
                 "contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", data)))),
                 "generationConfig", config));
