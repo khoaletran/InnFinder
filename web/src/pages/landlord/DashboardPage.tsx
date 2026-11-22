@@ -1,5 +1,5 @@
 import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -16,9 +16,15 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AppointmentDetailModal } from '@/components/landlord/AppointmentDetailModal';
+import { RoomDetailModal } from '@/components/landlord/RoomDetailModal';
 import { landlordService } from '@/services/landlord.service';
 import { useLandlordStore } from '@/store/useLandlordStore';
-import type { TrangThaiPhongTro } from '@/types/landlord.types';
+import type {
+  LandlordAppointmentItem,
+  LandlordRoomItem,
+  TrangThaiPhongTro,
+} from '@/types/landlord.types';
 import { formatPhoneNumber, formatVND } from '@/utils/formatters';
 
 const renderRoomStatusChip = (status: TrangThaiPhongTro) => {
@@ -88,6 +94,23 @@ export const DashboardPage: React.FC = () => {
   const recentRooms = rooms.slice(0, 4);
   const recentAppointments = appointments.slice(0, 4);
 
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<LandlordAppointmentItem | null>(null);
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+
+  const [selectedRoom, setSelectedRoom] = useState<LandlordRoomItem | null>(null);
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+
+  const handleOpenAppointment = (appointment: LandlordAppointmentItem) => {
+    setSelectedAppointment(appointment);
+    setIsAppointmentModalOpen(true);
+  };
+
+  const handleOpenRoom = (room: LandlordRoomItem) => {
+    setSelectedRoom(room);
+    setIsRoomModalOpen(true);
+  };
+
   if (statsError) return <LandlordQueryError error={statsError} onRetry={() => void refetchStats()} />;
 
   if (statsLoading && !stats) {
@@ -102,12 +125,14 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        {/* Card 1: Số Dư Khả Dụng - Điểm nhấn màu chính (Primary Teal) */}
+        <Card className="bg-white p-5 rounded-2xl border border-teal-200/80 shadow-xs hover:shadow-md transition-all relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 rounded-l-2xl" />
           <Card.Header className="p-0 flex flex-row items-center justify-between">
             <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Số Dư Khả Dụng
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
               <Wallet className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -115,19 +140,20 @@ export const DashboardPage: React.FC = () => {
             <p className="text-2xl font-black text-slate-900">
               {formatVND(stats?.soDu ?? 0)}
             </p>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-600 font-semibold">
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-teal-700 font-semibold">
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Có thể rút về ngân hàng</span>
             </div>
           </Card.Content>
         </Card>
 
+        {/* Card 2: Tổng Phòng Quản Lý - Màu phụ tối giản */}
         <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <Card.Header className="p-0 flex flex-row items-center justify-between">
             <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Tổng Phòng Quản Lý
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
               <Home className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -136,20 +162,21 @@ export const DashboardPage: React.FC = () => {
               {stats?.tongPhong ?? 0}{' '}
               <span className="text-sm font-semibold text-slate-400">phòng</span>
             </p>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500">
-              <span className="text-emerald-600 font-bold">{stats?.dangThue ?? 0} đã thuê</span>
+            <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-800">{stats?.dangThue ?? 0} đã thuê</span>
               <span>•</span>
-              <span className="text-cyan-600 font-bold">{stats?.dangTrong ?? 0} đang trống</span>
+              <span className="font-semibold text-teal-700">{stats?.dangTrong ?? 0} đang trống</span>
             </div>
           </Card.Content>
         </Card>
 
+        {/* Card 3: Lịch Hẹn Chờ Duyệt - Màu phụ tối giản */}
         <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <Card.Header className="p-0 flex flex-row items-center justify-between">
             <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Lịch Hẹn Chờ Duyệt
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
               <CalendarCheck className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -158,18 +185,19 @@ export const DashboardPage: React.FC = () => {
               {stats?.yeuCauMoi ?? 0}{' '}
               <span className="text-sm font-semibold text-slate-400">yêu cầu</span>
             </p>
-            <p className="text-[11px] text-amber-600 font-medium mt-2">
+            <p className="text-[11px] text-slate-500 font-medium mt-2">
               {stats?.phongChoDuyet ?? 0} tin đăng đang chờ Admin duyệt
             </p>
           </Card.Content>
         </Card>
 
+        {/* Card 4: Điểm Uy Tín Chủ Trọ - Màu phụ tối giản */}
         <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <Card.Header className="p-0 flex flex-row items-center justify-between">
             <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Điểm Uy Tín Chủ Trọ
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -178,8 +206,8 @@ export const DashboardPage: React.FC = () => {
               {diemUyTin}{' '}
               <span className="text-sm font-semibold text-slate-400">/ 100</span>
             </p>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-indigo-600 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-700 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
               <span>{reputationRank}</span>
             </div>
           </Card.Content>
@@ -213,8 +241,9 @@ export const DashboardPage: React.FC = () => {
               recentAppointments.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate('/landlord/appointments')}
+                  onClick={() => handleOpenAppointment(item)}
                   className="py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/60 rounded-xl px-2 transition-colors cursor-pointer"
+                  title="Bấm để xem chi tiết lịch hẹn"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <img
@@ -288,7 +317,7 @@ export const DashboardPage: React.FC = () => {
                 onClick={() => navigate('/landlord/rooms')}
                 className="text-xs font-bold text-cyan-600 hover:text-cyan-700 flex items-center gap-1 cursor-pointer"
               >
-                <span>Chi tiết</span>
+                <span>Xem tất cả</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </Card.Header>
@@ -302,8 +331,9 @@ export const DashboardPage: React.FC = () => {
                 recentRooms.map((room) => (
                   <div
                     key={room.id}
-                    onClick={() => navigate(`/landlord/rooms/edit/${room.maPhongTro}`)}
+                    onClick={() => handleOpenRoom(room)}
                     className="p-2.5 rounded-xl border border-slate-100 hover:border-cyan-200 hover:bg-cyan-50/20 transition-all cursor-pointer flex items-center gap-3"
+                    title="Bấm để xem chi tiết phòng trọ"
                   >
                     <img
                       src={
@@ -344,6 +374,21 @@ export const DashboardPage: React.FC = () => {
           </Card.Footer>
         </Card>
       </div>
+
+      {/* MODAL CHI TIẾT LỊCH HẸN */}
+      <AppointmentDetailModal
+        isOpen={isAppointmentModalOpen}
+        onClose={() => setIsAppointmentModalOpen(false)}
+        appointment={selectedAppointment}
+      />
+
+      {/* MODAL CHI TIẾT PHÒNG TRỌ (KÈM GALLERY LIGHTBOX) */}
+      <RoomDetailModal
+        isOpen={isRoomModalOpen}
+        onClose={() => setIsRoomModalOpen(false)}
+        room={selectedRoom}
+        onEdit={(maPhongTro) => navigate(`/landlord/rooms/edit/${maPhongTro}`)}
+      />
     </div>
   );
 };

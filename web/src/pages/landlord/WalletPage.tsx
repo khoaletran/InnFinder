@@ -102,13 +102,14 @@ export function WalletPage() {
       {[
         ['Số dư khả dụng', wallet?.soDu], ['Tổng đã nhận', wallet?.tongDaThu],
         ['Tổng đã rút', wallet?.tongDaRut], ['Đang chờ rút', wallet?.dangChoRut],
-      ].map(([label, value], index) => <Card key={String(label)} className={`p-5 rounded-2xl border border-slate-200 ${index === 0 ? 'bg-cyan-700 text-white' : 'bg-white'}`}>
-        <Card.Header><Card.Title className="text-xs uppercase tracking-wide">{label}</Card.Title></Card.Header>
-        <Card.Content><p className="text-2xl font-bold">{typeof value === 'number' ? formatVND(value) : '—'}</p></Card.Content>
+      ].map(([label, value], index) => <Card key={String(label)} className={`p-5 rounded-2xl ${index === 0 ? 'bg-white border border-teal-200/80 shadow-xs relative overflow-hidden' : 'bg-white border border-slate-200/80 shadow-xs'}`}>
+        {index === 0 && <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 rounded-l-2xl" />}
+        <Card.Header><Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">{label}</Card.Title></Card.Header>
+        <Card.Content><p className="text-2xl font-black text-slate-900">{typeof value === 'number' ? formatVND(value) : '—'}</p></Card.Content>
       </Card>)}
     </div>
     <div className="flex justify-end">
-      <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy} onClick={() => setWithdrawOpen(true)}>Rút tiền về ngân hàng</button>
+      <button className="rounded-xl bg-teal-600 hover:bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer transition-colors shadow-2xs" disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy} onClick={() => setWithdrawOpen(true)}>Rút tiền về ngân hàng</button>
     </div>
 
     <Card className="p-5 rounded-2xl bg-white border border-slate-200">

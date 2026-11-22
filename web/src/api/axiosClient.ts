@@ -3,7 +3,7 @@ import type { InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api.types';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export const BASE_URL = import.meta.env.VITE_API_URL || 'https://extrude-chug-shorthand.ngrok-free.dev';
+export const BASE_URL = "http://localhost:8080";
 const TOKEN_KEY = 'innfinder_jwt_token';
 
 export const tokenStorage = {

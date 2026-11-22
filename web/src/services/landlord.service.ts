@@ -1,4 +1,5 @@
 import { axiosClient } from '@/api/axiosClient';
+import { matchesTransactionType, TRANSACTION_TYPES } from '@/components/landlord/walletTransactions';
 import { uploadService } from '@/services/upload.service';
 import type { ComplaintResponseDTO } from '@/types/auth-user.types';
 import type { AppointmentResponse } from '@/types/booking.types';
@@ -166,8 +167,17 @@ export const landlordService = {
   },
 
   getRoomById: async (id: string): Promise<LandlordRoomItem | undefined> => {
-    const detail = await axiosClient.get<unknown, RoomDetailResponse>(`/api/landlord/rooms/${id}`);
-    return detail ? mapRoomDetailToLandlordItem(detail) : undefined;
+    try {
+      const detail = await axiosClient.get<unknown, RoomDetailResponse>(`/api/landlord/rooms/${id}`);
+      return detail ? mapRoomDetailToLandlordItem(detail) : undefined;
+    } catch {
+      try {
+        const publicDetail = await axiosClient.get<unknown, RoomDetailResponse>(`/api/rooms/${id}`);
+        return publicDetail ? mapRoomDetailToLandlordItem(publicDetail) : undefined;
+      } catch {
+        return undefined;
+      }
+    }
   },
 
   createRoom: async (payload: RoomCreatePayload): Promise<LandlordRoomItem> => {
@@ -245,11 +255,102 @@ export const landlordService = {
     return axiosClient.get<unknown, LandlordWalletInfo>('/api/landlord/wallet');
   },
 
-  getTransactionsPage: async (params: { search: string; type: string; status?: string; fromDate?: string; toDate?: string; page: number; size: number }): Promise<{
-    content: LandlordTransactionItem[]; totalElements: number; totalPages: number; number: number;
-  }> => axiosClient.get('/api/landlord/transactions', { params }),
+  getTransactionsPage: async (params: {
+    search: string;
+    type: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    page: number;
+    size: number;
+  }): Promise<{
+    content: LandlordTransactionItem[];
+    totalElements: number;
+    totalPages: number;
+    number: number;
+  }> => {
+    try {
+      const cleanParams: Record<string, unknown> = {
+        page: params.page,
+        size: params.size,
+      };
+      if (params.search?.trim()) cleanParams.search = params.search.trim();
+      if (params.type?.trim()) cleanParams.type = params.type.trim();
+      if (params.status?.trim()) cleanParams.status = params.status.trim();
+      if (params.fromDate?.trim()) cleanParams.fromDate = params.fromDate.trim();
+      if (params.toDate?.trim()) cleanParams.toDate = params.toDate.trim();
 
-  getReceipt: async (id: string): Promise<LandlordTransactionItem> => axiosClient.get(`/api/landlord/transactions/${id}`),
+      const res = await axiosClient.get<
+        unknown,
+        {
+          content: LandlordTransactionItem[];
+          totalElements: number;
+          totalPages: number;
+          number: number;
+        }
+      >('/api/landlord/transactions', { params: cleanParams });
+
+      if (res && Array.isArray(res.content)) {
+        return res;
+      }
+    } catch {
+      // Fallback về endpoint chính thức /api/transactions/my-history khi server chưa triển khai phân trang
+    }
+
+    try {
+      const all = await landlordService.getTransactions();
+      const keyword = (params.search || '').trim().toLocaleLowerCase('vi-VN');
+      const filtered = (all || []).filter((tx) => {
+        const date = tx.ngayGiaoDich ? tx.ngayGiaoDich.slice(0, 10) : '';
+        const typeLabel = TRANSACTION_TYPES[tx.loaiGiaoDich] || '';
+        const searchable = [
+          tx.maGiaoDich,
+          tx.noiDung,
+          tx.maDatLich,
+          tx.maPhongTro,
+          tx.maThamChieuNganHang,
+          typeLabel,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase('vi-VN');
+        const matchesSearch = !keyword || searchable.includes(keyword);
+        const matchesType = matchesTransactionType(tx, params.type);
+        const matchesStatus = !params.status || tx.trangThai === params.status;
+        const matchesFromDate = !params.fromDate || date >= params.fromDate;
+        const matchesToDate = !params.toDate || date <= params.toDate;
+        return matchesSearch && matchesType && matchesStatus && matchesFromDate && matchesToDate;
+      });
+
+      const pageSize = Math.max(1, params.size || 10);
+      const totalElements = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+      const pageIndex = Math.min(Math.max(0, params.page), totalPages - 1);
+      const content = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+
+      return {
+        content,
+        totalElements,
+        totalPages,
+        number: pageIndex,
+      };
+    } catch {
+      return { content: [], totalElements: 0, totalPages: 1, number: 0 };
+    }
+  },
+
+  getReceipt: async (id: string): Promise<LandlordTransactionItem> => {
+    try {
+      const res = await axiosClient.get<unknown, LandlordTransactionItem>(`/api/landlord/transactions/${id}`);
+      if (res && res.maGiaoDich) return res;
+    } catch {
+      // fallback
+    }
+    const all = await landlordService.getTransactions();
+    const found = all.find((t) => t.maGiaoDich === id);
+    if (!found) throw new Error('Không tìm thấy giao dịch');
+    return found;
+  },
 
   getTransactions: async (): Promise<LandlordTransactionItem[]> => {
     return axiosClient.get<unknown, LandlordTransactionItem[]>('/api/transactions/my-history');

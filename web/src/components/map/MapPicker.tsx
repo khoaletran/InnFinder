@@ -17,11 +17,28 @@ interface MapPickerProps {
   height?: string;
 }
 
+const createInnFinderMarkerIcon = () => {
+  return L.divIcon({
+    className: 'innfinder-map-pin',
+    html: `
+      <div style="filter: drop-shadow(0 4px 8px rgba(17, 138, 126, 0.5)); cursor: grab; transition: transform 0.15s ease;" title="Kéo để chỉnh vị trí phòng">
+        <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 6C29.5 6 13 22.5 13 43C13 66.8 44.2 91.2 48.1 94.2C49.2 95.1 50.8 95.1 51.9 94.2C55.8 91.2 87 66.8 87 43C87 22.5 70.5 6 50 6Z" fill="#118A7E" stroke="#FFFFFF" stroke-width="2.5"/>
+          <path d="M50 22L23 44.5L28.2 49.8L50 31.6L71.8 49.8L77 44.5L68 37V25.5H60.5V30.8L50 22Z" fill="#FFFFFF"/>
+          <path d="M32.5 48.5V67.5H44V55.5C44 52.2 46.7 49.5 50 49.5C53.3 49.5 56 52.2 56 55.5V67.5H67.5V48.5L50 34L32.5 48.5Z" fill="#FFFFFF"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [42, 42],
+    iconAnchor: [21, 40],
+  });
+};
+
 export const MapPicker: React.FC<MapPickerProps> = ({
   lat,
   lng,
   onChange,
-  height = '320px',
+  height = '340px',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -39,14 +56,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
 
-      const customIcon = L.divIcon({
-        className: 'custom-map-marker',
-        html: `<div style="background-color: #0891b2; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(8, 145, 178, 0.4); border: 2px solid white;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        </div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 34],
-      });
+      const customIcon = createInnFinderMarkerIcon();
 
       const marker = L.marker([initialLat, initialLng], {
         draggable: true,
@@ -66,9 +76,11 @@ export const MapPicker: React.FC<MapPickerProps> = ({
       mapInstanceRef.current = map;
       markerRef.current = marker;
     } else {
-      mapInstanceRef.current.setView([lat, lng]);
-      if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
+      const currentPos = markerRef.current?.getLatLng();
+      const distance = currentPos ? currentPos.distanceTo([lat, lng]) : 0;
+      if (distance > 5) {
+        mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 0.8 });
+        markerRef.current?.setLatLng([lat, lng]);
       }
     }
   }, [lat, lng, onChange]);
@@ -78,10 +90,10 @@ export const MapPicker: React.FC<MapPickerProps> = ({
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-          mapInstanceRef.current?.setView([latitude, longitude], 16);
+          mapInstanceRef.current?.flyTo([latitude, longitude], 16);
           markerRef.current?.setLatLng([latitude, longitude]);
           onChange(Number(latitude.toFixed(6)), Number(longitude.toFixed(6)));
-          toast.success('Đã cập nhật tọa độ vị trí hiện tại');
+          toast.success('Đã cập nhật vị trí hiện tại');
         },
         () => {
           toast.warning('Không thể lấy GPS tự động. Vui lòng chấm trực tiếp trên bản đồ.');
@@ -91,22 +103,22 @@ export const MapPicker: React.FC<MapPickerProps> = ({
   };
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xs">
+    <div className="relative z-0 rounded-2xl overflow-hidden border border-slate-200 shadow-xs">
       <div ref={mapContainerRef} style={{ height, width: '100%' }} />
 
       <button
         type="button"
         onClick={handleCurrentLocation}
-        className="absolute top-3 right-3 z-[1000] bg-white/90 backdrop-blur-xs text-slate-700 hover:text-cyan-600 px-3 py-1.5 rounded-xl shadow-md border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-white transition-all"
+        className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-xs text-slate-700 hover:text-teal-700 px-3 py-1.5 rounded-xl shadow-md border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-white transition-all"
       >
-        <Navigation className="w-3.5 h-3.5 text-cyan-600" />
+        <Navigation className="w-3.5 h-3.5 text-teal-600" />
         Vị trí của tôi
       </button>
 
       <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
-        <MapPin className="w-4 h-4 text-cyan-600" />
-        <span>
-          Vĩ độ: <strong>{lat}</strong> · Kinh độ: <strong>{lng}</strong>
+        <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+        <span className="font-medium text-slate-700">
+          Kéo ghim hoặc click trên bản đồ để tinh chỉnh vị trí
         </span>
       </div>
     </div>
