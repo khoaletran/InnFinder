@@ -1,0 +1,69 @@
+:root {
+  /* Neutrals (light surface) */
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-subtle: #FAFBFC;
+  --surface-muted: #F1F5F9;
+  --border: #E5E7EB;
+  --border-strong: #CBD5E1;
+  --text: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+  --text-subtle: #94A3B8; /* Only for placeholders & decorative icons (contrast < 4.5:1 on white) */
+
+  /* Brand Accent (calm teal) */
+  --accent: #0F766E;
+  --accent-hover: #115E59;
+  --accent-foreground: #FFFFFF;
+  --accent-soft: #F0FDFA;
+  --accent-border: #99F6E4;
+  --focus: var(--accent);
+  --focus-ring: rgba(15, 118, 110, 0.15);
+
+  /* Semantic Statuses (bold dark text + very soft tint background) */
+  --status-success-text: #166534;
+  --status-success-bg: #F0FDF4;
+  --status-success-border: #DCFCE7;
+
+  --status-warning-text: #92400E;
+  --status-warning-bg: #FFFBEB;
+  --status-warning-border: #FEF3C7;
+
+  --status-danger-text: #B91C1C;
+  --status-danger-bg: #FEF2F2;
+  --status-danger-border: #FECACA;
+
+  --status-info-text: #334155;
+  --status-info-bg: #F1F5F9;
+  --status-info-border: #E2E8F0;
+
+  /* Dark Sidebar (Admin & Landlord, flat) */
+  --sidebar-bg: #0F172A;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-text: #94A3B8;
+  --sidebar-text-hover: #E2E8F0;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-text: #F8FAFC;
+  --sidebar-active-icon: rgba(94, 234, 212, 0.9);
+  --sidebar-active-indicator: rgba(45, 212, 191, 0.8);
+
+  /* Charts */
+  --chart-primary: #0F766E;
+  --chart-grid: #EEF2F6;
+  --chart-series-2: #64748B;
+  --chart-series-3: #94A3B8;
+  --chart-series-4: #CBD5E1;
+  --chart-series-5: #475569;
+
+  /* Radii & Elevations */
+  --radius-badge: 6px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-modal: 16px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(16, 24, 40, 0.06);
+  --shadow-tab-active: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 20px 40px rgba(15, 23, 42, 0.12);
+  --overlay-backdrop: rgba(15, 23, 42, 0.4);
+}

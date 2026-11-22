@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card, Spinner } from '@heroui/react';
 import { CalendarCheck, CheckCircle2, Clock, Gavel, RotateCcw, SearchCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
@@ -137,21 +137,21 @@ export const ComplaintsAdminPage: React.FC = () => {
     switch (status) {
       case 'CHO_DUYET':
         return (
-          <Chip size="sm" variant="soft" color="warning" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning-bg text-warning-text">
             Chờ duyệt
-          </Chip>
+          </span>
         );
       case 'DANG_XU_LY':
         return (
-          <Chip size="sm" variant="soft" color="accent" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-accent-soft text-accent">
             Đang xác minh
-          </Chip>
+          </span>
         );
       case 'DA_XU_LI':
         return (
-          <Chip size="sm" variant="soft" color="success" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
             Đã xử lý
-          </Chip>
+          </span>
         );
     }
   };
@@ -176,7 +176,7 @@ export const ComplaintsAdminPage: React.FC = () => {
     <div className="space-y-6">
       {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
           Xử lý Khiếu nại & Vi phạm
         </h1>
 
@@ -217,10 +217,10 @@ export const ComplaintsAdminPage: React.FC = () => {
           onRetry={() => void refetch()}
         />
       ) : (
-        <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
+        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
           <Card.Content className="p-0 overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Mã khiếu nại</th>
                   <th className="py-3 px-4">Người tố cáo</th>
@@ -231,30 +231,30 @@ export const ComplaintsAdminPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Phán quyết</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border/70">
                 {isLoading ? (
                   <AdminTableSkeleton rows={5} cols={7} />
                 ) : filtered.length > 0 ? (
                   filtered.map((item) => (
-                    <tr key={item.maKhieuNai} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                    <tr key={item.maKhieuNai} className="hover:bg-surface-subtle transition-colors">
+                      <td className="py-3 px-4 font-mono font-medium text-text-secondary">
                         #{item.maKhieuNai}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">
+                      <td className="py-3 px-4 font-medium text-text">
                         {item.nguoiKhieuNai}
                       </td>
-                      <td className="py-3 px-4 font-bold text-red-600">{item.doiTuongBiKhieuNai}</td>
-                      <td className="py-3 px-4 text-slate-700 max-w-xs truncate">{item.vanDe}</td>
-                      <td className="py-3 px-4 text-slate-500">{formatDateTime(item.thoiGian)}</td>
+                      <td className="py-3 px-4 font-semibold text-danger-text">{item.doiTuongBiKhieuNai}</td>
+                      <td className="py-3 px-4 text-text-secondary max-w-xs truncate">{item.vanDe}</td>
+                      <td className="py-3 px-4 text-text-muted tabular-nums">{formatDateTime(item.thoiGian)}</td>
                       <td className="py-3 px-4">{renderComplaintStatusChip(item.trangThai)}</td>
                       <td className="py-3 px-4 text-right">
                         <button
                           type="button"
                           onClick={() => handleOpenResolve(item)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ml-auto cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 ml-auto cursor-pointer transition-colors ${
                             item.trangThai === 'DA_XU_LI'
-                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                              : 'bg-slate-900 hover:bg-slate-800 text-white'
+                              ? 'border border-border bg-surface hover:bg-surface-subtle text-text-secondary'
+                              : 'bg-accent hover:bg-accent-hover text-white'
                           }`}
                         >
                           <Gavel className="w-3.5 h-3.5" />
@@ -265,7 +265,7 @@ export const ComplaintsAdminPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={7} className="py-12 text-center text-text-muted">
                       Hiện không có khiếu nại nào khớp với bộ lọc.
                     </td>
                   </tr>
@@ -298,28 +298,28 @@ export const ComplaintsAdminPage: React.FC = () => {
           const eligibleBookings = relatedBookings.filter((b) => b.duDieuKienHoanCoc);
           return (
           <form onSubmit={handleResolveSubmit} className="space-y-4">
-            <div className="p-3.5 bg-slate-50 rounded-xl space-y-1.5 text-xs">
+            <div className="p-3.5 bg-surface-subtle border border-border rounded-lg space-y-1.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Người gửi khiếu nại:</span>
-                <strong className="text-slate-800">{selectedComplaint.nguoiKhieuNai}</strong>
+                <span className="text-text-muted">Người gửi khiếu nại:</span>
+                <strong className="font-medium text-text">{selectedComplaint.nguoiKhieuNai}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Đối tượng bị phản ánh:</span>
-                <strong className="text-red-600">{selectedComplaint.doiTuongBiKhieuNai}</strong>
+                <span className="text-text-muted">Đối tượng bị phản ánh:</span>
+                <strong className="font-semibold text-danger-text">{selectedComplaint.doiTuongBiKhieuNai}</strong>
               </div>
-              <div className="pt-1 text-slate-700">
-                <span className="font-semibold block mb-1">Nội dung phản ánh:</span>
-                <p className="bg-white p-2.5 rounded-lg border border-slate-200">
+              <div className="pt-1 text-text-secondary">
+                <span className="font-medium block mb-1">Nội dung phản ánh:</span>
+                <p className="bg-surface p-2.5 rounded-lg border border-border">
                   {selectedComplaint.vanDe}
                 </p>
               </div>
             </div>
 
             {/* Thông tin lịch hẹn & cọc giữ chân liên quan */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
+            <div className="p-3.5 rounded-lg border border-border bg-surface space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <CalendarCheck className="w-4 h-4 text-teal-600" />
+                <span className="font-semibold text-text flex items-center gap-1.5">
+                  <CalendarCheck className="w-4 h-4 text-accent" />
                   Lịch hẹn & cọc giữ chân liên quan ({relatedBookings.length})
                 </span>
               </div>
@@ -328,17 +328,17 @@ export const ComplaintsAdminPage: React.FC = () => {
                   {relatedBookings.map((b) => (
                     <div
                       key={b.maDatLich}
-                      className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      className="p-2.5 rounded-lg bg-surface-subtle border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <code className="font-mono font-bold text-teal-700">{b.maDatLich}</code>
-                          <span className="text-[11px] text-slate-500">
+                          <code className="font-mono font-medium text-accent">{b.maDatLich}</code>
+                          <span className="text-[11px] text-text-muted">
                             • {formatBookingStatusLabel(b.trangThai)}
                           </span>
                         </div>
-                        <p className="text-slate-700 font-medium truncate">{b.tenPhongTro}</p>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-text font-medium truncate">{b.tenPhongTro}</p>
+                        <p className="text-[11px] text-text-muted">
                           Hẹn: {formatDateTime(b.ngayHen)} •{' '}
                           {b.daNhanLaiCoc
                             ? 'Khách đã xác nhận nhận lại cọc ngoài đời'
@@ -348,22 +348,22 @@ export const ComplaintsAdminPage: React.FC = () => {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-bold text-slate-900 tabular-nums">
+                        <div className="font-semibold text-text tabular-nums">
                           {formatVND(b.tienCoc)}
                         </div>
                         {b.duDieuKienHoanCoc ? (
-                          <span className="text-[10px] font-bold text-emerald-600">
+                          <span className="text-[11px] font-medium text-success-text">
                             Đủ điều kiện hoàn
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400">Không thể hoàn tự động</span>
+                          <span className="text-[11px] text-text-muted">Không thể hoàn tự động</span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-text-muted">
                   Không ghi nhận lịch hẹn có cọc giữ chân giữa hai tài khoản này.
                 </p>
               )}
@@ -371,7 +371,7 @@ export const ComplaintsAdminPage: React.FC = () => {
 
             {Array.isArray(selectedComplaint.hinhAnh) && selectedComplaint.hinhAnh.length > 0 && (
               <div>
-                <span className="block text-xs font-bold text-slate-700 mb-1.5">
+                <span className="block text-xs font-medium text-text-secondary mb-1.5">
                   Hình ảnh bằng chứng vi phạm:
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -381,7 +381,7 @@ export const ComplaintsAdminPage: React.FC = () => {
                       href={img}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-20 h-20 rounded-xl border border-slate-200 overflow-hidden block"
+                      className="w-20 h-20 rounded-lg border border-border overflow-hidden block"
                     >
                       <img src={img} alt="" className="w-full h-full object-cover" />
                     </a>
@@ -392,7 +392,7 @@ export const ComplaintsAdminPage: React.FC = () => {
 
             {/* Trạng thái xử lý */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
                 Trạng thái xử lý
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -407,12 +407,12 @@ export const ComplaintsAdminPage: React.FC = () => {
                     type="button"
                     disabled={isResolved}
                     onClick={() => setNextStatus(st.val)}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                    className={`py-2 px-3 rounded-lg text-xs border transition-colors ${
                       isResolved ? 'cursor-default opacity-80' : 'cursor-pointer'
                     } ${
                       nextStatus === st.val
-                        ? 'bg-teal-50 border-teal-500 text-teal-700 font-bold'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? 'bg-accent-soft border-accent-border text-accent font-semibold'
+                        : 'border-border text-text-secondary hover:bg-surface-subtle font-medium'
                     }`}
                   >
                     {st.label}
@@ -423,7 +423,7 @@ export const ComplaintsAdminPage: React.FC = () => {
 
             {/* Mức độ vi phạm */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
                 Mức độ vi phạm
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -433,16 +433,16 @@ export const ComplaintsAdminPage: React.FC = () => {
                     type="button"
                     disabled={isResolved}
                     onClick={() => setViolationLevel(m.val)}
-                    className={`p-2.5 rounded-xl text-left border transition-all ${
+                    className={`p-2.5 rounded-lg text-left border transition-colors ${
                       isResolved ? 'cursor-default opacity-80' : 'cursor-pointer'
                     } ${
                       violationLevel === m.val
-                        ? 'bg-red-50 border-red-500 text-red-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? 'bg-danger-bg border-danger-border text-danger-text'
+                        : 'border-border text-text-secondary hover:bg-surface-subtle'
                     }`}
                   >
-                    <span className="block text-xs font-bold">{m.label}</span>
-                    <span className="block text-[10px] opacity-80 mt-0.5">{m.desc}</span>
+                    <span className="block text-xs font-semibold">{m.label}</span>
+                    <span className="block text-[11px] opacity-80 mt-0.5">{m.desc}</span>
                   </button>
                 ))}
               </div>
@@ -450,7 +450,7 @@ export const ComplaintsAdminPage: React.FC = () => {
 
             {/* Hoàn cọc cho khách hàng nếu chốt Đã xử lý và có lịch hẹn đủ điều kiện */}
             {!isResolved && nextStatus === 'DA_XU_LI' && eligibleBookings.length > 0 && (
-              <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50 space-y-2.5 text-xs">
+              <div className="p-3.5 rounded-lg border border-accent-border bg-accent-soft space-y-2.5 text-xs">
                 <label className="flex items-start gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -462,14 +462,14 @@ export const ComplaintsAdminPage: React.FC = () => {
                         setSelectedRefundBookingId(eligibleBookings[0].maDatLich);
                       }
                     }}
-                    className="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                    className="mt-0.5 rounded border-border-strong text-accent focus:ring-accent cursor-pointer"
                   />
                   <div>
-                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
+                    <span className="font-semibold text-text flex items-center gap-1.5">
+                      <RotateCcw className="w-3.5 h-3.5 text-accent" />
                       Hoàn cọc giữ chân về cho khách hàng
                     </span>
-                    <span className="block text-[11px] text-slate-600 mt-0.5">
+                    <span className="block text-[11px] text-text-secondary mt-0.5">
                       Hủy lịch hẹn và ghi nhận giao dịch hoàn 100% tiền cọc đang tạm giữ trên sàn.
                     </span>
                   </div>
@@ -477,13 +477,13 @@ export const ComplaintsAdminPage: React.FC = () => {
 
                 {refundDeposit && (
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-medium text-text-secondary mb-1">
                       Chọn lịch hẹn hoàn cọc
                     </label>
                     <select
                       value={selectedRefundBookingId}
                       onChange={(e) => setSelectedRefundBookingId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-teal-200 bg-white text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text focus:outline-none focus:border-accent"
                     >
                       {eligibleBookings.map((b) => (
                         <option key={b.maDatLich} value={b.maDatLich}>
@@ -497,7 +497,7 @@ export const ComplaintsAdminPage: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
                 Kết luận xử lý & Biện pháp khắc phục
               </label>
               <textarea
@@ -506,10 +506,10 @@ export const ComplaintsAdminPage: React.FC = () => {
                 placeholder="Ghi rõ phương án hoàn cọc, chế tài áp dụng hoặc cảnh cáo đối với tài khoản vi phạm..."
                 value={conclusion}
                 onChange={(e) => setConclusion(e.target.value)}
-                className={`w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none ${
+                className={`w-full p-2.5 rounded-lg border border-border text-xs text-text placeholder:text-text-subtle focus:outline-none ${
                   isResolved
-                    ? 'bg-slate-50 text-slate-700'
-                    : 'focus:ring-2 focus:ring-teal-100 focus:border-teal-500'
+                    ? 'bg-surface-subtle text-text-secondary'
+                    : 'bg-surface focus:border-accent'
                 }`}
               />
             </div>
@@ -518,7 +518,7 @@ export const ComplaintsAdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedComplaint(null)}
-                className={`${isResolved ? 'w-full bg-slate-900 text-white hover:bg-slate-800' : 'w-1/2 border border-slate-200 text-slate-600 hover:bg-slate-50'} py-2.5 rounded-xl text-xs font-semibold cursor-pointer`}
+                className={`${isResolved ? 'w-full' : 'w-1/2'} border border-border bg-surface text-text-secondary hover:bg-surface-subtle py-2.5 rounded-lg text-xs font-medium cursor-pointer transition-colors`}
               >
                 Đóng
               </button>
@@ -526,7 +526,7 @@ export const ComplaintsAdminPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={resolveMutation.isPending}
-                  className="w-1/2 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/20 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="w-1/2 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   {resolveMutation.isPending && <Spinner size="sm" color="current" />}
                   Ban hành phán quyết

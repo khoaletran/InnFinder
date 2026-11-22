@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card, Spinner } from '@heroui/react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import {
@@ -20,6 +20,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
@@ -49,7 +50,15 @@ const maskSensitive = (value?: string, visibleDigits = 4): string => {
 export const UsersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'USERS' | 'LANDLORD_REQUESTS'>('USERS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'landlord-requests' ? 'LANDLORD_REQUESTS' : 'USERS';
+  const setActiveTab = (tab: 'USERS' | 'LANDLORD_REQUESTS') => {
+    setSearchParams((params) => {
+      if (tab === 'LANDLORD_REQUESTS') params.set('tab', 'landlord-requests');
+      else params.delete('tab');
+      return params;
+    }, { replace: true });
+  };
   const [landlordStatusTab, setLandlordStatusTab] = useState<TrangThaiYeuCauChuTro>('CHO_DUYET');
   const [searchInput, setSearchInput] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');
@@ -229,21 +238,21 @@ export const UsersPage: React.FC = () => {
     switch (status) {
       case 'CHO_DUYET':
         return (
-          <Chip size="sm" variant="soft" color="warning" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning-bg text-warning-text">
             Chờ duyệt
-          </Chip>
+          </span>
         );
       case 'DA_DUYET':
         return (
-          <Chip size="sm" variant="soft" color="success" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
             Đã duyệt
-          </Chip>
+          </span>
         );
       case 'TU_CHOI':
         return (
-          <Chip size="sm" variant="soft" color="danger" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-danger-bg text-danger-text">
             Đã từ chối
-          </Chip>
+          </span>
         );
     }
   };
@@ -262,19 +271,19 @@ export const UsersPage: React.FC = () => {
     <div className="space-y-6">
       {/* Title & Tab Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
           Quản lý Tài khoản & Phân quyền
         </h1>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl bg-slate-200/70 p-1 text-xs font-semibold gap-1">
+          <div className="flex rounded-lg bg-surface-muted p-1 text-xs gap-1">
             <button
               type="button"
               onClick={() => setActiveTab('USERS')}
-              className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-md transition-colors cursor-pointer ${
                 activeTab === 'USERS'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               Tra cứu người dùng
@@ -282,15 +291,15 @@ export const UsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('LANDLORD_REQUESTS')}
-              className={`px-4 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'LANDLORD_REQUESTS'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               Duyệt CCCD Chủ trọ
               {pendingLandlordCount > 0 && (
-                <span className="px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[10px] leading-none">
+                <span className="px-1.5 py-0.5 bg-accent text-white rounded-full text-[10px] font-medium leading-none tabular-nums">
                   {pendingLandlordCount}
                 </span>
               )}
@@ -308,7 +317,7 @@ export const UsersPage: React.FC = () => {
               resetCreateAdminForm();
               setShowCreateAdminModal(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="px-3.5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             Thêm Quản trị viên
@@ -325,22 +334,22 @@ export const UsersPage: React.FC = () => {
             onRetry={() => void refetchUsers()}
           />
         ) : (
-          <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
-            <Card.Header className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
+            <Card.Header className="p-4 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                 <div className="relative flex-1 sm:flex-none sm:w-96 min-w-[220px]">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Nhập mã ND, tên đăng nhập, họ tên, email, SĐT, CCCD..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-surface-subtle border border-border text-xs text-text placeholder:text-text-subtle focus:outline-none focus:bg-surface focus:border-accent"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium transition-colors cursor-pointer"
                 >
                   Tìm kiếm
                 </button>
@@ -348,35 +357,35 @@ export const UsersPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleClearSearch}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="px-3 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text-secondary hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     Xóa
                   </button>
                 )}
               </form>
               {hasSearchQuery ? (
-                <span className="text-xs font-medium text-slate-500">
+                <span className="text-xs font-medium text-text-muted">
                   Tìm thấy{' '}
-                  <strong className="text-slate-800">{totalElements.toLocaleString('vi-VN')}</strong>{' '}
+                  <strong className="font-semibold text-text tabular-nums">{totalElements.toLocaleString('vi-VN')}</strong>{' '}
                   tài khoản
                 </span>
               ) : (
-                <span className="text-xs text-slate-400">Nhập từ khóa và bấm Tìm kiếm</span>
+                <span className="text-xs text-text-muted">Nhập từ khóa và bấm Tìm kiếm</span>
               )}
             </Card.Header>
 
             {!hasSearchQuery ? (
               <Card.Content className="py-14 px-6 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 rounded-xl bg-surface-muted text-accent flex items-center justify-center mx-auto mb-3">
                   <Search className="w-6 h-6" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-800">
+                <h3 className="text-sm font-semibold text-text">
                   Nhập thông tin để tra cứu tài khoản
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                  Hỗ trợ tìm nhanh theo <strong>Mã ND</strong>, <strong>Tên đăng nhập</strong>,{' '}
-                  <strong>Họ tên</strong>, <strong>Email</strong>, <strong>Số điện thoại</strong>{' '}
-                  hoặc <strong>CCCD</strong>. Dữ liệu chỉ tải khi tìm kiếm để đảm bảo tốc độ mượt
+                <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
+                  Hỗ trợ tìm nhanh theo <strong className="font-medium text-text-secondary">Mã ND</strong>, <strong className="font-medium text-text-secondary">Tên đăng nhập</strong>,{' '}
+                  <strong className="font-medium text-text-secondary">Họ tên</strong>, <strong className="font-medium text-text-secondary">Email</strong>, <strong className="font-medium text-text-secondary">Số điện thoại</strong>{' '}
+                  hoặc <strong className="font-medium text-text-secondary">CCCD</strong>. Dữ liệu chỉ tải khi tìm kiếm để đảm bảo tốc độ mượt
                   mà.
                 </p>
               </Card.Content>
@@ -384,7 +393,7 @@ export const UsersPage: React.FC = () => {
               <>
                 <Card.Content className="p-0 overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Mã & Thành viên</th>
                     <th className="py-3 px-4">Liên hệ</th>
@@ -394,17 +403,17 @@ export const UsersPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border/70">
                   {isLoadingUsers ? (
                     <AdminTableSkeleton rows={6} cols={6} />
                   ) : users.length > 0 ? (
                     users.map((u) => {
                       const isLocked = u.trangThai === 'KHOA' || u.trangThaiKhoa;
                       return (
-                        <tr key={u.maNguoiDung} className="hover:bg-slate-50/60 transition-colors">
+                        <tr key={u.maNguoiDung} className="hover:bg-surface-subtle transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center text-xs overflow-hidden shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-surface-muted text-text-secondary font-semibold flex items-center justify-center text-xs overflow-hidden shrink-0">
                                 {u.avatarUrl || u.hinhDaiDien ? (
                                   <img
                                     src={u.avatarUrl || u.hinhDaiDien}
@@ -416,55 +425,56 @@ export const UsersPage: React.FC = () => {
                                 )}
                               </div>
                               <div>
-                                <div className="font-bold text-slate-800">
+                                <div className="font-semibold text-text">
                                   {u.hoVaTen || u.tenDangNhap}
                                 </div>
-                                <code className="text-[10px] text-slate-400 font-mono">
+                                <code className="text-[11px] text-text-muted font-mono">
                                   {u.maNguoiDung}
                                 </code>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-slate-600">
+                          <td className="py-3 px-4 text-text-secondary">
                             <div>{u.email}</div>
-                            <div className="text-[11px] text-slate-400">{u.sdt}</div>
+                            <div className="text-[11px] text-text-muted">{u.sdt}</div>
                           </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">{u.cccd || '--'}</td>
+                          <td className="py-3 px-4 font-mono text-text-secondary">{u.cccd || '--'}</td>
                           <td className="py-3 px-4">
                             <div className="flex flex-wrap gap-1 items-center">
-                              <Chip
-                                size="sm"
-                                variant="soft"
-                                color={u.vaiTro === 'QUAN_TRI' ? 'accent' : 'default'}
-                                className="font-bold"
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                                  u.vaiTro === 'QUAN_TRI'
+                                    ? 'bg-accent-soft text-accent'
+                                    : 'bg-surface-muted text-text-secondary'
+                                }`}
                               >
                                 {formatRoleLabel(u.vaiTro)}
-                              </Chip>
+                              </span>
                               {u.chuTro && (
-                                <Chip size="sm" variant="soft" color="success" className="font-bold">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
                                   Chủ trọ
-                                </Chip>
+                                </span>
                               )}
                             </div>
                           </td>
                           <td className="py-3 px-4">
                             {isLocked ? (
-                              <Chip size="sm" variant="soft" color="danger" className="font-bold">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-danger-bg text-danger-text">
                                 Đã khóa
-                              </Chip>
+                              </span>
                             ) : (
-                              <Chip size="sm" variant="soft" color="success" className="font-bold">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
                                 Hoạt động
-                              </Chip>
+                              </span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
                                 onClick={() => setSelectedUser(u)}
                                 title="Xem chi tiết"
-                                className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-text-muted hover:text-accent hover:bg-accent-soft rounded-lg transition-colors cursor-pointer"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
@@ -472,7 +482,7 @@ export const UsersPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setResetTargetUser(u)}
                                 title="Đặt lại mật khẩu"
-                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-text-muted hover:text-warning-text hover:bg-warning-bg rounded-lg transition-colors cursor-pointer"
                               >
                                 <KeyRound className="w-4 h-4" />
                               </button>
@@ -492,10 +502,10 @@ export const UsersPage: React.FC = () => {
                                     }
                                     className={`p-1.5 rounded-lg transition-colors ${
                                       isSelf
-                                        ? 'text-slate-300 cursor-not-allowed'
+                                        ? 'text-border-strong cursor-not-allowed'
                                         : isLocked
-                                          ? 'text-red-600 hover:bg-emerald-50 hover:text-emerald-600 cursor-pointer'
-                                          : 'text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer'
+                                          ? 'text-danger-text hover:bg-success-bg hover:text-success-text cursor-pointer'
+                                          : 'text-text-muted hover:text-danger-text hover:bg-danger-bg cursor-pointer'
                                     }`}
                                   >
                                     {isLocked ? (
@@ -513,7 +523,7 @@ export const UsersPage: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-slate-400">
+                      <td colSpan={6} className="py-10 text-center text-text-muted">
                         {submittedKeyword
                           ? `Không tìm thấy tài khoản nào khớp với "${submittedKeyword}".`
                           : 'Chưa có tài khoản người dùng nào trong hệ thống.'}
@@ -525,23 +535,23 @@ export const UsersPage: React.FC = () => {
             </Card.Content>
 
             {totalPages > 1 && (
-              <Card.Footer className="p-4 border-t border-slate-100 flex items-center justify-between text-xs">
+              <Card.Footer className="p-4 border-t border-border flex items-center justify-between text-xs">
                 <button
                   type="button"
                   disabled={page === 0}
                   onClick={() => setPage((p) => Math.max(p - 1, 0))}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
                 >
                   Trang trước
                 </button>
-                <span className="text-slate-500 font-medium">
+                <span className="text-text-muted font-medium tabular-nums">
                   Trang {page + 1} / {totalPages}
                 </span>
                 <button
                   type="button"
                   disabled={page >= totalPages - 1}
                   onClick={() => setPage((p) => p + 1)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
                 >
                   Trang sau
                 </button>
@@ -583,7 +593,7 @@ export const UsersPage: React.FC = () => {
           {isLoadingRequests ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-pulse">
               {Array.from({ length: 2 }).map((_, idx) => (
-                <div key={idx} className="h-72 bg-white rounded-2xl border border-slate-200 p-5" />
+                <div key={idx} className="h-72 bg-surface rounded-xl border border-border p-5" />
               ))}
             </div>
           ) : isErrorRequests ? (
@@ -599,18 +609,18 @@ export const UsersPage: React.FC = () => {
                 return (
                   <Card
                     key={reqId}
-                    className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3"
+                    className="p-5 rounded-xl bg-surface border border-border space-y-3"
                   >
                     <Card.Header className="p-0 flex flex-row items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Card.Title className="text-sm font-bold text-slate-900 truncate">
+                        <Card.Title className="text-sm font-semibold text-text truncate">
                           {req.hoVaTen}
                         </Card.Title>
-                        <Card.Description className="text-xs text-slate-500 truncate">
+                        <Card.Description className="text-xs text-text-muted truncate">
                           {req.email} • {req.sdt}
                         </Card.Description>
                         {req.ngayGui && (
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-text-muted mt-0.5">
                             Gửi lúc: {formatDateTime(req.ngayGui)}
                           </p>
                         )}
@@ -619,12 +629,12 @@ export const UsersPage: React.FC = () => {
                     </Card.Header>
 
                     <Card.Content className="p-0 space-y-2.5">
-                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs flex flex-wrap items-center justify-between gap-2">
-                        <div className="font-mono text-slate-700">
-                          CCCD: <strong>{maskSensitive(req.cccd)}</strong>
+                      <div className="p-3 rounded-lg bg-surface-subtle border border-border text-xs flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-mono text-text-secondary">
+                          CCCD: <strong className="font-semibold text-text">{maskSensitive(req.cccd)}</strong>
                         </div>
-                        <div className="text-slate-600 font-medium flex items-center gap-1.5">
-                          <CreditCard className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <div className="text-text-secondary font-medium flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-text-muted shrink-0" />
                           <span>
                             {req.tenNganHang} •{' '}
                             <span className="font-mono">{maskSensitive(req.soTaiKhoan)}</span>
@@ -633,10 +643,10 @@ export const UsersPage: React.FC = () => {
                       </div>
 
                       {req.trangThai === 'TU_CHOI' && (
-                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                        <div className="p-2.5 rounded-lg bg-danger-bg border border-danger-border text-xs text-danger-text flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                           <div className="line-clamp-2">
-                            <span className="font-bold">Lý do từ chối: </span>
+                            <span className="font-semibold">Lý do từ chối: </span>
                             <span>{req.lyDoTuChoi || 'Không đáp ứng điều kiện xác thực hồ sơ'}</span>
                           </div>
                         </div>
@@ -647,9 +657,9 @@ export const UsersPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setSelectedLandlordRequest(req)}
-                        className="flex-1 py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="flex-1 py-2 px-3 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-text-secondary text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5 text-teal-600" />
+                        <Eye className="w-3.5 h-3.5 text-accent" />
                         Xem chi tiết & CCCD
                       </button>
 
@@ -662,7 +672,7 @@ export const UsersPage: React.FC = () => {
                               setRejectingRequest(req);
                               setRejectReason('');
                             }}
-                            className="py-2 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-colors cursor-pointer"
+                            className="py-2 px-3 rounded-lg border border-danger-border bg-surface text-danger-text hover:bg-danger-bg text-xs font-medium transition-colors cursor-pointer"
                           >
                             Từ chối
                           </button>
@@ -670,7 +680,7 @@ export const UsersPage: React.FC = () => {
                             type="button"
                             disabled={approveLandlordMutation.isPending || rejectLandlordMutation.isPending}
                             onClick={() => approveLandlordMutation.mutate(reqId)}
-                            className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                            className="py-2 px-3.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium transition-colors cursor-pointer"
                           >
                             Phê duyệt Chủ trọ
                           </button>
@@ -682,11 +692,11 @@ export const UsersPage: React.FC = () => {
               })}
             </div>
           ) : (
-            <Card className="p-12 text-center bg-white rounded-2xl border border-slate-200">
+            <Card className="p-12 text-center bg-surface rounded-xl border border-border">
               <Card.Content className="p-0">
-                <ShieldCheck className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Danh sách trống</h4>
-                <p className="text-[11px] text-slate-400">
+                <ShieldCheck className="w-10 h-10 text-success-text mx-auto mb-2" />
+                <h4 className="text-xs font-semibold text-text">Danh sách trống</h4>
+                <p className="text-[11px] text-text-muted">
                   Không có hồ sơ đăng ký làm Chủ trọ nào ở trạng thái này.
                 </p>
               </Card.Content>
@@ -706,7 +716,7 @@ export const UsersPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedUser(null)}
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl cursor-pointer"
+            className="px-4 py-2 bg-surface border border-border hover:bg-surface-subtle text-text-secondary text-xs font-medium rounded-lg cursor-pointer transition-colors"
           >
             Đóng
           </button>
@@ -715,7 +725,7 @@ export const UsersPage: React.FC = () => {
         {selectedUser && (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center text-xl overflow-hidden shrink-0">
+              <div className="w-16 h-16 rounded-full bg-surface-muted text-text-secondary font-semibold flex items-center justify-center text-xl overflow-hidden shrink-0">
                 {selectedUser.avatarUrl || selectedUser.hinhDaiDien ? (
                   <img
                     src={selectedUser.avatarUrl || selectedUser.hinhDaiDien}
@@ -727,41 +737,41 @@ export const UsersPage: React.FC = () => {
                 )}
               </div>
               <div>
-                <h4 className="text-base font-bold text-slate-900">
+                <h4 className="text-base font-semibold text-text">
                   {selectedUser.hoVaTen || selectedUser.tenDangNhap}
                 </h4>
-                <p className="text-xs text-slate-500">@{selectedUser.tenDangNhap}</p>
+                <p className="text-xs text-text-muted">@{selectedUser.tenDangNhap}</p>
                 <div className="flex gap-2 mt-1.5">
-                  <Chip size="sm" variant="soft" color="accent" className="font-bold">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-accent-soft text-accent">
                     {formatRoleLabel(selectedUser.vaiTro)}
-                  </Chip>
+                  </span>
                   {selectedUser.chuTro && (
-                    <Chip size="sm" variant="soft" color="success" className="font-bold">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
                       Chủ trọ
-                    </Chip>
+                    </span>
                   )}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Email</span>
-                <span className="font-semibold text-slate-700">{selectedUser.email}</span>
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Email</span>
+                <span className="font-medium text-text">{selectedUser.email}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Số điện thoại</span>
-                <span className="font-semibold text-slate-700">{selectedUser.sdt}</span>
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Số điện thoại</span>
+                <span className="font-medium text-text">{selectedUser.sdt}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">CCCD</span>
-                <span className="font-semibold text-slate-700">
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">CCCD</span>
+                <span className="font-medium text-text font-mono">
                   {selectedUser.cccd || 'Chưa cập nhật'}
                 </span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Điểm uy tín</span>
-                <span className="font-bold text-emerald-600">
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Điểm uy tín</span>
+                <span className="font-semibold text-success-text tabular-nums">
                   {selectedUser.diemUyTin ?? 100} / 100
                 </span>
               </div>
@@ -781,7 +791,7 @@ export const UsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setResetTargetUser(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer transition-colors"
             >
               Hủy bỏ
             </button>
@@ -789,7 +799,7 @@ export const UsersPage: React.FC = () => {
               type="button"
               disabled={resetPasswordMutation.isPending}
               onClick={() => resetTargetUser && resetPasswordMutation.mutate(resetTargetUser)}
-              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
             >
               {resetPasswordMutation.isPending && <Spinner size="sm" color="current" />}
               Đặt lại mật khẩu
@@ -798,10 +808,10 @@ export const UsersPage: React.FC = () => {
         }
       >
         {resetTargetUser && (
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-text-secondary leading-relaxed">
             Bạn có chắc chắn muốn đặt lại mật khẩu cho tài khoản{' '}
-            <strong className="text-slate-900">{resetTargetUser.tenDangNhap}</strong> về mật khẩu mặc định{' '}
-            <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-800">
+            <strong className="font-semibold text-text">{resetTargetUser.tenDangNhap}</strong> về mật khẩu mặc định{' '}
+            <code className="px-1.5 py-0.5 rounded bg-surface-muted font-mono text-text">
               InnFinder@2026
             </code>{' '}
             không?
@@ -826,7 +836,7 @@ export const UsersPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setLockTargetUser(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer transition-colors"
               >
                 Hủy bỏ
               </button>
@@ -834,10 +844,10 @@ export const UsersPage: React.FC = () => {
                 type="button"
                 disabled={toggleLockMutation.isPending}
                 onClick={() => toggleLockMutation.mutate(lockTargetUser)}
-                className={`px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                className={`px-4 py-2 rounded-lg text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors ${
                   lockTargetUser.trangThai === 'KHOA' || lockTargetUser.trangThaiKhoa
-                    ? 'bg-teal-600 hover:bg-teal-700'
-                    : 'bg-red-600 hover:bg-red-700'
+                    ? 'bg-accent hover:bg-accent-hover'
+                    : 'bg-danger-text hover:opacity-90'
                 }`}
               >
                 {toggleLockMutation.isPending && <Spinner size="sm" color="current" />}
@@ -854,15 +864,15 @@ export const UsersPage: React.FC = () => {
             lockTargetUser.trangThai === 'KHOA' || lockTargetUser.trangThaiKhoa;
           return (
             <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                <div className="font-bold text-slate-900">
+              <div className="p-3 rounded-lg bg-surface-subtle border border-border space-y-1">
+                <div className="font-semibold text-text">
                   {lockTargetUser.hoVaTen || lockTargetUser.tenDangNhap}
                 </div>
-                <div className="text-slate-500">
+                <div className="text-text-muted">
                   @{lockTargetUser.tenDangNhap} • {lockTargetUser.email}
                 </div>
               </div>
-              <p className="text-slate-600 leading-relaxed">
+              <p className="text-text-secondary leading-relaxed">
                 {isCurrentlyLocked
                   ? 'Tài khoản này sẽ được khôi phục quyền đăng nhập và sử dụng toàn bộ chức năng trên InnFinder.'
                   : 'Sau khi khóa, người dùng sẽ bị chặn đăng nhập và không thể thực hiện bất kỳ thao tác nào trên hệ thống.'}
@@ -893,7 +903,7 @@ export const UsersPage: React.FC = () => {
                   setRejectingRequest(selectedLandlordRequest);
                   setRejectReason('');
                 }}
-                className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-danger-border bg-surface text-danger-text hover:bg-danger-bg text-xs font-medium cursor-pointer transition-colors"
               >
                 Từ chối
               </button>
@@ -905,7 +915,7 @@ export const UsersPage: React.FC = () => {
                     selectedLandlordRequest.maYeuCau || selectedLandlordRequest.id,
                   )
                 }
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 {approveLandlordMutation.isPending && <Spinner size="sm" color="current" />}
                 Phê duyệt Chủ trọ
@@ -915,7 +925,7 @@ export const UsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setSelectedLandlordRequest(null)}
-              className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl cursor-pointer"
+              className="px-4 py-2 bg-surface border border-border hover:bg-surface-subtle text-text-secondary text-xs font-medium rounded-lg cursor-pointer transition-colors"
             >
               Đóng
             </button>
@@ -924,16 +934,16 @@ export const UsersPage: React.FC = () => {
       >
         {selectedLandlordRequest && (
           <div className="space-y-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3">
+            <div className="p-3.5 rounded-lg bg-surface-subtle border border-border flex items-start justify-between gap-3">
               <div>
-                <div className="font-bold text-sm text-slate-900">
+                <div className="font-semibold text-sm text-text">
                   {selectedLandlordRequest.hoVaTen}
                 </div>
-                <div className="text-slate-500 mt-0.5">
+                <div className="text-text-muted mt-0.5">
                   {selectedLandlordRequest.email} • {selectedLandlordRequest.sdt}
                 </div>
-                <div className="font-mono text-slate-800 mt-1">
-                  Số CCCD: <strong>{selectedLandlordRequest.cccd}</strong>
+                <div className="font-mono text-text-secondary mt-1">
+                  Số CCCD: <strong className="font-semibold text-text">{selectedLandlordRequest.cccd}</strong>
                 </div>
               </div>
               {renderLandlordStatusBadge(selectedLandlordRequest.trangThai)}
@@ -941,10 +951,10 @@ export const UsersPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <span className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <span className="block text-[11px] font-medium text-text-secondary mb-1">
                   Mặt trước CCCD
                 </span>
-                <div className="h-40 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                <div className="h-40 rounded-lg border border-border bg-surface-subtle overflow-hidden">
                   {selectedLandlordRequest.anhCccdTruoc ? (
                     <a
                       href={selectedLandlordRequest.anhCccdTruoc}
@@ -958,7 +968,7 @@ export const UsersPage: React.FC = () => {
                       />
                     </a>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-slate-400">
+                    <div className="h-full flex items-center justify-center text-text-muted">
                       Không có ảnh
                     </div>
                   )}
@@ -966,10 +976,10 @@ export const UsersPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <span className="block text-[11px] font-medium text-text-secondary mb-1">
                   Mặt sau CCCD
                 </span>
-                <div className="h-40 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                <div className="h-40 rounded-lg border border-border bg-surface-subtle overflow-hidden">
                   {selectedLandlordRequest.anhCccdSau ? (
                     <a
                       href={selectedLandlordRequest.anhCccdSau}
@@ -983,7 +993,7 @@ export const UsersPage: React.FC = () => {
                       />
                     </a>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-slate-400">
+                    <div className="h-full flex items-center justify-center text-text-muted">
                       Không có ảnh
                     </div>
                   )}
@@ -991,28 +1001,28 @@ export const UsersPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="p-3.5 rounded-lg bg-surface-subtle border border-border flex items-center justify-between">
               <div>
-                <span className="text-[10px] text-slate-400 block">
+                <span className="text-[11px] text-text-muted block">
                   Tài khoản ngân hàng thụ hưởng
                 </span>
-                <span className="font-bold text-slate-900">
+                <span className="font-semibold text-text">
                   {selectedLandlordRequest.tenNganHang} - {selectedLandlordRequest.soTaiKhoan}
                 </span>
                 {selectedLandlordRequest.tenChuTaiKhoan && (
-                  <span className="block text-[11px] text-slate-500 uppercase mt-0.5">
+                  <span className="block text-[11px] text-text-muted uppercase mt-0.5">
                     {selectedLandlordRequest.tenChuTaiKhoan}
                   </span>
                 )}
               </div>
-              <CreditCard className="w-5 h-5 text-slate-400 shrink-0" />
+              <CreditCard className="w-5 h-5 text-text-muted shrink-0" />
             </div>
 
             {selectedLandlordRequest.trangThai === 'TU_CHOI' && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+              <div className="p-3 rounded-lg bg-danger-bg border border-danger-border text-danger-text flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold block">Lý do từ chối:</span>
+                  <span className="font-semibold block">Lý do từ chối:</span>
                   <span>
                     {selectedLandlordRequest.lyDoTuChoi ||
                       'Không đáp ứng điều kiện xác thực hồ sơ'}
@@ -1039,63 +1049,63 @@ export const UsersPage: React.FC = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Tên đăng nhập *</label>
+              <label className="block font-medium text-text-secondary mb-1">Tên đăng nhập *</label>
               <input
                 type="text"
                 placeholder="VD: admin_vanhanh"
                 {...registerCreateAdmin('tenDangNhap')}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
               />
               {createAdminErrors.tenDangNhap && (
-                <p className="text-[11px] text-red-600 mt-1">
+                <p className="text-[11px] text-danger-text mt-1">
                   {createAdminErrors.tenDangNhap.message}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Họ và tên *</label>
+              <label className="block font-medium text-text-secondary mb-1">Họ và tên *</label>
               <input
                 type="text"
                 placeholder="VD: Nguyễn Văn Quản Trị"
                 {...registerCreateAdmin('hoVaTen')}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
               />
               {createAdminErrors.hoVaTen && (
-                <p className="text-[11px] text-red-600 mt-1">
+                <p className="text-[11px] text-danger-text mt-1">
                   {createAdminErrors.hoVaTen.message}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Email *</label>
+              <label className="block font-medium text-text-secondary mb-1">Email *</label>
               <input
                 type="email"
                 placeholder="admin@innfinder.vn"
                 {...registerCreateAdmin('email')}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
               />
               {createAdminErrors.email && (
-                <p className="text-[11px] text-red-600 mt-1">{createAdminErrors.email.message}</p>
+                <p className="text-[11px] text-danger-text mt-1">{createAdminErrors.email.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Số điện thoại *</label>
+              <label className="block font-medium text-text-secondary mb-1">Số điện thoại *</label>
               <input
                 type="tel"
                 placeholder="0912345678"
                 {...registerCreateAdmin('sdt')}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
               />
               {createAdminErrors.sdt && (
-                <p className="text-[11px] text-red-600 mt-1">{createAdminErrors.sdt.message}</p>
+                <p className="text-[11px] text-danger-text mt-1">{createAdminErrors.sdt.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-medium text-text-secondary mb-1">
                 Mật khẩu tài khoản mới *
               </label>
               <div className="relative">
@@ -1103,26 +1113,26 @@ export const UsersPage: React.FC = () => {
                   type={showNewAdminPwd ? 'text' : 'password'}
                   placeholder="Tối thiểu 8 ký tự"
                   {...registerCreateAdmin('matKhau')}
-                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                  className="w-full pl-3 pr-9 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewAdminPwd((v) => !v)}
                   aria-label={showNewAdminPwd ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
-                  className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text cursor-pointer"
                 >
                   {showNewAdminPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {createAdminErrors.matKhau && (
-                <p className="text-[11px] text-red-600 mt-1">
+                <p className="text-[11px] text-danger-text mt-1">
                   {createAdminErrors.matKhau.message}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-medium text-text-secondary mb-1">
                 Xác nhận mật khẩu mới *
               </label>
               <div className="relative">
@@ -1130,13 +1140,13 @@ export const UsersPage: React.FC = () => {
                   type={showConfirmAdminPwd ? 'text' : 'password'}
                   placeholder="Nhập lại mật khẩu mới"
                   {...registerCreateAdmin('xacNhanMatKhau')}
-                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                  className="w-full pl-3 pr-9 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmAdminPwd((v) => !v)}
                   aria-label={showConfirmAdminPwd ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
-                  className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text cursor-pointer"
                 >
                   {showConfirmAdminPwd ? (
                     <EyeOff className="w-4 h-4" />
@@ -1146,7 +1156,7 @@ export const UsersPage: React.FC = () => {
                 </button>
               </div>
               {createAdminErrors.xacNhanMatKhau && (
-                <p className="text-[11px] text-red-600 mt-1">
+                <p className="text-[11px] text-danger-text mt-1">
                   {createAdminErrors.xacNhanMatKhau.message}
                 </p>
               )}
@@ -1154,12 +1164,12 @@ export const UsersPage: React.FC = () => {
           </div>
 
           {/* Xác thực lại mật khẩu Admin đang thao tác */}
-          <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200 space-y-2">
-            <div className="flex items-center gap-1.5 font-bold text-teal-900">
-              <ShieldCheck className="w-4 h-4 text-teal-600" />
+          <div className="p-3.5 rounded-lg bg-surface-subtle border border-border space-y-2">
+            <div className="flex items-center gap-1.5 font-semibold text-text">
+              <ShieldCheck className="w-4 h-4 text-accent" />
               <span>Xác thực bảo mật Admin hiện tại</span>
             </div>
-            <p className="text-[11px] text-slate-600">
+            <p className="text-[11px] text-text-muted">
               Nhập lại mật khẩu tài khoản Quản trị viên bạn đang đăng nhập để xác nhận cấp quyền.
             </p>
             <div className="relative">
@@ -1167,13 +1177,13 @@ export const UsersPage: React.FC = () => {
                 type={showCurrentAdminPwd ? 'text' : 'password'}
                 placeholder="Mật khẩu Admin hiện tại của bạn"
                 {...registerCreateAdmin('matKhauAdminHienTai')}
-                className="w-full pl-3 pr-9 py-2 rounded-xl border border-teal-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-600"
+                className="w-full pl-3 pr-9 py-2 rounded-lg border border-border bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentAdminPwd((v) => !v)}
                 aria-label={showCurrentAdminPwd ? 'Ẩn mật khẩu hiện tại' : 'Hiện mật khẩu hiện tại'}
-                className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1 absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text cursor-pointer"
               >
                 {showCurrentAdminPwd ? (
                   <EyeOff className="w-4 h-4" />
@@ -1183,7 +1193,7 @@ export const UsersPage: React.FC = () => {
               </button>
             </div>
             {createAdminErrors.matKhauAdminHienTai && (
-              <p className="text-[11px] text-red-600">
+              <p className="text-[11px] text-danger-text">
                 {createAdminErrors.matKhauAdminHienTai.message}
               </p>
             )}
@@ -1193,14 +1203,14 @@ export const UsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowCreateAdminModal(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={createAdminMutation.isPending}
-              className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
             >
               {createAdminMutation.isPending && <Spinner size="sm" color="current" />}
               Tạo Quản trị viên
@@ -1221,7 +1231,7 @@ export const UsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setRejectingRequest(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface text-xs font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer transition-colors"
             >
               Hủy
             </button>
@@ -1229,7 +1239,7 @@ export const UsersPage: React.FC = () => {
               type="button"
               disabled={rejectLandlordMutation.isPending}
               onClick={handleConfirmRejectLandlord}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-danger-text hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-opacity"
             >
               {rejectLandlordMutation.isPending && <Spinner size="sm" color="current" />}
               Xác nhận từ chối
@@ -1238,7 +1248,7 @@ export const UsersPage: React.FC = () => {
         }
       >
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <label className="block text-xs font-medium text-text-secondary mb-1.5">
             Lý do từ chối (gửi thông báo tới người dùng)
           </label>
           <textarea
@@ -1246,7 +1256,7 @@ export const UsersPage: React.FC = () => {
             placeholder="VD: Ảnh CCCD bị mờ, thông tin chủ tài khoản ngân hàng không trùng khớp..."
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500"
+            className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-danger-text"
           />
         </div>
       </Modal>

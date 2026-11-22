@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSolid';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -13,13 +13,15 @@ interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white border border-transparent shadow-xs',
+    'bg-accent hover:bg-accent-hover text-white border border-transparent font-medium',
   secondary:
-    'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs',
+    'bg-surface hover:bg-bg text-text-secondary border border-border font-medium',
   ghost:
-    'bg-transparent hover:bg-slate-100 text-slate-700 border border-transparent',
+    'bg-transparent hover:bg-surface-muted text-text-secondary border border-transparent font-medium',
   danger:
-    'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white border border-transparent shadow-xs',
+    'bg-surface hover:bg-danger-bg text-danger-text border border-danger-border font-medium',
+  dangerSolid:
+    'bg-danger-text hover:opacity-90 text-white border border-transparent font-medium',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -43,7 +45,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     <button
       type={type}
       disabled={disabled || isLoading}
-      className={`inline-flex items-center justify-center font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
+      className={`inline-flex items-center justify-center rounded-[var(--radius-control)] transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
         VARIANT_CLASSES[variant]
       } ${SIZE_CLASSES[size]} ${fullWidth ? 'w-full' : ''} ${className}`.trim()}
       {...rest}

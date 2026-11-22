@@ -21,7 +21,7 @@ export const BottomTabBar: React.FC = () => {
   return (
     <nav
       aria-label="Điều hướng di động"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border px-2 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="grid grid-cols-4 h-16">
         {tabs.map((tab) => {
@@ -32,15 +32,18 @@ export const BottomTabBar: React.FC = () => {
               to={tab.path}
               end={tab.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors ${
-                  isActive ? 'text-teal-700' : 'text-slate-600 hover:text-slate-900'
+                `flex flex-col items-center justify-center gap-1 text-xs transition-colors duration-150 ${
+                  isActive
+                    ? 'text-accent font-semibold'
+                    : 'text-text-muted font-medium hover:text-text'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.9]'}`} />
+                  <Icon className="w-5 h-5 stroke-[1.75]" />
                   <span>{tab.label}</span>
+                  {isActive && <span className="sr-only">(đang chọn)</span>}
                 </>
               )}
             </NavLink>

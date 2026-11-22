@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { AdminErrorState } from '@/components/common/AdminStates';
+import { useChartColors } from '@/hooks/useChartColors';
 import { formatVND } from '@/utils/formatters';
 
 interface RevenuePoint {
@@ -37,82 +38,89 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
   errorMessage,
   onRetry,
 }) => {
+  const colors = useChartColors();
   const hasAnyRevenue = data.some((point) => Number(point.giaTri ?? 0) > 0);
 
   return (
-    <Card className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs h-full">
+    <Card className="bg-surface rounded-[var(--radius-card)] border border-border p-5 shadow-[var(--shadow-card)] h-full">
       <Card.Header className="p-0 pb-4">
-        <Card.Title className="text-sm font-bold text-slate-800">{title}</Card.Title>
-        <Card.Description className="text-[11px] text-slate-500 mt-0.5">
+        <Card.Title className="text-base font-semibold text-text tracking-[-0.01em]">
+          {title}
+        </Card.Title>
+        <Card.Description className="text-xs text-text-muted mt-0.5">
           {subtitle}
         </Card.Description>
       </Card.Header>
-      <Card.Content className="p-0">
-        <div className="w-full h-[260px]">
-          {isLoading ? (
-            <div className="h-full w-full rounded-xl bg-slate-100/70 animate-pulse flex flex-col justify-between p-4">
-              <div className="h-3 w-1/3 bg-slate-200 rounded" />
-              <div className="flex items-end gap-3 h-40">
-                <div className="flex-1 h-1/3 bg-slate-200 rounded-t-lg" />
-                <div className="flex-1 h-1/2 bg-slate-200 rounded-t-lg" />
-                <div className="flex-1 h-2/5 bg-slate-200 rounded-t-lg" />
-                <div className="flex-1 h-3/4 bg-slate-200 rounded-t-lg" />
-                <div className="flex-1 h-2/3 bg-slate-200 rounded-t-lg" />
-                <div className="flex-1 h-full bg-slate-200 rounded-t-lg" />
-              </div>
+      <Card.Content className="p-0 h-[260px]">
+        {isLoading ? (
+          <div className="h-full w-full rounded-[var(--radius-control)] bg-surface-muted animate-pulse flex flex-col justify-between p-4">
+            <div className="h-3 w-1/3 bg-border-strong rounded" />
+            <div className="flex items-end gap-3 h-40">
+              <div className="flex-1 h-1/3 bg-border-strong rounded-t-lg" />
+              <div className="flex-1 h-1/2 bg-border-strong rounded-t-lg" />
+              <div className="flex-1 h-2/5 bg-border-strong rounded-t-lg" />
+              <div className="flex-1 h-3/4 bg-border-strong rounded-t-lg" />
+              <div className="flex-1 h-2/3 bg-border-strong rounded-t-lg" />
+              <div className="flex-1 h-full bg-border-strong rounded-t-lg" />
             </div>
-          ) : isError ? (
-            <div className="h-full flex items-center justify-center">
-              <AdminErrorState
-                compact
-                title="Không thể tải biểu đồ doanh thu"
-                message={errorMessage}
-                onRetry={onRetry}
+          </div>
+        ) : isError ? (
+          <div className="h-full flex items-center justify-center">
+            <AdminErrorState
+              compact
+              title="Không thể tải biểu đồ doanh thu"
+              message={errorMessage}
+              onRetry={onRetry}
+            />
+          </div>
+        ) : data.length === 0 || !hasAnyRevenue ? (
+          <div className="h-full rounded-[var(--radius-control)] border border-dashed border-border bg-surface-subtle flex flex-col items-center justify-center text-center px-4">
+            <BarChart3 className="w-7 h-7 text-text-subtle mb-2" />
+            <p className="text-xs font-medium text-text-secondary">
+              Chưa có doanh thu hoa hồng phát sinh trong kỳ
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Biểu đồ sẽ cập nhật ngay khi có giao dịch thuê phòng hoàn tất.
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={260} minWidth={0}>
+            <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+              <XAxis dataKey="thang" tick={{ fontSize: 12, fill: colors.textMuted }} />
+              <YAxis
+                tick={{ fontSize: 12, fill: colors.textMuted }}
+                tickFormatter={(val: number) =>
+                  val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : `${val.toLocaleString('vi-VN')}`
+                }
               />
-            </div>
-          ) : data.length === 0 || !hasAnyRevenue ? (
-            <div className="h-full rounded-xl border border-dashed border-slate-200 bg-slate-50/60 flex flex-col items-center justify-center text-center px-4">
-              <BarChart3 className="w-8 h-8 text-slate-300 mb-2" />
-              <p className="text-xs font-semibold text-slate-600">
-                Chưa có doanh thu hoa hồng phát sinh trong kỳ
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Biểu đồ sẽ cập nhật ngay khi có giao dịch thuê phòng hoàn tất.
-              </p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260} minWidth={0}>
-              <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="thang" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  tickFormatter={(val: number) =>
-                    val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : `${val.toLocaleString('vi-VN')}`
-                  }
-                />
-                <Tooltip
-                  formatter={(value: unknown) => [formatVND(Number(value ?? 0)), 'Hoa hồng sàn']}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '12px',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="giaTri"
-                  stroke="#0d9488"
-                  strokeWidth={2.5}
-                  fillOpacity={0.08}
-                  fill="#0d9488"
-                  dot={{ r: 4, fill: '#0d9488', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+              <Tooltip
+                formatter={(value: unknown) => [formatVND(Number(value ?? 0)), 'Hoa hồng sàn']}
+                contentStyle={{
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.surface,
+                  fontSize: '12px',
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="giaTri"
+                stroke={colors.primary}
+                strokeWidth={2}
+                fillOpacity={0.08}
+                fill={colors.primary}
+                dot={({ cx, cy, index }) =>
+                  index === data.length - 1 && typeof cx === 'number' && typeof cy === 'number'
+                    ? <circle key="latest-revenue" cx={cx} cy={cy} r={3.5} fill={colors.primary} />
+                    : <g key={index} />
+                }
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </Card.Content>
     </Card>
   );

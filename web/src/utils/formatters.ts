@@ -9,7 +9,7 @@ export interface ResolvedRoomInfo {
 export const formatVND = (
   amount: number | string | undefined | null,
   showUnit: boolean = true,
-  unit: string = '₫',
+  unit: string = 'đ',
 ): string => {
   if (amount === undefined || amount === null || amount === '') {
     return showUnit ? `0 ${unit}` : '0';
@@ -149,35 +149,35 @@ export const getTransactionStatusBadge = (status: TrangThaiGD) => {
     case 'THANH_CONG':
       return {
         label: 'Thành công',
-        bgClass: 'bg-emerald-50',
-        textClass: 'text-emerald-700',
-        borderClass: 'border-emerald-200',
-        dotClass: 'bg-emerald-500',
+        bgClass: 'bg-success-bg',
+        textClass: 'text-success-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-success-text',
       };
     case 'CHO_THANH_TOAN':
       return {
         label: 'Chờ thanh toán',
-        bgClass: 'bg-amber-50',
-        textClass: 'text-amber-700',
-        borderClass: 'border-amber-200',
-        dotClass: 'bg-amber-500',
+        bgClass: 'bg-warning-bg',
+        textClass: 'text-warning-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-warning-text',
       };
     case 'HOAN_TIEN':
       return {
         label: 'Hoàn tiền',
-        bgClass: 'bg-sky-50',
-        textClass: 'text-sky-700',
-        borderClass: 'border-sky-200',
-        dotClass: 'bg-sky-500',
+        bgClass: 'bg-info-bg',
+        textClass: 'text-info-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-info-text',
       };
     case 'THAT_BAI':
     default:
       return {
         label: 'Thất bại',
-        bgClass: 'bg-rose-50',
-        textClass: 'text-rose-600',
-        borderClass: 'border-rose-200',
-        dotClass: 'bg-rose-500',
+        bgClass: 'bg-danger-bg',
+        textClass: 'text-danger-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-danger-text',
       };
   }
 };

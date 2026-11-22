@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
@@ -33,7 +34,16 @@ export const TransactionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'WITHDRAWAL' | 'DEPOSIT'>('ALL');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const type = searchParams.get('type');
+  const filterType = type === 'withdrawal' ? 'WITHDRAWAL' : type === 'deposit' ? 'DEPOSIT' : 'ALL';
+  const setFilterType = (filter: 'ALL' | 'WITHDRAWAL' | 'DEPOSIT') => {
+    setSearchParams((params) => {
+      if (filter === 'ALL') params.delete('type');
+      else params.set('type', filter.toLowerCase());
+      return params;
+    }, { replace: true });
+  };
   const [statusFilter, setStatusFilter] = useState<TrangThaiGD>('CHO_THANH_TOAN');
   const [selectedTx, setSelectedTx] = useState<AdminTransactionItem | null>(null);
 
@@ -109,7 +119,7 @@ export const TransactionsPage: React.FC = () => {
     const badge = getTransactionStatusBadge(status);
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badge.bgClass} ${badge.textClass} ${badge.borderClass}`}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium ${badge.bgClass} ${badge.textClass}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
         {badge.label}
@@ -162,7 +172,7 @@ export const TransactionsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Title & Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
           Sổ cái Giao dịch & Ngân khố
         </h1>
 
@@ -176,27 +186,27 @@ export const TransactionsPage: React.FC = () => {
         />
       </div>
 
-      {/* Company Treasury Summary */}
-      <Card className="bg-slate-900 rounded-2xl p-5 lg:p-6 text-white shadow-md border border-slate-800">
-        <Card.Header className="p-0 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-white/10">
+      {/* Company Treasury Summary — White Card with Thin Border & Dividers */}
+      <Card className="bg-surface rounded-xl border border-border p-5 lg:p-6">
+        <Card.Header className="p-0 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-border">
           <div>
-            <div className="flex items-center gap-2 text-teal-300 text-xs font-bold uppercase tracking-wider">
-              <Wallet className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-text-muted text-xs font-medium uppercase tracking-wider">
+              <Wallet className="w-4 h-4 text-accent" />
               Ngân khố công ty
             </div>
-            <Card.Title className="text-base sm:text-lg font-bold text-slate-100 mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span>Tổng tiền thực tế trong ngân khố:</span>
+            <Card.Title className="text-sm font-medium text-text-secondary mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span>Tổng tiền thực tế trong ngân khố</span>
               {isTreasuryLoading ? (
-                <span className="inline-block h-7 w-40 rounded-lg bg-white/15 animate-pulse align-middle" />
+                <span className="inline-block h-7 w-40 rounded-lg bg-surface-muted animate-pulse align-middle" />
               ) : (
-                <span className="text-2xl font-black text-white tabular-nums">
+                <span className="text-[28px] leading-tight font-semibold text-text tabular-nums tracking-[-0.01em]">
                   {formatVND(treasury?.tongQuyThucTe ?? 0)}
                 </span>
               )}
             </Card.Title>
-            <p className="text-xs text-slate-300 mt-1 tabular-nums">
+            <p className="text-xs text-text-muted mt-1 tabular-nums">
               {isTreasuryLoading ? (
-                <span className="inline-block h-4 w-72 rounded bg-white/10 animate-pulse" />
+                <span className="inline-block h-4 w-72 rounded bg-surface-muted animate-pulse" />
               ) : (
                 <>
                   Tiền của công ty ({formatVND(tongDoanhThu)}) + Quỹ đang giữ hộ (
@@ -207,59 +217,59 @@ export const TransactionsPage: React.FC = () => {
           </div>
         </Card.Header>
 
-        <Card.Content className="p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-          <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-400/30">
-            <span className="text-[11px] font-semibold text-emerald-200 block mb-1">
+        <Card.Content className="p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border mt-4">
+          <div className="py-2 sm:pr-4">
+            <span className="text-xs font-medium text-text-muted block mb-1">
               Tiền của công ty (Hoa hồng sàn)
             </span>
             {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-white/15 animate-pulse my-1" />
+              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
             ) : (
-              <div className="text-lg font-extrabold text-emerald-300 tabular-nums">
+              <div className="text-lg font-semibold text-accent tabular-nums">
                 {formatVND(tongDoanhThu)}
               </div>
             )}
-            <p className="text-[11px] text-slate-300 mt-1">
+            <p className="text-[11px] text-text-muted mt-1">
               Doanh thu thực từ phí hoa hồng lịch hẹn hoàn tất
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[11px] font-semibold text-slate-300 block mb-1">
+          <div className="py-2 sm:px-4">
+            <span className="text-xs font-medium text-text-muted block mb-1">
               Cọc giữ chân tạm giữ
             </span>
             {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-white/10 animate-pulse my-1" />
+              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
             ) : (
               <div
-                className={`text-lg font-bold tabular-nums ${
-                  quyTamGiuCoc > 0 ? 'text-amber-300' : 'text-slate-400'
+                className={`text-lg font-semibold tabular-nums ${
+                  quyTamGiuCoc > 0 ? 'text-text' : 'text-text-muted'
                 }`}
               >
                 {formatVND(quyTamGiuCoc)}
               </div>
             )}
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-text-muted mt-1">
               Tiền cọc lịch hẹn đang chờ xem phòng
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[11px] font-semibold text-slate-300 block mb-1">
+          <div className="py-2 sm:px-4">
+            <span className="text-xs font-medium text-text-muted block mb-1">
               Tổng số dư ví Chủ trọ
             </span>
             {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-white/10 animate-pulse my-1" />
+              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
             ) : (
               <div
-                className={`text-lg font-bold tabular-nums ${
-                  tongSoDuViChuTro > 0 ? 'text-teal-300' : 'text-slate-400'
+                className={`text-lg font-semibold tabular-nums ${
+                  tongSoDuViChuTro > 0 ? 'text-text' : 'text-text-muted'
                 }`}
               >
                 {formatVND(tongSoDuViChuTro)}
               </div>
             )}
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-text-muted mt-1">
               Khả dụng cho chủ trọ rút về ngân hàng
             </p>
           </div>
@@ -270,21 +280,21 @@ export const TransactionsPage: React.FC = () => {
               setFilterType('WITHDRAWAL');
               setStatusFilter('CHO_THANH_TOAN');
             }}
-            className="text-left p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer flex flex-col justify-between"
+            className="text-left py-2 sm:pl-4 hover:bg-surface-subtle rounded-lg transition-colors cursor-pointer flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-semibold text-slate-300">
+                <span className="text-xs font-medium text-text-muted">
                   Tiền chờ chi trả rút
                 </span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <ArrowUpRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
               </div>
               {isTreasuryLoading ? (
-                <div className="h-6 w-28 rounded bg-white/10 animate-pulse my-1" />
+                <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
               ) : (
                 <div
-                  className={`text-lg font-bold tabular-nums ${
-                    quyChoRut > 0 ? 'text-sky-300' : 'text-slate-400'
+                  className={`text-lg font-semibold tabular-nums ${
+                    quyChoRut > 0 ? 'text-text' : 'text-text-muted'
                   }`}
                 >
                   {formatVND(quyChoRut)}
@@ -292,7 +302,7 @@ export const TransactionsPage: React.FC = () => {
               )}
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-sky-200 tabular-nums">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning-bg text-warning-text tabular-nums">
                 {soLenhRutChoDuyet} lệnh chờ duyệt
               </span>
             </div>
@@ -301,8 +311,8 @@ export const TransactionsPage: React.FC = () => {
       </Card>
 
       {/* Filter Tabs & Search */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div className="flex flex-wrap rounded-xl bg-slate-200/70 p-1 gap-1 text-xs font-semibold">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex flex-wrap rounded-lg bg-surface-muted p-1 gap-1 text-xs">
           {[
             { key: 'ALL' as const, label: 'Tất cả biến động sổ cái' },
             { key: 'WITHDRAWAL' as const, label: 'Lệnh rút tiền về ngân hàng' },
@@ -312,10 +322,10 @@ export const TransactionsPage: React.FC = () => {
               key={tab.key}
               type="button"
               onClick={() => setFilterType(tab.key)}
-              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 filterType === tab.key
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               {tab.label}
@@ -324,13 +334,13 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSearch} className="relative w-full lg:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Tìm mã giao dịch, người thực hiện..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+            className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface border border-border text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-accent"
           />
         </form>
       </div>
@@ -376,14 +386,14 @@ export const TransactionsPage: React.FC = () => {
           onRetry={() => void refetch()}
         />
       ) : (
-        <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
+        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
           <Card.Content className="p-0 overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Mã giao dịch</th>
                   <th className="py-3 px-4">Loại giao dịch</th>
-                  <th className="py-3 px-4">Số tiền</th>
+                  <th className="py-3 px-4 text-right">Số tiền</th>
                   <th className="py-3 px-4">Người thực hiện</th>
                   <th className="py-3 px-4">Ngân hàng thụ hưởng</th>
                   <th className="py-3 px-4">Thời gian</th>
@@ -391,7 +401,7 @@ export const TransactionsPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border/70">
                 {isLoading ? (
                   <AdminTableSkeleton rows={6} cols={8} />
                 ) : filtered.length > 0 ? (
@@ -401,42 +411,42 @@ export const TransactionsPage: React.FC = () => {
                     const isPending = tx.trangThai === 'CHO_THANH_TOAN';
                     const txMeta = formatTransactionType(tx.loaiGiaoDich);
                     return (
-                      <tr key={tx.maGiaoDich} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-teal-700">
+                      <tr key={tx.maGiaoDich} className="hover:bg-surface-subtle transition-colors">
+                        <td className="py-3 px-4 font-mono font-medium text-accent">
                           {tx.maGiaoDich}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="font-semibold text-slate-800 block">{txMeta.label}</span>
+                          <span className="font-medium text-text block">{txMeta.label}</span>
                           {tx.phongTro && (
-                            <span className="text-[11px] text-slate-500 block max-w-xs truncate">
+                            <span className="text-[11px] text-text-muted block max-w-xs truncate">
                               {tx.phongTro}
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 text-right">
                           <span
-                            className={`font-black text-sm ${
+                            className={`font-semibold text-[13px] tabular-nums ${
                               tx.soTien === 0
-                                ? 'text-slate-400'
+                                ? 'text-text-muted'
                                 : isWithdrawal
-                                  ? 'text-rose-600'
+                                  ? 'text-danger-text'
                                   : tx.trangThai === 'HOAN_TIEN'
-                                    ? 'text-sky-600'
-                                    : 'text-emerald-600'
+                                    ? 'text-info-text'
+                                    : 'text-success-text'
                             }`}
                           >
                             {isWithdrawal ? '-' : '+'}
                             {formatVND(tx.soTien)}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-semibold text-slate-800">
+                        <td className="py-3 px-4 font-medium text-text">
                           {tx.nguoiThucHien}
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-3 px-4 text-text-secondary">
                           {tx.tenNganHang ? (
                             <div>
-                              <span className="font-bold">{tx.tenNganHang}</span>
-                              <span className="block text-[10px] font-mono text-slate-400">
+                              <span className="font-medium text-text">{tx.tenNganHang}</span>
+                              <span className="block text-[11px] font-mono text-text-muted">
                                 {tx.soTaiKhoan}
                               </span>
                             </div>
@@ -444,17 +454,17 @@ export const TransactionsPage: React.FC = () => {
                             txMeta.method
                           )}
                         </td>
-                        <td className="py-3 px-4 text-slate-500 font-medium">
+                        <td className="py-3 px-4 text-text-muted tabular-nums">
                           {formatDateTime(tx.thoiGian)}
                         </td>
                         <td className="py-3 px-4">{renderStatusBadge(tx.trangThai)}</td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => setSelectedTx(tx)}
                               title="Xem chi tiết giao dịch"
-                              className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg cursor-pointer"
+                              className="p-1.5 text-text-muted hover:text-accent hover:bg-accent-soft rounded-lg cursor-pointer transition-colors"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
@@ -465,7 +475,7 @@ export const TransactionsPage: React.FC = () => {
                                   disabled={approveWithdrawalMutation.isPending}
                                   onClick={() => approveWithdrawalMutation.mutate(tx.maGiaoDich)}
                                   title="Phê duyệt chuyển tiền"
-                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer"
+                                  className="p-1.5 text-success-text hover:bg-success-bg rounded-lg cursor-pointer transition-colors"
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
                                 </button>
@@ -476,7 +486,7 @@ export const TransactionsPage: React.FC = () => {
                                     setRejectReason('');
                                   }}
                                   title="Từ chối rút tiền"
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                                  className="p-1.5 text-danger-text hover:bg-danger-bg rounded-lg cursor-pointer transition-colors"
                                 >
                                   <XCircle className="w-4 h-4" />
                                 </button>
@@ -489,7 +499,7 @@ export const TransactionsPage: React.FC = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-text-muted">
                       Không có giao dịch nào phù hợp với bộ lọc hiện tại.
                     </td>
                   </tr>
@@ -511,7 +521,7 @@ export const TransactionsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedTx(null)}
-            className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+            className="px-4 py-2 bg-surface border border-border hover:bg-surface-subtle text-text-secondary text-xs font-medium rounded-lg cursor-pointer transition-colors"
           >
             Đóng
           </button>
@@ -519,33 +529,33 @@ export const TransactionsPage: React.FC = () => {
       >
         {selectedTx && (
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-2xl text-center">
-              <span className="text-xs text-slate-500 block mb-1">Số tiền giao dịch</span>
-              <div className="text-2xl font-black text-slate-900 mb-2">
+            <div className="p-4 bg-surface-subtle border border-border rounded-xl text-center">
+              <span className="text-xs text-text-muted block mb-1">Số tiền giao dịch</span>
+              <div className="text-2xl font-semibold text-text tabular-nums mb-2">
                 {formatVND(selectedTx.soTien)}
               </div>
               {renderStatusBadge(selectedTx.trangThai)}
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Người thực hiện</span>
-                <span className="font-bold text-slate-800">{selectedTx.nguoiThucHien}</span>
+              <div className="flex justify-between py-1.5 border-b border-border/70">
+                <span className="text-text-muted">Người thực hiện</span>
+                <span className="font-medium text-text">{selectedTx.nguoiThucHien}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Thời gian tạo</span>
-                <span className="text-slate-800">{formatDateTime(selectedTx.thoiGian)}</span>
+              <div className="flex justify-between py-1.5 border-b border-border/70">
+                <span className="text-text-muted">Thời gian tạo</span>
+                <span className="text-text tabular-nums">{formatDateTime(selectedTx.thoiGian)}</span>
               </div>
               {selectedTx.tenNganHang && (
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Ngân hàng nhận</span>
-                  <span className="font-bold text-slate-800">
+                <div className="flex justify-between py-1.5 border-b border-border/70">
+                  <span className="text-text-muted">Ngân hàng nhận</span>
+                  <span className="font-medium text-text">
                     {selectedTx.tenNganHang} ({selectedTx.soTaiKhoan})
                   </span>
                 </div>
               )}
               {selectedTx.ghiChu && (
-                <div className="py-2 px-3 text-slate-600 bg-slate-50 rounded-xl">
+                <div className="py-2 px-3 text-text-secondary bg-surface-subtle rounded-lg border border-border">
                   Ghi chú: {selectedTx.ghiChu}
                 </div>
               )}
@@ -566,7 +576,7 @@ export const TransactionsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setRejectingTxId(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
             >
               Hủy
             </button>
@@ -574,7 +584,7 @@ export const TransactionsPage: React.FC = () => {
               type="button"
               disabled={rejectWithdrawalMutation.isPending}
               onClick={handleConfirmRejectWithdrawal}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-danger-text hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-opacity"
             >
               {rejectWithdrawalMutation.isPending && <Spinner size="sm" color="current" />}
               Xác nhận từ chối
@@ -587,7 +597,7 @@ export const TransactionsPage: React.FC = () => {
           placeholder="Nhập lý do từ chối (VD: Tên chủ tài khoản không khớp CCCD...)"
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
-          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500"
+          className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-danger-text"
         />
       </Modal>
     </div>

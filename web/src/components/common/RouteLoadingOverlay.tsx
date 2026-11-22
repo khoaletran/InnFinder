@@ -51,7 +51,7 @@ const RouteLoadingSession: React.FC<{ message?: string }> = ({ message }) => {
 
   return (
     <div
-      className={`absolute inset-0 z-30 bg-slate-50/55 backdrop-blur-md flex items-start justify-center pt-12 sm:pt-20 transition-opacity duration-200 ${
+      className={`absolute inset-0 z-30 bg-bg/65 backdrop-blur-sm flex items-start justify-center pt-12 sm:pt-20 transition-opacity duration-150 ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >

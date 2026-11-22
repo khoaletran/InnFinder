@@ -29,7 +29,7 @@ import {
 import { toast } from 'sonner';
 import type { AdminRevenueInsightResponse, AdminStatisticsFilter } from '@/types/admin.types';
 import { adminService } from '@/services/admin.service';
-import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
+import { PlatformRevenueChart } from './StatisticsRevenueChart';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
 

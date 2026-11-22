@@ -198,17 +198,6 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Header className="p-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <Card.Title className="text-lg font-bold text-slate-900">
-              Hồ Sơ Chủ Trọ
-            </Card.Title>
-          </div>
-        </Card.Header>
-      </Card>
-
       {/* Tabs: Thông tin | Ngân hàng | Bảo mật */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto no-scrollbar">
         {[

@@ -6,10 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
   Image as ImageIcon,
   Info,
   Link2,
   Loader2,
+  MapPin,
   Sparkles,
   Star,
   UploadCloud,
@@ -32,6 +34,168 @@ import { z } from 'zod';
 interface CreateRoomPageProps {
   isEdit?: boolean;
 }
+
+interface AddressSuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  fullAddress: string;
+  lat: number;
+  lng: number;
+}
+
+interface PhotonFeature {
+  type: 'Feature';
+  properties: {
+    osm_id?: number;
+    name?: string;
+    housenumber?: string;
+    street?: string;
+    locality?: string;
+    district?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
+  geometry: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+}
+
+const geocodeCache = new Map<string, AddressSuggestion[]>();
+
+const searchAddressSuggestions = async (rawQuery: string, signal?: AbortSignal): Promise<AddressSuggestion[]> => {
+  const query = rawQuery.trim();
+  if (query.length < 2) return [];
+
+  const cacheKey = query.toLowerCase();
+  if (geocodeCache.has(cacheKey)) {
+    return geocodeCache.get(cacheKey)!;
+  }
+
+  // Trích xuất tiền tố số nhà / hẻm / ngõ người dùng nhập (ví dụ: "Số 383", "383/12", "Hẻm 45")
+  const houseMatch = query.match(/^(số\s+[\d\w\/-]+|hẻm\s+[\d\w\/-]+|ngõ\s+[\d\w\/-]+|[\d\w\/-]+)\b/i);
+  const userPrefix = houseMatch ? houseMatch[0] : '';
+
+  const results: AddressSuggestion[] = [];
+  const seen = new Set<string>();
+
+  // 1. Tìm kiếm qua Photon (hỗ trợ tiếng Việt rất tốt cho số nhà, ngõ, hẻm, tên đường)
+  try {
+    const photonRes = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6`,
+      { signal },
+    );
+    if (photonRes.ok) {
+      const data = (await photonRes.json()) as { features?: PhotonFeature[] };
+      const features = data.features || [];
+
+      for (const f of features) {
+        const props = f.properties;
+        const coords = f.geometry.coordinates;
+        if (!coords || coords.length < 2) continue;
+
+        let title = props.name || props.street || query;
+        if (props.housenumber && !title.includes(props.housenumber)) {
+          title = `${props.housenumber} ${title}`;
+        } else if (userPrefix && !title.toLowerCase().includes(userPrefix.toLowerCase())) {
+          title = `${userPrefix} ${title}`;
+        }
+
+        const subParts: string[] = [];
+        if (props.locality && props.locality !== title) subParts.push(props.locality);
+        if (props.district && props.district !== title) subParts.push(props.district);
+        if (props.city) subParts.push(props.city);
+        else if (props.state && !subParts.includes(props.state)) subParts.push(props.state);
+
+        const subtitle = subParts.join(', ');
+        const fullAddress = subtitle ? `${title}, ${subtitle}` : title;
+        const key = `${title.toLowerCase()}|${subtitle.toLowerCase()}`;
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({
+            id: `photon-${props.osm_id || Math.random()}`,
+            title,
+            subtitle,
+            fullAddress,
+            lat: Number(coords[1].toFixed(6)),
+            lng: Number(coords[0].toFixed(6)),
+          });
+        }
+      }
+    }
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+  }
+
+  // 2. Fallback Nominatim nếu Photon không có kết quả
+  if (results.length === 0 && !signal?.aborted) {
+    try {
+      const nomRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query,
+        )}&countrycodes=vn&limit=5&addressdetails=1`,
+        { headers: { 'Accept-Language': 'vi' }, signal },
+      );
+      if (nomRes.ok) {
+        const nomData = (await nomRes.json()) as Array<{
+          place_id: number;
+          lat: string;
+          lon: string;
+          name?: string;
+          display_name: string;
+          address?: {
+            road?: string;
+            suburb?: string;
+            district?: string;
+            city?: string;
+            state?: string;
+          };
+        }>;
+
+        for (const item of nomData) {
+          const road = item.address?.road || item.name || query;
+          let title = road;
+          if (userPrefix && !title.toLowerCase().includes(userPrefix.toLowerCase())) {
+            title = `${userPrefix} ${title}`;
+          }
+
+          const subParts: string[] = [];
+          if (item.address?.suburb) subParts.push(item.address.suburb);
+          if (item.address?.district) subParts.push(item.address.district);
+          if (item.address?.city) subParts.push(item.address.city);
+          else if (item.address?.state) subParts.push(item.address.state);
+
+          const subtitle = subParts.join(', ') || item.display_name.split(',').slice(1, 4).join(',').trim();
+          const fullAddress = subtitle ? `${title}, ${subtitle}` : title;
+
+          results.push({
+            id: `nom-${item.place_id}`,
+            title,
+            subtitle,
+            fullAddress,
+            lat: Number(Number(item.lat).toFixed(6)),
+            lng: Number(Number(item.lon).toFixed(6)),
+          });
+        }
+      }
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    }
+  }
+
+  if (results.length > 0) {
+    geocodeCache.set(cacheKey, results);
+    if (geocodeCache.size > 100) {
+      const firstKey = geocodeCache.keys().next().value;
+      if (firstKey) geocodeCache.delete(firstKey);
+    }
+  }
+
+  return results;
+};
 
 const roomFormSchema = z.object({
   categoryId: z.string().regex(REGEX_PATTERNS.ROOM_TYPE_CODE, 'Vui lòng chọn loại phòng hợp lệ'),
@@ -103,6 +267,74 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   const [lng, setLng] = useState<number>(() =>
     draft?.lng ?? (existingRoom?.kinhDo ? Number(existingRoom.kinhDo) : 106.7145),
   );
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  const [geocodeSuggestions, setGeocodeSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [geocodedNotice, setGeocodedNotice] = useState<string | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Tự động tìm kiếm tọa độ thực tế khi gõ địa chỉ
+  useEffect(() => {
+    const trimmed = address.trim();
+    if (trimmed.length < 2) {
+      setGeocodeSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const cacheKey = trimmed.toLowerCase();
+    // Nếu có trong cache, hiển thị ngay tức thì (0ms)
+    if (geocodeCache.has(cacheKey)) {
+      const cached = geocodeCache.get(cacheKey)!;
+      setGeocodeSuggestions(cached);
+      if (cached.length > 0) {
+        setShowSuggestions(true);
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setIsGeocoding(true);
+        const results = await searchAddressSuggestions(trimmed, controller.signal);
+        setGeocodeSuggestions(results);
+        if (results.length > 0) {
+          setShowSuggestions(true);
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      } finally {
+        setIsGeocoding(false);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [address]);
+
+  // Đóng danh sách gợi ý khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectAddressSuggestion = (item: AddressSuggestion) => {
+    setAddress(item.fullAddress);
+    setLat(item.lat);
+    setLng(item.lng);
+    setGeocodeSuggestions([]);
+    setShowSuggestions(false);
+    setGeocodedNotice(`Đã định vị: ${item.title}`);
+    toast.success('Đã cập nhật vị trí trên bản đồ');
+  };
 
   // Amenities (maTienIch codes: TI0001...)
   const [selectedAmenityCodes, setSelectedAmenityCodes] = useState<string[]>(() => {
@@ -566,56 +798,75 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
           </Card.Header>
 
           <Card.Content className="p-0 space-y-4">
-            <div>
+            <div className="relative z-20" ref={suggestionsRef}>
               <label htmlFor="room-address" className="block text-xs font-bold text-slate-700 mb-1.5">
                 Địa chỉ cụ thể <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                id="room-address"
+              <div className="relative">
+                <input
+                  type="text"
+                  id="room-address"
                   aria-invalid={Boolean(errors.address)}
                   aria-describedby={errors.address ? 'room-address-error' : undefined}
                   value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Số nhà, ngõ/hẻm, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 font-medium"
-              />
-                {fieldError('address')}
-            </div>
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setGeocodedNotice(null);
+                  }}
+                  onFocus={() => {
+                    if (geocodeSuggestions.length > 0) setShowSuggestions(true);
+                  }}
+                  placeholder="Số nhà, ngõ/hẻm, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
+                  className="w-full text-xs p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 font-medium"
+                />
+                {isGeocoding ? (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <MapPin className="w-4 h-4 text-slate-400" />
+                  </div>
+                )}
+              </div>
+              {fieldError('address')}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="room-lat" className="block text-xs font-bold text-slate-700 mb-1">
-                  Vĩ độ (Latitude)
-                </label>
-                <input
-                  type="number"
-                  step="0.000001"
-                  id="room-lat"
-                  aria-invalid={Boolean(errors.lat)}
-                  aria-describedby={errors.lat ? 'room-lat-error' : undefined}
-                  value={lat}
-                  onChange={(e) => setLat(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-slate-700"
-                />
-                {fieldError('lat')}
-              </div>
-              <div>
-                <label htmlFor="room-lng" className="block text-xs font-bold text-slate-700 mb-1">
-                  Kinh độ (Longitude)
-                </label>
-                <input
-                  type="number"
-                  step="0.000001"
-                  id="room-lng"
-                  aria-invalid={Boolean(errors.lng)}
-                  aria-describedby={errors.lng ? 'room-lng-error' : undefined}
-                  value={lng}
-                  onChange={(e) => setLng(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-slate-700"
-                />
-                {fieldError('lng')}
-              </div>
+              {/* Suggestions dropdown */}
+              {showSuggestions && geocodeSuggestions.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                  <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                    Gợi ý địa chỉ chi tiết (Bấm để ghim lên bản đồ)
+                  </div>
+                  {geocodeSuggestions.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleSelectAddressSuggestion(item)}
+                      className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-teal-50/70 hover:text-teal-900 transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 text-xs truncate">
+                          {item.title}
+                        </p>
+                        {item.subtitle && (
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            {item.subtitle}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Geocoded status hint */}
+              {geocodedNotice && (
+                <div className="flex items-center gap-1.5 text-xs text-teal-700 font-medium mt-2">
+                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span>{geocodedNotice}. Bạn có thể kéo ghim trên bản đồ để tinh chỉnh.</span>
+                </div>
+              )}
             </div>
 
             <MapPicker
@@ -624,6 +875,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
               onChange={(newLat, newLng) => {
                 setLat(newLat);
                 setLng(newLng);
+                setGeocodedNotice('Đã ghim vị trí tùy chỉnh trên bản đồ');
               }}
               height="340px"
             />

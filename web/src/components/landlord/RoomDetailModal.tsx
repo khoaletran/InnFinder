@@ -1,4 +1,3 @@
-import { LandlordQueryError } from './LandlordQueryError';
 import React, { useEffect, useState } from 'react';
 import { Chip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
@@ -85,7 +84,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
   const [galleryIndex, setGalleryIndex] = useState<number>(0);
 
   // Tải chi tiết đầy đủ của phòng trọ (lấy trọn bộ danhSachAnh và thông tin mở rộng)
-  const { data: fullDetail, error: detailError, isLoading: detailLoading, refetch } = useQuery({
+  const { data: fullDetail } = useQuery({
     queryKey: ['landlord', 'room-detail', room?.maPhongTro],
     queryFn: () => landlordService.getRoomById(room?.maPhongTro || ''),
     enabled: isOpen && !!room?.maPhongTro,
@@ -129,12 +128,6 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
     setGalleryIndex(index);
     setIsGalleryOpen(true);
   };
-
-  if (isOpen && (detailError || detailLoading)) return (
-    <Modal isOpen onClose={onClose} title="Chi tiết phòng">
-      {detailError ? <LandlordQueryError error={detailError} onRetry={() => void refetch()} /> : <p>Đang tải chi tiết phòng...</p>}
-    </Modal>
-  );
 
   return (
     <>

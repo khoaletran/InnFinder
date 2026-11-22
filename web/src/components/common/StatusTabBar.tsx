@@ -21,11 +21,11 @@ export function StatusTabBar<T extends string>({
   ariaLabel = 'Lọc theo trạng thái',
 }: StatusTabBarProps<T>): React.ReactElement {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div className="bg-surface rounded-[var(--radius-card)] border border-border overflow-hidden">
       <div
         role="tablist"
         aria-label={ariaLabel}
-        className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-slate-100"
+        className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-surface-muted"
       >
         {tabs.map((tab) => {
           const isActive = activeKey === tab.key;
@@ -38,26 +38,26 @@ export function StatusTabBar<T extends string>({
               role="tab"
               aria-selected={isActive}
               onClick={() => onChange(tab.key)}
-              className={`flex-1 min-w-[130px] sm:min-w-0 py-3.5 px-3 sm:px-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
+              className={`flex-1 min-w-[130px] sm:min-w-0 py-3 px-3 sm:px-4 text-[13px] transition-colors duration-150 relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'text-teal-700 font-bold bg-teal-50/40'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'text-accent font-semibold bg-surface'
+                  : 'text-text-muted font-medium hover:text-text hover:bg-surface-subtle'
               }`}
             >
               {Icon && (
                 <Icon
-                  className={`w-4 h-4 shrink-0 ${isActive ? 'text-teal-600' : 'text-slate-400'}`}
+                  className={`w-4 h-4 shrink-0 ${isActive ? 'text-accent' : 'text-text-subtle'}`}
                 />
               )}
               <span>{tab.label}</span>
               {count !== undefined && (
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors leading-none ${
+                  className={`px-2 py-0.5 rounded-[var(--radius-badge)] text-xs font-medium transition-colors leading-none tabular-nums ${
                     isActive
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-accent-soft text-accent'
                       : count > 0
-                        ? 'bg-slate-100 text-slate-700'
-                        : 'bg-slate-50 text-slate-400'
+                        ? 'bg-surface-muted text-text-secondary'
+                        : 'bg-surface-subtle text-text-muted'
                   }`}
                 >
                   {count}
@@ -66,7 +66,7 @@ export function StatusTabBar<T extends string>({
               {isActive && (
                 <span
                   aria-hidden="true"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 shadow-xs"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
                 />
               )}
             </button>

@@ -1,5 +1,5 @@
 import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -86,13 +86,10 @@ export const RoomsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const {
-    filterStatus,
-    setFilterStatus,
-    searchQuery,
-    setSearchQuery,
-    setRooms,
-  } = useLandlordStore();
+  const filterStatus = useLandlordStore((s) => s.filterStatus);
+  const setFilterStatus = useLandlordStore((s) => s.setFilterStatus);
+  const searchQuery = useLandlordStore((s) => s.searchQuery);
+  const setSearchQuery = useLandlordStore((s) => s.setSearchQuery);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<LandlordRoomItem | null>(null);
@@ -104,10 +101,6 @@ export const RoomsPage: React.FC = () => {
     queryFn: landlordService.getMyRooms,
     refetchInterval: 15000,
   });
-
-  useEffect(() => {
-    setRooms(rooms);
-  }, [rooms, setRooms]);
 
   const toggleStatusMutation = useMutation({
     mutationFn: ({
