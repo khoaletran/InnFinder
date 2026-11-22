@@ -20,6 +20,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
@@ -49,7 +50,15 @@ const maskSensitive = (value?: string, visibleDigits = 4): string => {
 export const UsersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'USERS' | 'LANDLORD_REQUESTS'>('USERS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'landlord-requests' ? 'LANDLORD_REQUESTS' : 'USERS';
+  const setActiveTab = (tab: 'USERS' | 'LANDLORD_REQUESTS') => {
+    setSearchParams((params) => {
+      if (tab === 'LANDLORD_REQUESTS') params.set('tab', 'landlord-requests');
+      else params.delete('tab');
+      return params;
+    }, { replace: true });
+  };
   const [landlordStatusTab, setLandlordStatusTab] = useState<TrangThaiYeuCauChuTro>('CHO_DUYET');
   const [searchInput, setSearchInput] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');

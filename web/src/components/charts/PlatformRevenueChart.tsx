@@ -44,7 +44,7 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
   return (
     <Card className="bg-surface rounded-[var(--radius-card)] border border-border p-5 shadow-[var(--shadow-card)] h-full">
       <Card.Header className="p-0 pb-4">
-        <Card.Title className="text-sm font-semibold text-text tracking-[-0.01em]">
+        <Card.Title className="text-base font-semibold text-text tracking-[-0.01em]">
           {title}
         </Card.Title>
         <Card.Description className="text-xs text-text-muted mt-0.5">
@@ -87,9 +87,9 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
           <ResponsiveContainer width="100%" height={260} minWidth={0}>
             <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
-              <XAxis dataKey="thang" tick={{ fontSize: 11, fill: colors.textMuted }} />
+              <XAxis dataKey="thang" tick={{ fontSize: 12, fill: colors.textMuted }} />
               <YAxis
-                tick={{ fontSize: 11, fill: colors.textMuted }}
+                tick={{ fontSize: 12, fill: colors.textMuted }}
                 tickFormatter={(val: number) =>
                   val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : `${val.toLocaleString('vi-VN')}`
                 }
@@ -110,8 +110,13 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
                 strokeWidth={2}
                 fillOpacity={0.08}
                 fill={colors.primary}
-                dot={{ r: 3.5, fill: colors.primary, strokeWidth: 2, stroke: colors.surface }}
+                dot={({ cx, cy, index }) =>
+                  index === data.length - 1 && typeof cx === 'number' && typeof cy === 'number'
+                    ? <circle key="latest-revenue" cx={cx} cy={cy} r={3.5} fill={colors.primary} />
+                    : <g key={index} />
+                }
                 activeDot={{ r: 5 }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

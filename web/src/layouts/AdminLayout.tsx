@@ -12,6 +12,7 @@ export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isDashboard = location.pathname === '/admin/dashboard';
   const isProfileRoute = location.pathname.startsWith('/admin/profile');
   const currentNav =
     ADMIN_NAV_ITEMS.find((item) =>
@@ -26,9 +27,9 @@ export const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg flex text-text">
+    <div className={`min-h-screen bg-bg flex text-text ${isDashboard ? 'flex-col md:flex-row' : ''}`}>
       {/* Admin Sidebar */}
-      <aside className="w-64 bg-sidebar-bg text-[var(--sidebar-text)] flex flex-col justify-between shrink-0 fixed inset-y-0 left-0 z-30 border-r border-[var(--sidebar-border)]">
+      <aside className={`bg-sidebar-bg text-[var(--sidebar-text)] flex flex-col justify-between shrink-0 z-30 border-r border-[var(--sidebar-border)] ${isDashboard ? 'w-full md:fixed md:inset-y-0 md:left-0 md:w-64' : 'fixed inset-y-0 left-0 w-64'}`}>
         <div>
           {/* Brand Header */}
           <div className="h-16 px-6 border-b border-[var(--sidebar-border)] flex items-center justify-between">
@@ -46,7 +47,7 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           {/* Centralized Navigation Links from @/constants/navigation */}
-          <nav className="p-3 space-y-1">
+          <nav className={`p-3 ${isDashboard ? 'flex gap-1 overflow-x-auto whitespace-nowrap md:block md:space-y-1' : 'space-y-1'}`}>
             {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -141,9 +142,9 @@ export const AdminLayout: React.FC = () => {
       </aside>
 
       {/* Main Content Pane */}
-      <div className="flex-1 ml-64 flex flex-col min-h-screen">
+      <div className={`flex-1 min-w-0 flex flex-col min-h-screen ${isDashboard ? 'md:ml-64' : 'ml-64'}`}>
         {/* Top Header Bar */}
-        <header className="h-16 bg-surface border-b border-border px-8 flex items-center justify-between sticky top-0 z-20">
+        <header className={`h-16 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isDashboard ? 'gap-2 px-4 md:px-8' : 'px-8'}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-surface-muted text-text-secondary flex items-center justify-center shrink-0">
               <HeaderIcon className="w-4 h-4" />
@@ -155,14 +156,14 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <AdminNotificationBell />
-            <div className="text-xs text-text-muted font-medium">
+            <div className={`text-xs text-text-muted font-medium ${isDashboard ? 'hidden sm:block' : ''}`}>
               Xin chào, <strong className="font-semibold text-text">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
             </div>
           </div>
         </header>
 
         {/* Content Body */}
-        <main className="relative flex-1 p-6 lg:p-8">
+        <main className={`relative flex-1 ${isDashboard ? 'overflow-x-clip p-4 sm:p-6 lg:p-8' : 'p-6 lg:p-8'}`}>
           <Outlet />
           <RouteLoadingOverlay />
         </main>

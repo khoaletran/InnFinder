@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
@@ -33,7 +34,16 @@ export const TransactionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [submittedKeyword, setSubmittedKeyword] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'WITHDRAWAL' | 'DEPOSIT'>('ALL');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const type = searchParams.get('type');
+  const filterType = type === 'withdrawal' ? 'WITHDRAWAL' : type === 'deposit' ? 'DEPOSIT' : 'ALL';
+  const setFilterType = (filter: 'ALL' | 'WITHDRAWAL' | 'DEPOSIT') => {
+    setSearchParams((params) => {
+      if (filter === 'ALL') params.delete('type');
+      else params.set('type', filter.toLowerCase());
+      return params;
+    }, { replace: true });
+  };
   const [statusFilter, setStatusFilter] = useState<TrangThaiGD>('CHO_THANH_TOAN');
   const [selectedTx, setSelectedTx] = useState<AdminTransactionItem | null>(null);
 
