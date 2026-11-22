@@ -23,15 +23,6 @@ import {
   resolveRoomInfo,
 } from '@/utils/formatters';
 
-function isIncomingTransaction(loaiGiaoDich: string, trangThai: string): boolean {
-  if (trangThai === 'HOAN_TIEN') return true;
-  return (
-    loaiGiaoDich === 'HOAN_COC' ||
-    loaiGiaoDich === 'CONG_TIEN_COC' ||
-    loaiGiaoDich === 'HOAN_TIEN'
-  );
-}
-
 function extractAppointmentRef(noiDung?: string): string | null {
   if (!noiDung) return null;
   const match = noiDung.match(/(DL\d{6,}|PT\d{6,})/i);
@@ -246,7 +237,6 @@ export const TransactionsPage: React.FC = () => {
               const typeInfo = formatTransactionType(tx.loaiGiaoDich);
               const room = resolveRoomInfo(tx.noiDung);
               const refCode = extractAppointmentRef(tx.noiDung);
-              const incoming = isIncomingTransaction(tx.loaiGiaoDich, tx.trangThai);
 
               return (
                 <Link
@@ -268,19 +258,14 @@ export const TransactionsPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <span
-                      className={`text-sm font-extrabold whitespace-nowrap ${
-                        incoming ? 'text-emerald-700' : 'text-slate-900'
-                      }`}
-                    >
-                      {incoming ? '+' : '−'}
+                    <span className="text-sm font-extrabold whitespace-nowrap text-slate-900">
                       {formatVND(tx.soTien)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                     <span className="text-slate-600">{formatDateTime(tx.ngayGiaoDich)}</span>
-                    <StatusBadge status={tx.trangThai} />
+                    <StatusBadge status={tx.trangThai} type={tx.loaiGiaoDich} />
                   </div>
                 </Link>
               );
@@ -306,7 +291,6 @@ export const TransactionsPage: React.FC = () => {
                     const typeInfo = formatTransactionType(tx.loaiGiaoDich);
                     const room = resolveRoomInfo(tx.noiDung);
                     const refCode = extractAppointmentRef(tx.noiDung);
-                    const incoming = isIncomingTransaction(tx.loaiGiaoDich, tx.trangThai);
 
                     return (
                       <tr key={tx.maGiaoDich} className="hover:bg-slate-50/70 transition-colors">
@@ -330,12 +314,7 @@ export const TransactionsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td
-                          className={`py-4 px-4 font-extrabold whitespace-nowrap ${
-                            incoming ? 'text-emerald-700' : 'text-slate-900'
-                          }`}
-                        >
-                          {incoming ? '+' : '−'}
+                        <td className="py-4 px-4 font-extrabold whitespace-nowrap text-slate-900">
                           {formatVND(tx.soTien)}
                         </td>
 
@@ -344,7 +323,7 @@ export const TransactionsPage: React.FC = () => {
                         </td>
 
                         <td className="py-4 px-4 whitespace-nowrap">
-                          <StatusBadge status={tx.trangThai} />
+                          <StatusBadge status={tx.trangThai} type={tx.loaiGiaoDich} />
                         </td>
 
                         <td className="py-4 px-4 text-right whitespace-nowrap">

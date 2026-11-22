@@ -363,12 +363,8 @@ export const WalletPage: React.FC = () => {
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 font-black text-sm">
-                      {tx.loaiGiaoDich === 'RUT_TIEN' ? (
-                        <span className="text-amber-600">-{formatVND(tx.thucNhan)}</span>
-                      ) : (
-                        <span className="text-emerald-600">+{formatVND(tx.thucNhan)}</span>
-                      )}
+                    <td className="py-3.5 px-4 font-black text-sm text-slate-900">
+                      {formatVND(tx.thucNhan)}
                     </td>
                     <td className="py-3.5 px-4">{renderTransactionStatusChip(tx.trangThai)}</td>
                     <td className="py-3.5 px-4 text-right text-slate-400 font-medium whitespace-nowrap">
