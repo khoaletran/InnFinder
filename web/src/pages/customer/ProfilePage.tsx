@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,7 +61,17 @@ export const ProfilePage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<ProfileTab>('info');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<ProfileTab>(
+    tabParam === 'bank' || tabParam === 'security' ? tabParam : 'info'
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'bank' || tab === 'security' || tab === 'info') {
+      setActiveTab(tab as ProfileTab);
+    }
+  }, [searchParams]);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
