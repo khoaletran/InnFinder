@@ -205,22 +205,29 @@ export const RoomsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Header className="p-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <Card.Title className="text-lg font-bold text-slate-900">
-              Danh Sách Phòng Trọ
-            </Card.Title>
+      {/* THANH CÔNG CỤ TÌM KIẾM & NÚT THÊM PHÒNG */}
+      <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+        <Card.Content className="p-0 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-96">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo mã PT, tên phòng, địa chỉ..."
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 placeholder-slate-400"
+            />
           </div>
+
           <button
             type="button"
             onClick={() => navigate('/landlord/rooms/create')}
-            className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="w-full sm:w-auto px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Thêm phòng mới</span>
           </button>
-        </Card.Header>
+        </Card.Content>
       </Card>
 
       {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
@@ -268,30 +275,11 @@ export const RoomsPage: React.FC = () => {
         </div>
       </div>
 
-      <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Content className="p-0 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo mã PT, tên phòng, địa chỉ..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 placeholder-slate-400"
-            />
-          </div>
-
-          <div className="text-xs text-slate-500 font-medium">
-            Hiển thị <span className="font-bold text-slate-800">{filteredRooms.length}</span> / {rooms.length} phòng trọ
-          </div>
-        </Card.Content>
-      </Card>
-
       <Card className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs p-0">
         <Card.Content className="p-0 overflow-x-auto">
           {isLoading ? (
             <div className="py-16 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-cyan-600 mb-2" />
+              <Loader2 className="w-6 h-6 animate-spin text-teal-600 mb-2" />
               <span className="text-xs">Đang tải danh sách phòng trọ...</span>
             </div>
           ) : (
@@ -334,13 +322,13 @@ export const RoomsPage: React.FC = () => {
                                 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=200'
                               }
                               alt={room.tenPhong}
-                              className="w-14 h-14 rounded-xl object-cover shrink-0 ring-1 ring-slate-100 bg-slate-100 group-hover:ring-cyan-500/40 transition-all"
+                              className="w-14 h-14 rounded-xl object-cover shrink-0 ring-1 ring-slate-100 bg-slate-100 group-hover:ring-teal-500/40 transition-all"
                             />
                             <div className="min-w-0">
                               <span className="text-[10px] font-mono font-bold text-slate-400 block">
                                 #{room.maPhongTro}
                               </span>
-                              <h4 className="font-bold text-slate-800 line-clamp-1 group-hover:text-cyan-700 transition-colors">
+                              <h4 className="font-bold text-slate-800 line-clamp-1 group-hover:text-teal-700 transition-colors">
                                 {room.tenPhong}
                               </h4>
                               <p className="text-[11px] text-slate-400 line-clamp-1 flex items-center gap-1 mt-0.5">
@@ -359,7 +347,7 @@ export const RoomsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 font-black text-cyan-700 text-sm">
+                        <td className="py-3 px-4 font-black text-teal-700 text-sm">
                           {formatVND(room.giaThue)}
                         </td>
 
@@ -383,7 +371,7 @@ export const RoomsPage: React.FC = () => {
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 : isRented
                                   ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer'
-                                  : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 cursor-pointer'
+                                  : 'bg-teal-50 text-teal-700 hover:bg-teal-100 cursor-pointer'
                             }`}
                             title={
                               canToggleRent
@@ -407,7 +395,7 @@ export const RoomsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleViewDetail(room)}
-                              className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
                               title="Xem chi tiết phòng"
                             >
                               <Eye className="w-4 h-4" />
@@ -415,7 +403,7 @@ export const RoomsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => navigate(`/landlord/rooms/edit/${room.maPhongTro}`)}
-                              className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
                               title="Chỉnh sửa phòng"
                             >
                               <Edit className="w-4 h-4" />

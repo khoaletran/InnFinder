@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   Eye,
-  Filter,
   Handshake,
   Loader2,
   Phone,
@@ -191,15 +190,90 @@ export const AppointmentsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Header className="p-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <Card.Title className="text-lg font-bold text-slate-900">
-              Quản Lý Lịch Hẹn Xem Phòng
-            </Card.Title>
+      {/* THANH TÌM KIẾM & LỌC NGÀY ĐẶT TRÊN THANH BỘ LỌC */}
+      <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+        <Card.Content className="p-0">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm theo tên khách, SĐT, phòng..."
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 placeholder-slate-400"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                <CalendarIcon className="w-4 h-4 text-teal-600" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="text-xs text-slate-700 font-semibold bg-transparent focus:outline-none cursor-pointer"
+                  title="Chọn ngày lọc lịch hẹn"
+                />
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate('')}
+                    className="p-0.5 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                    title="Xóa lọc ngày"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(today)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    selectedDate === today
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
+                  }`}
+                >
+                  Hôm nay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(tomorrow)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    selectedDate === tomorrow
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
+                  }`}
+                >
+                  Ngày mai
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(dayAfterTomorrow)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    selectedDate === dayAfterTomorrow
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
+                  }`}
+                >
+                  Ngày kia
+                </button>
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate('')}
+                    className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition-colors"
+                  >
+                    Xóa lọc
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </Card.Header>
+        </Card.Content>
       </Card>
 
       {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
@@ -247,112 +321,12 @@ export const AppointmentsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Content className="p-0 space-y-3">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm theo tên khách, SĐT, phòng..."
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 placeholder-slate-400"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                <CalendarIcon className="w-4 h-4 text-cyan-600" />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="text-xs text-slate-700 font-semibold bg-transparent focus:outline-none cursor-pointer"
-                  title="Chọn ngày lọc lịch hẹn"
-                />
-                {selectedDate && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDate('')}
-                    className="p-0.5 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
-                    title="Xóa lọc ngày"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(today)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    selectedDate === today
-                      ? 'bg-cyan-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
-                  }`}
-                >
-                  Hôm nay
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(tomorrow)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    selectedDate === tomorrow
-                      ? 'bg-cyan-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
-                  }`}
-                >
-                  Ngày mai
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(dayAfterTomorrow)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    selectedDate === dayAfterTomorrow
-                      ? 'bg-cyan-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
-                  }`}
-                >
-                  Ngày kia
-                </button>
-                {selectedDate && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDate('')}
-                    className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition-colors"
-                  >
-                    Xóa lọc
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2.5">
-            <div className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <span>
-                Đang hiển thị <strong>{filtered.length}</strong> / {appointments.length} lịch hẹn
-              </span>
-              {selectedDate && (
-                <span className="text-cyan-700 font-bold ml-1">
-                  (Lọc theo ngày: {selectedDate})
-                </span>
-              )}
-            </div>
-          </div>
-        </Card.Content>
-      </Card>
-
       {/* Appointments Table */}
       <Card className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs p-0">
         <Card.Content className="p-0 overflow-x-auto">
           {isLoading ? (
             <div className="py-16 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-cyan-600 mb-2" />
+              <Loader2 className="w-6 h-6 animate-spin text-teal-600 mb-2" />
               <span className="text-xs">Đang tải danh sách lịch hẹn xem phòng...</span>
             </div>
           ) : (
@@ -389,11 +363,11 @@ export const AppointmentsPage: React.FC = () => {
                       >
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div>
-                            <span className="font-bold text-slate-800 text-xs block group-hover:text-cyan-700 transition-colors">
+                            <span className="font-bold text-slate-800 text-xs block group-hover:text-teal-700 transition-colors">
                               {item.khachHangTen}
                             </span>
                             <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 font-mono">
-                              <Phone className="w-3 h-3 text-cyan-600" />
+                              <Phone className="w-3 h-3 text-teal-600" />
                               {formatPhoneNumber(item.sdt)}
                             </span>
                           </div>
@@ -423,7 +397,7 @@ export const AppointmentsPage: React.FC = () => {
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="space-y-0.5">
                             <span className="font-bold text-slate-800 flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-cyan-600" />
+                              <Clock className="w-3.5 h-3.5 text-teal-600" />
                               {item.thoiGian}
                             </span>
                             <span className="text-[11px] text-slate-500 block font-medium">
@@ -433,7 +407,7 @@ export const AppointmentsPage: React.FC = () => {
                         </td>
 
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="font-black text-cyan-700 text-sm block">
+                          <span className="font-black text-teal-700 text-sm block">
                             {formatVND(item.coc)}
                           </span>
                           <span className="text-[10px] text-slate-500 font-medium block">
@@ -540,7 +514,7 @@ export const AppointmentsPage: React.FC = () => {
                                   type="button"
                                   disabled={decisionMutation.isPending}
                                   onClick={() => setDecisionAgreeTarget(item)}
-                                  className="px-3 py-1.5 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  className="px-3 py-1.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                 >
                                   <Handshake className="w-3.5 h-3.5" />
                                   <span>Đồng ý cho thuê</span>
@@ -574,7 +548,7 @@ export const AppointmentsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedDetail(item)}
-                                className="p-1 text-slate-400 hover:text-cyan-600 cursor-pointer"
+                                className="p-1 text-slate-400 hover:text-teal-600 cursor-pointer"
                                 title="Xem chi tiết"
                               >
                                 <Eye className="w-4 h-4" />
@@ -590,7 +564,7 @@ export const AppointmentsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedDetail(item)}
-                                className="p-1 text-slate-400 hover:text-cyan-600 cursor-pointer"
+                                className="p-1 text-slate-400 hover:text-teal-600 cursor-pointer"
                                 title="Xem chi tiết"
                               >
                                 <Eye className="w-4 h-4" />
@@ -703,7 +677,7 @@ export const AppointmentsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-cyan-50 border border-cyan-100 text-[11px] text-cyan-800">
+            <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-100 text-[11px] text-teal-800">
               Lưu ý: Nếu Khách hàng chọn Không thuê, Sàn sẽ thu phí hoa hồng = 0 ₫ và hoàn trả đủ 100% ({formatVND(agreeCoc)}) vào ví của bạn.
             </div>
           </div>

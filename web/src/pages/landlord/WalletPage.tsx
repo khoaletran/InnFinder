@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Landmark, Plus, RefreshCw, Star, Trash2 } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  Landmark,
+  Plus,
+  RefreshCw,
+  Star,
+  Trash2,
+  Wallet as WalletIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/common/Modal';
 import { AddBankAccountModal } from '@/components/landlord/AddBankAccountModal';
@@ -99,29 +110,127 @@ export function WalletPage() {
       Không tải được dữ liệu ví: {errorMessage(walletQuery.error)}. <button className="underline" onClick={() => void refresh()}>Thử lại</button>
     </div>}
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {[
-        ['Số dư khả dụng', wallet?.soDu], ['Tổng đã nhận', wallet?.tongDaThu],
-        ['Tổng đã rút', wallet?.tongDaRut], ['Đang chờ rút', wallet?.dangChoRut],
-      ].map(([label, value], index) => <Card key={String(label)} className={`p-5 rounded-2xl ${index === 0 ? 'bg-white border border-teal-200/80 shadow-xs relative overflow-hidden' : 'bg-white border border-slate-200/80 shadow-xs'}`}>
-        {index === 0 && <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 rounded-l-2xl" />}
-        <Card.Header><Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">{label}</Card.Title></Card.Header>
-        <Card.Content><p className="text-2xl font-black text-slate-900">{typeof value === 'number' ? formatVND(value) : '—'}</p></Card.Content>
-      </Card>)}
-    </div>
-    <div className="flex justify-end">
-      <button className="rounded-xl bg-teal-600 hover:bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer transition-colors shadow-2xs" disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy} onClick={() => setWithdrawOpen(true)}>Rút tiền về ngân hàng</button>
+      {/* Thẻ 1: Số Dư Khả Dụng */}
+      <Card className="p-5 rounded-2xl bg-white border border-teal-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 rounded-l-2xl" />
+        <div>
+          <Card.Header className="p-0 flex flex-row items-center justify-between">
+            <Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">
+              Số Dư Khả Dụng
+            </Card.Title>
+            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+              <WalletIcon className="w-4 h-4" />
+            </div>
+          </Card.Header>
+          <Card.Content className="p-0 mt-2">
+            <p className="text-2xl font-black text-slate-900">
+              {typeof wallet?.soDu === 'number' ? formatVND(wallet.soDu) : '—'}
+            </p>
+          </Card.Content>
+        </div>
+        <div className="mt-4 py-2.5 px-3 bg-teal-50/60 rounded-xl text-xs font-semibold text-teal-700 flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+          <span className="line-clamp-1">Sẵn sàng rút về tài khoản</span>
+        </div>
+      </Card>
+
+      {/* Thẻ 2: Tổng Đã Nhận */}
+      <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <div>
+          <Card.Header className="p-0 flex flex-row items-center justify-between">
+            <Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">
+              Tổng Đã Nhận
+            </Card.Title>
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+            </div>
+          </Card.Header>
+          <Card.Content className="p-0 mt-2">
+            <p className="text-2xl font-black text-slate-900">
+              {typeof wallet?.tongDaThu === 'number' ? formatVND(wallet.tongDaThu) : '—'}
+            </p>
+          </Card.Content>
+        </div>
+        <div className="mt-4 py-2.5 px-3 bg-slate-50 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+          <span className="line-clamp-1">Toàn bộ cọc giữ chân & thu nhập</span>
+        </div>
+      </Card>
+
+      {/* Thẻ 3: Tổng Đã Rút */}
+      <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <div>
+          <Card.Header className="p-0 flex flex-row items-center justify-between">
+            <Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">
+              Tổng Đã Rút
+            </Card.Title>
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <ArrowDownLeft className="w-4 h-4 text-slate-600" />
+            </div>
+          </Card.Header>
+          <Card.Content className="p-0 mt-2">
+            <p className="text-2xl font-black text-slate-900">
+              {typeof wallet?.tongDaRut === 'number' ? formatVND(wallet.tongDaRut) : '—'}
+            </p>
+          </Card.Content>
+        </div>
+        <div className="mt-4 py-2.5 px-3 bg-slate-50 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span className="line-clamp-1">Đã chuyển thành công về tài khoản</span>
+        </div>
+      </Card>
+
+      {/* Thẻ 4: Đang Chờ Rút */}
+      <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <div>
+          <Card.Header className="p-0 flex flex-row items-center justify-between">
+            <Card.Title className="text-xs uppercase tracking-wide font-bold text-slate-500">
+              Đang Chờ Rút
+            </Card.Title>
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+          </Card.Header>
+          <Card.Content className="p-0 mt-2">
+            <p className="text-2xl font-black text-slate-900">
+              {typeof wallet?.dangChoRut === 'number' ? formatVND(wallet.dangChoRut) : '—'}
+            </p>
+          </Card.Content>
+        </div>
+        <div className="mt-4 py-2.5 px-3 bg-slate-50 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="line-clamp-1">Đang chờ hệ thống đối soát</span>
+        </div>
+      </Card>
     </div>
 
     <Card className="p-5 rounded-2xl bg-white border border-slate-200">
-      <Card.Header className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div><Card.Title>Tài khoản ngân hàng liên kết</Card.Title><Card.Description>Chọn ngân hàng mặc định để nhận tiền rút.</Card.Description></div>
-        <button className={buttonClass} disabled={bankBusy} onClick={() => setAddBankOpen(true)}><Plus className="mr-1 inline h-4 w-4" />Thêm tài khoản</button>
+      <Card.Header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <Card.Title>Tài khoản ngân hàng liên kết</Card.Title>
+          <Card.Description>Chọn ngân hàng mặc định để nhận tiền rút.</Card.Description>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className={buttonClass} disabled={bankBusy} onClick={() => setAddBankOpen(true)}>
+            <Plus className="mr-1 inline h-4 w-4" />
+            <span>Thêm tài khoản</span>
+          </button>
+          <button
+            onClick={() => setWithdrawOpen(true)}
+            disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy || (wallet?.soDu ?? 0) <= 0 || accounts.length === 0}
+            className="rounded-xl bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
+            title={accounts.length === 0 ? 'Vui lòng liên kết tài khoản ngân hàng trước' : (wallet?.soDu ?? 0) <= 0 ? 'Số dư khả dụng bằng 0 ₫' : 'Tạo yêu cầu rút tiền về ngân hàng'}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            <span>Rút tiền về ngân hàng</span>
+          </button>
+        </div>
       </Card.Header>
       <Card.Content>
         {walletQuery.isLoading ? <p className="text-sm text-slate-500">Đang tải ngân hàng...</p> : walletQuery.isError ? <p className="text-sm text-red-600">Chưa tải được danh sách ngân hàng.</p> : accounts.length === 0 ? <p className="text-sm text-slate-500">Chưa liên kết ngân hàng. Thêm tài khoản để rút tiền.</p> :
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">{accounts.map((account) => <div key={account.id ?? `${account.tenNganHang}-${account.soTaiKhoan}`} className="rounded-xl border border-slate-200 p-4 space-y-3">
-            <div className="flex items-start gap-3"><Landmark className="h-5 w-5 text-cyan-700 shrink-0" /><div className="min-w-0 flex-1">
-              <p className="font-semibold">{account.tenNganHang} {account.macDinh && <span className="text-xs text-cyan-700">· Mặc định</span>}</p>
+            <div className="flex items-start gap-3"><Landmark className="h-5 w-5 text-teal-700 shrink-0" /><div className="min-w-0 flex-1">
+              <p className="font-semibold">{account.tenNganHang} {account.macDinh && <span className="text-xs text-teal-700 font-bold">· Mặc định</span>}</p>
               <p className="font-mono text-sm break-all">{account.soTaiKhoan}</p><p className="text-xs text-slate-500">{account.tenChuTaiKhoan || 'Chưa cung cấp tên chủ tài khoản'}</p>
             </div></div>
             <div className="flex flex-wrap gap-2">
