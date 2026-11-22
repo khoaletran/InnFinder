@@ -126,34 +126,43 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Số Dư Khả Dụng - Điểm nhấn màu chính (Primary Teal) */}
-        <Card className="bg-white p-5 rounded-2xl border border-teal-200/80 shadow-xs hover:shadow-md transition-all relative overflow-hidden">
+        <Card
+          onClick={() => navigate('/landlord/wallet')}
+          className="bg-white p-5 rounded-2xl border border-teal-200/80 shadow-xs hover:shadow-md hover:border-teal-400/80 active:scale-[0.99] transition-all relative overflow-hidden cursor-pointer group"
+        >
           <div className="absolute top-0 left-0 w-1.5 h-full bg-teal-600 rounded-l-2xl" />
           <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-teal-700 transition-colors">
               Số Dư Khả Dụng
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
               <Wallet className="w-5 h-5" />
             </div>
           </Card.Header>
           <Card.Content className="p-0 mt-2">
-            <p className="text-2xl font-black text-slate-900">
+            <p className="text-2xl font-black text-slate-900 group-hover:text-teal-900 transition-colors">
               {formatVND(stats?.soDu ?? 0)}
             </p>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-teal-700 font-semibold">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Có thể rút về ngân hàng</span>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-teal-700 font-semibold">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Có thể rút về ngân hàng</span>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-teal-600" />
             </div>
           </Card.Content>
         </Card>
 
         {/* Card 2: Tổng Phòng Quản Lý - Màu phụ tối giản */}
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <Card
+          onClick={() => navigate('/landlord/rooms')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-slate-300 active:scale-[0.99] transition-all cursor-pointer group"
+        >
           <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-slate-800 transition-colors">
               Tổng Phòng Quản Lý
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-800 group-hover:text-white transition-colors">
               <Home className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -162,21 +171,27 @@ export const DashboardPage: React.FC = () => {
               {stats?.tongPhong ?? 0}{' '}
               <span className="text-sm font-semibold text-slate-400">phòng</span>
             </p>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{stats?.dangThue ?? 0} đã thuê</span>
-              <span>•</span>
-              <span className="font-semibold text-teal-700">{stats?.dangTrong ?? 0} đang trống</span>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-slate-600">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800">{stats?.dangThue ?? 0} đã thuê</span>
+                <span>•</span>
+                <span className="font-semibold text-teal-700">{stats?.dangTrong ?? 0} đang trống</span>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-slate-500" />
             </div>
           </Card.Content>
         </Card>
 
         {/* Card 3: Lịch Hẹn Chờ Duyệt - Màu phụ tối giản */}
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <Card
+          onClick={() => navigate('/landlord/appointments')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-slate-300 active:scale-[0.99] transition-all cursor-pointer group"
+        >
           <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-slate-800 transition-colors">
               Lịch Hẹn Chờ Duyệt
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-800 group-hover:text-white transition-colors">
               <CalendarCheck className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -185,19 +200,23 @@ export const DashboardPage: React.FC = () => {
               {stats?.yeuCauMoi ?? 0}{' '}
               <span className="text-sm font-semibold text-slate-400">yêu cầu</span>
             </p>
-            <p className="text-[11px] text-slate-500 font-medium mt-2">
-              {stats?.phongChoDuyet ?? 0} tin đăng đang chờ Admin duyệt
-            </p>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-medium">
+              <span>{stats?.phongChoDuyet ?? 0} tin đăng đang chờ Admin duyệt</span>
+              <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-slate-500" />
+            </div>
           </Card.Content>
         </Card>
 
         {/* Card 4: Điểm Uy Tín Chủ Trọ - Màu phụ tối giản */}
-        <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <Card
+          onClick={() => navigate('/landlord/reviews')}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-slate-300 active:scale-[0.99] transition-all cursor-pointer group"
+        >
           <Card.Header className="p-0 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <Card.Title className="text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-slate-800 transition-colors">
               Điểm Uy Tín Chủ Trọ
             </Card.Title>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-800 group-hover:text-white transition-colors">
               <ShieldCheck className="w-5 h-5" />
             </div>
           </Card.Header>
@@ -206,9 +225,12 @@ export const DashboardPage: React.FC = () => {
               {diemUyTin}{' '}
               <span className="text-sm font-semibold text-slate-400">/ 100</span>
             </p>
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-700 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
-              <span>{reputationRank}</span>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-slate-700 font-semibold">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                <span>{reputationRank}</span>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-slate-500" />
             </div>
           </Card.Content>
         </Card>
