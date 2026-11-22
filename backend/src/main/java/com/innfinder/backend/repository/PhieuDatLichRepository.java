@@ -53,4 +53,25 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
      */
     @Query("SELECT COALESCE(SUM(p.coc), 0L) FROM PhieuDatLich p WHERE p.trangThai = :trangThai AND p.coc > 0")
     Long sumCocByTrangThai(@Param("trangThai") TrangThaiDatLich trangThai);
+
+    /**
+     * 7. Lấy toàn bộ phiếu đặt lịch cho Admin giám sát
+     */
+    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.loaiPhong", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
+    List<PhieuDatLich> findAllByOrderByNgayHenDesc();
+
+    /**
+     * 8. Lấy danh sách phiếu đặt lịch theo trạng thái (phục vụ thống kê doanh thu theo tháng)
+     */
+    List<PhieuDatLich> findByTrangThai(TrangThaiDatLich trangThai);
+
+    /**
+     * 9. Lấy các lịch hẹn có cọc giữ chân giữa một khách hàng và một chủ trọ (phục vụ đối soát khiếu nại)
+     */
+    @EntityGraph(attributePaths = {"phongTro", "phongTro.loaiPhong", "phongTro.chuPhongTro"})
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungAndPhongTro_ChuPhongTro_MaChuTroAndCocGreaterThanOrderByNgayHenDesc(
+            String maKhachHang,
+            String maChuTro,
+            Long minCoc
+    );
 }

@@ -25,9 +25,15 @@ public class CustomUserDetailsService implements UserDetailsService {
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        boolean isNotLocked = !Boolean.TRUE.equals(nguoiDung.getTrangThaiKhoa());
+
         return new User(
                 nguoiDung.getTenDangNhap(),
                 nguoiDung.getMatKhau(),
+                true,
+                true,
+                true,
+                isNotLocked,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + nguoiDung.getVaiTro().name()))
         );
     }

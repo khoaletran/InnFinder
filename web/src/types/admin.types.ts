@@ -23,6 +23,7 @@ export interface AdminDashboardStats {
 
 export interface AdminTreasuryStats {
   tongQuyHeThong: number;
+  tongQuyThucTe: number;
   quyTamGiuCoc: number;
   tongSoDuViChuTro: number;
   quyChoRut: number;
@@ -33,7 +34,7 @@ export interface AdminTreasuryStats {
 export interface AdminUserItem {
   maNguoiDung: string;
   tenDangNhap: string;
-  hoVaTen: string;
+  hoVaTen?: string;
   email: string;
   sdt: string;
   cccd?: string;
@@ -78,6 +79,18 @@ export interface AdminPostItem {
   phiHoaHong?: number;
 }
 
+export interface AdminComplaintRelatedAppointment {
+  maDatLich: string;
+  maPhongTro?: string;
+  tenPhongTro: string;
+  ngayHen: string;
+  tienCoc: number;
+  trangThai: TrangThaiDatLich;
+  daNopCoc: boolean;
+  daNhanLaiCoc: boolean;
+  duDieuKienHoanCoc: boolean;
+}
+
 export interface AdminComplaintItem {
   maKhieuNai: string;
   nguoiKhieuNai: string;
@@ -96,6 +109,7 @@ export interface AdminComplaintItem {
     diaChi: string;
   };
   ghiChuXuLy?: string;
+  lichHenLienQuan?: AdminComplaintRelatedAppointment[];
 }
 
 export interface AdminLandlordRequestItem {

@@ -1,23 +1,30 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Chip, Spinner } from '@heroui/react';
-import { Star, Trash2, RefreshCw, MessageSquare } from 'lucide-react';
+import { Star, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { EmptyState } from '@/components/common/EmptyState';
+import { SkeletonList } from '@/components/common/SkeletonList';
+import { StatusTabBar } from '@/components/common/StatusTabBar';
+import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatDateTime } from '@/utils/formatters';
 import type { AdminReviewItem } from '@/types/admin.types';
 
+type StarTabKey = '5' | '4' | '3' | '2' | '1';
+
 export const ReviewsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [ratingFilter, setRatingFilter] = useState<number | 'ALL'>('ALL');
+  const [ratingFilter, setRatingFilter] = useState<StarTabKey>('5');
   const [deletingReview, setDeletingReview] = useState<AdminReviewItem | null>(null);
 
   const {
     data: reviews = [],
     isLoading,
     isFetching,
+    isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['admin', 'reviews'],
@@ -36,74 +43,62 @@ export const ReviewsPage: React.FC = () => {
     },
   });
 
-  const filteredReviews = reviews.filter((r) =>
-    ratingFilter === 'ALL' ? true : r.diem === ratingFilter,
-  );
+  const starCounts = useMemo(() => {
+    const counts: Record<StarTabKey, number> = {
+      '5': 0,
+      '4': 0,
+      '3': 0,
+      '2': 0,
+      '1': 0,
+    };
+    for (const r of reviews) {
+      const k = String(r.diem) as StarTabKey;
+      if (k in counts) {
+        counts[k]++;
+      }
+    }
+    return counts;
+  }, [reviews]);
+
+  const filteredReviews = reviews.filter((r) => r.diem === Number(ratingFilter));
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Kiểm duyệt Đánh giá & Nhận xét
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Quản lý phản hồi thực tế (`DanhGia` từ 1 đến 5 sao) của khách thuê sau khi xem phòng, ngăn chặn spam hoặc bôi nhọ
-          </p>
-        </div>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          Kiểm duyệt Đánh giá & Nhận xét
+        </h1>
 
-        <button
-          type="button"
+        <AdminRefreshButton
           onClick={() => void refetch()}
-          disabled={isFetching}
-          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isFetching ? 'animate-spin' : ''}`} />
-          Làm mới đánh giá
-        </button>
+          isRefreshing={isFetching}
+          label="Làm mới đánh giá"
+        />
       </div>
 
       {/* Star Rating Filter */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setRatingFilter('ALL')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-            ratingFilter === 'ALL'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          Tất cả ({reviews.length})
-        </button>
-        {[5, 4, 3, 2, 1].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => setRatingFilter(star)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-              ratingFilter === star
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <span>{star} sao</span>
-            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-          </button>
-        ))}
-      </div>
+      <StatusTabBar
+        ariaLabel="Lọc đánh giá theo số sao"
+        activeKey={ratingFilter}
+        onChange={setRatingFilter}
+        tabs={(['5', '4', '3', '2', '1'] as const).map((star) => ({
+          key: star,
+          label: `${star} sao`,
+          count: starCounts[star],
+          icon: Star,
+        }))}
+      />
 
       {/* Main Content */}
       {isLoading ? (
-        <Card className="p-12 bg-white rounded-2xl border border-slate-200 text-center">
-          <Card.Content className="p-0 flex flex-col items-center gap-3">
-            <Spinner size="lg" />
-            <span className="text-xs text-slate-500">
-              Đang tổng hợp danh sách đánh giá từ các phòng trọ trên sàn...
-            </span>
-          </Card.Content>
-        </Card>
+        <SkeletonList variant="rows" count={4} />
+      ) : isError ? (
+        <AdminErrorState
+          title="Không thể tải danh sách đánh giá"
+          message={error instanceof Error ? error.message : undefined}
+          onRetry={() => void refetch()}
+        />
       ) : filteredReviews.length > 0 ? (
         <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
           <Card.Header className="p-4 border-b border-slate-100 flex flex-row items-center justify-between">
@@ -124,7 +119,7 @@ export const ReviewsPage: React.FC = () => {
                       <span className="text-slate-600 text-xs font-semibold">
                         {rev.tenPhongTro}
                       </span>
-                      <code className="ml-2 text-[10px] font-mono text-blue-600">
+                      <code className="ml-2 text-[10px] font-mono text-teal-700">
                         #{rev.phongTroId}
                       </code>
                     </div>
@@ -184,7 +179,7 @@ export const ReviewsPage: React.FC = () => {
         />
       )}
 
-      {/* MODAL XÁC NHẬN XÓA ĐÁNH GIÁ (Thay thế window.confirm) */}
+      {/* MODAL XÁC NHẬN XÓA ĐÁNH GIÁ */}
       <Modal
         isOpen={!!deletingReview}
         onClose={() => setDeletingReview(null)}

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
-import { Download, RefreshCw, ShieldCheck, Wallet, DollarSign, Building2 } from 'lucide-react';
+import { Card } from '@heroui/react';
+import { Download, Wallet, DollarSign, Building2 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,15 +17,18 @@ import {
 } from 'recharts';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
+import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
 
-const PIE_COLORS = ['#2563eb', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
+const PIE_COLORS = ['#0d9488', '#0f766e', '#10b981', '#f59e0b', '#64748b', '#06b6d4'];
 
 export const StatisticsPage: React.FC = () => {
   const {
     data: stats,
     isLoading: isLoadingStats,
     isFetching: isFetchingStats,
+    isError: isErrorStats,
+    error: errorStats,
     refetch: refetchStats,
   } = useQuery({
     queryKey: ['admin', 'dashboard-stats'],
@@ -36,13 +39,20 @@ export const StatisticsPage: React.FC = () => {
     data: treasury,
     isLoading: isLoadingTreasury,
     isFetching: isFetchingTreasury,
+    isError: isErrorTreasury,
+    error: errorTreasury,
     refetch: refetchTreasury,
   } = useQuery({
     queryKey: ['admin', 'treasury-stats'],
     queryFn: () => adminService.getTreasuryStats(),
   });
 
-  const { data: allRooms = [], refetch: refetchRooms } = useQuery({
+  const {
+    data: allRooms = [],
+    isLoading: isLoadingRooms,
+    isError: isErrorRooms,
+    refetch: refetchRooms,
+  } = useQuery({
     queryKey: ['admin', 'rooms', 'all'],
     queryFn: () => adminService.getAllRooms(),
   });
@@ -53,7 +63,7 @@ export const StatisticsPage: React.FC = () => {
     void refetchRooms();
   };
 
-  // Phân bố loại hình phòng thực tế từ danh sách phòng đã tải trên sàn
+  // Phân bố loại hình phòng thực tế từ toàn bộ phòng trên sàn
   const roomTypeDistribution = useMemo(() => {
     const counts = new Map<string, number>();
     for (const room of allRooms) {
@@ -67,11 +77,11 @@ export const StatisticsPage: React.FC = () => {
     }));
   }, [allRooms]);
 
-  // Biểu đồ đối soát rạch ròi giữa Doanh thu Hoa hồng Sàn (phiThu HOAN_THANH) và các Quỹ dòng tiền đối soát
+  // Biểu đồ đối soát rạch ròi giữa Doanh thu Hoa hồng Sàn và các Quỹ dòng tiền đang luân chuyển
   const treasuryBreakdownData = useMemo(
     () => [
       {
-        danhMuc: 'Doanh thu Sàn (phiThu)',
+        danhMuc: 'Doanh thu sàn',
         soTien: treasury?.tongDoanhThu ?? 0,
       },
       {
@@ -79,7 +89,7 @@ export const StatisticsPage: React.FC = () => {
         soTien: treasury?.quyTamGiuCoc ?? 0,
       },
       {
-        danhMuc: 'Số dư ví Chủ trọ',
+        danhMuc: 'Ví Chủ trọ',
         soTien: treasury?.tongSoDuViChuTro ?? 0,
       },
       {
@@ -92,11 +102,46 @@ export const StatisticsPage: React.FC = () => {
 
   if (isLoadingStats || isLoadingTreasury) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
-        <Spinner size="lg" />
-        <span className="text-xs font-medium">
-          Đang tải báo cáo thống kê doanh thu sàn & ngân khố thực tế...
-        </span>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-6 w-64 bg-slate-200 rounded-lg" />
+            <div className="h-3.5 w-80 bg-slate-200/80 rounded" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-9 w-28 bg-slate-200 rounded-xl" />
+            <div className="h-9 w-36 bg-slate-200 rounded-xl" />
+          </div>
+        </div>
+        <div className="h-16 bg-slate-200/70 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="h-28 bg-white rounded-2xl border border-slate-200 p-5" />
+          ))}
+        </div>
+        <div className="h-72 bg-white rounded-2xl border border-slate-200" />
+      </div>
+    );
+  }
+
+  if (isErrorStats || isErrorTreasury) {
+    const errMsg =
+      (errorStats instanceof Error && errorStats.message) ||
+      (errorTreasury instanceof Error && errorTreasury.message) ||
+      'Không thể tải báo cáo thống kê doanh thu và ngân khố sàn.';
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            Thống kê & Báo cáo Doanh thu Sàn
+          </h1>
+          <AdminRefreshButton onClick={handleRefreshAll} isRefreshing={isFetchingStats || isFetchingTreasury} />
+        </div>
+        <AdminErrorState
+          title="Không thể tải dữ liệu thống kê"
+          message={errMsg}
+          onRetry={handleRefreshAll}
+        />
       </div>
     );
   }
@@ -107,25 +152,16 @@ export const StatisticsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Thống kê & Báo cáo Doanh thu Sàn
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Đối soát doanh thu hoa hồng môi giới thực tế (`phiThu` từ `PhieuDatLich` hoàn tất) và cơ cấu ngân khố
-          </p>
-        </div>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          Thống kê & Báo cáo Doanh thu Sàn
+        </h1>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <AdminRefreshButton
             onClick={handleRefreshAll}
-            disabled={isRefreshing}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Đồng bộ dữ liệu
-          </button>
+            isRefreshing={isRefreshing}
+            label="Đồng bộ dữ liệu"
+          />
           <button
             type="button"
             onClick={() => window.print()}
@@ -137,46 +173,22 @@ export const StatisticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Platform Revenue Strict Compliance Notice */}
-      <Card className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 shadow-none">
-        <Card.Content className="p-0 flex items-start gap-3 text-xs text-slate-800">
-          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold text-slate-900">
-                Chuẩn mực Kế toán Doanh thu Sàn InnFinder (AGENTS.md §2.3 & §5.5):
-              </span>
-              <Chip size="sm" variant="soft" color="success" className="font-bold">
-                Dữ liệu API thời gian thực
-              </Chip>
-            </div>
-            <p className="leading-relaxed text-slate-700">
-              Doanh thu của hệ thống được tính <strong>độc quyền</strong> theo công thức{' '}
-              <code className="px-1.5 py-0.5 rounded bg-white border border-emerald-200 font-mono text-[11px] text-emerald-800">
-                SELECT COALESCE(SUM(p.phi_thu), 0) FROM phieu_dat_lich p WHERE p.trang_thai = 'HOAN_THANH'
-              </code>
-              . Bảng <code className="font-mono">GiaoDich</code> chỉ đóng vai trò sổ cái dòng tiền đối soát cọc/hoàn cọc/rút tiền và <strong>tuyệt đối không được cộng vào doanh thu sàn</strong>.
-            </p>
-          </div>
-        </Card.Content>
-      </Card>
-
       {/* Summary KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
           <Card.Content className="p-0 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-500">
-                Tổng doanh thu hoa hồng sàn (`SUM(phiThu)`)
+                Tổng doanh thu hoa hồng sàn
               </span>
-              <div className="text-2xl font-black text-blue-600 mt-1">
+              <div className="text-2xl font-black text-teal-700 mt-1">
                 {formatVND(treasury?.tongDoanhThu ?? 0)}
               </div>
               <span className="text-[11px] text-slate-400">
-                Từ các lịch hẹn đạt trạng thái HOAN_THANH
+                Từ các lịch hẹn thuê phòng đã hoàn tất
               </span>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
               <DollarSign className="w-5 h-5" />
             </div>
           </Card.Content>
@@ -186,13 +198,13 @@ export const StatisticsPage: React.FC = () => {
           <Card.Content className="p-0 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-500">
-                Tổng quỹ luân chuyển ngân khố
+                Quỹ luân chuyển ngân khố
               </span>
               <div className="text-2xl font-black text-slate-900 mt-1">
                 {formatVND(treasury?.tongQuyHeThong ?? 0)}
               </div>
               <span className="text-[11px] text-slate-400">
-                Đối soát sổ cái tạm giữ cọc & ví Chủ trọ
+                Tổng két thực tế: {formatVND(treasury?.tongQuyThucTe ?? 0)} (gồm doanh thu sàn)
               </span>
             </div>
             <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -207,14 +219,14 @@ export const StatisticsPage: React.FC = () => {
               <span className="text-xs font-semibold text-slate-500">
                 Tổng phòng trọ ghi nhận
               </span>
-              <div className="text-2xl font-black text-indigo-600 mt-1">
+              <div className="text-2xl font-black text-slate-900 mt-1">
                 {(stats?.soTinDang.total ?? allRooms.length).toLocaleString('vi-VN')} phòng
               </div>
               <span className="text-[11px] text-slate-400">
                 Chờ duyệt: {stats?.hangDoi.tinMoi ?? 0} bài đăng
               </span>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
           </Card.Content>
@@ -224,8 +236,11 @@ export const StatisticsPage: React.FC = () => {
       {/* Chart 1: Reusable PlatformRevenueChart */}
       <PlatformRevenueChart
         data={stats?.tangTruongGiaoDich || []}
-        title="Biểu đồ Tăng trưởng Doanh thu Hoa hồng Sàn (`phiThu`)"
-        subtitle="Tính độc quyền từ SUM(phiThu) của các PhieuDatLich đạt trạng thái HOAN_THANH theo thời gian thực"
+        title="Biểu đồ Tăng trưởng Doanh thu Hoa hồng Sàn"
+        subtitle="Tổng hợp theo tháng từ phí hoa hồng các giao dịch thuê phòng đã hoàn tất"
+        isLoading={isLoadingStats}
+        isError={isErrorStats}
+        onRetry={handleRefreshAll}
       />
 
       {/* Chart 2 & Chart 3: Phân tách Doanh thu vs Dòng tiền Ngân khố & Cơ cấu loại phòng */}
@@ -233,7 +248,7 @@ export const StatisticsPage: React.FC = () => {
         <Card className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
           <Card.Header className="p-0 pb-4">
             <Card.Title className="text-sm font-bold text-slate-900">
-              Phân tách Doanh thu Sàn (`phiThu`) và Quỹ Ngân khố Luân chuyển
+              Phân tách Doanh thu Sàn và Quỹ Ngân khố Luân chuyển
             </Card.Title>
             <Card.Description className="text-xs text-slate-500 mt-0.5">
               Tách biệt rõ hoa hồng thực thu của sàn với tiền cọc tạm giữ và số dư ví thuộc sở hữu Chủ trọ
@@ -266,7 +281,7 @@ export const StatisticsPage: React.FC = () => {
                     fontSize: '12px',
                   }}
                 />
-                <Bar dataKey="soTien" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="soTien" fill="#0d9488" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card.Content>
@@ -276,15 +291,23 @@ export const StatisticsPage: React.FC = () => {
           <div>
             <Card.Header className="p-0 pb-4">
               <Card.Title className="text-sm font-bold text-slate-900">
-                Cơ cấu loại hình phòng trọ đang hiển thị
+                Cơ cấu loại hình phòng trọ trên sàn
               </Card.Title>
               <Card.Description className="text-xs text-slate-500 mt-0.5">
-                Thống kê trực tiếp từ {allRooms.length} bài đăng công khai trên sàn
+                Thống kê trực tiếp từ {allRooms.length} bài đăng ghi nhận trên hệ thống
               </Card.Description>
             </Card.Header>
 
             <Card.Content className="p-0 h-56 w-full flex items-center justify-center">
-              {roomTypeDistribution.length > 0 ? (
+              {isLoadingRooms ? (
+                <div className="w-36 h-36 rounded-full bg-slate-200 animate-pulse" />
+              ) : isErrorRooms ? (
+                <AdminErrorState
+                  compact
+                  title="Không thể tải danh sách phòng"
+                  onRetry={() => void refetchRooms()}
+                />
+              ) : roomTypeDistribution.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -308,15 +331,11 @@ export const StatisticsPage: React.FC = () => {
                 </ResponsiveContainer>
               ) : (
                 <div className="text-center text-xs text-slate-400">
-                  Chưa có bài đăng phòng trọ công khai để phân tích tỷ trọng.
+                  Chưa có bài đăng phòng trọ nào để phân tích tỷ trọng.
                 </div>
               )}
             </Card.Content>
           </div>
-
-          <Card.Footer className="p-3 bg-slate-50 rounded-xl text-[11px] text-slate-500 border border-slate-100 mt-3">
-            Sàn InnFinder không quản lý tiền thuê phòng (`giaThue`) hay tiền cọc hợp đồng (`cocPhong`) giữa Khách và Chủ trọ.
-          </Card.Footer>
         </Card>
       </div>
     </div>

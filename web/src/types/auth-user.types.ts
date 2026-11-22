@@ -93,6 +93,7 @@ export interface ComplaintResponseDTO {
   tenNguoiGui?: string;
   doiTuongKhieuNai: string;
   tenDoiTuong?: string;
+  tenDoiTuongKhieuNai?: string;
   vanDe: string;
   hinhAnh?: string;
   trangThai: TrangThaiKhieuNai;

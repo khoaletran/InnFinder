@@ -41,5 +41,8 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     List<PhongTro> findByMaPhongTroIn(List<String> maPhongTroList);
 
+    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    List<PhongTro> findAllByOrderByThoiGianDangDesc();
+
     long countByTrangThai(TrangThaiPhongTro trangThai);
 }

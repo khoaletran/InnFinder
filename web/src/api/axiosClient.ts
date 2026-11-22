@@ -55,7 +55,9 @@ axiosClient.interceptors.response.use(
       useAuthStore.getState().logout();
     }
     let errorMessage = 'Lỗi kết nối máy chủ, vui lòng thử lại sau.';
-    if (error.response?.data?.message) {
+    if (error.response?.status === 429) {
+      errorMessage = 'Bạn thao tác quá nhiều lần, vui lòng thử lại sau';
+    } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.message) {
       errorMessage = error.message;

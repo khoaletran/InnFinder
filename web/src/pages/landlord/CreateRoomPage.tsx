@@ -35,7 +35,7 @@ interface CreateRoomPageProps {
 
 const WIZARD_STEPS = [
   { step: 1, title: 'Thông tin cơ bản', subtitle: 'Loại phòng, diện tích & mô tả', icon: FileText },
-  { step: 2, title: 'Vị trí & Bản đồ', subtitle: 'Địa chỉ & tọa độ GPS', icon: MapPin },
+  { step: 2, title: 'Vị trí & Bản đồ', subtitle: 'Địa chỉ & vị trí bản đồ', icon: MapPin },
   { step: 3, title: 'Tiện ích đi kèm', subtitle: 'Chọn mã tiện ích thực tế', icon: Sparkles },
   { step: 4, title: 'Hình ảnh thực tế', subtitle: 'Tải lên ảnh phòng trọ', icon: ImageIcon },
   {
@@ -665,7 +665,7 @@ const CreateRoomWizardForm: React.FC<CreateRoomWizardFormProps> = ({
               </div>
               <p className="text-xs font-bold text-slate-800">
                 {uploadImagesMutation.isPending
-                  ? 'Đang tải ảnh lên Cloudinary...'
+                  ? 'Đang tải ảnh lên...'
                   : 'Kéo thả hình ảnh vào đây hoặc bấm để chọn tệp từ máy tính'}
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
@@ -848,7 +848,7 @@ const CreateRoomWizardForm: React.FC<CreateRoomWizardFormProps> = ({
               <span className="font-bold text-slate-800 block">Tóm tắt bài đăng trước khi gửi duyệt:</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-slate-600">
                 <div>
-                  Loại phòng: <strong className="text-slate-800">{selectedCategory?.tenLoaiPhongTro} ({categoryId})</strong>
+                  Loại phòng: <strong className="text-slate-800">{selectedCategory?.tenLoaiPhongTro}</strong>
                 </div>
                 <div>
                   Diện tích & Sức chứa: <strong className="text-slate-800">{area} m² · Tối đa {maxPeople} người</strong>

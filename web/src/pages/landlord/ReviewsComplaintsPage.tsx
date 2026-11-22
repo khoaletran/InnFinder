@@ -10,6 +10,7 @@ import {
   Star,
 } from 'lucide-react';
 import { landlordService } from '@/services/landlord.service';
+import { AdminErrorState } from '@/components/common/AdminStates';
 import type { MucDoViPham, TrangThaiKhieuNai } from '@/types/auth-user.types';
 import { formatDateTime } from '@/utils/formatters';
 
@@ -78,7 +79,13 @@ export const ReviewsComplaintsPage: React.FC = () => {
     queryFn: landlordService.getReviews,
   });
 
-  const { data: complaints = [], isLoading: complaintsLoading } = useQuery({
+  const {
+    data: complaints = [],
+    isLoading: complaintsLoading,
+    isError: complaintsError,
+    error: complaintsErrObj,
+    refetch: refetchComplaints,
+  } = useQuery({
     queryKey: ['landlord', 'complaints'],
     queryFn: landlordService.getComplaints,
   });
@@ -212,6 +219,12 @@ export const ReviewsComplaintsPage: React.FC = () => {
                 <span className="text-xs">Đang tải danh sách khiếu nại...</span>
               </Card.Content>
             </Card>
+          ) : complaintsError ? (
+            <AdminErrorState
+              title="Không thể tải danh sách khiếu nại"
+              message={complaintsErrObj instanceof Error ? complaintsErrObj.message : undefined}
+              onRetry={() => void refetchComplaints()}
+            />
           ) : complaints.length === 0 ? (
             <Card className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center">
               <Card.Content className="p-0 text-slate-400 text-xs">
