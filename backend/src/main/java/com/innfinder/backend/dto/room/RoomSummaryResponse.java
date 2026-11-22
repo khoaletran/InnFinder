@@ -26,7 +26,9 @@ import java.time.LocalDateTime;
 public class RoomSummaryResponse {
     private String maPhongTro;
     private String diaChi;
+    private boolean tamAn;
     private Long giaThue;
+    private Long cocPhong;
     private Integer dienTich;
     private Integer soNguoi;
     private String maLpt;
@@ -55,7 +57,9 @@ public class RoomSummaryResponse {
         return RoomSummaryResponse.builder()
                 .maPhongTro(entity.getMaPhongTro())
                 .diaChi(entity.getDiaChi())
+                .tamAn(entity.isTamAn())
                 .giaThue(entity.getGiaThue())
+                .cocPhong(entity.getCocPhong())
                 .dienTich(entity.getDienTich())
                 .soNguoi(entity.getSoNguoi())
                 .maLpt(maLptStr)

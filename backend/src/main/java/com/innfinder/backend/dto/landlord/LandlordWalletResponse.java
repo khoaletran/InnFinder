@@ -15,4 +15,5 @@ public class LandlordWalletResponse {
     private List<BankAccountResponse> dsTaiKhoanNganHang;
     private Long tongDaThu;
     private Long tongDaRut;
+    private Long dangChoRut;
 }

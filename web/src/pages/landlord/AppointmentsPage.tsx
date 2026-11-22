@@ -1,8 +1,8 @@
+import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
 import React, { useMemo, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertCircle,
   Calendar as CalendarIcon,
   CheckCircle2,
   Clock,
@@ -12,6 +12,7 @@ import {
   Loader2,
   Phone,
   Search,
+  ShieldCheck,
   X,
   XCircle,
 } from 'lucide-react';
@@ -27,6 +28,20 @@ import type { LandlordAppointmentItem } from '@/types/landlord.types';
 import { formatPhoneNumber, formatVND } from '@/utils/formatters';
 
 type StatusFilter = 'ALL' | TrangThaiDatLich;
+
+interface StatusTabConfig {
+  key: StatusFilter;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const STATUS_TABS: StatusTabConfig[] = [
+  { key: 'ALL', label: 'Tất cả', icon: CalendarIcon },
+  { key: 'CHO_XAC_NHAN', label: 'Chờ xác nhận', icon: Clock },
+  { key: 'XAC_NHAN', label: 'Đã xác nhận', icon: CheckCircle2 },
+  { key: 'HOAN_THANH', label: 'Hoàn tất', icon: ShieldCheck },
+  { key: 'HUY', label: 'Đã hủy', icon: XCircle },
+];
 
 const toLocalIsoDate = (offsetDays: number): string => {
   const d = new Date();
@@ -57,12 +72,14 @@ export const AppointmentsPage: React.FC = () => {
   const tomorrow = useMemo(() => toLocalIsoDate(1), []);
   const dayAfterTomorrow = useMemo(() => toLocalIsoDate(2), []);
 
-  const { data: appointments = [], isLoading } = useQuery({
+  const { data: appointments = [], isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['landlord', 'appointments'],
     queryFn: landlordService.getAppointments,
+    refetchInterval: 15000,
   });
 
   const invalidateRelated = () => {
+    void queryClient.invalidateQueries({ queryKey: ['landlord', 'notifications'] });
     void queryClient.invalidateQueries({ queryKey: ['landlord', 'appointments'] });
     void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
     void queryClient.invalidateQueries({ queryKey: ['landlord', 'wallet'] });
@@ -134,6 +151,23 @@ export const AppointmentsPage: React.FC = () => {
     },
   });
 
+  // Đếm số lượng theo từng trạng thái cho thanh tab Shopee
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = {
+      ALL: appointments.length,
+      CHO_XAC_NHAN: 0,
+      XAC_NHAN: 0,
+      HOAN_THANH: 0,
+      HUY: 0,
+    };
+    for (const apt of appointments) {
+      if (apt.trangThai && apt.trangThai in counts) {
+        counts[apt.trangThai as StatusFilter]++;
+      }
+    }
+    return counts;
+  }, [appointments]);
+
   const filtered = appointments.filter((a) => {
     const matchStatus = filter === 'ALL' || a.trangThai === filter;
     const matchDate = !selectedDate || a.ngayHen === selectedDate;
@@ -153,58 +187,63 @@ export const AppointmentsPage: React.FC = () => {
 
   const declineCoc = decisionDeclineTarget?.coc ?? 0;
 
+  if (loadError) return <LandlordQueryError error={loadError} onRetry={() => void refetch()} />;
+
   return (
     <div className="space-y-6">
-      {/* Header & Status Tabs */}
+      {/* Header */}
       <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <Card.Header className="p-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <Card.Title className="text-lg font-bold text-slate-900">
               Quản Lý Lịch Hẹn Xem Phòng
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Duyệt lịch hẹn, hoàn cọc trực tiếp tại buổi xem và xác nhận quyết định cho thuê theo Swimlane
-            </Card.Description>
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-            {(
-              [
-                { id: 'ALL', label: 'Tất cả' },
-                { id: 'CHO_XAC_NHAN', label: 'Chờ duyệt' },
-                { id: 'XAC_NHAN', label: 'Đã xác nhận' },
-                { id: 'HOAN_THANH', label: 'Hoàn thành' },
-                { id: 'HUY', label: 'Đã hủy' },
-              ] as const
-            ).map((tab) => (
-              <button
-                type="button"
-                key={tab.id}
-                onClick={() => setFilter(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                  filter === tab.id
-                    ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
         </Card.Header>
       </Card>
 
-      {/* Swimlane 2.3 Notice */}
-      <div className="bg-cyan-50/70 border border-cyan-200/70 rounded-2xl p-4 flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-cyan-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-cyan-900 leading-relaxed">
-          <strong className="block font-bold mb-0.5">
-            Quy trình thế chân cọc giữ chân xem phòng (Swimlane 2.3):
-          </strong>
-          <span>
-            Khách nộp cọc giữ chân theo loại phòng vào Hệ thống. Khi dẫn xem thực tế, Chủ trọ hoàn trả trực tiếp 100% tiền cọc cho khách. Sau khi khách bấm{' '}
-            <strong>&ldquo;Đã nhận lại cọc từ Chủ trọ&rdquo;</strong>, hai bên độc lập bấm quyết định trên ứng dụng: cả 2 đồng ý ➔ Sàn trích phí hoa hồng và chuyển phần cọc thế chân còn lại về Ví Chủ trọ; có ít nhất 1 bên từ chối ➔ Sàn hoàn đủ 100% cọc thế chân về Ví Chủ trọ (phí hoa hồng = 0 ₫).
-          </span>
+      {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-slate-100">
+          {STATUS_TABS.map((tab) => {
+            const isActive = filter === tab.key;
+            const count = statusCounts[tab.key] ?? 0;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFilter(tab.key)}
+                className={`flex-1 min-w-[130px] sm:min-w-0 py-3.5 px-3 sm:px-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'text-teal-700 font-bold bg-teal-50/40'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    isActive ? 'text-teal-600' : 'text-slate-400'
+                  }`}
+                />
+                <span>{tab.label}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    isActive
+                      ? 'bg-teal-600 text-white'
+                      : count > 0
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-slate-50 text-slate-400'
+                  }`}
+                >
+                  {count}
+                </span>
+                {/* Active indicator bar like Shopee */}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 shadow-xs" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -317,15 +356,15 @@ export const AppointmentsPage: React.FC = () => {
               <span className="text-xs">Đang tải danh sách lịch hẹn xem phòng...</span>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[980px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Khách Hẹn Xem</th>
-                  <th className="py-3.5 px-4">Phòng Trọ</th>
-                  <th className="py-3.5 px-4">Thời Gian Hẹn</th>
-                  <th className="py-3.5 px-4">Cọc & Phí Sàn</th>
-                  <th className="py-3.5 px-4">Trạng Thái</th>
-                  <th className="py-3.5 px-4 text-right">Hành Động Nghiệp Vụ</th>
+                  <th className="py-3.5 px-4 w-[180px] whitespace-nowrap">Khách Hẹn Xem</th>
+                  <th className="py-3.5 px-4 min-w-[260px]">Phòng Trọ</th>
+                  <th className="py-3.5 px-4 w-[140px] whitespace-nowrap">Thời Gian Hẹn</th>
+                  <th className="py-3.5 px-4 w-[150px] whitespace-nowrap">Cọc & Phí Sàn</th>
+                  <th className="py-3.5 px-4 w-[140px] whitespace-nowrap">Trạng Thái</th>
+                  <th className="py-3.5 px-4 w-[240px] text-right whitespace-nowrap">Hành Động Nghiệp Vụ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -339,7 +378,7 @@ export const AppointmentsPage: React.FC = () => {
                   filtered.map((item) => {
                     const canDecide =
                       item.trangThai === 'XAC_NHAN' &&
-                      item.daNhanLaiCoc === true &&
+                      (item.daNhanLaiCoc === true || (item.coc ?? 0) === 0) &&
                       (item.chuTroDongY === null || item.chuTroDongY === undefined);
 
                     return (
@@ -348,7 +387,7 @@ export const AppointmentsPage: React.FC = () => {
                         onClick={() => setSelectedDetail(item)}
                         className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <div>
                             <span className="font-bold text-slate-800 text-xs block group-hover:text-cyan-700 transition-colors">
                               {item.khachHangTen}
@@ -381,7 +420,7 @@ export const AppointmentsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="space-y-0.5">
                             <span className="font-bold text-slate-800 flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-cyan-600" />
@@ -393,7 +432,7 @@ export const AppointmentsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className="font-black text-cyan-700 text-sm block">
                             {formatVND(item.coc)}
                           </span>
@@ -402,7 +441,7 @@ export const AppointmentsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <Chip
                             size="sm"
                             variant="soft"
@@ -429,7 +468,7 @@ export const AppointmentsPage: React.FC = () => {
                         </td>
 
                         <td
-                          className="py-3.5 px-4 text-right"
+                          className="py-3.5 px-4 text-right whitespace-nowrap"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {item.trangThai === 'CHO_XAC_NHAN' && (
@@ -444,6 +483,8 @@ export const AppointmentsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedApprove(item)}
+                                disabled={(item.coc ?? 0) > 0 && item.daNopCoc !== true}
+                                title={(item.coc ?? 0) > 0 && item.daNopCoc !== true ? 'Khách chưa nộp cọc' : 'Xác nhận lịch xem'}
                                 className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors cursor-pointer"
                               >
                                 Duyệt lịch
@@ -451,7 +492,13 @@ export const AppointmentsPage: React.FC = () => {
                             </div>
                           )}
 
-                          {item.trangThai === 'XAC_NHAN' && !item.daNhanLaiCoc && (
+                          {item.trangThai === 'XAC_NHAN' && (
+                            <button type="button" onClick={() => setSelectedCancel(item)} disabled={cancelMutation.isPending}
+                              className="mb-2 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg">
+                              Hủy lịch hẹn
+                            </button>
+                          )}
+                          {item.trangThai === 'XAC_NHAN' && !item.daNhanLaiCoc && (item.coc ?? 0) > 0 && (
                             <div className="flex flex-col items-end gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                 <Clock className="w-3 h-3 shrink-0" />
@@ -478,7 +525,7 @@ export const AppointmentsPage: React.FC = () => {
                           )}
 
                           {item.trangThai === 'XAC_NHAN' &&
-                            item.daNhanLaiCoc === true &&
+                            (item.daNhanLaiCoc === true || (item.coc ?? 0) === 0) &&
                             canDecide && (
                               <div className="flex items-center justify-end gap-2">
                                 <button
@@ -502,7 +549,7 @@ export const AppointmentsPage: React.FC = () => {
                             )}
 
                           {item.trangThai === 'XAC_NHAN' &&
-                            item.daNhanLaiCoc === true &&
+                            (item.daNhanLaiCoc === true || (item.coc ?? 0) === 0) &&
                             !canDecide && (
                               <div className="flex items-center justify-end gap-2">
                                 {item.chuTroDongY === true ? (
@@ -537,7 +584,7 @@ export const AppointmentsPage: React.FC = () => {
 
                           {item.trangThai === 'HUY' && (
                             <div className="flex items-center justify-end gap-2">
-                              <span className="text-[11px] text-slate-400 truncate max-w-[160px]">
+                              <span className="text-[11px] text-slate-400 truncate max-w-[200px]" title={item.lyDoHuy || 'Đã hủy'}>
                                 {item.lyDoHuy || 'Đã hủy'}
                               </span>
                               <button
@@ -565,7 +612,7 @@ export const AppointmentsPage: React.FC = () => {
       <AppointmentDetailModal
         isOpen={Boolean(selectedDetail)}
         onClose={() => setSelectedDetail(null)}
-        appointment={selectedDetail}
+        appointment={appointments.find((item) => item.id === selectedDetail?.id) ?? selectedDetail}
         onApprove={(id) => {
           const app = appointments.find((a) => a.id === id);
           if (app) setSelectedApprove(app);

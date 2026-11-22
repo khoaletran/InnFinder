@@ -61,6 +61,22 @@ export interface AdminStatisticsResponse {
   cacNamCoDuLieu: number[];
 }
 
+export interface AdminRecommendedAction {
+  tieuDe: string;
+  moTa: string;
+  mucDoUuTien: 'CAO' | 'TRUNG_BINH' | 'THEO_DOI';
+  duongDan?: string;
+}
+
+export interface AdminRevenueInsightResponse {
+  nguonPhanTich: 'AI' | 'RULE_BASED';
+  tongQuan: string;
+  danhGiaDoanhThu: string;
+  danhGiaNganKho: string;
+  danhGiaLoaiPhong: string;
+  deXuatQuyetDinh: AdminRecommendedAction[];
+}
+
 export interface AdminTreasuryStats {
   tongQuyHeThong: number;
   tongQuyThucTe: number;

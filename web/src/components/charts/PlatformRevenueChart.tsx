@@ -51,7 +51,7 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
           {subtitle}
         </Card.Description>
       </Card.Header>
-      <Card.Content className="p-0 h-64">
+      <Card.Content className="p-0 h-[260px]">
         {isLoading ? (
           <div className="h-full w-full rounded-[var(--radius-control)] bg-surface-muted animate-pulse flex flex-col justify-between p-4">
             <div className="h-3 w-1/3 bg-border-strong rounded" />
@@ -84,7 +84,7 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height={260} minWidth={0}>
             <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
               <XAxis dataKey="thang" tick={{ fontSize: 11, fill: colors.textMuted }} />
