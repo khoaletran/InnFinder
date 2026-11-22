@@ -6,6 +6,8 @@ import type {
   AdminLandlordRequestItem,
   AdminPostItem,
   AdminReviewItem,
+  AdminStatisticsFilter,
+  AdminStatisticsResponse,
   AdminTransactionItem,
   AdminTreasuryStats,
   AdminUserItem,
@@ -51,43 +53,69 @@ function mapRoomToAdminPost(r: Record<string, unknown>): AdminPostItem {
   };
 }
 
-interface RawAdminStatistics {
-  tongSoPhong?: number;
-  soPhongChoDuyet?: number;
-  soPhongDaDuyet?: number;
-  soPhongHoanThanh?: number;
-  soPhongHuy?: number;
-  tongNguoiDung?: number;
-  soKhachHang?: number;
-  soChuTro?: number;
-  soChuTroChoDuyet?: number;
-  tongDoanhThu?: number;
-  tongQuyHeThong?: number;
-  tongQuyThucTe?: number;
-  quyTamGiuCoc?: number;
-  tongSoDuViChuTro?: number;
-  quyChoRut?: number;
-  soLenhRutChoDuyet?: number;
-  doanhThuTheoThang?: Array<{ thang: string; giaTri: number }>;
-}
-
-function buildFallbackRevenueSeries(tongDoanhThu: number): Array<{ thang: string; giaTri: number }> {
-  const now = new Date();
-  const points: Array<{ thang: string; giaTri: number }> = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    points.push({
-      thang: `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`,
-      giaTri: i === 0 ? tongDoanhThu : 0,
-    });
-  }
-  return points;
-}
-
 export const adminService = {
-  // 1. Dashboard & Thống kê hệ thống (Doanh thu sàn tính từ hoa hồng các lịch hẹn hoàn tất)
+  // 1. Dashboard & Thống kê hệ thống (Doanh thu sàn = SUM(phiThu) từ PhieuDatLich HOAN_THANH)
+  getStatistics: async (filters?: AdminStatisticsFilter): Promise<AdminStatisticsResponse> => {
+    const params: Record<string, number> = {};
+    if (filters?.day !== null && filters?.day !== undefined) params.day = filters.day;
+    if (filters?.month !== null && filters?.month !== undefined) params.month = filters.month;
+    if (filters?.year !== null && filters?.year !== undefined) params.year = filters.year;
+
+    const d = await axiosClient.get<
+      unknown,
+      Partial<AdminStatisticsResponse> & { tongQuyThucTe?: number }
+    >('/api/admin/statistics', { params });
+
+    const tongDoanhThu = Number(d?.tongDoanhThu ?? 0);
+    const tongQuyHeThong = Number(d?.tongQuyHeThong ?? 0);
+
+    return {
+      tongSoPhong: Number(d?.tongSoPhong ?? 0),
+      soPhongChoDuyet: Number(d?.soPhongChoDuyet ?? 0),
+      soPhongDaDuyet: Number(d?.soPhongDaDuyet ?? 0),
+      soPhongHoanThanh: Number(d?.soPhongHoanThanh ?? 0),
+      soPhongHuy: Number(d?.soPhongHuy ?? 0),
+      tongNguoiDung: Number(d?.tongNguoiDung ?? 0),
+      soKhachHang: Number(d?.soKhachHang ?? 0),
+      soChuTro: Number(d?.soChuTro ?? 0),
+      soChuTroChoDuyet: Number(d?.soChuTroChoDuyet ?? 0),
+      tongDoanhThu,
+      soLichHoanThanh: Number(d?.soLichHoanThanh ?? 0),
+      tongQuyHeThong,
+      tongQuyThucTe: Number(d?.tongQuyThucTe ?? tongQuyHeThong + tongDoanhThu),
+      quyTamGiuCoc: Number(d?.quyTamGiuCoc ?? 0),
+      tongSoDuViChuTro: Number(d?.tongSoDuViChuTro ?? 0),
+      quyChoRut: Number(d?.quyChoRut ?? 0),
+      soLenhRutChoDuyet: Number(d?.soLenhRutChoDuyet ?? 0),
+      bieuDoDoanhThu: Array.isArray(d?.bieuDoDoanhThu)
+        ? d.bieuDoDoanhThu.map((p) => ({
+            nhan: String(p?.nhan ?? '').replace(/^T(?=\d{2}\/\d{4}$)/, ''),
+            doanhThu: Number(p?.doanhThu ?? 0),
+            soLichHoanThanh: Number(p?.soLichHoanThanh ?? 0),
+          }))
+        : d?.bieuDoDoanhThu === undefined
+          ? [
+              {
+                nhan: `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`,
+                doanhThu: tongDoanhThu,
+                soLichHoanThanh: 0,
+              },
+            ]
+          : [],
+      coCauLoaiPhong: Array.isArray(d?.coCauLoaiPhong)
+        ? d.coCauLoaiPhong.map((r) => ({
+            tenLoaiPhong: String(r?.tenLoaiPhong ?? 'Khác'),
+            soLuong: Number(r?.soLuong ?? 0),
+          }))
+        : [],
+      cacNamCoDuLieu: Array.isArray(d?.cacNamCoDuLieu)
+        ? d.cacNamCoDuLieu.map(Number).filter((n) => Number.isFinite(n))
+        : [],
+    };
+  },
+
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
-    const d = await axiosClient.get<unknown, RawAdminStatistics>('/api/admin/statistics');
+    const d = await adminService.getStatistics();
 
     let soKhieuNai = 0;
     try {
@@ -99,25 +127,25 @@ export const adminService = {
       // ignore secondary counter failure
     }
 
-    const tongNguoiDung = Number(d?.tongNguoiDung ?? 0);
-    const tongSoPhong = Number(d?.tongSoPhong ?? 0);
-    const tongDoanhThu = Number(d?.tongDoanhThu ?? 0);
-    const soPhongChoDuyet = Number(d?.soPhongChoDuyet ?? 0);
-    const soChuTroChoDuyet = Number(d?.soChuTroChoDuyet ?? 0);
-
+    const currentMonth = new Date().getMonth() + 1;
     const tangTruongGiaoDich =
-      Array.isArray(d?.doanhThuTheoThang) && d.doanhThuTheoThang.length > 0
-        ? d.doanhThuTheoThang.map((pt) => ({
-            thang: String(pt.thang ?? ''),
-            giaTri: Number(pt.giaTri ?? 0),
+      d.bieuDoDoanhThu.length > 0
+        ? d.bieuDoDoanhThu.map((p) => ({
+            thang: p.nhan,
+            giaTri: p.doanhThu,
           }))
-        : buildFallbackRevenueSeries(tongDoanhThu);
+        : [
+            {
+              thang: `Tháng ${currentMonth}`,
+              giaTri: d.tongDoanhThu,
+            },
+          ];
 
     return {
-      nguoiDung: { total: tongNguoiDung, label: 'Người dùng hệ thống' },
-      soTinDang: { total: tongSoPhong, label: 'Tổng số phòng trọ' },
+      nguoiDung: { total: d.tongNguoiDung, label: 'Người dùng hệ thống' },
+      soTinDang: { total: d.tongSoPhong, label: 'Tổng số phòng trọ' },
       doanhThu: {
-        total: tongDoanhThu.toLocaleString('vi-VN') + ' ₫',
+        total: d.tongDoanhThu.toLocaleString('vi-VN') + ' ₫',
         label: 'Doanh thu hoa hồng sàn',
       },
       khieuNai: {
@@ -126,8 +154,8 @@ export const adminService = {
         isAlert: soKhieuNai > 0,
       },
       hangDoi: {
-        tinMoi: soPhongChoDuyet,
-        xacMinhChuTro: soChuTroChoDuyet,
+        tinMoi: d.soPhongChoDuyet,
+        xacMinhChuTro: d.soChuTroChoDuyet,
         baoCaoViPham: soKhieuNai,
       },
       tangTruongGiaoDich,
@@ -135,17 +163,15 @@ export const adminService = {
   },
 
   getTreasuryStats: async (): Promise<AdminTreasuryStats> => {
-    const d = await axiosClient.get<unknown, RawAdminStatistics>('/api/admin/statistics');
-    const tongQuyHeThong = Number(d?.tongQuyHeThong ?? 0);
-    const tongDoanhThu = Number(d?.tongDoanhThu ?? 0);
+    const d = await adminService.getStatistics();
     return {
-      tongQuyHeThong,
-      tongQuyThucTe: Number(d?.tongQuyThucTe ?? tongQuyHeThong + tongDoanhThu),
-      quyTamGiuCoc: Number(d?.quyTamGiuCoc ?? 0),
-      tongSoDuViChuTro: Number(d?.tongSoDuViChuTro ?? 0),
-      quyChoRut: Number(d?.quyChoRut ?? 0),
-      soLenhRutChoDuyet: Number(d?.soLenhRutChoDuyet ?? 0),
-      tongDoanhThu,
+      tongQuyHeThong: d.tongQuyHeThong,
+      tongQuyThucTe: d.tongQuyThucTe,
+      quyTamGiuCoc: d.quyTamGiuCoc,
+      tongSoDuViChuTro: d.tongSoDuViChuTro,
+      quyChoRut: d.quyChoRut,
+      soLenhRutChoDuyet: d.soLenhRutChoDuyet,
+      tongDoanhThu: d.tongDoanhThu,
     };
   },
 

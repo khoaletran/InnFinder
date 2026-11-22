@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ExternalLink, Locate, Radar } from 'lucide-react';
+import { ExternalLink, Locate, Minus, Plus, Radar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
@@ -16,7 +16,9 @@ export interface RoomMapProps {
   onRadiusChange?: (radiusKm: number) => void;
   onLocateUser?: () => void;
   isLocating?: boolean;
+  locateTrigger?: number;
   interactivePreview?: boolean;
+  showRadiusBadge?: boolean;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -30,7 +32,9 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   onRadiusChange,
   onLocateUser,
   isLocating = false,
+  locateTrigger = 0,
   interactivePreview = true,
+  showRadiusBadge,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -47,6 +51,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
     userCoords?.lng || (rooms[0] ? getValidCoords(rooms[0])?.lng : null) || 105.8542,
   ]);
+  const initialZoomRef = useRef<number>(rooms.length === 1 && !userCoords ? 16 : 14);
+  const shouldShowRadiusBadge = showRadiusBadge ?? (Boolean(userCoords) || Boolean(onRadiusChange));
 
   // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
   useEffect(() => {
@@ -54,7 +60,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
     const map = L.map(mapContainerRef.current, {
       center: initialCoordsRef.current,
-      zoom: 14,
+      zoom: initialZoomRef.current,
       zoomControl: false,
     });
 
@@ -63,8 +69,6 @@ export const RoomMap: React.FC<RoomMapProps> = ({
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map);
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
@@ -93,7 +97,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     };
   }, []);
 
-  // 2. Căn giữa bản đồ vào vị trí người dùng khi vừa xác định được tọa độ lần đầu
+  // 2. Căn giữa bản đồ vào vị trí người dùng khi vừa xác định được tọa độ hoặc khi bấm nút "Vị trí của tôi"
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || userLat === undefined || userLng === undefined) return;
@@ -101,8 +105,13 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     if (!hasPannedToInitialRef.current) {
       hasPannedToInitialRef.current = true;
       map.setView([userLat, userLng], 14);
+    } else if (locateTrigger > 0) {
+      map.flyTo([userLat, userLng], Math.max(map.getZoom(), 14), {
+        animate: true,
+        duration: 0.75,
+      });
     }
-  }, [userLat, userLng]);
+  }, [userLat, userLng, locateTrigger]);
 
   // 3. Tự động tính bán kính quét sao cho vòng tròn LUÔN HIỂN THỊ TRỌN VẸN 100% trong khung nhìn bản đồ
   useEffect(() => {
@@ -224,6 +233,12 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       const coords = getValidCoords(room);
       if (!coords) return;
 
+      // Chỉ hiển thị các phòng nằm trong phạm vi vòng tròn quét (chưa quét tới thì không hiện)
+      if (userLat !== undefined && userLng !== undefined && radiusKm && radiusKm > 0) {
+        const distMeters = L.latLng(userLat, userLng).distanceTo(L.latLng(coords.lat, coords.lng));
+        if (distMeters > radiusKm * 1000) return;
+      }
+
       const isSelected = selectedRoom?.maPhongTro === room.maPhongTro;
       const isHovered = hoveredRoomId === room.maPhongTro;
       const millions = room.giaThue ? room.giaThue / 1_000_000 : 0;
@@ -252,7 +267,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
       markersLayer.addLayer(marker);
     });
-  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom]);
+  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom, userLat, userLng, radiusKm]);
 
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
@@ -280,32 +295,65 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Badge bán kính quét tự động thay đổi theo độ mở rộng của bản đồ */}
-      <div className="absolute top-3 left-3 z-10 pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
-          <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
-          <span>
-            Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
-          </span>
-          <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-            Tự động lọt lòng bản đồ
-          </span>
+      {shouldShowRadiusBadge && (
+        <div className="absolute top-3 left-3 z-10 pointer-events-none">
+          <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
+            <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+            <span>
+              Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
+            </span>
+            <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+              Tự động lọt lòng bản đồ
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Nút định vị GPS của người dùng */}
-      {onLocateUser && (
-        <div className="absolute top-3 right-3 z-10">
+      {/* Nhóm nút định vị GPS & phóng to / thu nhỏ bản đồ ở góc trên phải */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+        {onLocateUser && (
           <button
             type="button"
-            onClick={onLocateUser}
+            onClick={() => {
+              const map = mapInstanceRef.current;
+              if (map && userLat !== undefined && userLng !== undefined) {
+                map.flyTo([userLat, userLng], Math.max(map.getZoom(), 14), {
+                  animate: true,
+                  duration: 0.75,
+                });
+              }
+              onLocateUser();
+            }}
             disabled={isLocating}
             title="Định vị vị trí hiện tại của tôi"
+            aria-label="Định vị vị trí hiện tại của tôi"
             className="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-200/90 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Locate className={`w-5 h-5 ${isLocating ? 'animate-spin text-teal-600' : ''}`} />
           </button>
+        )}
+
+        <div className="w-10 rounded-xl bg-white shadow-lg border border-slate-200/90 overflow-hidden divide-y divide-slate-200/80 flex flex-col">
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomIn()}
+            title="Phóng to"
+            aria-label="Phóng to"
+            className="w-10 h-9 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-colors active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomOut()}
+            title="Thu nhỏ"
+            aria-label="Thu nhỏ"
+            className="w-10 h-9 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-colors active:scale-95 cursor-pointer"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Thẻ xem trước thông tin phòng trọ đang chọn */}
       {interactivePreview && selectedRoom && (

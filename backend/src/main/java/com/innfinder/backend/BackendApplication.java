@@ -22,8 +22,8 @@ public class BackendApplication {
      */
     private static void loadDotenv() {
         List<Path> potentialPaths = List.of(
-                Path.of(".env"),
                 Path.of("backend/.env"),
+                Path.of(".env"),
                 Path.of("../.env")
         );
 
@@ -31,6 +31,7 @@ public class BackendApplication {
             if (Files.isRegularFile(path)) {
                 try {
                     List<String> lines = Files.readAllLines(path);
+                    int loadedCount = 0;
                     for (String line : lines) {
                         String trimmed = line.trim();
                         if (trimmed.isEmpty() || trimmed.startsWith("#") || !trimmed.contains("=")) {
@@ -44,13 +45,18 @@ public class BackendApplication {
                             (value.startsWith("'") && value.endsWith("'"))) {
                             value = value.substring(1, value.length() - 1);
                         }
+                        if (value.isEmpty()) {
+                            continue;
+                        }
                         // Thiết lập System Property nếu chưa có trong biến môi trường OS
                         if (System.getProperty(key) == null && System.getenv(key) == null) {
                             System.setProperty(key, value);
+                            loadedCount++;
                         }
                     }
-                    System.out.println("[InnFinder Env] Đã nạp thành công biến môi trường từ: " + path.toAbsolutePath());
-                    break;
+                    if (loadedCount > 0) {
+                        System.out.println("[InnFinder Env] Đã nạp thành công biến môi trường từ: " + path.toAbsolutePath());
+                    }
                 } catch (IOException e) {
                     System.err.println("[InnFinder Env] Không thể đọc file .env: " + e.getMessage());
                 }

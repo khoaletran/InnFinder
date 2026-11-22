@@ -20,6 +20,7 @@ public class AdminStatisticsResponseDTO {
     private long soChuTro;
     private long soChuTroChoDuyet;
     private long tongDoanhThu;
+    private long soLichHoanThanh;
 
     // --- CÁC CHỈ SỐ KHO TIỀN / NGÂN KHỐ HỆ THỐNG TRUNG TÂM ---
     private long tongQuyHeThong;     // Tổng quỹ luân chuyển (quyTamGiuCoc + tongSoDuViChuTro + quyChoRut)
@@ -29,15 +30,29 @@ public class AdminStatisticsResponseDTO {
     private long quyChoRut;          // Quỹ đang chờ giải ngân rút tiền (RUT_TIEN ở trạng thái CHO_THANH_TOAN)
     private long soLenhRutChoDuyet;  // Số lượng lệnh rút tiền đang chờ Admin phê duyệt
 
-    private List<MonthlyRevenueDTO> doanhThuTheoThang;
+    // --- DỮ LIỆU BIỂU ĐỒ & BỘ LỌC TỪ DATABASE ---
+    private List<RevenuePointDTO> bieuDoDoanhThu;
+    private List<RoomTypeStatDTO> coCauLoaiPhong;
+    private List<Integer> cacNamCoDuLieu;
 
     @Getter
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class MonthlyRevenueDTO {
-        private String thang;
-        private long giaTri;
+    public static class RevenuePointDTO {
+        private String nhan;
+        private long doanhThu;
+        private long soLichHoanThanh;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RoomTypeStatDTO {
+        private String tenLoaiPhong;
+        private long soLuong;
     }
 }

@@ -9,7 +9,6 @@ import {
   ChevronRight,
   List,
   Map as MapIcon,
-  Search,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -27,23 +26,78 @@ import { getValidCoords } from '@/utils/formatters';
 
 type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'radius' | null;
 
-const PRICE_PRESETS: Array<{ label: string; min?: number; max?: number }> = [
-  { label: 'Tất cả mức giá' },
-  { label: 'Dưới 3 triệu', min: 0, max: 3_000_000 },
-  { label: '3 – 5 triệu', min: 3_000_000, max: 5_000_000 },
-  { label: '5 – 8 triệu', min: 5_000_000, max: 8_000_000 },
-  { label: 'Trên 8 triệu', min: 8_000_000, max: undefined },
-];
+interface NumericBracketOption {
+  label: string;
+  min?: number;
+  max?: number;
+  count: number;
+}
 
-const AREA_PRESETS: Array<{ label: string; min?: number; max?: number }> = [
-  { label: 'Tất cả diện tích' },
-  { label: 'Dưới 20 m²', min: 0, max: 20 },
-  { label: '20 – 35 m²', min: 20, max: 35 },
-  { label: '35 – 50 m²', min: 35, max: 50 },
-  { label: 'Trên 50 m²', min: 50, max: undefined },
-];
+function formatMillions(amount: number): string {
+  const millions = amount / 1_000_000;
+  return `${Number.isInteger(millions) ? millions : millions.toFixed(1).replace('.', ',')}tr`;
+}
 
-const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
+function buildNumericBrackets(
+  rawValues: number[],
+  step: number,
+  allLabel: string,
+  formatSingle: (n: number) => string,
+  formatUnder: (n: number) => string,
+  formatRange: (a: number, b: number) => string,
+  formatOver: (n: number) => string,
+): NumericBracketOption[] {
+  const sorted = [...rawValues].filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
+  const allOption: NumericBracketOption = { label: allLabel, count: sorted.length };
+  if (sorted.length === 0) return [allOption];
+
+  const minVal = sorted[0];
+  const maxVal = sorted[sorted.length - 1];
+  if (minVal === maxVal) {
+    return [allOption, { label: formatSingle(minVal), min: minVal, max: minVal, count: sorted.length }];
+  }
+
+  const rawSplits = [0.25, 0.5, 0.75]
+    .map((q) => Math.round(sorted[Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)))] / step) * step)
+    .filter((b) => b > minVal && b < maxVal);
+  const splits = Array.from(new Set(rawSplits)).sort((a, b) => a - b);
+
+  if (splits.length === 0) {
+    const mid = Math.round((minVal + maxVal) / 2 / step) * step;
+    if (mid > minVal && mid < maxVal) {
+      splits.push(mid);
+    } else {
+      return [
+        allOption,
+        { label: formatRange(minVal, maxVal), min: minVal, max: maxVal, count: sorted.length },
+      ];
+    }
+  }
+
+  const segments: Array<{ min?: number; max?: number; label: string }> = [
+    { min: undefined, max: splits[0], label: formatUnder(splits[0]) },
+  ];
+  for (let i = 0; i < splits.length - 1; i++) {
+    segments.push({
+      min: splits[i],
+      max: splits[i + 1],
+      label: formatRange(splits[i], splits[i + 1]),
+    });
+  }
+  const lastSplit = splits[splits.length - 1];
+  segments.push({ min: lastSplit, max: undefined, label: formatOver(lastSplit) });
+
+  const dynamicOptions = segments
+    .map((seg) => ({
+      ...seg,
+      count: sorted.filter(
+        (v) => (seg.min === undefined || v >= seg.min) && (seg.max === undefined || v <= seg.max),
+      ).length,
+    }))
+    .filter((opt) => opt.count > 0);
+
+  return [allOption, ...dynamicOptions];
+}
 
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -69,8 +123,8 @@ export const SearchPage: React.FC = () => {
   const [searchInputDraft, setSearchInputDraft] = useState<string | null>(null);
   const submittedKeyword = searchParams.get('keyword') ?? manualKeyword;
   const searchInput = searchInputDraft ?? submittedKeyword;
+  const hasTextQuery = submittedKeyword.trim().length > 0;
 
-  const [useAiSearch, setUseAiSearch] = useState(() => searchParams.get('ai') === '1');
   const [currentPage, setCurrentPage] = useState(0);
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummaryResponse | null>(null);
@@ -89,6 +143,7 @@ export const SearchPage: React.FC = () => {
       : null,
   );
   const [isLocating, setIsLocating] = useState(false);
+  const [locateTrigger, setLocateTrigger] = useState(0);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
 
   useEffect(() => {
@@ -128,6 +183,42 @@ export const SearchPage: React.FC = () => {
     queryFn: roomService.getAmenities,
   });
 
+  // Tải danh sách phòng thực tế trong hệ thống để dựng các option bộ lọc động (không hardcode)
+  const { data: catalogForFilters } = useQuery({
+    queryKey: ['rooms', 'filter-metadata'],
+    queryFn: () => roomService.searchRooms({ page: 0, size: 100 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const catalogRooms = useMemo(() => catalogForFilters?.content ?? [], [catalogForFilters?.content]);
+
+  const priceOptions = useMemo(
+    () =>
+      buildNumericBrackets(
+        catalogRooms.map((r) => r.giaThue),
+        500_000,
+        'Tất cả mức giá',
+        (n) => `Giá ${formatMillions(n)}`,
+        (n) => `Dưới ${formatMillions(n)}`,
+        (a, b) => `${formatMillions(a)} – ${formatMillions(b)}`,
+        (n) => `Từ ${formatMillions(n)} trở lên`,
+      ),
+    [catalogRooms],
+  );
+
+  const areaOptions = useMemo(
+    () =>
+      buildNumericBrackets(
+        catalogRooms.map((r) => r.dienTich),
+        5,
+        'Tất cả diện tích',
+        (n) => `${n} m²`,
+        (n) => `Dưới ${n} m²`,
+        (a, b) => `${a} – ${b} m²`,
+        (n) => `Từ ${n} m² trở lên`,
+      ),
+    [catalogRooms],
+  );
+
   const {
     data: queryResult,
     isLoading,
@@ -139,7 +230,6 @@ export const SearchPage: React.FC = () => {
       'rooms',
       'search',
       {
-        useAiSearch,
         keyword: submittedKeyword,
         minPrice: filterStore.minPrice,
         maxPrice: filterStore.maxPrice,
@@ -153,19 +243,35 @@ export const SearchPage: React.FC = () => {
       },
     ],
     queryFn: async () => {
-      if (useAiSearch && submittedKeyword.trim()) {
-        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 30);
-        const content = aiRooms || [];
-        return {
-          content,
-          totalElements: content.length,
-          totalPages: 1,
-        };
+      const trimmed = submittedKeyword.trim();
+      if (trimmed) {
+        try {
+          const result = await roomService.aiSearchWithDetails(trimmed, {
+            minGia: filterStore.minPrice,
+            maxGia: filterStore.maxPrice,
+            minDienTich: filterStore.minArea,
+            maxDienTich: filterStore.maxArea,
+            soNguoi: filterStore.capacity,
+            maLpt: filterStore.categoryId,
+            dsTienIch: filterStore.selectedAmenities,
+            sortBy: sortBy === 'NEWEST' ? undefined : 'giaThue',
+            sortDirection: sortBy === 'PRICE_ASC' ? 'ASC' : 'DESC',
+          });
+          const content = result.rooms || [];
+          return {
+            content,
+            totalElements: content.length,
+            totalPages: 1,
+            searchMode: result.searchMode,
+          };
+        } catch {
+          // Graceful fallback về tìm kiếm từ khóa + bộ lọc DB nếu AI tạm gián đoạn
+        }
       }
       const sortField = sortBy === 'NEWEST' ? 'thoiGianDang' : 'giaThue';
       const sortDirection = sortBy === 'PRICE_ASC' ? ('ASC' as const) : ('DESC' as const);
       const res = await roomService.searchRooms({
-        keyword: submittedKeyword.trim() || undefined,
+        keyword: trimmed || undefined,
         minGia: filterStore.minPrice,
         maxGia: filterStore.maxPrice,
         minDienTich: filterStore.minArea,
@@ -182,6 +288,7 @@ export const SearchPage: React.FC = () => {
         content: res.content || [],
         totalElements: res.totalElements || (res.content || []).length,
         totalPages: res.totalPages || 1,
+        searchMode: 'FILTERED' as const,
       };
     },
   });
@@ -193,19 +300,48 @@ export const SearchPage: React.FC = () => {
   // 3. Tâm quét hiệu lực: Ưu tiên GPS thật, nếu chưa có thì tự động căn vào phòng đầu tiên đang xem
   const activeCenterCoords = useMemo(() => {
     if (gpsCoords) return gpsCoords;
-    if (rooms.length > 0) {
-      const firstValid = getValidCoords(rooms[0]);
+    const sourceList = rooms.length > 0 ? rooms : catalogRooms;
+    if (sourceList.length > 0) {
+      const firstValid = getValidCoords(sourceList[0]);
       if (firstValid) return firstValid;
     }
     return { lat: 21.0285, lng: 105.8542 };
-  }, [gpsCoords, rooms]);
+  }, [gpsCoords, rooms, catalogRooms]);
 
-  const activeSelectedRoom = useMemo(() => {
-    if (selectedRoom && rooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
-      return selectedRoom;
+  // Các mốc bán kính động dựa theo khoảng cách thực tế của các phòng trong dữ liệu
+  const radiusOptions = useMemo(() => {
+    const dists = catalogRooms
+      .map((r) => {
+        const c = getValidCoords(r);
+        return c ? getDistanceInKm(activeCenterCoords.lat, activeCenterCoords.lng, c.lat, c.lng) : null;
+      })
+      .filter((d): d is number => d !== null && Number.isFinite(d))
+      .sort((a, b) => a - b);
+
+    if (dists.length === 0) return [];
+
+    const milestones = Array.from(
+      new Set(
+        dists.map((d) => {
+          if (d <= 1) return 1;
+          if (d <= 5) return Math.ceil(d);
+          return Math.ceil(d / 5) * 5;
+        }),
+      ),
+    ).sort((a, b) => a - b);
+
+    const options: Array<{ km: number; label: string; count: number }> = [];
+    let prevCount = 0;
+    for (const km of milestones) {
+      const count = dists.filter((d) => d <= km).length;
+      if (count > prevCount) {
+        options.push({ km, label: `Trong ${km} km`, count });
+        prevCount = count;
+        if (options.length >= 6) break;
+      }
     }
-    return rooms[0] ?? null;
-  }, [rooms, selectedRoom]);
+    return options;
+  }, [catalogRooms, activeCenterCoords]);
 
   // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
   const roomsWithDistance = useMemo(() => {
@@ -228,15 +364,26 @@ export const SearchPage: React.FC = () => {
 
   // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
   const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
+  // Natural-language searches may name a different city; only restrict by GPS when explicitly requested.
+  const useRadiusFilter = !hasTextQuery || filterStore.radiusKm !== undefined;
 
-  // Lọc các phòng nằm trong bán kính quét hiện tại
+  // Lọc CHỈ lấy các phòng nằm trong phạm vi vòng tròn quét hiện tại (chưa quét tới thì không hiện)
   const filteredRooms = useMemo(() => {
-    if (!activeCenterCoords) return roomsWithDistance;
+    if (!useRadiusFilter || !activeCenterCoords) return roomsWithDistance;
     return roomsWithDistance.filter((item) => {
-      if (item.distanceInKm === null) return true;
+      if (item.distanceInKm === null) return false;
       return item.distanceInKm <= effectiveRadius;
     });
-  }, [roomsWithDistance, effectiveRadius, activeCenterCoords]);
+  }, [roomsWithDistance, effectiveRadius, activeCenterCoords, useRadiusFilter]);
+
+  const scannedRooms = useMemo(() => filteredRooms.map((item) => item.room), [filteredRooms]);
+
+  const activeSelectedRoom = useMemo(() => {
+    if (selectedRoom && scannedRooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
+      return selectedRoom;
+    }
+    return null;
+  }, [scannedRooms, selectedRoom]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,6 +401,10 @@ export const SearchPage: React.FC = () => {
   };
 
   const handleLocateUser = () => {
+    setSelectedRoom(null);
+    if (gpsCoords) {
+      setLocateTrigger((c) => c + 1);
+    }
     if (!navigator.geolocation) {
       toast.error('Trình duyệt của bạn không hỗ trợ định vị GPS.');
       return;
@@ -264,11 +415,15 @@ export const SearchPage: React.FC = () => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGpsCoords(coords);
         setUserLocation(coords.lat, coords.lng);
+        setLocateTrigger((c) => c + 1);
         setIsLocating(false);
-        toast.success('Đã cập nhật vị trí hiện tại của bạn');
+        toast.success('Đã di chuyển tới vị trí hiện tại của bạn');
       },
       () => {
-        toast.warning('Không thể lấy vị trí hiện tại. Vui lòng cấp quyền định vị cho trình duyệt.');
+        if (activeCenterCoords) {
+          setLocateTrigger((c) => c + 1);
+        }
+        toast.warning('Không thể lấy GPS mới. Đã đưa bản đồ về tâm vị trí hiện tại.');
         setIsLocating(false);
       },
       { timeout: 10000, enableHighAccuracy: true },
@@ -285,16 +440,15 @@ export const SearchPage: React.FC = () => {
   };
 
   const handleExpandRadius = () => {
-    if (!filterStore.radiusKm) {
-      filterStore.setRadiusKm(15);
-      toast.info('Đã mở rộng phạm vi tìm kiếm lên 15 km quanh khu vực hiện tại');
-    } else if (filterStore.radiusKm < 20) {
-      const nextRadius = Math.min(20, filterStore.radiusKm + 5);
-      filterStore.setRadiusKm(nextRadius);
-      toast.info(`Đã mở rộng bán kính lên ${nextRadius} km`);
+    const nextOption = radiusOptions.find(
+      (opt) => !filterStore.radiusKm || opt.km > filterStore.radiusKm,
+    );
+    if (nextOption && (!filterStore.radiusKm || filterStore.radiusKm < nextOption.km)) {
+      filterStore.setRadiusKm(nextOption.km);
+      toast.info(`Đã mở rộng phạm vi tìm kiếm lên ${nextOption.km} km quanh khu vực hiện tại`);
     } else {
       filterStore.setRadiusKm(undefined);
-      toast.info('Đã bỏ giới hạn bán kính để hiển thị tất cả khu vực');
+      toast.info('Đã chuyển về bán kính tự động theo bản đồ');
     }
     setCurrentPage(0);
   };
@@ -324,42 +478,25 @@ export const SearchPage: React.FC = () => {
 
   return (
     <div className="flex-1 bg-slate-50 flex flex-col w-full h-full min-h-0 overflow-hidden">
-      {/* THANH LỌC DẠNG CHIP NẰM NGANG CỐ ĐỊNH DƯỚI NAVBAR (FULL-BLEED) */}
+      {/* THANH LỌC DẠNG CHIP NẰM NGANG CĂN THẲNG HÀNG VỚI HEADER & BREADCRUMB */}
       <section
         ref={popoverBarRef}
-        className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 z-30 shrink-0"
+        className="bg-white border-b border-slate-200 py-3 z-30 shrink-0"
       >
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-          {/* Ô tìm kiếm */}
+        <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:items-center gap-3">
+          {/* Ô tìm kiếm tích hợp sẵn AI ngôn ngữ tự nhiên */}
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 lg:w-[440px] shrink-0">
             <div className="flex-1 relative flex items-center">
-              <div className="absolute left-3.5 text-slate-500">
-                {useAiSearch && isFetching ? (
-                  <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4" />
-                )}
+              <div className="absolute left-3.5 text-teal-600">
+                <Sparkles className={`w-4 h-4 ${isFetching && hasTextQuery ? 'animate-spin' : ''}`} />
               </div>
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInputDraft(e.target.value)}
-                placeholder="Quận, tên đường hoặc mô tả tự nhiên..."
-                className="w-full h-10 pl-10 pr-24 bg-slate-50 focus:bg-white text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
+                placeholder="Mô tả phòng cần tìm bằng ngôn ngữ tự nhiên (VD: Gò Vấp dưới 3tr có máy lạnh)..."
+                className="w-full h-10 pl-10 pr-4 bg-slate-50 focus:bg-white text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
               />
-              <button
-                type="button"
-                onClick={() => setUseAiSearch(!useAiSearch)}
-                title="Tìm kiếm ngữ nghĩa AI"
-                className={`absolute right-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                  useAiSearch
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:text-teal-700'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI</span>
-              </button>
             </div>
 
             <AppButton type="submit" variant="primary" size="md">
@@ -385,27 +522,30 @@ export const SearchPage: React.FC = () => {
               </button>
 
               {activePopover === 'price' && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
-                  {PRICE_PRESETS.map((preset) => {
+                <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {priceOptions.map((option) => {
                     const selected =
-                      filterStore.minPrice === preset.min && filterStore.maxPrice === preset.max;
+                      filterStore.minPrice === option.min && filterStore.maxPrice === option.max;
                     return (
                       <button
-                        key={preset.label}
+                        key={option.label}
                         type="button"
                         onClick={() => {
-                          filterStore.setPriceRange(preset.min, preset.max);
+                          filterStore.setPriceRange(option.min, option.max);
                           setCurrentPage(0);
                           setActivePopover(null);
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
                           selected
                             ? 'bg-teal-50 text-teal-800 font-semibold'
                             : 'text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        <span>{preset.label}</span>
-                        {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        <span className="truncate">{option.label}</span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-slate-400">{option.count} phòng</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        </span>
                       </button>
                     );
                   })}
@@ -490,27 +630,30 @@ export const SearchPage: React.FC = () => {
               </button>
 
               {activePopover === 'area' && (
-                <div className="absolute left-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
-                  {AREA_PRESETS.map((preset) => {
+                <div className="absolute left-0 mt-2 w-68 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {areaOptions.map((option) => {
                     const selected =
-                      filterStore.minArea === preset.min && filterStore.maxArea === preset.max;
+                      filterStore.minArea === option.min && filterStore.maxArea === option.max;
                     return (
                       <button
-                        key={preset.label}
+                        key={option.label}
                         type="button"
                         onClick={() => {
-                          filterStore.setAreaRange(preset.min, preset.max);
+                          filterStore.setAreaRange(option.min, option.max);
                           setCurrentPage(0);
                           setActivePopover(null);
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
                           selected
                             ? 'bg-teal-50 text-teal-800 font-semibold'
                             : 'text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        <span>{preset.label}</span>
-                        {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        <span className="truncate">{option.label}</span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-slate-400">{option.count} phòng</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        </span>
                       </button>
                     );
                   })}
@@ -602,7 +745,7 @@ export const SearchPage: React.FC = () => {
               </button>
 
               {activePopover === 'radius' && (
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -610,34 +753,37 @@ export const SearchPage: React.FC = () => {
                       setCurrentPage(0);
                       setActivePopover(null);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer ${
                       !filterStore.radiusKm
                         ? 'bg-teal-50 text-teal-800 font-semibold'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span>Không giới hạn</span>
+                    <span>Tự động theo bản đồ</span>
                     {!filterStore.radiusKm && <Check className="w-4 h-4 text-teal-700" />}
                   </button>
-                  {RADIUS_OPTIONS.map((km) => (
+                  {radiusOptions.map((opt) => (
                     <button
-                      key={km}
+                      key={opt.km}
                       type="button"
                       onClick={() => {
-                        filterStore.setRadiusKm(km);
+                        filterStore.setRadiusKm(opt.km);
                         setCurrentPage(0);
                         setActivePopover(null);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
-                        filterStore.radiusKm === km
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer ${
+                        filterStore.radiusKm === opt.km
                           ? 'bg-teal-50 text-teal-800 font-semibold'
                           : 'text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      <span>Trong {km} km</span>
-                      {filterStore.radiusKm === km && (
-                        <Check className="w-4 h-4 text-teal-700" />
-                      )}
+                      <span>{opt.label}</span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs text-slate-400">{opt.count} phòng</span>
+                        {filterStore.radiusKm === opt.km && (
+                          <Check className="w-4 h-4 text-teal-700" />
+                        )}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -658,14 +804,15 @@ export const SearchPage: React.FC = () => {
         </div>
       </section>
 
-      {/* FULL-BLEED SPLIT 45/55 (DESKTOP) & LIST/MAP TOGGLE (MOBILE) */}
-      <div className="flex-1 w-full min-h-0 grid grid-cols-1 lg:grid-cols-[45%_55%] h-full overflow-hidden">
-        {/* CỘT TRÁI (45%): DANH SÁCH CARD ẢNH LỚN */}
-        <div
-          className={`${
-            mobileView === 'map' ? 'hidden lg:flex' : 'flex'
-          } flex-col h-full min-h-0 bg-slate-50 border-r border-slate-200 overflow-hidden`}
-        >
+      {/* SPLIT 54/46 TRONG KHUNG CĂN GIỮA MAX-W-[1360PX] (DESKTOP) & LIST/MAP TOGGLE (MOBILE) */}
+      <div className="flex-1 w-full max-w-[1360px] mx-auto min-h-0 lg:px-6 lg:py-4 overflow-hidden">
+        <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,54fr)_minmax(0,46fr)] grid-rows-[minmax(0,1fr)] lg:gap-4 overflow-hidden">
+          {/* CỘT TRÁI (54%): DANH SÁCH CARD ẢNH LỚN */}
+          <div
+            className={`${
+              mobileView === 'map' ? 'hidden lg:flex' : 'flex'
+            } flex-col h-full min-h-0 bg-slate-50 lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-xs overflow-hidden`}
+          >
           <div className="shrink-0 px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
             <div>
               <h1 className="text-base font-bold text-slate-900">
@@ -673,7 +820,9 @@ export const SearchPage: React.FC = () => {
                 {submittedKeyword ? ` · "${submittedKeyword}"` : ''}
               </h1>
               <p className="text-xs text-slate-600">
-                Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí
+                {hasTextQuery && queryResult?.searchMode === 'FILTERED'
+                  ? 'AI đã hiểu tiêu chí; đang gợi ý theo bộ lọc và từ khóa'
+                  : 'Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí'}
               </p>
             </div>
 
@@ -783,24 +932,26 @@ export const SearchPage: React.FC = () => {
           </div>
         </div>
 
-        {/* CỘT PHẢI (55%): BẢN ĐỒ TƯƠNG TÁC */}
+        {/* CỘT PHẢI (46%): BẢN ĐỒ TƯƠNG TÁC */}
         <div
           className={`${
             mobileView === 'list' ? 'hidden lg:block' : 'block'
-          } h-full w-full bg-slate-100 relative overflow-hidden`}
+          } h-full w-full bg-slate-100 lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-xs relative overflow-hidden`}
         >
           <RoomMap
-            rooms={rooms}
+            rooms={scannedRooms}
             selectedRoom={activeSelectedRoom}
             hoveredRoomId={hoveredRoomId}
             onSelectRoom={(r) => setSelectedRoom(r)}
             onHoverRoom={setHoveredRoomId}
-            userCoords={activeCenterCoords}
+            userCoords={useRadiusFilter ? activeCenterCoords : null}
             radiusKm={effectiveRadius}
             onRadiusChange={(r) => setDynamicRadiusKm(r)}
             onLocateUser={handleLocateUser}
             isLocating={isLocating}
+            locateTrigger={locateTrigger}
           />
+        </div>
         </div>
       </div>
 

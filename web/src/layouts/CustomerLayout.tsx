@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { BottomTabBar } from '@/components/common/BottomTabBar';
+import { RoomChatbot } from '@/components/chat/RoomChatbot';
 import { Footer } from '@/components/common/Footer';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
@@ -331,6 +333,9 @@ export const CustomerLayout: React.FC = () => {
         </div>
       </header>
 
+      {/* THANH ĐỊA CHỈ (BREADCRUMB) CHO MỌI TRANG CON */}
+      {!isHomePage && !location.pathname.startsWith('/room/') && <AppBreadcrumb />}
+
       {/* NỘI DUNG MÀN HÌNH (padding đáy cho bottom tab bar mobile) */}
       <main
         className={`relative flex-1 flex flex-col ${
@@ -350,6 +355,8 @@ export const CustomerLayout: React.FC = () => {
 
       {/* Mobile Bottom Tab Bar (4 mục) */}
       <BottomTabBar />
+      {(location.pathname === '/' || location.pathname === '/search' ||
+        /^\/room\/[^/]+\/?$/.test(location.pathname) || location.pathname === '/favorites') && <RoomChatbot />}
     </div>
   );
 };

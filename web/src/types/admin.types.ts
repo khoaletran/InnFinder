@@ -21,6 +21,46 @@ export interface AdminDashboardStats {
   tangTruongGiaoDich: Array<{ thang: string; giaTri: number }>;
 }
 
+export interface AdminRevenuePoint {
+  nhan: string;
+  doanhThu: number;
+  soLichHoanThanh: number;
+}
+
+export interface AdminRoomTypeStat {
+  tenLoaiPhong: string;
+  soLuong: number;
+}
+
+export interface AdminStatisticsFilter {
+  day?: number | null;
+  month?: number | null;
+  year?: number | null;
+}
+
+export interface AdminStatisticsResponse {
+  tongSoPhong: number;
+  soPhongChoDuyet: number;
+  soPhongDaDuyet: number;
+  soPhongHoanThanh: number;
+  soPhongHuy: number;
+  tongNguoiDung: number;
+  soKhachHang: number;
+  soChuTro: number;
+  soChuTroChoDuyet: number;
+  tongDoanhThu: number;
+  soLichHoanThanh: number;
+  tongQuyHeThong: number;
+  tongQuyThucTe: number;
+  quyTamGiuCoc: number;
+  tongSoDuViChuTro: number;
+  quyChoRut: number;
+  soLenhRutChoDuyet: number;
+  bieuDoDoanhThu: AdminRevenuePoint[];
+  coCauLoaiPhong: AdminRoomTypeStat[];
+  cacNamCoDuLieu: number[];
+}
+
 export interface AdminTreasuryStats {
   tongQuyHeThong: number;
   tongQuyThucTe: number;

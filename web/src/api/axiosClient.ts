@@ -59,6 +59,8 @@ axiosClient.interceptors.response.use(
       errorMessage = 'Bạn thao tác quá nhiều lần, vui lòng thử lại sau';
     } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
+    } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Yêu cầu quá thời gian chờ. Vui lòng thử lại sau.';
     } else if (error.message) {
       errorMessage = error.message;
     }

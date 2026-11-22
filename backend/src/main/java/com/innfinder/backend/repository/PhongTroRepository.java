@@ -20,6 +20,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -45,4 +46,8 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     List<PhongTro> findAllByOrderByThoiGianDangDesc();
 
     long countByTrangThai(TrangThaiPhongTro trangThai);
+
+    @EntityGraph(attributePaths = {"loaiPhong"})
+    @Query("SELECT p FROM PhongTro p")
+    List<PhongTro> findAllWithLoaiPhong();
 }

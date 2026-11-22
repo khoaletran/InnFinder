@@ -1,5 +1,7 @@
 import { axiosClient } from '@/api/axiosClient';
+import { AI_REQUEST_TIMEOUT_MS } from '@/constants/ai';
 import type { PageResponse } from '@/types/api.types';
+import type { AiSearchResponse } from '@/types/chat.types';
 import type {
   AmenityResponse,
   CategoryResponse,
@@ -36,7 +38,22 @@ export const roomService = {
 
   aiSearchRooms: async (prompt: string, limit = 10): Promise<RoomSummaryResponse[]> => {
     return axiosClient.get<unknown, RoomSummaryResponse[]>('/api/rooms/ai-search', {
+      timeout: AI_REQUEST_TIMEOUT_MS,
       params: { prompt, limit },
+    });
+  },
+
+  aiSearchWithDetails: async (prompt: string, filter: RoomFilterRequest = {}, limit = 30): Promise<AiSearchResponse> => {
+    return axiosClient.get<unknown, AiSearchResponse>('/api/rooms/ai-search/details', {
+      timeout: AI_REQUEST_TIMEOUT_MS,
+      params: {
+        prompt, limit,
+        minGia: filter.minGia, maxGia: filter.maxGia,
+        minDienTich: filter.minDienTich, maxDienTich: filter.maxDienTich,
+        soNguoi: filter.soNguoi, maLpt: filter.maLpt,
+        dsTienIch: filter.dsTienIch?.length ? filter.dsTienIch.join(',') : undefined,
+        sortBy: filter.sortBy, sortDirection: filter.sortDirection,
+      },
     });
   },
 

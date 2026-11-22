@@ -2,219 +2,112 @@ package com.innfinder.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.innfinder.backend.dto.room.RoomSummaryResponse;
-import com.innfinder.backend.entity.PhongTro;
+import com.innfinder.backend.dto.room.RoomFilterRequest;
 import com.innfinder.backend.entity.PhongTroVector;
-import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
-import com.innfinder.backend.repository.PhongTroRepository;
 import com.innfinder.backend.repository.PhongTroVectorRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.text.Normalizer;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiSearchService {
+    private final RoomDiscoveryService discovery;
+    private final PhongTroVectorRepository vectors;
+    private final AiEmbeddingService embedding;
+    private final GeminiClient gemini;
+    private final ObjectMapper mapper;
 
-    private final PhongTroRepository phongTroRepository;
-    private final PhongTroVectorRepository vectorRepository;
-    private final AiEmbeddingService embeddingService;
-    private final ObjectMapper objectMapper;
+    public record Result(List<RoomDiscoveryService.Document> rooms, String mode) {}
+    private record Scored(RoomDiscoveryService.Document room, double score) {}
 
-    /**
-     * Ghép nối nội dung phòng thành một văn bản mô tả ngữ nghĩa hoàn chỉnh
-     */
-    public String buildRoomText(PhongTro room) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Phòng trọ ");
-        if (room.getLoaiPhong() != null && room.getLoaiPhong().getTenLoaiPhongTro() != null) {
-            sb.append(room.getLoaiPhong().getTenLoaiPhongTro()).append(". ");
-        }
-        if (room.getDiaChi() != null) {
-            sb.append("Địa chỉ tại ").append(room.getDiaChi()).append(". ");
-        }
-        if (room.getGiaThue() != null) {
-            double giaTrieu = room.getGiaThue() / 1_000_000.0;
-            sb.append("Mức giá thuê ").append(String.format("%.1f", giaTrieu)).append(" triệu/tháng. ");
-            if (room.getGiaThue() <= 2_500_000) {
-                sb.append("Giá rẻ, phòng trọ bình dân, giá sinh viên, chi phí thấp, tiết kiệm. ");
-            } else if (room.getGiaThue() <= 4_500_000) {
-                sb.append("Giá tầm trung, vừa túi tiền, giá cả hợp lý. ");
-            } else {
-                sb.append("Phòng cao cấp, tiện nghi sang trọng, chung cư mini cao cấp. ");
-            }
-        }
-        if (room.getDienTich() != null) {
-            sb.append("Diện tích rộng ").append(room.getDienTich()).append(" mét vuông. ");
-        }
-        if (room.getSoNguoi() != null) {
-            sb.append("Sức chứa tối đa ").append(room.getSoNguoi()).append(" người ở. ");
-        }
-        if (room.getMoTa() != null && !room.getMoTa().isBlank()) {
-            sb.append("Mô tả chi tiết: ").append(room.getMoTa()).append(". ");
-        }
-        if (room.getDsTienIch() != null && !room.getDsTienIch().isEmpty()) {
-            sb.append("Có các tiện ích: ");
-            String tienIchStr = room.getDsTienIch().stream()
-                    .map(ti -> ti.getTenTienIch())
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.joining(", "));
-            sb.append(tienIchStr).append(". ");
-        }
-        return sb.toString().trim();
-    }
-
-    /**
-     * Sinh mã băm SHA-256 để kiểm tra xem nội dung phòng có thay đổi không
-     */
-    private String computeHash(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (Exception e) {
-            return String.valueOf(input.hashCode());
-        }
-    }
-
-    /**
-     * Đánh chỉ mục Vector cho tất cả các phòng trọ đã duyệt
-     * Tự động chạy khi ứng dụng khởi động xong qua ApplicationReadyEvent
-     */
-    @EventListener(ApplicationReadyEvent.class)
-    @Transactional
+    /** Includes newly approved/edited rooms; never holds a DB transaction during provider calls. */
+    @Scheduled(initialDelay = 10000, fixedDelayString = "${gemini.index-delay-ms:60000}")
     public void indexAllApprovedRooms() {
+        if (!gemini.isConfigured()) return;
         try {
-            List<PhongTro> approvedRooms = phongTroRepository.findByTrangThai(TrangThaiPhongTro.DA_DUYET);
-            if (approvedRooms.isEmpty()) {
-                log.info("Chưa có phòng trọ đã duyệt nào để đánh chỉ mục AI Vector.");
-                return;
-            }
-
-            Map<String, PhongTroVector> existingVectors = vectorRepository.findAll().stream()
-                    .collect(Collectors.toMap(PhongTroVector::getMaPhongTro, v -> v, (a, b) -> a));
-
-            List<PhongTroVector> toSave = new ArrayList<>();
-
-            for (PhongTro room : approvedRooms) {
-                String text = buildRoomText(room);
-                String hash = computeHash("gemini_v2:" + text);
-
-                PhongTroVector existing = existingVectors.get(room.getMaPhongTro());
-                if (existing != null && hash.equals(existing.getContentHash())) {
-                    continue; // Nội dung không thay đổi, bỏ qua
+            Map<String, PhongTroVector> existing = vectors.findAll().stream()
+                    .collect(Collectors.toMap(PhongTroVector::getMaPhongTro, v -> v));
+            int indexed = 0;
+            for (RoomDiscoveryService.Document room : discovery.find(new RoomFilterRequest())) {
+                String id = room.summary().getMaPhongTro();
+                String hash = hash(room.text());
+                if (existing.containsKey(id) && hash.equals(existing.get(id).getContentHash())) {
+                    try {
+                        List<Double> values = mapper.readValue(existing.get(id).getEmbeddingJson(), new TypeReference<List<Double>>() {});
+                        if (AiEmbeddingService.isValidVector(values)) continue;
+                    } catch (Exception ignored) { /* Repair corrupt vectors during the next indexing pass. */ }
                 }
-
-                List<Double> vector = embeddingService.getEmbedding(text);
-                String vectorJson = objectMapper.writeValueAsString(vector);
-
-                PhongTroVector record = PhongTroVector.builder()
-                        .maPhongTro(room.getMaPhongTro())
-                        .contentHash(hash)
-                        .embeddingJson(vectorJson)
-                        .build();
-
-                toSave.add(record);
+                vectors.saveAndFlush(PhongTroVector.builder().maPhongTro(id).contentHash(hash)
+                        .embeddingJson(mapper.writeValueAsString(embedding.getDocumentEmbedding(room.text()))).build());
+                if (++indexed >= 20) break;
             }
-
-            if (!toSave.isEmpty()) {
-                vectorRepository.saveAllAndFlush(toSave);
-                log.info("Đã đánh chỉ mục AI Vector Google Gemini thành công cho {} phòng trọ.", toSave.size());
-            }
-        } catch (Exception e) {
-            log.error("Lỗi khi đánh chỉ mục Vector phòng trọ: {}", e.getMessage(), e);
+        } catch (Exception ex) {
+            log.warn("Chưa thể cập nhật chỉ mục AI; sẽ thử lại ở lượt tiếp theo.");
         }
     }
 
-    /**
-     * Tìm kiếm phòng trọ bằng ngôn ngữ tự nhiên sử dụng Vector Embeddings (Semantic Search)
-     */
-    @Transactional(readOnly = true)
-    public List<RoomSummaryResponse> searchByNaturalLanguage(String prompt) {
-        if (prompt == null || prompt.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 1. Tải tất cả các vector phòng trong cơ sở dữ liệu
-        List<PhongTroVector> allVectors = vectorRepository.findAll();
-        if (allVectors.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 2. Sinh vector cho câu truy vấn của người dùng (tự động chuẩn hóa lỗi telex)
-        List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
-
-        // 3. Tính độ tương đồng Cosine Similarity cho từng phòng
-        Map<String, Double> scoreMap = new HashMap<>();
-        TypeReference<List<Double>> listType = new TypeReference<>() {};
-
-        for (PhongTroVector pv : allVectors) {
+    public Result search(String prompt, RoomFilterRequest filter, int limit, String sort) {
+        List<RoomDiscoveryService.Document> candidates = discovery.find(filter);
+        if (candidates.isEmpty()) return new Result(List.of(), "FILTERED");
+        Map<String, PhongTroVector> stored = vectors.findAllById(candidates.stream()
+                .map(r -> r.summary().getMaPhongTro()).toList()).stream()
+                .collect(Collectors.toMap(PhongTroVector::getMaPhongTro, v -> v));
+        Map<String, List<Double>> current = new HashMap<>();
+        for (RoomDiscoveryService.Document room : candidates) {
+            PhongTroVector vector = stored.get(room.summary().getMaPhongTro());
+            if (vector == null || !hash(room.text()).equals(vector.getContentHash())) continue;
             try {
-                List<Double> roomVector = objectMapper.readValue(pv.getEmbeddingJson(), listType);
-                double similarity = embeddingService.cosineSimilarity(queryVector, roomVector);
-                scoreMap.put(pv.getMaPhongTro(), similarity);
-            } catch (Exception e) {
-                log.warn("Lỗi đọc vector phòng {}: {}", pv.getMaPhongTro(), e.getMessage());
-            }
+                List<Double> values = mapper.readValue(vector.getEmbeddingJson(), new TypeReference<List<Double>>() {});
+                if (AiEmbeddingService.isValidVector(values)) current.put(room.summary().getMaPhongTro(), values);
+            } catch (Exception ignored) { /* Never compare corrupt or old vectors. */ }
         }
-
-        // 4. Lấy top phòng có điểm tương đồng cao nhất (ngưỡng linh hoạt > 0.0)
-        List<String> sortedRoomIds = scoreMap.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0.0) // Lọc ngưỡng tương đồng linh hoạt
-                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
-                .limit(25)
-                .map(Map.Entry::getKey)
-                .toList();
-
-        if (sortedRoomIds.isEmpty()) {
-            return Collections.emptyList();
+        List<Double> query = null;
+        // Do not wait for a query embedding if the candidate set is incomplete or the user explicitly sorts by price.
+        if (current.size() == candidates.size() && !"PRICE_ASC".equals(sort) && !"PRICE_DESC".equals(sort)
+                && prompt != null && !prompt.isBlank()) {
+            try { query = embedding.getEmbedding(prompt); }
+            catch (com.innfinder.backend.exception.AppException ignored) { /* Explicit FILTERED mode below. */ }
         }
-
-        // 5. Lấy thông tin phòng từ Repository và giữ đúng thứ tự xếp hạng của AI
-        List<PhongTro> rooms = phongTroRepository.findByMaPhongTroIn(sortedRoomIds);
-        Map<String, PhongTro> roomEntityMap = rooms.stream()
-                .collect(Collectors.toMap(PhongTro::getMaPhongTro, r -> r));
-
-        // Nhận diện ý định người dùng (Intent Recognition)
-        String promptLower = prompt.toLowerCase();
-        boolean isLookingForCheap = promptLower.contains("rẻ")
-                || promptLower.contains("re")
-                || promptLower.contains("sinh viên")
-                || promptLower.contains("sinh vien")
-                || promptLower.contains("bình dân")
-                || promptLower.contains("binh dan")
-                || promptLower.contains("tiết kiệm");
-
-        List<PhongTro> matchedRooms = new ArrayList<>();
-        for (String id : sortedRoomIds) {
-            PhongTro r = roomEntityMap.get(id);
-            if (r != null && r.getTrangThai() == TrangThaiPhongTro.DA_DUYET) {
-                matchedRooms.add(r);
-            }
+        boolean semantic = query != null && current.size() == candidates.size();
+        List<Scored> scored = new ArrayList<>();
+        for (RoomDiscoveryService.Document room : candidates) {
+            double score = semantic ? embedding.cosineSimilarity(query, current.get(room.summary().getMaPhongTro()))
+                    : lexicalScore(prompt, room.text());
+            scored.add(new Scored(room, score));
         }
+        Comparator<Scored> order = Comparator.comparingDouble(Scored::score).reversed()
+                .thenComparing(s -> s.room().summary().getMaPhongTro());
+        if ("PRICE_ASC".equals(sort)) order = Comparator.comparingLong(s -> s.room().summary().getGiaThue());
+        if ("PRICE_DESC".equals(sort)) order = Comparator.<Scored>comparingLong(s -> s.room().summary().getGiaThue()).reversed();
+        return new Result(scored.stream().sorted(order).limit(Math.clamp(limit, 1, 30)).map(Scored::room).toList(),
+                semantic ? "SEMANTIC" : "FILTERED");
+    }
 
-        // Nếu người dùng tìm kiếm theo ý định giá rẻ: ưu tiên hiển thị phòng có giá thuê thấp nhất lên trước
-        if (isLookingForCheap) {
-            matchedRooms.sort(Comparator.comparing(PhongTro::getGiaThue, Comparator.nullsLast(Long::compareTo)));
+    public static String normalize(String value) {
+        return Normalizer.normalize(value == null ? "" : value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('đ', 'd');
+    }
+
+    private double lexicalScore(String query, String text) {
+        String normalized = normalize(text);
+        return Arrays.stream(normalize(query).split("\\s+")).filter(t -> t.length() > 2).distinct()
+                .filter(normalized::contains).count();
+    }
+
+    private String hash(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest((AiEmbeddingService.INDEX_VERSION + text).getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
         }
-
-        return matchedRooms.stream()
-                .map(RoomSummaryResponse::fromEntity)
-                .toList();
     }
 }

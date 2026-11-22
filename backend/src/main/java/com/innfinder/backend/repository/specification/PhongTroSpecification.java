@@ -72,10 +72,14 @@ public class PhongTroSpecification {
             }
             // 7. Lọc theo danh sách tiện ích
             if (filter.getDsTienIch() != null && !filter.getDsTienIch().isEmpty()) {
-                Join<PhongTro, TienIch> tienIchJoin = root.join("dsTienIch", JoinType.INNER);
-                predicates.add(tienIchJoin.get("maTienIch").in(filter.getDsTienIch()));
-                // Đảm bảo không bị trùng lặp kết quả do JOIN N-N
-                query.distinct(true);
+                // Each requested amenity must exist; an IN join alone only requires any one amenity.
+                for (String code : filter.getDsTienIch().stream().distinct().toList()) {
+                    var subquery = query.subquery(String.class);
+                    var correlatedRoom = subquery.correlate(root);
+                    Join<PhongTro, TienIch> amenity = correlatedRoom.join("dsTienIch", JoinType.INNER);
+                    subquery.select(amenity.get("maTienIch")).where(cb.equal(amenity.get("maTienIch"), code));
+                    predicates.add(cb.exists(subquery));
+                }
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

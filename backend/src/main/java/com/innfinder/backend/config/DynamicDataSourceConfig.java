@@ -36,7 +36,7 @@ public class DynamicDataSourceConfig {
     @Value("${innfinder.datasource.cloud.username:2M9hAfunUGrqrV1.root}")
     private String cloudUsername;
 
-    @Value("${innfinder.datasource.cloud.password:g5DgMsD2U5TDKvhk}")
+    @Value("${innfinder.datasource.cloud.password:U12Zrx07qHoBBASg}")
     private String cloudPassword;
 
     @Value("${innfinder.datasource.cloud.host:gateway01.ap-southeast-1.prod.aws.tidbcloud.com}")
