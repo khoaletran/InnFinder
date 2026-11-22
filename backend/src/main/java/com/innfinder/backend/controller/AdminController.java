@@ -111,9 +111,12 @@ public class AdminController {
     }
 
     @GetMapping("/statistics")
-    @Operation(summary = "Thống kê tổng quan số liệu hệ thống & Ngân khố trung tâm")
-    public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics() {
-        AdminStatisticsResponseDTO result = adminService.getStatistics();
+    @Operation(summary = "Thống kê tổng quan số liệu hệ thống & Ngân khố trung tâm (hỗ trợ lọc theo ngày/tháng/năm)")
+    public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics(
+            @RequestParam(required = false) Integer day,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        AdminStatisticsResponseDTO result = adminService.getStatistics(day, month, year);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thống kê số liệu thành công"));
     }
 

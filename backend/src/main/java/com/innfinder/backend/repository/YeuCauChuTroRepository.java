@@ -18,4 +18,6 @@ public interface YeuCauChuTroRepository extends JpaRepository<YeuCauChuTro, Stri
     Optional<YeuCauChuTro> findTopByNguoiDung_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
 
     boolean existsByNguoiDung_MaNguoiDungAndTrangThai(String maNguoiDung, TrangThaiYeuCauChuTro trangThai);
+
+    long countByTrangThai(TrangThaiYeuCauChuTro trangThai);
 }
