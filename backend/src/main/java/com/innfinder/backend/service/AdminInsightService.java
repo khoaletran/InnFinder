@@ -153,8 +153,8 @@ public class AdminInsightService {
                 ? Math.round((double) topType.getSoLuong() * 1000.0 / stats.getTongSoPhong()) / 10.0
                 : 0.0;
 
-        double commissionFundShare = stats.getTongQuyHeThong() > 0
-                ? Math.round((double) stats.getTongDoanhThu() * 1000.0 / stats.getTongQuyHeThong()) / 10.0
+        double commissionFundShare = stats.getTongQuyThucTe() > 0
+                ? Math.round((double) stats.getTongDoanhThu() * 1000.0 / stats.getTongQuyThucTe()) / 10.0
                 : 0.0;
 
         return new TrendSummary(latest, previous, peak, delta, deltaPercent, avgPerBooking,
@@ -227,12 +227,13 @@ public class AdminInsightService {
     }
 
     private String buildTreasuryEvaluation(AdminStatisticsResponseDTO stats, TrendSummary t) {
-        if (stats.getTongQuyHeThong() <= 0) {
+        if (stats.getTongQuyThucTe() <= 0) {
             return "Quỹ hệ thống hiện bằng 0 đ do chưa có tiền cọc tạm giữ hoặc số dư ví phát sinh trong kỳ.";
         }
         StringBuilder sb = new StringBuilder(String.format(
-                "Doanh thu hoa hồng chiếm %.1f%% tổng quỹ hệ thống (%s); tiền cọc đang tạm giữ là %s và số dư ví chủ trọ là %s. ",
-                t.commissionFundShare(), formatVnd(stats.getTongQuyHeThong()),
+                "Doanh thu hoa hồng chiếm %.1f%% tổng két thực tế (%s); quỹ luân chuyển là %s gồm tiền cọc tạm giữ %s và ví chủ trọ %s. ",
+                t.commissionFundShare(), formatVnd(stats.getTongQuyThucTe()),
+                formatVnd(stats.getTongQuyHeThong()),
                 formatVnd(stats.getQuyTamGiuCoc()), formatVnd(stats.getTongSoDuViChuTro())));
         if (stats.getSoLenhRutChoDuyet() > 0) {
             sb.append(String.format("Hiện có %d lệnh rút tiền đang chờ duyệt với tổng giá trị %s.",
@@ -336,7 +337,8 @@ public class AdminInsightService {
         root.put("doanhThuHoaHongVnd", stats.getTongDoanhThu());
         root.put("soLichHenHoanTat", stats.getSoLichHoanThanh());
         root.put("hoaHongBinhQuanMoiLichVnd", t.avgPerBooking());
-        root.put("tongQuyHeThongVnd", stats.getTongQuyHeThong());
+        root.put("tongQuyLuanChuyenVnd", stats.getTongQuyHeThong());
+        root.put("tongKetThucTeVnd", stats.getTongQuyThucTe());
         root.put("cocDangTamGiuVnd", stats.getQuyTamGiuCoc());
         root.put("tongSoDuViChuTroVnd", stats.getTongSoDuViChuTro());
         root.put("quyChoRutVnd", stats.getQuyChoRut());

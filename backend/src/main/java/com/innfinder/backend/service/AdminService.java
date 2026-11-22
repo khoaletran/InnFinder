@@ -1,6 +1,7 @@
 package com.innfinder.backend.service;
 
 import com.innfinder.backend.dto.request.CategoryUpdateRequest;
+import com.innfinder.backend.dto.request.CreateAdminRequest;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.request.UpdateDepositFeeRequest;
@@ -16,6 +17,7 @@ import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.*;
+import com.innfinder.backend.security.SecurityUtils;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -66,6 +68,16 @@ public class AdminService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<RoomResponseDTO> getAllRooms() {
+        List<PhongTro> list = phongTroRepository.findAllByOrderByThoiGianDangDesc();
+        List<RoomResponseDTO> result = new ArrayList<>();
+        for (PhongTro pt : list) {
+            result.add(toRoomResponseDTO(pt));
+        }
+        return result;
+    }
+
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public RoomResponseDTO approveRoom(String id) {
@@ -94,7 +106,8 @@ public class AdminService {
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> searchUsers(String keyword, Pageable pageable) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            return Page.empty(pageable);
+            return nguoiDungRepository.findAllByOrderByThoiGianMoTaiKhoanDesc(pageable)
+                    .map(this::toUserResponseDTO);
         }
         return nguoiDungRepository.searchUsersByInfo(keyword.trim(), pageable)
                 .map(this::toUserResponseDTO);
@@ -119,11 +132,94 @@ public class AdminService {
 
     @Transactional
     public UserResponseDTO toggleLockUser(String id) {
-        NguoiDung user = nguoiDungRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        NguoiDung user = nguoiDungRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String currentUsername = SecurityUtils.getCurrentUsername();
+        if (currentUsername != null && !"anonymousUser".equals(currentUsername)) {
+            NguoiDung currentAdmin = nguoiDungRepository.findByTenDangNhap(currentUsername).orElse(null);
+            if (currentAdmin != null && currentAdmin.getMaNguoiDung().equals(user.getMaNguoiDung())) {
+                throw new AppException(ErrorCode.CANNOT_LOCK_SELF);
+            }
+        }
+
         boolean currentStatus = Boolean.TRUE.equals(user.getTrangThaiKhoa());
+        if (!currentStatus && user.getVaiTro() == VaiTro.QUAN_TRI
+                && nguoiDungRepository.countByVaiTroAndTrangThaiKhoaFalse(VaiTro.QUAN_TRI) <= 1) {
+            throw new AppException(ErrorCode.CANNOT_LOCK_LAST_ADMIN);
+        }
+
         user.setTrangThaiKhoa(!currentStatus);
         user = nguoiDungRepository.save(user);
         return toUserResponseDTO(user);
+    }
+
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public UserResponseDTO createAdmin(CreateAdminRequest request) {
+        String currentUsername = SecurityUtils.getCurrentUsername();
+        if (currentUsername == null || "anonymousUser".equals(currentUsername)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        NguoiDung currentAdmin = nguoiDungRepository.findByTenDangNhap(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getMatKhauAdminHienTai(), currentAdmin.getMatKhau())) {
+            throw new AppException(ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+
+        String tenDangNhap = request.getTenDangNhap().trim();
+        String hoVaTen = request.getHoVaTen().trim();
+        String email = request.getEmail().trim();
+        String sdt = request.getSdt().trim();
+
+        if (Boolean.TRUE.equals(nguoiDungRepository.existsByTenDangNhap(tenDangNhap))) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+        if (Boolean.TRUE.equals(nguoiDungRepository.existsByEmail(email))) {
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
+        }
+
+        NguoiDung newAdmin = NguoiDung.builder()
+                .maNguoiDung(generateMaNguoiDung())
+                .tenDangNhap(tenDangNhap)
+                .hoVaTen(hoVaTen)
+                .matKhau(passwordEncoder.encode(request.getMatKhau()))
+                .email(email)
+                .sdt(sdt)
+                .cccd(null)
+                .vaiTro(VaiTro.QUAN_TRI)
+                .thoiGianMoTaiKhoan(LocalDate.now())
+                .chuTro(false)
+                .trangThaiKhoa(false)
+                .build();
+
+        NguoiDung saved = nguoiDungRepository.save(newAdmin);
+        return toUserResponseDTO(saved);
+    }
+
+    private synchronized String generateMaNguoiDung() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+        String prefix = "ND" + datePart;
+        String maxId = nguoiDungRepository.findMaxMaNguoiDungByPrefix(prefix);
+
+        int nextSequence = 1;
+        if (maxId != null && maxId.length() == 14 && maxId.startsWith(prefix)) {
+            try {
+                String suffix = maxId.substring(10);
+                nextSequence = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSequence = 1;
+            }
+        }
+
+        String candidate = String.format("%s%04d", prefix, nextSequence);
+        while (nguoiDungRepository.existsById(candidate)) {
+            nextSequence++;
+            candidate = String.format("%s%04d", prefix, nextSequence);
+        }
+        return candidate;
     }
 
     @Transactional(readOnly = true)
@@ -217,9 +313,6 @@ public class AdminService {
         long soLichHoanThanh = completedAppointments.size();
 
         // 4. Đối soát ngân khố & ví chủ trọ từ sổ cái GiaoDich theo cùng bộ lọc thời gian
-        long tongThuCoc = 0L;
-        long tongHoanCocKhach = 0L;
-        long tongDaRut = 0L;
         long quyChoRut = 0L;
         long soLenhRutChoDuyet = 0L;
         long landlordCredits = 0L;
@@ -231,14 +324,8 @@ public class AdminService {
             String loai = g.getLoaiGiaoDich() != null ? g.getLoaiGiaoDich() : "";
             TrangThaiGD trangThai = g.getTrangThai();
 
-            if ("COC_XEM_PHONG".equalsIgnoreCase(loai) && trangThai == TrangThaiGD.THANH_CONG) {
-                tongThuCoc += amount;
-            } else if ("HOAN_COC".equalsIgnoreCase(loai) && trangThai == TrangThaiGD.HOAN_TIEN) {
-                tongHoanCocKhach += amount;
-            } else if ("RUT_TIEN".equalsIgnoreCase(loai)) {
-                if (trangThai == TrangThaiGD.THANH_CONG) {
-                    tongDaRut += amount;
-                } else if (trangThai == TrangThaiGD.CHO_THANH_TOAN) {
+            if ("RUT_TIEN".equalsIgnoreCase(loai)) {
+                if (trangThai == TrangThaiGD.CHO_THANH_TOAN) {
                     quyChoRut += amount;
                     soLenhRutChoDuyet++;
                 }
@@ -265,9 +352,10 @@ public class AdminService {
             tongSoDuViChuTro = Math.max(0L, landlordCredits - landlordDebits);
         }
 
-        long tongQuyThucTe = Math.max(0L, tongThuCoc - tongHoanCocKhach - tongDaRut);
-        long tongNghiaVu = quyTamGiuCoc + tongSoDuViChuTro + quyChoRut + tongDoanhThu;
-        long tongQuyHeThong = Math.max(tongQuyThucTe, tongNghiaVu);
+        // Tổng quỹ đang luân chuyển thuộc nghĩa vụ người dùng = Cọc tạm giữ + Ví chủ trọ + Chờ duyệt rút
+        long tongQuyHeThong = quyTamGiuCoc + tongSoDuViChuTro + quyChoRut;
+        // Tổng tiền thực tế trong két = Quỹ đang luân chuyển + Doanh thu hoa hồng sàn tích lũy
+        long tongQuyThucTe = tongQuyHeThong + tongDoanhThu;
 
         List<AdminStatisticsResponseDTO.RevenuePointDTO> bieuDoDoanhThu =
                 buildRevenueChart(completedAppointments, day, month, year, cacNamCoDuLieu);
@@ -285,6 +373,7 @@ public class AdminService {
                 .tongDoanhThu(tongDoanhThu)
                 .soLichHoanThanh(soLichHoanThanh)
                 .tongQuyHeThong(tongQuyHeThong)
+                .tongQuyThucTe(tongQuyThucTe)
                 .quyTamGiuCoc(quyTamGiuCoc)
                 .tongSoDuViChuTro(tongSoDuViChuTro)
                 .quyChoRut(quyChoRut)
@@ -494,9 +583,17 @@ public class AdminService {
                     .map(AdminTransactionResponseDTO::fromEntity)
                     .toList();
         }
-        return giaoDichRepository.findByTrangThaiOrderByNgayGiaoDichDesc(TrangThaiGD.CHO_THANH_TOAN)
+        return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
                 .stream()
                 .map(AdminTransactionResponseDTO::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminAppointmentResponseDTO> getAllAppointments() {
+        return phieuDatLichRepository.findAllByOrderByNgayHenDesc()
+                .stream()
+                .map(AdminAppointmentResponseDTO::fromEntity)
                 .toList();
     }
 
@@ -529,7 +626,7 @@ public class AdminService {
         // 2. Kiểm tra ngân khố hệ thống
         AdminStatisticsResponseDTO stats = getStatistics();
         long soTienDuyet = gd.getSoTien() != null ? gd.getSoTien() : 0L;
-        if (stats.getTongQuyHeThong() < soTienDuyet) {
+        if (stats.getTongQuyThucTe() < soTienDuyet) {
             throw new AppException(ErrorCode.INSUFFICIENT_SYSTEM_TREASURY);
         }
 
@@ -596,8 +693,11 @@ public class AdminService {
         String tenChuTro = null;
         String sdtChuTro = null;
         if (pt.getChuPhongTro() != null && pt.getChuPhongTro().getNguoiDung() != null) {
-            tenChuTro = pt.getChuPhongTro().getNguoiDung().getTenDangNhap();
-            sdtChuTro = pt.getChuPhongTro().getNguoiDung().getSdt();
+            NguoiDung ctUser = pt.getChuPhongTro().getNguoiDung();
+            tenChuTro = (ctUser.getHoVaTen() != null && !ctUser.getHoVaTen().isBlank())
+                    ? ctUser.getHoVaTen()
+                    : ctUser.getTenDangNhap();
+            sdtChuTro = ctUser.getSdt();
         }
 
         String tenLoaiPhong = pt.getLoaiPhong() != null ? pt.getLoaiPhong().getTenLoaiPhongTro() : null;
@@ -626,6 +726,7 @@ public class AdminService {
         return UserResponseDTO.builder()
                 .maNguoiDung(u.getMaNguoiDung())
                 .tenDangNhap(u.getTenDangNhap())
+                .hoVaTen(u.getHoVaTen())
                 .email(u.getEmail())
                 .sdt(u.getSdt())
                 .cccd(u.getCccd())
@@ -707,6 +808,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
     public LandlordRequestResponseDTO rejectLandlordRequest(String id, RejectLandlordRequestDTO request) {
         YeuCauChuTro yc = yeuCauChuTroRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));

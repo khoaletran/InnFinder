@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { LandlordHeader } from '@/components/landlord/LandlordHeader';
 import { LandlordSidebar } from '@/components/landlord/LandlordSidebar';
 
@@ -36,8 +37,9 @@ export const LandlordLayout: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         <LandlordHeader title={title} subtitle={subtitle} />
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="relative flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
+          <RouteLoadingOverlay />
         </main>
       </div>
     </div>

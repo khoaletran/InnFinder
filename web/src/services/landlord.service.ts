@@ -396,28 +396,22 @@ export const landlordService = {
   },
 
   getComplaints: async (): Promise<ComplaintItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, ComplaintResponseDTO[]>(
-        '/api/complaints/my-complaints',
-        { params: { type: 'RECEIVED' } },
-      );
-      if (Array.isArray(list)) {
-        return list.map((c) => ({
-          id: String(c.id || c.maKhieuNai),
-          maKhieuNai: c.maKhieuNai,
-          nguoiGuiTen: c.tenNguoiGui || c.maNguoiGui || 'Người dùng',
-          doiTuongTen: c.tenDoiTuong || c.doiTuongKhieuNai,
-          vanDe: c.vanDe,
-          hinhAnh: c.hinhAnh,
-          trangThai: c.trangThai,
-          mucDoViPham: c.mucDoViPham || 'NHE',
-          ngayGui: c.ngayGui || c.createdAt || c.ngayTao || '',
-          ketQua: c.ketQua || c.ketLuan,
-        }));
-      }
-    } catch {
-      // fallback
-    }
-    return [];
+    const list = await axiosClient.get<unknown, ComplaintResponseDTO[]>(
+      '/api/complaints/my-complaints',
+      { params: { type: 'RECEIVED' } },
+    );
+    if (!Array.isArray(list)) return [];
+    return list.map((c) => ({
+      id: String(c.id || c.maKhieuNai),
+      maKhieuNai: c.maKhieuNai,
+      nguoiGuiTen: c.tenNguoiGui || c.maNguoiGui || 'Người dùng',
+      doiTuongTen: c.tenDoiTuongKhieuNai || c.tenDoiTuong || c.doiTuongKhieuNai,
+      vanDe: c.vanDe,
+      hinhAnh: c.hinhAnh,
+      trangThai: c.trangThai,
+      mucDoViPham: c.mucDoViPham || 'NHE',
+      ngayGui: c.ngayGui || c.createdAt || c.ngayTao || '',
+      ketQua: c.ketQua || c.ketLuan,
+    }));
   },
 };

@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Card, Spinner } from '@heroui/react';
+import { Card } from '@heroui/react';
 import {
   AlertTriangle,
   ArrowRight,
   Calendar,
   Download,
   Minus,
-  RefreshCw,
   RotateCcw,
   Sparkles,
   TrendingDown,
@@ -30,9 +29,10 @@ import {
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
+import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
 
-const PIE_COLORS = ['#2563eb', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
+const PIE_COLORS = ['#0d9488', '#0f766e', '#10b981', '#f59e0b', '#64748b', '#06b6d4'];
 
 type QuickBadgeTone = 'emerald' | 'rose' | 'amber' | 'blue' | 'slate';
 
@@ -150,6 +150,8 @@ export const StatisticsPage: React.FC = () => {
     data: stats,
     isLoading,
     isFetching,
+    isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: [
@@ -336,25 +338,24 @@ export const StatisticsPage: React.FC = () => {
     }
 
     // 2. Ngân khố & thanh khoản
+    const totalVault = stats.tongQuyThucTe || stats.tongQuyHeThong + stats.tongDoanhThu;
     const fundShare =
-      stats.tongQuyHeThong > 0
-        ? ((stats.tongDoanhThu * 100) / stats.tongQuyHeThong).toFixed(1)
-        : '0.0';
+      totalVault > 0 ? ((stats.tongDoanhThu * 100) / totalVault).toFixed(1) : '0.0';
 
     let fundTone: QuickBadgeTone = 'slate';
     let fundBadge = 'Chưa phát sinh';
-    let fundHeadline = formatVND(stats.tongQuyHeThong);
+    let fundHeadline = formatVND(totalVault);
     let fundDetail = 'Chưa có cọc tạm giữ hoặc giao dịch ví phát sinh trong kỳ.';
 
     if (stats.soLenhRutChoDuyet > 0) {
       fundTone = 'amber';
       fundBadge = `${stats.soLenhRutChoDuyet} lệnh chờ duyệt`;
       fundHeadline = `Chờ rút: ${formatVND(stats.quyChoRut)}`;
-      fundDetail = `Hoa hồng chiếm ${fundShare}% tổng quỹ; số dư ví chủ trọ hiện tại ${formatVND(stats.tongSoDuViChuTro)}.`;
-    } else if (stats.tongQuyHeThong > 0) {
+      fundDetail = `Hoa hồng chiếm ${fundShare}% két thực tế (${formatVND(totalVault)}); ví chủ trọ hiện tại ${formatVND(stats.tongSoDuViChuTro)}.`;
+    } else if (totalVault > 0) {
       fundTone = 'emerald';
       fundBadge = 'Thanh khoản ổn';
-      fundHeadline = `Hoa hồng ${fundShare}% quỹ`;
+      fundHeadline = `Hoa hồng ${fundShare}% két`;
       fundDetail = `Cọc tạm giữ ${formatVND(stats.quyTamGiuCoc)} · Ví chủ trọ ${formatVND(stats.tongSoDuViChuTro)} · Không tồn đọng lệnh rút.`;
     }
 
@@ -434,7 +435,8 @@ export const StatisticsPage: React.FC = () => {
       ['I. TỔNG QUAN CHỈ SỐ', 'Giá trị'],
       ['Doanh thu hoa hồng (VNĐ)', stats.tongDoanhThu],
       ['Số lịch hẹn hoàn tất', stats.soLichHoanThanh],
-      ['Tổng quỹ hệ thống (VNĐ)', stats.tongQuyHeThong],
+      ['Tổng quỹ luân chuyển (VNĐ)', stats.tongQuyHeThong],
+      ['Tổng két thực tế (VNĐ)', stats.tongQuyThucTe],
       ['Cọc tạm giữ (VNĐ)', stats.quyTamGiuCoc],
       ['Số dư ví chủ trọ (VNĐ)', stats.tongSoDuViChuTro],
       ['Quỹ chờ rút (VNĐ)', stats.quyChoRut],
@@ -529,9 +531,45 @@ export const StatisticsPage: React.FC = () => {
 
   if (isLoading && !stats) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
-        <Spinner size="lg" />
-        <span className="text-xs font-medium">Đang tải dữ liệu thống kê doanh thu...</span>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-6 w-64 bg-slate-200 rounded-lg" />
+            <div className="h-3.5 w-80 bg-slate-200/80 rounded" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-9 w-28 bg-slate-200 rounded-xl" />
+            <div className="h-9 w-36 bg-slate-200 rounded-xl" />
+          </div>
+        </div>
+        <div className="h-14 bg-slate-200/70 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="h-28 bg-white rounded-2xl border border-slate-200 p-5" />
+          ))}
+        </div>
+        <div className="h-72 bg-white rounded-2xl border border-slate-200" />
+      </div>
+    );
+  }
+
+  if (isError && !stats) {
+    const errMsg =
+      (error instanceof Error && error.message) ||
+      'Không thể tải báo cáo thống kê doanh thu và ngân khố sàn.';
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            Thống kê doanh thu & ngân khố
+          </h1>
+          <AdminRefreshButton onClick={() => void refetch()} isRefreshing={isFetching} />
+        </div>
+        <AdminErrorState
+          title="Không thể tải dữ liệu thống kê"
+          message={errMsg}
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }
@@ -552,15 +590,11 @@ export const StatisticsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <AdminRefreshButton
             onClick={() => void refetch()}
-            disabled={isFetching}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isFetching ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
+            isRefreshing={isFetching}
+            label="Đồng bộ dữ liệu"
+          />
           <button
             type="button"
             onClick={handleExportReport}
@@ -578,9 +612,9 @@ export const StatisticsPage: React.FC = () => {
         className="animate-fade-up px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-2.5"
       >
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+          <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
           <span className="text-xs font-bold text-slate-800">Kỳ lọc</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-semibold border border-blue-200/70">
+          <span className="px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 text-[11px] font-semibold border border-teal-200/70">
             {activePeriodLabel}
           </span>
         </div>
@@ -591,14 +625,14 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Chọn nhanh theo lịch"
             value={dateInputValue}
             onChange={handleDateInputChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 transition-colors"
           />
 
           <select
             aria-label="Lọc theo ngày"
             value={selectedDay ?? ''}
             onChange={handleDayChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
           >
             <option value="">Tất cả ngày</option>
             {dayOptions.map((d) => (
@@ -612,7 +646,7 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Lọc theo tháng"
             value={selectedMonth ?? ''}
             onChange={handleMonthChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
           >
             <option value="">Tất cả tháng</option>
             {monthOptions.map((m) => (
@@ -626,7 +660,7 @@ export const StatisticsPage: React.FC = () => {
             aria-label="Lọc theo năm"
             value={selectedYear ?? ''}
             onChange={handleYearChange}
-            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 cursor-pointer transition-colors"
+            className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-teal-500 cursor-pointer transition-colors"
           >
             <option value="">Tất cả năm</option>
             {yearOptions.map((y) => (
@@ -658,7 +692,7 @@ export const StatisticsPage: React.FC = () => {
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
               <span className="text-xs font-semibold text-slate-500">Doanh thu hoa hồng</span>
-              <div className="text-2xl font-black text-blue-600 tracking-tight">
+              <div className="text-2xl font-black text-teal-700 tracking-tight tabular-nums">
                 {formatVND(stats?.tongDoanhThu ?? 0)}
               </div>
               <span className="text-[11px] text-slate-500">
@@ -674,12 +708,12 @@ export const StatisticsPage: React.FC = () => {
         >
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
-              <span className="text-xs font-semibold text-slate-500">Tổng quỹ hệ thống</span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">
+              <span className="text-xs font-semibold text-slate-500">Tổng quỹ luân chuyển</span>
+              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
                 {formatVND(stats?.tongQuyHeThong ?? 0)}
               </div>
-              <span className="text-[11px] text-slate-500">
-                Cọc tạm giữ, ví chủ trọ & quỹ chờ rút
+              <span className="text-[11px] text-slate-500 tabular-nums">
+                Tổng két thực tế: {formatVND(stats?.tongQuyThucTe ?? 0)} (gồm hoa hồng)
               </span>
             </div>
           </Card.Content>
@@ -692,7 +726,7 @@ export const StatisticsPage: React.FC = () => {
           <Card.Content className="p-0">
             <div className="flex flex-col items-center justify-center text-center py-1 gap-1">
               <span className="text-xs font-semibold text-slate-500">Tổng phòng trọ</span>
-              <div className="text-2xl font-black text-indigo-600 tracking-tight">
+              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
                 {(stats?.tongSoPhong ?? 0).toLocaleString('vi-VN')} phòng
               </div>
               <span className="text-[11px] text-slate-500">
@@ -710,6 +744,9 @@ export const StatisticsPage: React.FC = () => {
           data={revenueChartData}
           title="Biểu đồ doanh thu hoa hồng"
           subtitle={`Thống kê doanh thu hoa hồng theo kỳ lọc (${activePeriodLabel})`}
+          isLoading={isLoading && !stats}
+          isError={isError}
+          onRetry={() => void refetch()}
         />
       </div>
 
@@ -756,7 +793,7 @@ export const StatisticsPage: React.FC = () => {
                       fontSize: '12px',
                     }}
                   />
-                  <Bar dataKey="soTien" fill="#2563eb" radius={[8, 8, 0, 0]} maxBarSize={56} />
+                  <Bar dataKey="soTien" fill="#0d9488" radius={[8, 8, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

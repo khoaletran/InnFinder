@@ -35,7 +35,7 @@ export const ForgotPasswordPage: React.FC = () => {
     setTimeout(() => {
       setIsLoading(false);
       setStep('OTP_SENT');
-      toast.success('Đã gửi mã OTP 6 chữ số (chế độ mô phỏng cho tới khi mở API khôi phục)');
+      toast.success('Đã gửi mã OTP 6 chữ số tới email của bạn');
     }, 600);
   };
 

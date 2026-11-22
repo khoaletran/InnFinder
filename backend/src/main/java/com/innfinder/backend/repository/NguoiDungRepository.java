@@ -15,7 +15,10 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, String> {
     Boolean existsByTenDangNhap(String tenDangNhap);
     Boolean existsByEmail(String email);
     long countByVaiTro(VaiTro vaiTro);
+    long countByVaiTroAndTrangThaiKhoaFalse(VaiTro vaiTro);
     long countByChuTro(Boolean chuTro);
+
+    Page<NguoiDung> findAllByOrderByThoiGianMoTaiKhoanDesc(Pageable pageable);
 
     @Query("SELECT MAX(n.maNguoiDung) FROM NguoiDung n WHERE n.maNguoiDung LIKE CONCAT(:prefix, '%')")
     String findMaxMaNguoiDungByPrefix(@Param("prefix") String prefix);

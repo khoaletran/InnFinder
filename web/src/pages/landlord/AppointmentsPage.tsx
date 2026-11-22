@@ -203,7 +203,7 @@ export const AppointmentsPage: React.FC = () => {
           </strong>
           <span>
             Khách nộp cọc giữ chân theo loại phòng vào Hệ thống. Khi dẫn xem thực tế, Chủ trọ hoàn trả trực tiếp 100% tiền cọc cho khách. Sau khi khách bấm{' '}
-            <strong>&ldquo;Đã nhận lại cọc từ Chủ trọ&rdquo;</strong>, hai bên độc lập bấm quyết định trên ứng dụng: cả 2 đồng ý ➔ Sàn trích phí hoa hồng (phiThu) và chuyển phần cọc thế chân còn lại về Ví Chủ trọ; có ít nhất 1 bên từ chối ➔ Sàn hoàn đủ 100% cọc thế chân về Ví Chủ trọ (phí hoa hồng = 0 ₫).
+            <strong>&ldquo;Đã nhận lại cọc từ Chủ trọ&rdquo;</strong>, hai bên độc lập bấm quyết định trên ứng dụng: cả 2 đồng ý ➔ Sàn trích phí hoa hồng và chuyển phần cọc thế chân còn lại về Ví Chủ trọ; có ít nhất 1 bên từ chối ➔ Sàn hoàn đủ 100% cọc thế chân về Ví Chủ trọ (phí hoa hồng = 0 ₫).
           </span>
         </div>
       </div>

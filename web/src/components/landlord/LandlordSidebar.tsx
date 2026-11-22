@@ -22,15 +22,12 @@ export const LandlordSidebar: React.FC = () => {
         <Link to="/" className="flex flex-col">
           <InnFinderLogo variant="horizontal" size="sm" />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 pl-10 -mt-1">
-            Chủ Trọ Portal
+            Kênh Chủ trọ
           </span>
         </Link>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 pb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Menu Quản Lý
-        </div>
         {LANDLORD_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
@@ -72,7 +69,7 @@ export const LandlordSidebar: React.FC = () => {
             className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
           >
             <Shield className="w-3.5 h-3.5 text-teal-400" />
-            Vào Admin Console
+            Trang Quản trị
           </Link>
         )}
 

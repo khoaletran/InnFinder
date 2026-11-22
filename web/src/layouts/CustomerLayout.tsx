@@ -21,6 +21,7 @@ import { BottomTabBar } from '@/components/common/BottomTabBar';
 import { RoomChatbot } from '@/components/chat/RoomChatbot';
 import { Footer } from '@/components/common/Footer';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
+import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { NotificationModal } from '@/components/notification/NotificationModal';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
@@ -214,79 +215,96 @@ export const CustomerLayout: React.FC = () => {
                           {user?.hoVaTen || user?.tenDangNhap}
                         </p>
                         <p className="text-xs text-slate-600 truncate">
-                          {user?.email || (isChuTro ? 'Chủ trọ đã xác thực' : 'Khách thuê')}
+                          {user?.email ||
+                            (isAdmin
+                              ? 'Quản trị viên'
+                              : isChuTro
+                                ? 'Chủ trọ đã xác thực'
+                                : 'Khách thuê')}
                         </p>
                       </div>
 
-                      <div className="py-1">
-                        <Link
-                          to="/transactions"
-                          onClick={() => setIsAvatarMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <Receipt className="w-4 h-4 text-slate-500" />
-                          <span>Lịch sử giao dịch</span>
-                        </Link>
-                        <Link
-                          to="/profile"
-                          onClick={() => setIsAvatarMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <User className="w-4 h-4 text-slate-500" />
-                          <span>Hồ sơ</span>
-                        </Link>
-                        <Link
-                          to="/complaints"
-                          onClick={() => setIsAvatarMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <AlertTriangle className="w-4 h-4 text-slate-500" />
-                          <span>Khiếu nại &amp; Hỗ trợ</span>
-                        </Link>
-                      </div>
-
-                      <div className="border-t border-slate-100 py-1">
-                        {isChuTro ? (
-                          <>
-                            <Link
-                              to="/landlord/dashboard"
-                              onClick={() => setIsAvatarMenuOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
-                            >
-                              <Building2 className="w-4 h-4" />
-                              <span>Cổng Chủ trọ</span>
-                            </Link>
-                            <Link
-                              to="/landlord/rooms/create"
-                              onClick={() => setIsAvatarMenuOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
-                            >
-                              <PlusCircle className="w-4 h-4" />
-                              <span>Đăng phòng mới</span>
-                            </Link>
-                          </>
-                        ) : (
+                      {isAdmin ? (
+                        <div className="py-1">
                           <Link
-                            to="/profile?tab=upgrade"
-                            onClick={() => setIsAvatarMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
-                          >
-                            <Building2 className="w-4 h-4" />
-                            <span>Đăng ký làm Chủ trọ</span>
-                          </Link>
-                        )}
-
-                        {isAdmin && (
-                          <Link
-                            to="/admin/dashboard"
+                            to="/admin/profile"
                             onClick={() => setIsAvatarMenuOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100"
                           >
-                            <Shield className="w-4 h-4 text-teal-600" />
+                            <User className="w-4 h-4 text-teal-600" />
+                            <span>Hồ sơ Quản trị</span>
+                          </Link>
+                          <Link
+                            to="/admin/dashboard"
+                            onClick={() => setIsAvatarMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
+                          >
+                            <Shield className="w-4 h-4" />
                             <span>Admin Console</span>
                           </Link>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="py-1">
+                            <Link
+                              to="/transactions"
+                              onClick={() => setIsAvatarMenuOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              <Receipt className="w-4 h-4 text-slate-500" />
+                              <span>Lịch sử giao dịch</span>
+                            </Link>
+                            <Link
+                              to="/profile"
+                              onClick={() => setIsAvatarMenuOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              <User className="w-4 h-4 text-slate-500" />
+                              <span>Hồ sơ</span>
+                            </Link>
+                            <Link
+                              to="/complaints"
+                              onClick={() => setIsAvatarMenuOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              <AlertTriangle className="w-4 h-4 text-slate-500" />
+                              <span>Khiếu nại &amp; Hỗ trợ</span>
+                            </Link>
+                          </div>
+
+                          <div className="border-t border-slate-100 py-1">
+                            {isChuTro ? (
+                              <>
+                                <Link
+                                  to="/landlord/dashboard"
+                                  onClick={() => setIsAvatarMenuOpen(false)}
+                                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
+                                >
+                                  <Building2 className="w-4 h-4" />
+                                  <span>Cổng Chủ trọ</span>
+                                </Link>
+                                <Link
+                                  to="/landlord/rooms/create"
+                                  onClick={() => setIsAvatarMenuOpen(false)}
+                                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
+                                >
+                                  <PlusCircle className="w-4 h-4" />
+                                  <span>Đăng phòng mới</span>
+                                </Link>
+                              </>
+                            ) : (
+                              <Link
+                                to="/profile?tab=upgrade"
+                                onClick={() => setIsAvatarMenuOpen(false)}
+                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-50"
+                              >
+                                <Building2 className="w-4 h-4" />
+                                <span>Đăng ký làm Chủ trọ</span>
+                              </Link>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       <div className="border-t border-slate-100 pt-1">
                         <button
@@ -320,7 +338,7 @@ export const CustomerLayout: React.FC = () => {
 
       {/* NỘI DUNG MÀN HÌNH (padding đáy cho bottom tab bar mobile) */}
       <main
-        className={`flex-1 flex flex-col ${
+        className={`relative flex-1 flex flex-col ${
           isSearchPage
             ? 'min-h-0 overflow-hidden pb-16 lg:pb-0'
             : !isDiscoveryRoute
@@ -329,6 +347,7 @@ export const CustomerLayout: React.FC = () => {
         }`}
       >
         <Outlet />
+        <RouteLoadingOverlay />
       </main>
 
       {/* Footer hiển thị ở Trang chủ & Chi tiết phòng (không chèn ở Search split view) */}

@@ -2,6 +2,7 @@ package com.innfinder.backend.controller;
 
 import com.innfinder.backend.dto.request.CategoryUpdateRequest;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
+import com.innfinder.backend.dto.request.CreateAdminRequest;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.request.UpdateDepositFeeRequest;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +36,13 @@ public class AdminController {
     private final AdminService adminService;
     private final AdminInsightService adminInsightService;
     private final ComplaintService complaintService;
+
+    @GetMapping("/rooms")
+    @Operation(summary = "Lấy danh sách toàn bộ bài đăng phòng trọ theo tất cả trạng thái")
+    public ResponseEntity<ApiResponse<List<RoomResponseDTO>>> getAllRooms() {
+        List<RoomResponseDTO> result = adminService.getAllRooms();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách toàn bộ phòng trọ thành công"));
+    }
 
     @GetMapping("/rooms/pending")
     @Operation(summary = "Lấy danh sách các bài đăng phòng trọ đang chờ kiểm duyệt")
@@ -82,6 +91,14 @@ public class AdminController {
                 ? "Khóa tài khoản người dùng thành công"
                 : "Mở khóa tài khoản người dùng thành công";
         return ResponseEntity.ok(ApiResponse.ok(result, msg));
+    }
+
+    @PostMapping("/admins")
+    @Operation(summary = "Tạo tài khoản Quản trị viên mới (yêu cầu xác thực lại mật khẩu Admin hiện tại)")
+    public ResponseEntity<ApiResponse<UserResponseDTO>> createAdmin(@Valid @RequestBody CreateAdminRequest request) {
+        UserResponseDTO result = adminService.createAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(result, "Tạo tài khoản Quản trị viên mới thành công"));
     }
 
     @PostMapping("/users/{id}/reset-password")
@@ -135,6 +152,13 @@ public class AdminController {
     // ==========================================
     // QUẢN LÝ GIAO DỊCH & DUYỆT RÚT TIỀN (NGÂN KHỐ)
     // ==========================================
+
+    @GetMapping("/appointments")
+    @Operation(summary = "Admin giám sát toàn bộ phiếu đặt lịch xem phòng trên sàn")
+    public ResponseEntity<ApiResponse<List<AdminAppointmentResponseDTO>>> getAllAppointments() {
+        List<AdminAppointmentResponseDTO> result = adminService.getAllAppointments();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách lịch xem phòng thành công"));
+    }
 
     @GetMapping("/transactions")
     @Operation(summary = "Quản lý giao dịch: mặc định chỉ hiển thị giao dịch chờ xử lý, tra cứu toàn bộ giao dịch khi tìm theo thông tin người dùng")

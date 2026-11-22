@@ -109,8 +109,8 @@ export const RoomsPage: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
       toast.success(
         nextStatus === 'HOAN_THANH'
-          ? 'Đã chuyển phòng sang trạng thái Đã cho thuê (HOAN_THANH)'
-          : 'Đã mở lại phòng sang trạng thái Đang hiển thị (DA_DUYET)',
+          ? 'Đã chuyển phòng sang trạng thái Đã cho thuê'
+          : 'Đã mở lại phòng sang trạng thái Đang hiển thị',
       );
     },
     onError: () => {
@@ -329,7 +329,7 @@ export const RoomsPage: React.FC = () => {
                             }`}
                             title={
                               canToggleRent
-                                ? 'Bấm để chuyển đổi giữa Còn trống (DA_DUYET) và Đã cho thuê (HOAN_THANH)'
+                                ? 'Bấm để chuyển đổi giữa Còn trống và Đã cho thuê'
                                 : 'Cần được Admin duyệt trước khi mở cho thuê'
                             }
                           >
