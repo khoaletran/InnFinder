@@ -21,6 +21,8 @@ import java.util.List;
 public class RoomFilterRequest {
     // Từ khóa tìm kiếm theo địa chỉ (quận, huyện, tên đường...)
     private String keyword;
+    // Exact address suffix selected from popular areas; does not search descriptions.
+    private String area;
     // Khoảng giá thuê (VNĐ)
     private Long minGia;
     private Long maxGia;

@@ -43,8 +43,10 @@ public class AdminInsightService {
             2. Nhận xét biến động tăng/giảm của biểu đồ doanh thu hoa hồng (mốc mới nhất vs mốc trước, mốc đỉnh, bình quân).
             3. Đánh giá cơ cấu ngân khố (tổng quỹ, doanh thu hoa hồng, cọc tạm giữ, ví chủ trọ, quỹ chờ rút).
             4. Đánh giá cơ cấu loại phòng trọ và nguồn cung (nhóm chủ lực, nhóm ít tin, phòng chờ duyệt).
-            5. Đề xuất 2 đến 4 quyết định hành động cụ thể, thực tế cho Admin.
-            Mỗi mục nhận xét dài 1-3 câu tiếng Việt rõ ràng, có dẫn số liệu cụ thể (tiền tệ ghi VNĐ).
+            5. Chỉ đề xuất tối đa 2 hành động ưu tiên, cụ thể cho Admin; không thêm hành động chung chung cho đủ số lượng.
+            Viết cực ngắn, không lặp số liệu giữa các mục: tongQuan tối đa 30 từ;
+            mỗi đánh giá bổ sung tối đa 18 từ; tiêu đề hành động tối đa 10 từ, mô tả tối đa 20 từ.
+            Mỗi trường chỉ một câu, dùng số liệu cần thiết nhất (tiền tệ ghi VNĐ).
             Trường duongDan chỉ được chọn đúng 1 trong các giá trị: "/admin/posts", "/admin/transactions", "/admin/categories", "/admin/users", "/admin/viewings", "/admin/complaints", hoặc "".
             """;
 
@@ -57,7 +59,7 @@ public class AdminInsightService {
         String periodLabel = formatPeriodLabel(day, month, year);
         TrendSummary trend = computeTrendSummary(stats);
 
-        AdminRevenueInsightResponseDTO fallback = buildRuleBasedInsight(stats, periodLabel, trend);
+        AdminRevenueInsightResponseDTO fallback = compact(buildRuleBasedInsight(stats, periodLabel, trend));
         if (!geminiClient.isConfigured()) {
             return fallback;
         }
@@ -102,22 +104,42 @@ public class AdminInsightService {
 
             if (actions.isEmpty()) {
                 actions = fallback.getDeXuatQuyetDinh();
-            } else if (actions.size() > 4) {
-                actions = actions.subList(0, 4);
+            } else if (actions.size() > 2) {
+                actions = actions.subList(0, 2);
             }
 
-            return AdminRevenueInsightResponseDTO.builder()
+            return compact(AdminRevenueInsightResponseDTO.builder()
                     .nguonPhanTich("AI")
                     .tongQuan(tongQuan)
                     .danhGiaDoanhThu(danhGiaDoanhThu)
                     .danhGiaNganKho(danhGiaNganKho)
                     .danhGiaLoaiPhong(danhGiaLoaiPhong)
                     .deXuatQuyetDinh(actions)
-                    .build();
+                    .build());
         } catch (Exception ex) {
-            log.warn("Failed to generate AI statistics insight ({}); returning rule-based insight", ex.getMessage());
+            log.warn("AI statistics insight unavailable ({}); returning rule-based insight", ex.getClass().getSimpleName());
             return fallback;
         }
+    }
+
+    private AdminRevenueInsightResponseDTO compact(AdminRevenueInsightResponseDTO insight) {
+        insight.setTongQuan(shortText(insight.getTongQuan(), 30));
+        insight.setDanhGiaDoanhThu(shortText(insight.getDanhGiaDoanhThu(), 18));
+        insight.setDanhGiaNganKho(shortText(insight.getDanhGiaNganKho(), 18));
+        insight.setDanhGiaLoaiPhong(shortText(insight.getDanhGiaLoaiPhong(), 18));
+        insight.setDeXuatQuyetDinh(insight.getDeXuatQuyetDinh().stream().limit(2).map(action -> {
+            action.setTieuDe(shortText(action.getTieuDe(), 10));
+            action.setMoTa(shortText(action.getMoTa(), 20));
+            return action;
+        }).toList());
+        return insight;
+    }
+
+    private String shortText(String text, int limit) {
+        if (text == null || text.isBlank()) return "";
+        String[] words = text.trim().split("\\s+");
+        if (words.length <= limit) return text.trim();
+        return String.join(" ", java.util.Arrays.copyOf(words, limit)) + "…";
     }
 
     private TrendSummary computeTrendSummary(AdminStatisticsResponseDTO stats) {
@@ -169,13 +191,12 @@ public class AdminInsightService {
         String tongQuan;
         if (stats.getTongDoanhThu() > 0) {
             tongQuan = String.format(
-                    "Trong %s, sàn ghi nhận %s doanh thu hoa hồng từ %d lịch hẹn hoàn tất; tổng quỹ hệ thống đạt %s với %d phòng trọ trong kỳ.",
-                    periodLabel, formatVnd(stats.getTongDoanhThu()), stats.getSoLichHoanThanh(),
-                    formatVnd(stats.getTongQuyHeThong()), stats.getTongSoPhong());
+                    "Trong %s: %s hoa hồng từ %d lịch hẹn hoàn tất.",
+                    periodLabel, formatVnd(stats.getTongDoanhThu()), stats.getSoLichHoanThanh());
         } else {
             tongQuan = String.format(
-                    "Trong %s chưa phát sinh doanh thu hoa hồng từ lịch hẹn hoàn tất; hiện có %d phòng trọ và %s tổng quỹ hệ thống.",
-                    periodLabel, stats.getTongSoPhong(), formatVnd(stats.getTongQuyHeThong()));
+                    "Trong %s chưa phát sinh hoa hồng; hiện có %d phòng trọ trong kỳ.",
+                    periodLabel, stats.getTongSoPhong());
         }
 
         String danhGiaDoanhThu = buildRevenueEvaluation(stats, t);
@@ -321,8 +342,8 @@ public class AdminInsightService {
                     .build());
         }
 
-        if (actions.size() > 4) {
-            return actions.subList(0, 4);
+        if (actions.size() > 2) {
+            return actions.subList(0, 2);
         }
         return actions;
     }
@@ -371,6 +392,7 @@ public class AdminInsightService {
         rootProps.put("danhGiaLoaiPhong", Map.of("type", "STRING"));
         rootProps.put("deXuatQuyetDinh", Map.of(
                 "type", "ARRAY",
+                "maxItems", 2,
                 "items", Map.of(
                         "type", "OBJECT",
                         "properties", actionProps,

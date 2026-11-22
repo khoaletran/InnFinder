@@ -126,7 +126,8 @@ export const adminService = {
     return axiosClient.post<unknown, AdminRevenueInsightResponse>(
       '/api/admin/statistics/insights',
       null,
-      { params },
+      // Two provider attempts, each bounded at 40s, plus connection and server processing.
+      { params, timeout: 100_000 },
     );
   },
 

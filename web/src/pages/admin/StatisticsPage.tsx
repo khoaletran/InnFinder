@@ -27,6 +27,7 @@ import {
   YAxis,
 } from 'recharts';
 import { toast } from 'sonner';
+import type { AdminRevenueInsightResponse, AdminStatisticsFilter } from '@/types/admin.types';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
@@ -170,22 +171,22 @@ export const StatisticsPage: React.FC = () => {
     placeholderData: (previousData) => previousData,
   });
 
+  const [insightsByPeriod, setInsightsByPeriod] = useState<Record<string, AdminRevenueInsightResponse>>({});
+  const insightFilters: AdminStatisticsFilter = { day: selectedDay, month: selectedMonth, year: selectedYear };
+  const currentInsight = insightsByPeriod[JSON.stringify(insightFilters)];
+
   const insightMutation = useMutation({
-    mutationFn: () =>
-      adminService.generateRevenueInsights({
-        day: selectedDay,
-        month: selectedMonth,
-        year: selectedYear,
-      }),
-    onSuccess: (res) => {
+    mutationFn: (filters: AdminStatisticsFilter) => adminService.generateRevenueInsights(filters),
+    onSuccess: (res, filters) => {
+      setInsightsByPeriod((previous) => ({ ...previous, [JSON.stringify(filters)]: res }));
       toast.success(
         res.nguonPhanTich === 'AI'
-          ? 'Đã hoàn tất phân tích chuyên sâu bằng AI'
+          ? 'Đã phân tích bằng AI'
           : 'Đã tổng hợp đánh giá và đề xuất từ số liệu hệ thống',
       );
     },
-    onError: () => {
-      toast.error('Không thể phân tích dữ liệu lúc này, vui lòng thử lại');
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Không thể phân tích dữ liệu lúc này, vui lòng thử lại');
     },
   });
 
@@ -426,7 +427,7 @@ export const StatisticsPage: React.FC = () => {
       return;
     }
 
-    const aiInsight = insightMutation.data;
+    const aiInsight = currentInsight;
     const rows: Array<Array<string | number>> = [
       ['BÁO CÁO THỐNG KÊ DOANH THU & NGÂN KHỐ INNFINDER'],
       ['Kỳ thống kê', activePeriodLabel],
@@ -574,7 +575,7 @@ export const StatisticsPage: React.FC = () => {
     );
   }
 
-  const aiInsight = insightMutation.data;
+  const aiInsight = currentInsight;
 
   return (
     <div className="space-y-5">
@@ -856,17 +857,17 @@ export const StatisticsPage: React.FC = () => {
         <Card.Header className="p-0 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <Card.Title className="text-sm font-bold text-slate-900">
-              Đánh giá biểu đồ & Đề xuất quyết định
+              Nhận định & hành động
             </Card.Title>
             <Card.Description className="text-xs text-slate-500 mt-0.5">
-              Tổng hợp biến động tăng/giảm và gợi ý hành động điều hành theo kỳ lọc ({activePeriodLabel})
+              Tóm tắt theo kỳ lọc ({activePeriodLabel})
             </Card.Description>
           </div>
 
           <button
             type="button"
-            onClick={() => insightMutation.mutate()}
-            disabled={insightMutation.isPending || !stats}
+            onClick={() => insightMutation.mutate(insightFilters)}
+            disabled={insightMutation.isPending || !stats || isFetching}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <Sparkles className={`w-3.5 h-3.5 ${insightMutation.isPending ? 'animate-spin' : ''}`} />
@@ -875,15 +876,17 @@ export const StatisticsPage: React.FC = () => {
                 ? 'Đang phân tích dữ liệu...'
                 : aiInsight
                   ? 'Phân tích lại bằng AI'
-                  : 'Phân tích chuyên sâu bằng AI'}
+                  : 'Phân tích bằng AI'}
             </span>
           </button>
         </Card.Header>
 
         <Card.Content className="p-0">
           <div className="space-y-5">
+            {insightMutation.isPending && <p role="status" className="text-xs text-teal-700">Đang tổng hợp nhận định. Bạn có thể tiếp tục xem các số liệu bên trên.</p>}
+            {insightMutation.isError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{insightMutation.error.message}{aiInsight ? ' Kết quả lần trước vẫn được giữ bên dưới.' : ''}</p>}
             {/* Instant Rule-Based Evaluation Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {!aiInsight && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {quickInsights.map((item) => (
                 <div
                   key={item.key}
@@ -902,7 +905,7 @@ export const StatisticsPage: React.FC = () => {
                   <p className="text-xs text-slate-600 leading-relaxed">{item.detail}</p>
                 </div>
               ))}
-            </div>
+            </div>}
 
             {/* On-Demand AI Deep Analysis & Recommended Decisions */}
             {aiInsight && (
@@ -924,31 +927,10 @@ export const StatisticsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-                    <div className="text-xs font-bold text-blue-700">Biến động doanh thu</div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {aiInsight.danhGiaDoanhThu}
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-                    <div className="text-xs font-bold text-emerald-700">Đánh giá ngân khố</div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {aiInsight.danhGiaNganKho}
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-                    <div className="text-xs font-bold text-indigo-700">Nguồn cung loại phòng</div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {aiInsight.danhGiaLoaiPhong}
-                    </p>
-                  </div>
-                </div>
-
                 <div className="space-y-2.5">
                   <div className="text-xs font-bold text-slate-800">Quyết định đề xuất</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {aiInsight.deXuatQuyetDinh.map((action, idx) => {
+                    {aiInsight.deXuatQuyetDinh.slice(0, 2).map((action, idx) => {
                       const priorityStyle =
                         PRIORITY_STYLES[action.mucDoUuTien] ?? PRIORITY_STYLES.TRUNG_BINH;
                       return (
@@ -986,6 +968,32 @@ export const StatisticsPage: React.FC = () => {
                     })}
                   </div>
                 </div>
+                <details className="rounded-xl border border-slate-200 px-3 py-2.5">
+                  <summary className="cursor-pointer text-xs font-semibold text-slate-600 hover:text-teal-700">Xem thêm nhận định</summary>
+                  <div className="pt-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-blue-700">Biến động doanh thu</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaDoanhThu}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-emerald-700">Đánh giá ngân khố</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaNganKho}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-indigo-700">Nguồn cung loại phòng</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaLoaiPhong}
+                    </p>
+                  </div>
+                </div>
+
+                  </div>
+                </details>
               </div>
             )}
           </div>

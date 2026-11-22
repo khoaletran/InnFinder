@@ -45,6 +45,49 @@ public class RoomService {
     private final CloudinaryService cloudinaryService;
     // Định dạng sinh mã phòng: PTDDMMYYHHmmSS (14 ký tự)
     private static final DateTimeFormatter ROOM_CODE_FORMATTER = DateTimeFormatter.ofPattern("ddMMyyHHmmss");
+
+    @Transactional(readOnly = true)
+    public List<PopularAreaResponse> getPopularAreas() {
+        Map<String, List<PhongTro>> groups = new LinkedHashMap<>();
+        Map<String, String> labels = new HashMap<>();
+        for (PhongTro room : phongTroRepository.findPublicRoomsForAreaStats()) {
+            String area = areaSuffix(room.getDiaChi());
+            if (area == null) continue;
+            String key = area.toLowerCase(Locale.ROOT);
+            labels.putIfAbsent(key, area);
+            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(room);
+        }
+        return groups.entrySet().stream().map(entry -> {
+            List<PhongTro> rooms = entry.getValue();
+            Long minPrice = rooms.stream().map(PhongTro::getGiaThue).filter(Objects::nonNull)
+                    .filter(price -> price >= 0).min(Long::compareTo).orElse(null);
+            String image = rooms.stream().flatMap(room -> room.getHinhAnh() == null
+                            ? java.util.stream.Stream.<HinhAnh>empty() : room.getHinhAnh().stream())
+                    .filter(img -> img.getUrl() != null && !img.getUrl().isBlank())
+                    .sorted(Comparator.comparing((HinhAnh img) -> !Boolean.TRUE.equals(img.getLaDaiDien()))
+                            .thenComparing(img -> img.getThuTuAnh() == null ? Integer.MAX_VALUE : img.getThuTuAnh()))
+                    .map(HinhAnh::getUrl).findFirst().orElse(null);
+            String label = labels.get(entry.getKey());
+            return new PopularAreaResponse(label, label, rooms.size(), minPrice, image);
+        }).sorted(Comparator.comparingLong(PopularAreaResponse::roomCount).reversed()
+                .thenComparing(PopularAreaResponse::name)).limit(6).toList();
+    }
+
+    // Addresses are free text: use their existing comma-separated suffix, never invent a locality.
+    private String areaSuffix(String address) {
+        if (address == null || address.isBlank()) return null;
+        String cleaned = address.trim();
+        // A dangling separator has no reliable locality; do not manufacture one.
+        if (cleaned.endsWith(",")) return null;
+        int lastComma = cleaned.lastIndexOf(',');
+        if (lastComma < 0) {
+            return cleaned.matches("(?iu)^(phường|xã|quận|huyện|thị xã|thành phố|tỉnh|tp\\.).*[^\\d\\s].*")
+                    ? cleaned : null;
+        }
+        int previousComma = cleaned.lastIndexOf(',', lastComma - 1);
+        String suffix = cleaned.substring(previousComma < 0 ? lastComma + 1 : previousComma + 1).trim();
+        return suffix.isBlank() || suffix.matches("[\\d\\s,]+") ? null : suffix;
+    }
     /* ==============================================================
      * CÁC PHƯƠNG THỨC PUBLIC CHO KHÁCH THUÊ (CHẶN 3)
      * ============================================================== */

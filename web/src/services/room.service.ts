@@ -5,6 +5,7 @@ import type { AiSearchResponse } from '@/types/chat.types';
 import type {
   AmenityResponse,
   CategoryResponse,
+  PopularAreaResponse,
   ReviewResponseDTO,
   RoomDetailResponse,
   RoomFilterRequest,
@@ -12,6 +13,9 @@ import type {
 } from '@/types/room.types';
 
 export const roomService = {
+  getPopularAreas: (): Promise<PopularAreaResponse[]> =>
+    axiosClient.get<unknown, PopularAreaResponse[]>('/api/rooms/popular-areas'),
+
   searchRooms: async (
     filter: RoomFilterRequest = {},
   ): Promise<PageResponse<RoomSummaryResponse>> => {
@@ -20,6 +24,7 @@ export const roomService = {
         page: filter.page ?? 0,
         size: filter.size ?? 20,
         keyword: filter.keyword || undefined,
+        area: filter.area || undefined,
         minGia: filter.minGia,
         maxGia: filter.maxGia,
         minDienTich: filter.minDienTich,

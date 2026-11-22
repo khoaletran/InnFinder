@@ -34,6 +34,13 @@ public class PhongTroSpecification {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }
             // 2. Lọc theo từ khóa (keyword) không phân biệt hoa thường trong Địa chỉ, Mô tả bài đăng và Loại phòng
+            if (filter.getArea() != null && !filter.getArea().isBlank()) {
+                String suffix = filter.getArea().trim().toLowerCase(java.util.Locale.ROOT);
+                int components = suffix.split(",", -1).length;
+                var addressSuffix = cb.function("substring_index", String.class,
+                        cb.trim(root.get("diaChi")), cb.literal(","), cb.literal(-components));
+                predicates.add(cb.equal(cb.lower(cb.trim(addressSuffix)), suffix));
+            }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
                 String searchPattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
 

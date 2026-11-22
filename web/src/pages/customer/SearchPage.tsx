@@ -124,6 +124,7 @@ export const SearchPage: React.FC = () => {
   const submittedKeyword = searchParams.get('keyword') ?? manualKeyword;
   const searchInput = searchInputDraft ?? submittedKeyword;
   const hasTextQuery = submittedKeyword.trim().length > 0;
+  const isAreaSearch = searchParams.get('mode') === 'area';
 
   const [currentPage, setCurrentPage] = useState(0);
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
@@ -231,6 +232,7 @@ export const SearchPage: React.FC = () => {
       'search',
       {
         keyword: submittedKeyword,
+        isAreaSearch,
         minPrice: filterStore.minPrice,
         maxPrice: filterStore.maxPrice,
         minArea: filterStore.minArea,
@@ -244,7 +246,7 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       const trimmed = submittedKeyword.trim();
-      if (trimmed) {
+      if (trimmed && !isAreaSearch) {
         try {
           const result = await roomService.aiSearchWithDetails(trimmed, {
             minGia: filterStore.minPrice,
@@ -271,7 +273,8 @@ export const SearchPage: React.FC = () => {
       const sortField = sortBy === 'NEWEST' ? 'thoiGianDang' : 'giaThue';
       const sortDirection = sortBy === 'PRICE_ASC' ? ('ASC' as const) : ('DESC' as const);
       const res = await roomService.searchRooms({
-        keyword: trimmed || undefined,
+        keyword: isAreaSearch ? undefined : trimmed || undefined,
+        area: isAreaSearch ? trimmed : undefined,
         minGia: filterStore.minPrice,
         maxGia: filterStore.maxPrice,
         minDienTich: filterStore.minArea,

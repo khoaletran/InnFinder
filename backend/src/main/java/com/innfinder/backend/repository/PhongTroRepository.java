@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.Optional;
 @Repository
 public interface PhongTroRepository extends JpaRepository<PhongTro, String>, JpaSpecificationExecutor<PhongTro> {
+    @EntityGraph(attributePaths = {"hinhAnh"})
+    @Query("SELECT p FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false ORDER BY p.maPhongTro")
+    List<PhongTro> findPublicRoomsForAreaStats();
+
     @Override
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     Page<PhongTro> findAll(Specification<PhongTro> spec, Pageable pageable);
