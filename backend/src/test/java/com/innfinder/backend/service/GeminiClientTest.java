@@ -75,4 +75,24 @@ class GeminiClientTest {
         assertEquals("OK", f.client().generate("instruction", "data", Map.of("type", "OBJECT")));
         f.server().verify();
     }
+
+    @Test void fallsBackFromGemini38ToFastLiteModelOnTransientError() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://generativelanguage.googleapis.com/v1beta");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient transport = builder.build();
+        GeminiClient client = new GeminiClient(new ObjectMapper(), "test-key", "gemini-3.8-flash", "gemini-3.5-flash-lite", transport, transport);
+
+        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"))
+                .andExpect(header("x-goog-api-key", "test-key"))
+                .andExpect(content().json("{\"generationConfig\":{\"thinkingConfig\":{\"thinkingLevel\":\"LOW\"}}}"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":{\"message\":\"high demand\"}}"));
+        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
+                .andExpect(header("x-goog-api-key", "test-key"))
+                .andExpect(content().json("{\"generationConfig\":{\"thinkingConfig\":{\"thinkingLevel\":\"MINIMAL\"}}}"))
+                .andRespond(withSuccess("{\"candidates\":[{\"finishReason\":\"STOP\",\"content\":{\"parts\":[{\"text\":\"OK\"}]}}]}", MediaType.APPLICATION_JSON));
+
+        assertEquals("OK", client.generate("instruction", "data", Map.of("type", "OBJECT")));
+        server.verify();
+    }
 }

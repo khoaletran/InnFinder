@@ -118,7 +118,7 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
       isOpen={true}
       onClose={onClose}
       title="Rút tiền về tài khoản ngân hàng"
-      subtitle="Tạo yêu cầu rút tiền để quản trị viên đối soát chuyển khoản"
+      subtitle="Tạo yêu cầu rút về ngân hàng đã liên kết để quản trị viên đối soát"
       maxWidth="md"
       footer={
         <>

@@ -1,14 +1,24 @@
 import React from 'react';
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Chip } from '@heroui/react';
-import { LogOut, Search, Home, UserCircle } from 'lucide-react';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
+import { LogOut, Home, UserCircle } from 'lucide-react';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
+import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
+import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { ADMIN_NAV_ITEMS } from '@/constants/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isProfileRoute = location.pathname.startsWith('/admin/profile');
+  const currentNav =
+    ADMIN_NAV_ITEMS.find((item) =>
+      item.end ? location.pathname === item.path : location.pathname.startsWith(item.path),
+    ) || ADMIN_NAV_ITEMS[0];
+  const HeaderIcon = isProfileRoute ? UserCircle : currentNav.icon;
+  const headerTitle = isProfileRoute ? 'Hồ sơ Quản trị viên' : currentNav.label;
 
   const handleLogout = () => {
     logout();
@@ -29,7 +39,7 @@ export const AdminLayout: React.FC = () => {
                   InnFinder
                 </span>
                 <span className="text-[10px] tracking-wider text-teal-400 font-semibold uppercase">
-                  ADMIN CONSOLE
+                  Quản trị
                 </span>
               </div>
             </Link>
@@ -37,9 +47,6 @@ export const AdminLayout: React.FC = () => {
 
           {/* Centralized Navigation Links from @/constants/navigation */}
           <nav className="p-3 space-y-1">
-            <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Quản trị vận hành
-            </div>
             {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -48,15 +55,22 @@ export const AdminLayout: React.FC = () => {
                   to={item.path}
                   end={item.end}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                    `relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                       isActive
-                        ? 'bg-teal-600 text-white font-semibold shadow-md shadow-teal-600/20'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        ? 'bg-teal-600/25 text-white border border-teal-500/40 font-semibold shadow-sm'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent'
                     }`
                   }
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-teal-400 rounded-r-full" />
+                      )}
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-teal-300' : ''}`} />
+                      <span>{item.label}</span>
+                    </>
+                  )}
                 </NavLink>
               );
             })}
@@ -73,17 +87,27 @@ export const AdminLayout: React.FC = () => {
               <Home className="w-3.5 h-3.5 text-teal-400 shrink-0" />
               <span>Trang chủ</span>
             </Link>
-            <Link
-              to="/profile"
-              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium transition-colors"
+            <NavLink
+              to="/admin/profile"
+              className={({ isActive }) =>
+                `flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-teal-600/25 text-white border border-teal-500/40 font-semibold'
+                    : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-transparent'
+                }`
+              }
             >
               <UserCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Cổng cá nhân</span>
-            </Link>
+              <span>Hồ sơ Admin</span>
+            </NavLink>
           </div>
 
           <div className="flex items-center justify-between pt-1.5">
-            <div className="flex items-center gap-2.5 overflow-hidden">
+            <Link
+              to="/admin/profile"
+              title="Xem hồ sơ Quản trị viên"
+              className="flex items-center gap-2.5 overflow-hidden rounded-xl p-1 -ml-1 hover:bg-slate-800/70 transition-colors"
+            >
               <div className="w-9 h-9 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-400 font-bold flex items-center justify-center shrink-0 text-xs overflow-hidden">
                 {user?.hinhDaiDien || user?.avatarUrl ? (
                   <img
@@ -99,11 +123,11 @@ export const AdminLayout: React.FC = () => {
                 <p className="text-xs font-semibold text-white truncate">
                   {user?.hoVaTen || user?.tenDangNhap || 'Quản trị viên'}
                 </p>
-                <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded bg-teal-500/20 text-teal-400 border border-teal-400/30 uppercase">
-                  QUAN_TRI
+                <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded bg-teal-500/20 text-teal-300 border border-teal-400/30">
+                  Quản trị viên
                 </span>
               </div>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
@@ -120,23 +144,17 @@ export const AdminLayout: React.FC = () => {
       <div className="flex-1 ml-64 flex flex-col min-h-screen">
         {/* Top Header Bar */}
         <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Tìm nhanh người dùng, bài đăng, mã cọc..."
-                className="w-72 sm:w-80 pl-9 pr-4 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-              />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+              <HeaderIcon className="w-4 h-4" />
             </div>
+            <span className="text-sm font-bold text-slate-800 leading-tight">
+              {headerTitle}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Chip size="sm" variant="soft" color="success" className="font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5 inline-block" />
-              Hệ thống ổn định
-            </Chip>
-            <div className="h-5 w-px bg-slate-200" />
+          <div className="flex items-center gap-3">
+            <AdminNotificationBell />
             <div className="text-xs text-slate-600 font-medium">
               Xin chào, <strong className="text-slate-900">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
             </div>
@@ -144,8 +162,9 @@ export const AdminLayout: React.FC = () => {
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-6 lg:p-8">
+        <main className="relative flex-1 p-6 lg:p-8">
           <Outlet />
+          <RouteLoadingOverlay />
         </main>
       </div>
     </div>

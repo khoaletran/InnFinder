@@ -59,7 +59,6 @@ export const ADMIN_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Tổng quan sàn', path: '/admin/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Người dùng & CCCD', path: '/admin/users', icon: Users },
   { label: 'Kiểm duyệt phòng', path: '/admin/posts', icon: Building2 },
-  { label: 'Giám sát lịch xem', path: '/admin/viewings', icon: CalendarCheck },
   { label: 'Sổ cái giao dịch', path: '/admin/transactions', icon: CreditCard },
   { label: 'Kiểm duyệt đánh giá', path: '/admin/reviews', icon: Star },
   { label: 'Xử lý khiếu nại', path: '/admin/complaints', icon: AlertTriangle },

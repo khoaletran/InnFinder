@@ -310,7 +310,7 @@ export const landlordService = {
           id: String(c.id || c.maKhieuNai),
           maKhieuNai: c.maKhieuNai,
           nguoiGuiTen: c.tenNguoiGui || c.maNguoiGui || 'Người dùng',
-          doiTuongTen: c.tenDoiTuong || c.doiTuongKhieuNai,
+          doiTuongTen: c.tenDoiTuongKhieuNai || c.tenDoiTuong || c.doiTuongKhieuNai,
           vanDe: c.vanDe,
           hinhAnh: c.hinhAnh,
           trangThai: c.trangThai,

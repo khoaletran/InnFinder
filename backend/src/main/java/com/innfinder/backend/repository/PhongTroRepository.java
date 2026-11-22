@@ -20,8 +20,8 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -43,6 +43,9 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     List<PhongTro> findByMaPhongTroIn(List<String> maPhongTroList);
 
+    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    List<PhongTro> findAllByOrderByThoiGianDangDesc();
+
     long countByTrangThai(TrangThaiPhongTro trangThai);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PhongTro p WHERE p.maPhongTro = :id")
@@ -53,4 +56,7 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @Query(value = "SELECT trang_thai FROM phong_tro WHERE ma_phong_tro = :id FOR UPDATE", nativeQuery = true)
     String findStatusForUpdate(@Param("id") String id);
 
+    @EntityGraph(attributePaths = {"loaiPhong"})
+    @Query("SELECT p FROM PhongTro p")
+    List<PhongTro> findAllWithLoaiPhong();
 }

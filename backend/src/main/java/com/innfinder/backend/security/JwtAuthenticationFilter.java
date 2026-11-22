@@ -32,6 +32,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = tokenProvider.getUsernameFromJwt(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
+            if (!userDetails.isAccountNonLocked()) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write(
+                        "{\"success\":false,\"message\":\"Tài khoản của bạn đã bị khóa bởi Quản trị viên\"}"
+                );
+                return;
+            }
+
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities()
             );

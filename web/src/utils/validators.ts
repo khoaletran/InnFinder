@@ -31,7 +31,7 @@ export const registerSchema = z
       .string()
       .min(2, 'Họ và tên ít nhất 2 ký tự')
       .max(100, 'Họ và tên tối đa 100 ký tự'),
-    email: z.string().regex(REGEX_PATTERNS.EMAIL, 'Email không đúng định dạng chuẩn RFC 5322'),
+    email: z.string().regex(REGEX_PATTERNS.EMAIL, 'Email không đúng định dạng'),
     sdt: z
       .string()
       .regex(
@@ -174,6 +174,35 @@ export const categoryDepositFeeSchema = z
     phiThu: z.number().int().min(0, 'Phí hoa hồng sàn phải >= 0'),
   })
   .refine((d) => d.phiThu < d.soTienCoc, {
-    message: 'Phí hoa hồng hệ thống (phiThu) bắt buộc nhỏ hơn mức cọc giữ chân (soTienCoc)',
+    message: 'Phí hoa hồng phải nhỏ hơn tiền cọc giữ chân',
     path: ['phiThu'],
+  });
+
+export const createAdminSchema = z
+  .object({
+    tenDangNhap: z
+      .string()
+      .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
+      .max(50, 'Tên đăng nhập tối đa 50 ký tự')
+      .regex(/^[a-zA-Z0-9_]+$/, 'Tên đăng nhập chỉ chứa chữ cái, chữ số và dấu gạch dưới'),
+    hoVaTen: z
+      .string()
+      .min(2, 'Họ và tên ít nhất 2 ký tự')
+      .max(100, 'Họ và tên tối đa 100 ký tự'),
+    email: z.string().regex(REGEX_PATTERNS.EMAIL, 'Email không đúng định dạng'),
+    sdt: z
+      .string()
+      .regex(
+        REGEX_PATTERNS.PHONE,
+        'Số điện thoại Việt Nam không hợp lệ (03/05/07/08/09 + 8 số hoặc +84 + 9 số)',
+      ),
+    matKhau: z.string().min(8, 'Mật khẩu phải có tối thiểu 8 ký tự'),
+    xacNhanMatKhau: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+    matKhauAdminHienTai: z
+      .string()
+      .min(1, 'Vui lòng nhập mật khẩu Quản trị viên hiện tại để xác thực'),
+  })
+  .refine((data) => data.matKhau === data.xacNhanMatKhau, {
+    message: 'Mật khẩu xác nhận không trùng khớp',
+    path: ['xacNhanMatKhau'],
   });

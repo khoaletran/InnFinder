@@ -1,6 +1,7 @@
 package com.innfinder.backend.service;
 
 import com.innfinder.backend.dto.request.CategoryUpdateRequest;
+import com.innfinder.backend.dto.request.CreateAdminRequest;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.request.UpdateDepositFeeRequest;
@@ -16,6 +17,7 @@ import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.*;
+import com.innfinder.backend.security.SecurityUtils;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,10 +28,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +61,16 @@ public class AdminService {
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
         List<PhongTro> list = phongTroRepository.findByTrangThai(TrangThaiPhongTro.CHO_DUYET);
+        List<RoomResponseDTO> result = new ArrayList<>();
+        for (PhongTro pt : list) {
+            result.add(toRoomResponseDTO(pt));
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoomResponseDTO> getAllRooms() {
+        List<PhongTro> list = phongTroRepository.findAllByOrderByThoiGianDangDesc();
         List<RoomResponseDTO> result = new ArrayList<>();
         for (PhongTro pt : list) {
             result.add(toRoomResponseDTO(pt));
@@ -88,7 +106,8 @@ public class AdminService {
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> searchUsers(String keyword, Pageable pageable) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            return Page.empty(pageable);
+            return nguoiDungRepository.findAllByOrderByThoiGianMoTaiKhoanDesc(pageable)
+                    .map(this::toUserResponseDTO);
         }
         return nguoiDungRepository.searchUsersByInfo(keyword.trim(), pageable)
                 .map(this::toUserResponseDTO);
@@ -113,53 +132,233 @@ public class AdminService {
 
     @Transactional
     public UserResponseDTO toggleLockUser(String id) {
-        NguoiDung user = nguoiDungRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        NguoiDung user = nguoiDungRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String currentUsername = SecurityUtils.getCurrentUsername();
+        if (currentUsername != null && !"anonymousUser".equals(currentUsername)) {
+            NguoiDung currentAdmin = nguoiDungRepository.findByTenDangNhap(currentUsername).orElse(null);
+            if (currentAdmin != null && currentAdmin.getMaNguoiDung().equals(user.getMaNguoiDung())) {
+                throw new AppException(ErrorCode.CANNOT_LOCK_SELF);
+            }
+        }
+
         boolean currentStatus = Boolean.TRUE.equals(user.getTrangThaiKhoa());
+        if (!currentStatus && user.getVaiTro() == VaiTro.QUAN_TRI
+                && nguoiDungRepository.countByVaiTroAndTrangThaiKhoaFalse(VaiTro.QUAN_TRI) <= 1) {
+            throw new AppException(ErrorCode.CANNOT_LOCK_LAST_ADMIN);
+        }
+
         user.setTrangThaiKhoa(!currentStatus);
         user = nguoiDungRepository.save(user);
         return toUserResponseDTO(user);
     }
 
-    @Transactional(readOnly = true)
-    @Cacheable(value = "admin_statistics", key = "'summary'")
-    public AdminStatisticsResponseDTO getStatistics() {
-        long tongSoPhong = phongTroRepository.count();
-        long soPhongChoDuyet = phongTroRepository.countByTrangThai(TrangThaiPhongTro.CHO_DUYET);
-        long soPhongDaDuyet = phongTroRepository.countByTrangThai(TrangThaiPhongTro.DA_DUYET);
-        long soPhongHoanThanh = phongTroRepository.countByTrangThai(TrangThaiPhongTro.HOAN_THANH);
-        long soPhongHuy = phongTroRepository.countByTrangThai(TrangThaiPhongTro.HUY);
-
-        long tongNguoiDung = nguoiDungRepository.count();
-        long soKhachHang = nguoiDungRepository.countByVaiTro(VaiTro.KHACH_HANG);
-        long soChuTro = nguoiDungRepository.countByChuTro(true);
-
-        // Doanh thu sàn chuẩn nghiệp vụ: Tổng phí hoa hồng (phiThu) từ các phiếu đặt lịch đã hoàn thành
-        Long tongDoanhThu = phieuDatLichRepository.sumPhiThuByTrangThai(TrangThaiDatLich.HOAN_THANH);
-        if (tongDoanhThu == null) {
-            tongDoanhThu = 0L;
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public UserResponseDTO createAdmin(CreateAdminRequest request) {
+        String currentUsername = SecurityUtils.getCurrentUsername();
+        if (currentUsername == null || "anonymousUser".equals(currentUsername)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
-        // --- TÍNH TOÁN NGÂN KHỐ TRUNG TÂM / KHO TIỀN THỜI GIAN THỰC ---
-        Long tongThuCoc = giaoDichRepository.sumSoTienByLoaiAndTrangThai("COC_XEM_PHONG", TrangThaiGD.THANH_CONG);
-        Long tongHoanCocKhach = giaoDichRepository.sumSoTienByLoaiAndTrangThai("HOAN_COC", TrangThaiGD.HOAN_TIEN);
-        Long tongDaRut = giaoDichRepository.sumSoTienByLoaiAndTrangThai("RUT_TIEN", TrangThaiGD.THANH_CONG);
+        NguoiDung currentAdmin = nguoiDungRepository.findByTenDangNhap(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        long tongSoDuViChuTro = chuTroRepository.sumTotalSoDu();
-        Long quyChoRut = giaoDichRepository.sumSoTienByLoaiAndTrangThai("RUT_TIEN", TrangThaiGD.CHO_THANH_TOAN);
-        long soLenhRutChoDuyet = giaoDichRepository.countByLoaiGiaoDichAndTrangThai("RUT_TIEN", TrangThaiGD.CHO_THANH_TOAN);
+        if (!passwordEncoder.matches(request.getMatKhauAdminHienTai(), currentAdmin.getMatKhau())) {
+            throw new AppException(ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
 
-        // Quỹ cọc giữ chân đang tạm giữ (tính từ các lịch hẹn đang XAC_NHAN mà khách đã nộp cọc)
-        Long quyTamGiuCocRaw = phieuDatLichRepository.sumCocByTrangThai(TrangThaiDatLich.XAC_NHAN);
-        long quyTamGiuCoc = quyTamGiuCocRaw != null ? quyTamGiuCocRaw : 0L;
+        String tenDangNhap = request.getTenDangNhap().trim();
+        String hoVaTen = request.getHoVaTen().trim();
+        String email = request.getEmail().trim();
+        String sdt = request.getSdt().trim();
 
-        // Tổng quỹ thực tế đang nằm trong két của Sàn: Tiền thu cọc - Tiền đã hoàn cọc cho khách - Tiền đã duyệt rút
-        long tongQuyThucTe = Math.max(0L, (tongThuCoc != null ? tongThuCoc : 0L)
-                - (tongHoanCocKhach != null ? tongHoanCocKhach : 0L)
-                - (tongDaRut != null ? tongDaRut : 0L));
+        if (Boolean.TRUE.equals(nguoiDungRepository.existsByTenDangNhap(tenDangNhap))) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+        if (Boolean.TRUE.equals(nguoiDungRepository.existsByEmail(email))) {
+            throw new AppException(ErrorCode.EMAIL_EXISTED);
+        }
 
-        // Nghĩa vụ nợ của Sàn: Quỹ cọc tạm giữ + Số dư ví chủ trọ + Quỹ chờ duyệt rút + Doanh thu hoa hồng sàn tích lũy
-        long tongNghiaVu = quyTamGiuCoc + tongSoDuViChuTro + (quyChoRut != null ? quyChoRut : 0L) + tongDoanhThu;
-        long tongQuyHeThong = Math.max(tongQuyThucTe, tongNghiaVu);
+        NguoiDung newAdmin = NguoiDung.builder()
+                .maNguoiDung(generateMaNguoiDung())
+                .tenDangNhap(tenDangNhap)
+                .hoVaTen(hoVaTen)
+                .matKhau(passwordEncoder.encode(request.getMatKhau()))
+                .email(email)
+                .sdt(sdt)
+                .cccd(null)
+                .vaiTro(VaiTro.QUAN_TRI)
+                .thoiGianMoTaiKhoan(LocalDate.now())
+                .chuTro(false)
+                .trangThaiKhoa(false)
+                .build();
+
+        NguoiDung saved = nguoiDungRepository.save(newAdmin);
+        return toUserResponseDTO(saved);
+    }
+
+    private synchronized String generateMaNguoiDung() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+        String prefix = "ND" + datePart;
+        String maxId = nguoiDungRepository.findMaxMaNguoiDungByPrefix(prefix);
+
+        int nextSequence = 1;
+        if (maxId != null && maxId.length() == 14 && maxId.startsWith(prefix)) {
+            try {
+                String suffix = maxId.substring(10);
+                nextSequence = Integer.parseInt(suffix) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSequence = 1;
+            }
+        }
+
+        String candidate = String.format("%s%04d", prefix, nextSequence);
+        while (nguoiDungRepository.existsById(candidate)) {
+            nextSequence++;
+            candidate = String.format("%s%04d", prefix, nextSequence);
+        }
+        return candidate;
+    }
+
+    @Transactional(readOnly = true)
+    public AdminStatisticsResponseDTO getStatistics() {
+        return getStatistics(null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "admin_statistics", key = "T(String).format('%s-%s-%s', #day, #month, #year)")
+    public AdminStatisticsResponseDTO getStatistics(Integer day, Integer month, Integer year) {
+        List<PhongTro> allRooms = phongTroRepository.findAllWithLoaiPhong();
+        List<NguoiDung> allUsers = nguoiDungRepository.findAll();
+        List<PhieuDatLich> allAppointments = phieuDatLichRepository.findAll();
+        List<GiaoDich> allTransactions = giaoDichRepository.findAll();
+
+        // Danh sách năm thực tế có dữ liệu trong database (sắp xếp giảm dần)
+        TreeSet<Integer> yearSet = new TreeSet<>(Comparator.reverseOrder());
+        yearSet.add(LocalDate.now().getYear());
+        for (PhieuDatLich p : allAppointments) {
+            LocalDateTime t = resolveAppointmentTime(p);
+            if (t != null) yearSet.add(t.getYear());
+        }
+        for (GiaoDich g : allTransactions) {
+            if (g.getNgayGiaoDich() != null) yearSet.add(g.getNgayGiaoDich().getYear());
+        }
+        for (PhongTro pt : allRooms) {
+            if (pt.getThoiGianDang() != null) yearSet.add(pt.getThoiGianDang().getYear());
+        }
+        List<Integer> cacNamCoDuLieu = new ArrayList<>(yearSet);
+
+        // 1. Thống kê phòng trọ & cơ cấu loại phòng từ DB theo bộ lọc
+        long tongSoPhong = 0;
+        long soPhongChoDuyet = 0;
+        long soPhongDaDuyet = 0;
+        long soPhongHoanThanh = 0;
+        long soPhongHuy = 0;
+        Map<String, Long> roomTypeCounts = new LinkedHashMap<>();
+
+        for (PhongTro pt : allRooms) {
+            if (!matchesDateFilter(pt.getThoiGianDang(), day, month, year)) continue;
+            tongSoPhong++;
+            if (pt.getTrangThai() == TrangThaiPhongTro.CHO_DUYET) soPhongChoDuyet++;
+            else if (pt.getTrangThai() == TrangThaiPhongTro.DA_DUYET) soPhongDaDuyet++;
+            else if (pt.getTrangThai() == TrangThaiPhongTro.HOAN_THANH) soPhongHoanThanh++;
+            else if (pt.getTrangThai() == TrangThaiPhongTro.HUY) soPhongHuy++;
+
+            String typeName = (pt.getLoaiPhong() != null && pt.getLoaiPhong().getTenLoaiPhongTro() != null
+                    && !pt.getLoaiPhong().getTenLoaiPhongTro().isBlank())
+                    ? pt.getLoaiPhong().getTenLoaiPhongTro()
+                    : "Khác";
+            roomTypeCounts.merge(typeName, 1L, Long::sum);
+        }
+
+        List<AdminStatisticsResponseDTO.RoomTypeStatDTO> coCauLoaiPhong = roomTypeCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .map(e -> AdminStatisticsResponseDTO.RoomTypeStatDTO.builder()
+                        .tenLoaiPhong(e.getKey())
+                        .soLuong(e.getValue())
+                        .build())
+                .toList();
+
+        // 2. Thống kê tài khoản người dùng & hàng đợi duyệt chủ trọ
+        long tongNguoiDung = 0;
+        long soKhachHang = 0;
+        long soChuTro = 0;
+        for (NguoiDung u : allUsers) {
+            if (!matchesDateFilter(u.getThoiGianMoTaiKhoan(), day, month, year)) continue;
+            tongNguoiDung++;
+            if (u.getVaiTro() == VaiTro.KHACH_HANG) soKhachHang++;
+            if (Boolean.TRUE.equals(u.getChuTro())) soChuTro++;
+        }
+        long soChuTroChoDuyet = yeuCauChuTroRepository.countByTrangThai(TrangThaiYeuCauChuTro.CHO_DUYET);
+
+        // 3. Doanh thu hoa hồng sàn: SUM(phiThu) từ PhieuDatLich trạng thái HOAN_THANH (tuyệt đối không tính từ GiaoDich)
+        List<PhieuDatLich> completedAppointments = new ArrayList<>();
+        long tongDoanhThu = 0L;
+        long quyTamGiuCoc = 0L;
+
+        for (PhieuDatLich p : allAppointments) {
+            LocalDateTime appointmentTime = resolveAppointmentTime(p);
+            if (!matchesDateFilter(appointmentTime, day, month, year)) continue;
+
+            if (p.getTrangThai() == TrangThaiDatLich.HOAN_THANH) {
+                completedAppointments.add(p);
+                tongDoanhThu += (p.getPhiThu() != null ? p.getPhiThu() : 0L);
+            } else if (p.getTrangThai() == TrangThaiDatLich.XAC_NHAN && p.getCoc() != null && p.getCoc() > 0) {
+                quyTamGiuCoc += p.getCoc();
+            }
+        }
+        long soLichHoanThanh = completedAppointments.size();
+
+        // 4. Đối soát ngân khố & ví chủ trọ từ sổ cái GiaoDich theo cùng bộ lọc thời gian
+        long quyChoRut = 0L;
+        long soLenhRutChoDuyet = 0L;
+        long landlordCredits = 0L;
+        long landlordDebits = 0L;
+
+        for (GiaoDich g : allTransactions) {
+            if (!matchesDateFilter(g.getNgayGiaoDich(), day, month, year)) continue;
+            long amount = g.getSoTien() != null ? g.getSoTien() : 0L;
+            String loai = g.getLoaiGiaoDich() != null ? g.getLoaiGiaoDich() : "";
+            TrangThaiGD trangThai = g.getTrangThai();
+
+            if ("RUT_TIEN".equalsIgnoreCase(loai)) {
+                if (trangThai == TrangThaiGD.CHO_THANH_TOAN) {
+                    quyChoRut += amount;
+                    soLenhRutChoDuyet++;
+                }
+                if (trangThai == TrangThaiGD.THANH_CONG
+                        || trangThai == TrangThaiGD.CHO_THANH_TOAN
+                        || trangThai == TrangThaiGD.THAT_BAI) {
+                    landlordDebits += amount;
+                }
+            }
+
+            if (trangThai == TrangThaiGD.THANH_CONG && ("CONG_TIEN_COC".equalsIgnoreCase(loai)
+                    || "HOAN_COC".equalsIgnoreCase(loai)
+                    || "HOAN_TIEN_RUT".equalsIgnoreCase(loai))) {
+                landlordCredits += amount;
+            }
+        }
+
+        boolean hasFilter = (day != null || month != null || year != null);
+        long tongSoDuViChuTro;
+        if (!hasFilter) {
+            Long rawTotalSoDu = chuTroRepository.sumTotalSoDu();
+            tongSoDuViChuTro = rawTotalSoDu != null ? rawTotalSoDu : 0L;
+        } else {
+            tongSoDuViChuTro = Math.max(0L, landlordCredits - landlordDebits);
+        }
+
+        // Tổng quỹ đang luân chuyển thuộc nghĩa vụ người dùng = Cọc tạm giữ + Ví chủ trọ + Chờ duyệt rút
+        long tongQuyHeThong = quyTamGiuCoc + tongSoDuViChuTro + quyChoRut;
+        // Tổng tiền thực tế trong két = Quỹ đang luân chuyển + Doanh thu hoa hồng sàn tích lũy
+        long tongQuyThucTe = tongQuyHeThong + tongDoanhThu;
+
+        List<AdminStatisticsResponseDTO.RevenuePointDTO> bieuDoDoanhThu =
+                buildRevenueChart(completedAppointments, day, month, year, cacNamCoDuLieu);
 
         return AdminStatisticsResponseDTO.builder()
                 .tongSoPhong(tongSoPhong)
@@ -170,13 +369,206 @@ public class AdminService {
                 .tongNguoiDung(tongNguoiDung)
                 .soKhachHang(soKhachHang)
                 .soChuTro(soChuTro)
+                .soChuTroChoDuyet(soChuTroChoDuyet)
                 .tongDoanhThu(tongDoanhThu)
+                .soLichHoanThanh(soLichHoanThanh)
                 .tongQuyHeThong(tongQuyHeThong)
+                .tongQuyThucTe(tongQuyThucTe)
                 .quyTamGiuCoc(quyTamGiuCoc)
                 .tongSoDuViChuTro(tongSoDuViChuTro)
-                .quyChoRut(quyChoRut != null ? quyChoRut : 0L)
+                .quyChoRut(quyChoRut)
                 .soLenhRutChoDuyet(soLenhRutChoDuyet)
+                .bieuDoDoanhThu(bieuDoDoanhThu)
+                .coCauLoaiPhong(coCauLoaiPhong)
+                .cacNamCoDuLieu(cacNamCoDuLieu)
                 .build();
+    }
+
+    private LocalDateTime resolveAppointmentTime(PhieuDatLich p) {
+        return p.getNgayHen() != null ? p.getNgayHen() : p.getThoiGianDat();
+    }
+
+    private boolean matchesDateFilter(LocalDateTime dt, Integer day, Integer month, Integer year) {
+        return matchesDateFilter(dt != null ? dt.toLocalDate() : null, day, month, year);
+    }
+
+    private boolean matchesDateFilter(LocalDate date, Integer day, Integer month, Integer year) {
+        if (day == null && month == null && year == null) {
+            return true;
+        }
+        if (date == null) {
+            return false;
+        }
+        if (year != null && date.getYear() != year) {
+            return false;
+        }
+        if (month != null && date.getMonthValue() != month) {
+            return false;
+        }
+        return day == null || date.getDayOfMonth() == day;
+    }
+
+    private List<AdminStatisticsResponseDTO.RevenuePointDTO> buildRevenueChart(
+            List<PhieuDatLich> completedAppointments,
+            Integer day,
+            Integer month,
+            Integer year,
+            List<Integer> cacNamCoDuLieu
+    ) {
+        Map<String, long[]> buckets = new LinkedHashMap<>();
+
+        if (day != null && month != null && year != null) {
+            String[] slotLabels = {"00h–04h", "04h–08h", "08h–12h", "12h–16h", "16h–20h", "20h–24h"};
+            for (String slot : slotLabels) {
+                buckets.put(slot, new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                int idx = Math.min(5, Math.max(0, t.getHour() / 4));
+                accumulateBucket(buckets, slotLabels[idx], p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (day == null && month != null && year != null) {
+            if (month < 1 || month > 12 || year < 1900 || year > 2100) {
+                return List.of();
+            }
+            int daysInMonth = YearMonth.of(year, month).lengthOfMonth();
+            for (int d = 1; d <= daysInMonth; d++) {
+                buckets.put(String.format("%02d/%02d", d, month), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (day == null && month != null) {
+            if (month < 1 || month > 12) {
+                return List.of();
+            }
+            int maxDay = (month == 2) ? 29 : (month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31);
+            for (int d = 1; d <= maxDay; d++) {
+                buckets.put(String.format("Ngày %02d", d), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("Ngày %02d", t.getDayOfMonth());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (day == null && year != null) {
+            for (int m = 1; m <= 12; m++) {
+                buckets.put(String.format("%02d/%d", m, year), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (day == null) {
+            YearMonth earliest = null;
+            YearMonth latest = null;
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                YearMonth ym = YearMonth.from(t);
+                if (earliest == null || ym.isBefore(earliest)) earliest = ym;
+                if (latest == null || ym.isAfter(latest)) latest = ym;
+            }
+            if (latest == null) {
+                latest = YearMonth.now();
+                earliest = latest.minusMonths(5);
+            } else if (earliest.plusMonths(5).isAfter(latest)) {
+                earliest = latest.minusMonths(5);
+            }
+            for (YearMonth ym = earliest; !ym.isAfter(latest); ym = ym.plusMonths(1)) {
+                buckets.put(String.format("%02d/%d", ym.getMonthValue(), ym.getYear()), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (month == null && year != null) {
+            for (int m = 1; m <= 12; m++) {
+                buckets.put(String.format("%02d/%02d", day, m), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        if (month != null) {
+            List<Integer> ascYears = new ArrayList<>(cacNamCoDuLieu);
+            ascYears.sort(Comparator.naturalOrder());
+            for (Integer y : ascYears) {
+                buckets.put(String.format("%02d/%02d/%d", day, month, y), new long[]{0L, 0L});
+            }
+            for (PhieuDatLich p : completedAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
+                accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            return toChartPoints(buckets);
+        }
+
+        // day != null && month == null && year == null
+        TreeSet<LocalDate> dates = new TreeSet<>();
+        for (PhieuDatLich p : completedAppointments) {
+            LocalDateTime t = resolveAppointmentTime(p);
+            if (t != null) dates.add(t.toLocalDate());
+        }
+        for (LocalDate d : dates) {
+            buckets.put(String.format("%02d/%02d/%d", d.getDayOfMonth(), d.getMonthValue(), d.getYear()),
+                    new long[]{0L, 0L});
+        }
+        for (PhieuDatLich p : completedAppointments) {
+            LocalDateTime t = resolveAppointmentTime(p);
+            if (t == null) continue;
+            String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
+            accumulateBucket(buckets, key, p.getPhiThu());
+        }
+        return toChartPoints(buckets);
+    }
+
+    private void accumulateBucket(Map<String, long[]> buckets, String key, Long phiThu) {
+        long[] entry = buckets.computeIfAbsent(key, k -> new long[]{0L, 0L});
+        entry[0] += (phiThu != null ? phiThu : 0L);
+        entry[1] += 1L;
+    }
+
+    private List<AdminStatisticsResponseDTO.RevenuePointDTO> toChartPoints(Map<String, long[]> buckets) {
+        List<AdminStatisticsResponseDTO.RevenuePointDTO> points = new ArrayList<>(buckets.size());
+        for (Map.Entry<String, long[]> entry : buckets.entrySet()) {
+            points.add(AdminStatisticsResponseDTO.RevenuePointDTO.builder()
+                    .nhan(entry.getKey())
+                    .doanhThu(entry.getValue()[0])
+                    .soLichHoanThanh(entry.getValue()[1])
+                    .build());
+        }
+        return points;
     }
 
     // ==========================================
@@ -191,9 +583,17 @@ public class AdminService {
                     .map(AdminTransactionResponseDTO::fromEntity)
                     .toList();
         }
-        return giaoDichRepository.findByTrangThaiOrderByNgayGiaoDichDesc(TrangThaiGD.CHO_THANH_TOAN)
+        return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
                 .stream()
                 .map(AdminTransactionResponseDTO::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminAppointmentResponseDTO> getAllAppointments() {
+        return phieuDatLichRepository.findAllByOrderByNgayHenDesc()
+                .stream()
+                .map(AdminAppointmentResponseDTO::fromEntity)
                 .toList();
     }
 
@@ -232,7 +632,7 @@ public class AdminService {
         // 2. Kiểm tra ngân khố hệ thống
         AdminStatisticsResponseDTO stats = getStatistics();
         long soTienDuyet = gd.getSoTien() != null ? gd.getSoTien() : 0L;
-        if (stats.getTongQuyHeThong() < soTienDuyet) {
+        if (stats.getTongQuyThucTe() < soTienDuyet) {
             throw new AppException(ErrorCode.INSUFFICIENT_SYSTEM_TREASURY);
         }
 
@@ -302,8 +702,11 @@ public class AdminService {
         String tenChuTro = null;
         String sdtChuTro = null;
         if (pt.getChuPhongTro() != null && pt.getChuPhongTro().getNguoiDung() != null) {
-            tenChuTro = pt.getChuPhongTro().getNguoiDung().getTenDangNhap();
-            sdtChuTro = pt.getChuPhongTro().getNguoiDung().getSdt();
+            NguoiDung ctUser = pt.getChuPhongTro().getNguoiDung();
+            tenChuTro = (ctUser.getHoVaTen() != null && !ctUser.getHoVaTen().isBlank())
+                    ? ctUser.getHoVaTen()
+                    : ctUser.getTenDangNhap();
+            sdtChuTro = ctUser.getSdt();
         }
 
         String tenLoaiPhong = pt.getLoaiPhong() != null ? pt.getLoaiPhong().getTenLoaiPhongTro() : null;
@@ -332,6 +735,7 @@ public class AdminService {
         return UserResponseDTO.builder()
                 .maNguoiDung(u.getMaNguoiDung())
                 .tenDangNhap(u.getTenDangNhap())
+                .hoVaTen(u.getHoVaTen())
                 .email(u.getEmail())
                 .sdt(u.getSdt())
                 .cccd(u.getCccd())
@@ -413,6 +817,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
     public LandlordRequestResponseDTO rejectLandlordRequest(String id, RejectLandlordRequestDTO request) {
         YeuCauChuTro yc = yeuCauChuTroRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.LANDLORD_REQUEST_NOT_FOUND));

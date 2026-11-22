@@ -120,7 +120,7 @@ export const resolveRoomInfo = (noiDung?: string): ResolvedRoomInfo | null => {
   return {
     code,
     title: `Phòng trọ mã #${code}`,
-    address: 'Đối soát tự động qua sổ cái InnFinder',
+    address: 'Giao dịch InnFinder',
   };
 };
 
@@ -138,7 +138,7 @@ export const formatTransactionType = (
       return { label: 'Phí hoa hồng môi giới sàn', method: 'Hệ thống InnFinder' };
     case 'RUT_TIEN':
     case 'YEU_CAU_RUT_TIEN':
-      return { label: 'Rút tiền về tài khoản ngân hàng', method: 'Chuyển khoản NAPAS' };
+      return { label: 'Rút tiền về tài khoản ngân hàng', method: 'Chuyển khoản ngân hàng' };
     default:
       return { label: loaiGiaoDich || 'Giao dịch hệ thống', method: 'Ví InnFinder' };
   }

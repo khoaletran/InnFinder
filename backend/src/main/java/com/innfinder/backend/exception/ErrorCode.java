@@ -39,6 +39,8 @@ public enum ErrorCode {
     UPLOAD_IMAGE_FAILED("Lỗi tải hình ảnh lên Cloudinary", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_IMAGE_FILE("Định dạng file tải lên không hợp lệ (chỉ hỗ trợ hình ảnh)", HttpStatus.BAD_REQUEST),
     COMPLAINT_NOT_FOUND("Không tìm thấy phiếu khiếu nại", HttpStatus.NOT_FOUND),
+    CANNOT_COMPLAINT_SELF("Bạn không thể tự gửi khiếu nại chính mình", HttpStatus.BAD_REQUEST),
+    COMPLAINT_ALREADY_RESOLVED("Phiếu khiếu nại này đã được xử lý dứt điểm", HttpStatus.BAD_REQUEST),
     INVALID_RATING("Điểm đánh giá phải từ 1 đến 5 sao", HttpStatus.BAD_REQUEST),
     REVIEW_NOT_ALLOWED("Bạn chỉ có thể đánh giá phòng sau khi đã xem phòng thực tế hoặc hoàn tất thuê", HttpStatus.FORBIDDEN),
     REVIEW_NOT_FOUND("Không tìm thấy đánh giá yêu cầu", HttpStatus.NOT_FOUND),
@@ -70,7 +72,9 @@ public enum ErrorCode {
     BANK_ACCOUNT_NOT_OWNED("Bạn không có quyền sử dụng tài khoản ngân hàng này", HttpStatus.FORBIDDEN),
     ALREADY_A_LANDLORD("Tài khoản của bạn đã được kích hoạt quyền Chủ trọ", HttpStatus.BAD_REQUEST),
     LANDLORD_REQUEST_PENDING("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Quản trị viên xét duyệt", HttpStatus.BAD_REQUEST),
-    INVALID_LANDLORD_REQUEST_STATUS("Đơn đăng ký chủ trọ không ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST);
+    INVALID_LANDLORD_REQUEST_STATUS("Đơn đăng ký chủ trọ không ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST),
+    CANNOT_LOCK_SELF("Bạn không thể tự khóa tài khoản của chính mình", HttpStatus.BAD_REQUEST),
+    CANNOT_LOCK_LAST_ADMIN("Không thể khóa tài khoản Quản trị viên hoạt động cuối cùng của hệ thống", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

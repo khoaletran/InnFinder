@@ -18,11 +18,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const target = `${location.pathname}${location.search}`;
+    const loginUrl = `/login?returnUrl=${encodeURIComponent(target)}`;
+    return <Navigate to={loginUrl} state={{ from: location }} replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.vaiTro)) {
     if (user.vaiTro === 'QUAN_TRI') {
+      if (location.pathname.startsWith('/profile/security')) {
+        return <Navigate to="/admin/profile/security" replace />;
+      }
+      if (location.pathname.startsWith('/profile')) {
+        return <Navigate to="/admin/profile" replace />;
+      }
       return <Navigate to="/admin/dashboard" replace />;
     }
     return <Navigate to="/profile" replace />;
