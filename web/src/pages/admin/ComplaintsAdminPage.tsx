@@ -17,9 +17,9 @@ const STATUS_TABS: Array<{ key: 'ALL' | TrangThaiKhieuNai; label: string }> = [
 ];
 
 const VIOLATION_OPTIONS: Array<{ val: MucDoViPham; label: string; desc: string }> = [
-  { val: 'NHE', label: 'Nhẹ (NHE)', desc: 'Nhắc nhở cảnh cáo qua email/hệ thống' },
-  { val: 'TRUNG_BINH', label: 'Trung bình (TRUNG_BINH)', desc: 'Trừ điểm uy tín, tạm ẩn bài 7 ngày' },
-  { val: 'NANG', label: 'Nặng (NANG)', desc: 'Khóa tài khoản vĩnh viễn & thu hồi cọc' },
+  { val: 'NHE', label: 'Nhẹ', desc: 'Nhắc nhở cảnh cáo qua email/hệ thống' },
+  { val: 'TRUNG_BINH', label: 'Trung bình', desc: 'Trừ điểm uy tín, tạm ẩn bài 7 ngày' },
+  { val: 'NANG', label: 'Nặng', desc: 'Khóa tài khoản vĩnh viễn & thu hồi cọc' },
 ];
 
 export const ComplaintsAdminPage: React.FC = () => {
@@ -129,7 +129,7 @@ export const ComplaintsAdminPage: React.FC = () => {
             Xử lý Khiếu nại & Vi phạm
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tiếp nhận minh chứng (`PhieuKhieuNai`), thụ lý (`CHO_DUYET` → `DANG_XU_LY` → `DA_XU_LI`) và áp dụng chế tài (`NHE`, `TRUNG_BINH`, `NANG`)
+            Tiếp nhận minh chứng khiếu nại, thụ lý giải quyết và áp dụng chế tài xử lý vi phạm
           </p>
         </div>
 
@@ -231,7 +231,7 @@ export const ComplaintsAdminPage: React.FC = () => {
             ? `Thẩm định khiếu nại #${selectedComplaint.maKhieuNai}`
             : 'Thẩm định khiếu nại'
         }
-        subtitle="Cập nhật tiến trình xử lý và mức độ vi phạm theo quy chuẩn AGENTS.md"
+        subtitle="Cập nhật tiến trình xử lý và mức độ vi phạm"
         maxWidth="lg"
       >
         {selectedComplaint && (
@@ -253,7 +253,7 @@ export const ComplaintsAdminPage: React.FC = () => {
               </div>
             </div>
 
-            {selectedComplaint.hinhAnh && selectedComplaint.hinhAnh.length > 0 && (
+            {Array.isArray(selectedComplaint.hinhAnh) && selectedComplaint.hinhAnh.length > 0 && (
               <div>
                 <span className="block text-xs font-bold text-slate-700 mb-1.5">
                   Hình ảnh bằng chứng vi phạm:
@@ -277,13 +277,13 @@ export const ComplaintsAdminPage: React.FC = () => {
             {/* Trạng thái xử lý */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Trạng thái xử lý (`TrangThaiKhieuNai`)
+                Trạng thái xử lý
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
-                    { val: 'DANG_XU_LY', label: 'Đang xác minh (DANG_XU_LY)' },
-                    { val: 'DA_XU_LI', label: 'Đã xử lý dứt điểm (DA_XU_LI)' },
+                    { val: 'DANG_XU_LY', label: 'Đang xác minh' },
+                    { val: 'DA_XU_LI', label: 'Đã xử lý dứt điểm' },
                   ] as const
                 ).map((st) => (
                   <button
@@ -305,7 +305,7 @@ export const ComplaintsAdminPage: React.FC = () => {
             {/* Mức độ vi phạm */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mức độ vi phạm (`MucDoViPham`)
+                Mức độ vi phạm
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {VIOLATION_OPTIONS.map((m) => (
@@ -328,7 +328,7 @@ export const ComplaintsAdminPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kết luận xử lý & Biện pháp khắc phục (`ketQua`)
+                Kết luận xử lý & Biện pháp khắc phục
               </label>
               <textarea
                 rows={3}

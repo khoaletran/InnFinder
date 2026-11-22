@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 
 export interface BookingSuccessModalProps {
@@ -54,7 +54,7 @@ export const BookingSuccessModal: React.FC<BookingSuccessModalProps> = ({
           <button
             type="button"
             onClick={onViewAppointments}
-            className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-500/25 cursor-pointer"
+            className="px-6 py-2.5 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-blue-800 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-500/25 cursor-pointer"
           >
             Xem lịch hẹn
           </button>

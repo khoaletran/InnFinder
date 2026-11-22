@@ -14,8 +14,6 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Footer } from '@/components/common/Footer';
-import { Header } from '@/components/common/Header';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RoomMap } from '@/components/map/RoomMap';
 import { roomService } from '@/services/room.service';
@@ -44,32 +42,25 @@ export const RoomDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Header />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
-          <LoadingSpinner fullHeight label="Đang tải thông tin chi tiết phòng trọ..." />
-        </main>
+      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+        <LoadingSpinner fullHeight label="Đang tải thông tin chi tiết phòng trọ..." />
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Header />
-        <div className="flex-1 max-w-lg mx-auto flex flex-col items-center justify-center p-6 text-center">
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy phòng trọ</h2>
-          <p className="text-sm text-slate-500 mb-6">
-            Phòng này có thể đã được cho thuê hoàn tất hoặc tạm ẩn khỏi hệ thống.
-          </p>
-          <Link
-            to="/search"
-            className="px-6 py-2.5 bg-teal-600 text-white rounded-full font-semibold text-sm shadow-md"
-          >
-            Quay lại tìm kiếm
-          </Link>
-        </div>
-        <Footer />
+      <div className="flex-1 max-w-lg mx-auto flex flex-col items-center justify-center p-6 text-center py-20">
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy phòng trọ</h2>
+        <p className="text-sm text-slate-500 mb-6">
+          Phòng này có thể đã được cho thuê hoàn tất hoặc tạm ẩn khỏi hệ thống.
+        </p>
+        <Link
+          to="/search"
+          className="px-6 py-2.5 bg-teal-600 text-white rounded-full font-semibold text-sm shadow-md"
+        >
+          Quay lại tìm kiếm
+        </Link>
       </div>
     );
   }
@@ -132,9 +123,7 @@ export const RoomDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header />
-
+    <div className="flex-1 bg-white flex flex-col">
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         <nav className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-5">
           <Link to="/" className="hover:text-teal-700 transition-colors">
@@ -204,7 +193,7 @@ export const RoomDetailPage: React.FC = () => {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold border border-teal-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Đã kiểm duyệt (DA_DUYET)
+                  <ShieldCheck className="w-3.5 h-3.5" /> Đã kiểm duyệt
                 </span>
                 <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                   Mã phòng: {room.maPhongTro}
@@ -370,7 +359,7 @@ export const RoomDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleBookViewing}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-600/25 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-teal-600/25 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Calendar className="w-4 h-4" />
                   <span>Đặt lịch xem phòng</span>
@@ -449,8 +438,6 @@ export const RoomDetailPage: React.FC = () => {
           </div>
         </div>
       )}
-
-      <Footer />
     </div>
   );
 };

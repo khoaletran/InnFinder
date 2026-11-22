@@ -2,9 +2,22 @@
 @import "@heroui/styles";
 @import "leaflet/dist/leaflet.css";
 
+@layer theme {
+  :root {
+    --accent: #0D9488;
+    --accent-foreground: #FFFFFF;
+    --focus: #0D9488;
+    --brand-primary: #0D9488;
+    --brand-primary-hover: #0F766E;
+    --surface-card: #FFFFFF;
+    --border-subtle: #E2E8F0;
+    --radius-card: 16px;
+  }
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-slate-50 text-slate-900 antialiased text-sm;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 }
@@ -17,25 +30,66 @@
   background-color: white;
   color: #0f172a;
   font-weight: 800;
-  font-size: 11px;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 5px 10px;
   border-radius: 9999px;
   border: 1.5px solid #0d9488;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translate(-50%, -50%);
 }
 
 .custom-price-marker:hover,
+.custom-price-marker.hovered,
 .custom-price-marker.active {
   background-color: #0d9488;
   color: white;
   border-color: #0f766e;
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.4);
+  transform: translate(-50%, -50%) scale(1.14);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.38);
   z-index: 1000 !important;
+}
+
+/* Marker vị trí hiện tại của khách hàng (chấm tròn xanh với hiệu ứng xung sóng) */
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.user-pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.user-location-tooltip {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.user-location-tooltip::before {
+  border-top-color: #0f172a !important;
 }
 
 /* Ẩn scrollbar ngang */

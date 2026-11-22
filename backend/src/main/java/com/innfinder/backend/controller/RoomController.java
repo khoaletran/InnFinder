@@ -10,7 +10,11 @@ import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.dto.room.RoomDetailResponse;
 import com.innfinder.backend.dto.room.RoomFilterRequest;
 import com.innfinder.backend.dto.room.RoomSummaryResponse;
-import com.innfinder.backend.service.AiSearchService;
+import com.innfinder.backend.service.ChatService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import com.innfinder.backend.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,13 +32,24 @@ import java.util.List;
 public class RoomController {
 
     private final RoomService roomService;
-    private final AiSearchService aiSearchService;
+    private final ChatService chatService;
 
     @Operation(summary = "Tìm kiếm phòng trọ bằng AI (Vector Embedding)", description = "Tìm kiếm ngữ nghĩa bằng ngôn ngữ tự nhiên sử dụng vector embeddings")
     @GetMapping("/ai-search")
-    public ApiResponse<List<RoomSummaryResponse>> searchByAi(@RequestParam("prompt") String prompt) {
-        List<RoomSummaryResponse> data = aiSearchService.searchByNaturalLanguage(prompt);
+    public ApiResponse<List<RoomSummaryResponse>> searchByAi(
+            @RequestParam("prompt") @NotBlank @Size(max = 1500) String prompt,
+            @RequestParam(value = "limit", defaultValue = "20") @Min(1) @Max(30) int limit,
+            @ParameterObject @ModelAttribute RoomFilterRequest filter) {
+        List<RoomSummaryResponse> data = chatService.searchRooms(prompt, filter, limit).rooms();
         return ApiResponse.ok(data, "Tìm kiếm bằng AI thành công");
+    }
+
+    @GetMapping("/ai-search/details")
+    public ApiResponse<ChatService.SearchResponse> searchByAiWithDetails(
+            @RequestParam("prompt") @NotBlank @Size(max = 1500) String prompt,
+            @RequestParam(value = "limit", defaultValue = "20") @Min(1) @Max(30) int limit,
+            @ParameterObject @ModelAttribute RoomFilterRequest filter) {
+        return ApiResponse.ok(chatService.searchRooms(prompt, filter, limit), "Tìm kiếm bằng AI thành công");
     }
 
     @Operation(summary = "Tìm kiếm & Lọc phòng trọ phân trang", description = "Lọc đa tiêu chí theo khoảng giá, diện tích, vị trí, tiện ích. Chỉ trả về phòng ĐÃ DUYỆT.")

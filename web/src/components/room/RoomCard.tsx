@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Chip } from '@heroui/react';
+import { Card } from '@heroui/react';
 import { ArrowRight, Heart, MapPin, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -13,6 +13,8 @@ interface RoomCardProps {
   distanceInKm?: number | null;
   onSelect?: (room: RoomSummaryResponse) => void;
   isSelected?: boolean;
+  isHighlighted?: boolean;
+  onHoverChange?: (roomId: string | null) => void;
   onRemoveFavorite?: (roomId: string) => void;
   showRemoveFavoriteButton?: boolean;
 }
@@ -23,6 +25,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   distanceInKm,
   onSelect,
   isSelected = false,
+  isHighlighted = false,
+  onHoverChange,
   onRemoveFavorite,
   showRemoveFavoriteButton = false,
 }) => {
@@ -62,72 +66,66 @@ export const RoomCard: React.FC<RoomCardProps> = ({
     navigate(`/room/${room.maPhongTro}`);
   };
 
+  const activeRingClass =
+    isHighlighted || isSelected
+      ? 'border-teal-600 ring-2 ring-teal-500/30 bg-teal-50/20'
+      : 'border-slate-200 hover:border-slate-300';
+
   if (layout === 'horizontal') {
     return (
       <Card
         onClick={handleCardClick}
-        className={`group bg-white rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden flex flex-col sm:flex-row p-3 gap-4 hover:shadow-md ${
-          isSelected
-            ? 'border-teal-600 ring-2 ring-teal-600/20 bg-teal-50/20'
-            : 'border-slate-200/90 hover:border-slate-300'
-        }`}
+        onMouseEnter={() => onHoverChange?.(room.maPhongTro)}
+        onMouseLeave={() => onHoverChange?.(null)}
+        className={`group bg-white rounded-2xl border shadow-xs transition-all duration-200 cursor-pointer overflow-hidden flex flex-col sm:flex-row p-4 gap-4 ${activeRingClass}`}
       >
-        <div className="relative w-full sm:w-48 h-36 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+        <div className="relative w-full sm:w-52 h-44 sm:h-40 rounded-xl overflow-hidden bg-slate-100 shrink-0">
           <img
             src={primaryImage}
             alt={roomTitle}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
-          <div className="absolute top-2 left-2 flex gap-1">
-            <Chip
-              size="sm"
-              color="success"
-              variant="primary"
-              className="px-2 py-0.5 rounded-md bg-teal-600/90 backdrop-blur-xs text-white text-[11px] font-bold tracking-tight shadow-sm"
-            >
-              <Chip.Label>Mới</Chip.Label>
-            </Chip>
-          </div>
+          <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
+            Mới
+          </span>
 
           <button
             type="button"
             onClick={handleFavoriteClick}
-            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="absolute top-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 flex items-center justify-center shadow-xs hover:scale-105 transition-transform cursor-pointer"
             title={favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
             <Heart
-              className={`w-4 h-4 transition-colors ${
-                favorited ? 'fill-rose-500 text-rose-500' : 'text-slate-600'
+              className={`w-4 h-4 ${
+                favorited ? 'fill-red-500 text-red-500' : 'text-slate-700'
               }`}
             />
           </button>
         </div>
 
-        <Card.Content className="flex-1 flex flex-col justify-between py-0.5 px-0 min-w-0">
-          <div>
+        <Card.Content className="flex-1 flex flex-col justify-between p-0 min-w-0">
+          <div className="space-y-1.5">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-bold text-slate-900 text-base line-clamp-1 group-hover:text-teal-700 transition-colors">
                 {roomTitle}
               </h3>
-              <span className="text-xs font-semibold text-slate-500 shrink-0">
+              <span className="text-xs font-semibold text-slate-600 shrink-0">
                 {room.dienTich} m²
               </span>
             </div>
 
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-base font-extrabold text-teal-700 tracking-tight">
-                {formatPrice(room.giaThue)}
-              </span>
+            <div className="text-lg font-extrabold text-teal-700 tracking-tight">
+              {formatPrice(room.giaThue)}
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-              <div className="flex items-center gap-1 line-clamp-1 flex-1 pr-2">
-                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
                 <span className="truncate">{room.diaChi}</span>
               </div>
               {distanceInKm !== undefined && distanceInKm !== null && (
-                <span className="shrink-0 font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
+                <span className="shrink-0 text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
                   {distanceInKm < 1
                     ? `${Math.round(distanceInKm * 1000)} m`
                     : `${distanceInKm.toFixed(1)} km`}
@@ -136,25 +134,23 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             </div>
 
             {room.dsTienIch && room.dsTienIch.length > 0 && (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <span>{room.dsTienIch.slice(0, 3).join(' · ')}</span>
-                {room.dsTienIch.length > 3 && (
-                  <span className="text-slate-400">+{room.dsTienIch.length - 3}</span>
-                )}
-              </div>
+              <p className="text-xs text-slate-600 line-clamp-1 pt-0.5">
+                {room.dsTienIch.slice(0, 3).join(' · ')}
+                {room.dsTienIch.length > 3 && ` · +${room.dsTienIch.length - 3}`}
+              </p>
             )}
           </div>
 
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-400 text-[11px]">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span className="text-slate-600 font-medium">
               {room.tenLoaiPhong || 'Phòng trọ'}
             </span>
             <Link
               to={`/room/${room.maPhongTro}`}
-              className="font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1"
+              className="text-sm font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1"
               onClick={(e) => e.stopPropagation()}
             >
-              Xem chi tiết <ArrowRight className="w-3.5 h-3.5" />
+              Xem chi tiết <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </Card.Content>
@@ -165,7 +161,9 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   return (
     <Card
       onClick={handleCardClick}
-      className="group bg-white rounded-2xl border border-slate-200/90 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col justify-between p-0 cursor-pointer"
+      onMouseEnter={() => onHoverChange?.(room.maPhongTro)}
+      onMouseLeave={() => onHoverChange?.(null)}
+      className={`group bg-white rounded-2xl border shadow-xs overflow-hidden transition-all duration-200 flex flex-col justify-between p-0 cursor-pointer ${activeRingClass}`}
     >
       <div>
         <div className="relative aspect-4/3 w-full bg-slate-100 overflow-hidden">
@@ -176,32 +174,25 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             loading="lazy"
           />
 
-          <div className="absolute top-3 left-3 flex gap-1.5">
-            <Chip
-              size="sm"
-              color="success"
-              variant="primary"
-              className="px-2.5 py-1 rounded-lg bg-teal-600/90 backdrop-blur-xs text-white text-xs font-bold tracking-tight shadow-sm"
-            >
-              <Chip.Label>Mới</Chip.Label>
-            </Chip>
-          </div>
+          <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
+            Mới
+          </span>
 
           <button
             type="button"
             onClick={handleFavoriteClick}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/95 flex items-center justify-center shadow-xs hover:scale-105 transition-transform cursor-pointer"
             title={favorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
             <Heart
-              className={`w-4.5 h-4.5 transition-colors ${
-                favorited ? 'fill-rose-500 text-rose-500' : 'text-slate-600'
+              className={`w-4 h-4 ${
+                favorited ? 'fill-red-500 text-red-500' : 'text-slate-700'
               }`}
             />
           </button>
         </div>
 
-        <Card.Content className="p-4 sm:p-5">
+        <Card.Content className="p-4 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <Link
               to={`/room/${room.maPhongTro}`}
@@ -210,48 +201,54 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             >
               {roomTitle}
             </Link>
-            <span className="text-xs font-semibold text-slate-500 shrink-0">
+            <span className="text-xs font-semibold text-slate-600 shrink-0">
               {room.dienTich} m²
             </span>
           </div>
 
-          <div className="mt-1.5 flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-2">
             <span className="text-lg font-extrabold text-teal-700 tracking-tight">
               {formatPrice(room.giaThue)}
             </span>
-            {room.soNguoi ? (
-              <span className="text-xs text-slate-400 flex items-center gap-1">
+            {distanceInKm !== undefined && distanceInKm !== null ? (
+              <span className="text-xs font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full">
+                {distanceInKm < 1
+                  ? `${Math.round(distanceInKm * 1000)} m`
+                  : `${distanceInKm.toFixed(1)} km`}
+              </span>
+            ) : room.soNguoi ? (
+              <span className="text-xs text-slate-600 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" />
                 {room.soNguoi} người
               </span>
             ) : null}
           </div>
 
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500 line-clamp-1">
-            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <div className="flex items-center gap-1.5 text-sm text-slate-600">
+            <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
             <span className="truncate">{room.diaChi}</span>
           </div>
 
           {room.dsTienIch && room.dsTienIch.length > 0 && (
-            <div className="mt-2 text-xs text-slate-500 line-clamp-1">
+            <p className="text-xs text-slate-600 line-clamp-1">
               {room.dsTienIch.slice(0, 3).join(' · ')}
               {room.dsTienIch.length > 3 && ` · +${room.dsTienIch.length - 3}`}
-            </div>
+            </p>
           )}
         </Card.Content>
       </div>
 
-      <Card.Footer className="px-4 sm:px-5 pb-4 pt-2 flex items-center justify-between border-t border-slate-100">
+      <Card.Footer className="px-4 pb-4 pt-2.5 flex items-center justify-between border-t border-slate-100">
         {showRemoveFavoriteButton ? (
           <button
             type="button"
             onClick={handleFavoriteClick}
-            className="text-xs font-semibold text-rose-600 hover:text-rose-700 transition-colors py-1 cursor-pointer"
+            className="text-xs font-semibold text-red-700 hover:text-red-800 transition-colors py-1 cursor-pointer"
           >
             Bỏ yêu thích
           </button>
         ) : (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs font-medium text-slate-600">
             {room.tenLoaiPhong || 'Phòng trọ'}
           </span>
         )}
@@ -259,9 +256,9 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         <Link
           to={`/room/${room.maPhongTro}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 py-1"
+          className="text-sm font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 py-1"
         >
-          Xem chi tiết <ArrowRight className="w-3 h-3" />
+          Xem chi tiết <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </Card.Footer>
     </Card>

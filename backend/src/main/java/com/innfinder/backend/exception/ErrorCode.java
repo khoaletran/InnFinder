@@ -13,6 +13,17 @@ public enum ErrorCode {
     ACCESS_DENIED("Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
     ACCOUNT_LOCKED("Tài khoản của bạn đã bị khóa bởi Quản trị viên", HttpStatus.FORBIDDEN),
     INVALID_KEY("Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
+    AI_NOT_CONFIGURED("Trợ lý AI chưa được cấu hình. Vui lòng thử tìm phòng bằng bộ lọc trong lúc này.", HttpStatus.SERVICE_UNAVAILABLE),
+    AI_UNAVAILABLE("Trợ lý AI đang bận hoặc mất kết nối. Vui lòng thử lại sau ít phút.", HttpStatus.SERVICE_UNAVAILABLE),
+    AI_TIMEOUT("AI phản hồi quá thời gian chờ. Bạn có thể rút gọn câu hỏi rồi gửi lại.", HttpStatus.GATEWAY_TIMEOUT),
+    AI_CREDENTIALS_INVALID("Google từ chối API key AI. Vui lòng kiểm tra hoặc thay key trong cấu hình backend.", HttpStatus.BAD_GATEWAY),
+    AI_ACCESS_DENIED("API key AI chưa có quyền truy cập model hoặc dịch vụ Gemini. Vui lòng kiểm tra quyền của project trên Google.", HttpStatus.BAD_GATEWAY),
+    AI_QUOTA_EXCEEDED("Gemini đã hết hạn mức hoặc đang giới hạn số yêu cầu. Vui lòng kiểm tra quota/billing trên Google AI Studio và thử lại sau.", HttpStatus.TOO_MANY_REQUESTS),
+    AI_MODEL_UNAVAILABLE("Model AI đang cấu hình không khả dụng. Vui lòng kiểm tra GEMINI_CHAT_MODEL trong backend.", HttpStatus.BAD_GATEWAY),
+    AI_REQUEST_REJECTED("Gemini không chấp nhận cấu hình yêu cầu AI. Vui lòng kiểm tra cấu hình backend.", HttpStatus.BAD_GATEWAY),
+    AI_INVALID_RESPONSE("AI chưa trả về câu trả lời hoàn chỉnh. Vui lòng rút gọn câu hỏi rồi thử lại.", HttpStatus.BAD_GATEWAY),
+    AI_CONNECTION_FAILED("Backend chưa kết nối được Google Gemini. Vui lòng kiểm tra kết nối mạng rồi thử lại.", HttpStatus.SERVICE_UNAVAILABLE),
+    AI_BUSY("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ một chút rồi thử lại.", HttpStatus.TOO_MANY_REQUESTS),
 
     // --- PHÂN HỆ 2: PHÒNG TRỌ, DANH MỤC, YÊU THÍCH, CLOUDINARY ---
     ROOM_NOT_FOUND("Không tìm thấy phòng trọ yêu cầu", HttpStatus.NOT_FOUND),

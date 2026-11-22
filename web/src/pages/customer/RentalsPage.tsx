@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '@heroui/react';
 import { AlertCircle, ArrowRight, Clock, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -30,7 +30,7 @@ export const RentalsPage: React.FC = () => {
   const TABS: { key: RentalFilterTab; label: string; count: number }[] = [
     { key: 'ALL', label: 'Tất cả', count: counts.all },
     { key: 'PROCESSING', label: 'Đang xử lý & Chờ chốt', count: counts.processing },
-    { key: 'ACCEPTED', label: 'Đã chốt thuê (HOAN_THANH)', count: counts.accepted },
+    { key: 'ACCEPTED', label: 'Đã chốt thuê', count: counts.accepted },
     { key: 'CANCELLED', label: 'Đã hủy / Không thuê', count: counts.cancelled },
   ];
 
@@ -71,7 +71,7 @@ export const RentalsPage: React.FC = () => {
           disabled={isLoading}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-xs transition-colors shadow-2xs cursor-pointer self-start sm:self-auto disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-teal-600' : ''}`} />
           Đồng bộ trạng thái
         </button>
       </div>
@@ -124,7 +124,7 @@ export const RentalsPage: React.FC = () => {
 
             <Link
               to={`/appointments/${latestItem.maDatLich}`}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 transition-colors"
+              className="text-xs font-bold text-teal-600 hover:text-teal-700 inline-flex items-center gap-1 transition-colors"
             >
               Mở bảng xác nhận <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -138,6 +138,10 @@ export const RentalsPage: React.FC = () => {
                   ? `${new Date(latestItem.thoiGianDat).getDate()}/${new Date(latestItem.thoiGianDat).getMonth() + 1}`
                   : '--/--'
               }
+              daNhanLaiCoc={Boolean(latestItem.daNhanLaiCoc)}
+              daNopCoc={Boolean(latestItem.daNopCoc)}
+              khachHangDongY={latestItem.khachHangDongY}
+              chuTroDongY={latestItem.chuTroDongY}
             />
           </Card.Content>
         </Card>
@@ -145,7 +149,7 @@ export const RentalsPage: React.FC = () => {
 
       {isLoading && appointments.length === 0 ? (
         <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
-          <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+          <RefreshCw className="w-8 h-8 text-teal-600 animate-spin mx-auto" />
           <h3 className="text-sm font-bold text-slate-800">Đang tải tiến trình thuê...</h3>
         </div>
       ) : filteredList.length === 0 ? (
@@ -156,7 +160,7 @@ export const RentalsPage: React.FC = () => {
           action={
             <Link
               to="/search"
-              className="inline-flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-xs font-semibold transition-colors"
             >
               Tìm phòng ngay
             </Link>

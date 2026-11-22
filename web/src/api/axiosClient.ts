@@ -57,6 +57,8 @@ axiosClient.interceptors.response.use(
     let errorMessage = 'Lỗi kết nối máy chủ, vui lòng thử lại sau.';
     if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
+    } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Yêu cầu quá thời gian chờ. Vui lòng thử lại sau.';
     } else if (error.message) {
       errorMessage = error.message;
     }

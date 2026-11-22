@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import type { AppointmentResponse, TrangThaiDatLich } from '@/types/booking.types';
 import { formatDate, formatDateTime, formatVND, formatVNDShort } from '@/utils/formatters';
@@ -19,9 +19,9 @@ const STATUS_BADGES: Record<
   },
   XAC_NHAN: {
     label: 'Đang xử lý',
-    textClass: 'text-blue-700',
-    bgClass: 'bg-blue-50',
-    borderClass: 'border-blue-200',
+    textClass: 'text-teal-700',
+    bgClass: 'bg-teal-50',
+    borderClass: 'border-teal-200',
   },
   HOAN_THANH: {
     label: 'Thuê thành công',
@@ -140,7 +140,7 @@ export const RentalRequestCard: React.FC<RentalRequestCardProps> = ({ item }) =>
 
         <Link
           to={`/appointments/${item.maDatLich}`}
-          className="px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer"
+          className="px-5 py-2 rounded-full bg-teal-600 hover:bg-teal-700 active:bg-blue-800 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer"
         >
           Xem chi tiết
         </Link>

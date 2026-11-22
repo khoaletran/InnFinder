@@ -27,7 +27,7 @@ import java.net.Socket;
 @Configuration
 public class DynamicDataSourceConfig {
 
-    @Value("${innfinder.datasource.mode:LOCAL}")
+    @Value("${innfinder.datasource.mode:AUTO}")
     private String dbMode;
 
     @Value("${innfinder.datasource.cloud.url:jdbc:mariadb://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/innfinder_db?sslMode=verify-full&useUnicode=true&characterEncoding=utf8mb4}")
@@ -36,7 +36,7 @@ public class DynamicDataSourceConfig {
     @Value("${innfinder.datasource.cloud.username:2M9hAfunUGrqrV1.root}")
     private String cloudUsername;
 
-    @Value("${innfinder.datasource.cloud.password:g5DgMsD2U5TDKvhk}")
+    @Value("${innfinder.datasource.cloud.password:U12Zrx07qHoBBASg}")
     private String cloudPassword;
 
     @Value("${innfinder.datasource.cloud.host:gateway01.ap-southeast-1.prod.aws.tidbcloud.com}")
@@ -57,18 +57,20 @@ public class DynamicDataSourceConfig {
     @Bean
     @Primary
     public DataSource dataSource() {
-        // 1. Nếu cấu hình chế độ LOCAL (chạy trực tiếp Docker MariaDB port 3307, không dùng Cloud)
+        // 1. Nếu cấu hình chế độ LOCAL: kiểm tra Docker port 3307, tự động fallback sang Cloud nếu quên bật Docker
         if ("LOCAL".equalsIgnoreCase(dbMode)) {
-            log.info("==================================================================");
-            log.info("[InnFinder DB] 🐳 ĐANG CHẠY CHẾ ĐỘ MARIADB DOCKER LOCAL (localhost:3307)");
-            log.info("[InnFinder DB] Cấu hình: innfinder.datasource.mode = LOCAL (Không chạy Cloud)");
-            log.info("==================================================================");
-            return buildHikariDataSource(
-                    localUrl,
-                    localUsername,
-                    localPassword,
-                    "InnFinder-LocalDocker-Pool"
-            );
+            if (checkCloudReachability("localhost", 3307, 1000)) {
+                log.info("==================================================================");
+                log.info("[InnFinder DB] 🐳 ĐANG CHẠY CHẾ ĐỘ MARIADB DOCKER LOCAL (localhost:3307)");
+                log.info("==================================================================");
+                return buildHikariDataSource(
+                        localUrl,
+                        localUsername,
+                        localPassword,
+                        "InnFinder-LocalDocker-Pool"
+                );
+            }
+            log.warn("[InnFinder DB] ⚠️ Chế độ LOCAL nhưng localhost:3307 chưa mở (Docker chưa chạy). Đang thử fallback sang Cloud DB...");
         }
 
         log.info("==================================================================");

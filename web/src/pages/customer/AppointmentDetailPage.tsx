@@ -65,7 +65,7 @@ export const AppointmentDetailPage: React.FC = () => {
         action={
           <Link
             to="/appointments"
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-full text-xs font-bold"
+            className="px-5 py-2.5 bg-teal-600 text-white rounded-full text-xs font-bold"
           >
             Quay lại danh sách lịch hẹn
           </Link>
@@ -103,7 +103,7 @@ export const AppointmentDetailPage: React.FC = () => {
     if (res.success) {
       setActionSuccessMessage(
         res.isCompleted
-          ? 'Cả hai bên đã đồng ý! Phiếu đặt lịch đạt trạng thái HOAN_THANH.'
+          ? 'Cả hai bên đã đồng ý! Chốt thuê phòng thành công.'
           : 'Đã ghi nhận quyết định Đồng ý thuê của bạn! Đang chờ Chủ trọ xác nhận độc lập.',
       );
     } else {
@@ -139,29 +139,29 @@ export const AppointmentDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="max-w-[800px] w-full mx-auto px-4 sm:px-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <button
             type="button"
-            onClick={() => navigate('/rentals')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 mb-2 transition-colors cursor-pointer"
+            onClick={() => navigate('/appointments')}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 mb-2 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Quay lại danh sách quyết định thuê</span>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại Lịch xem phòng</span>
           </button>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Chi tiết lịch hẹn & Quyết định thuê
+          <h1 className="text-[28px] leading-[1.25] font-extrabold text-slate-900 tracking-tight">
+            Chi tiết lịch hẹn &amp; Quyết định thuê
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Mã phiếu đặt lịch: <span className="font-semibold text-slate-700">#{item.maDatLich}</span>
+          <p className="text-sm text-slate-600 mt-1">
+            Mã phiếu đặt lịch: <span className="font-mono font-semibold text-slate-800">#{item.maDatLich}</span>
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setShowContactModal(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer border border-blue-100 self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-xl transition-colors cursor-pointer border border-teal-100 self-start sm:self-auto"
         >
           <Phone className="w-3.5 h-3.5" />
           <span>Liên hệ chủ trọ</span>
@@ -181,8 +181,8 @@ export const AppointmentDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
           <Card className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
@@ -201,7 +201,7 @@ export const AppointmentDetailPage: React.FC = () => {
               <div>
                 <Link
                   to={`/room/${item.maPhongTro}`}
-                  className="text-base font-bold text-slate-900 hover:text-blue-600 line-clamp-1"
+                  className="text-base font-bold text-slate-900 hover:text-teal-600 line-clamp-1"
                 >
                   {item.tieuDePhong || `Phòng trọ #${item.maPhongTro}`}
                 </Link>
@@ -209,7 +209,7 @@ export const AppointmentDetailPage: React.FC = () => {
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="line-clamp-1">{item.diaChiPhong || '---'}</span>
                 </p>
-                <p className="text-sm font-extrabold text-blue-600 mt-2">
+                <p className="text-sm font-extrabold text-teal-600 mt-2">
                   {formatVND(item.giaThue)}
                   <span className="text-xs font-normal text-slate-400">/tháng (ngoài sàn)</span>
                 </p>
@@ -252,9 +252,9 @@ export const AppointmentDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Cọc giữ chân (`coc`)
+                    Cọc giữ chân
                   </span>
-                  <span className="text-xs font-bold text-blue-600 mt-1 block">
+                  <span className="text-xs font-bold text-teal-600 mt-1 block">
                     {formatVND(item.coc || 0)}
                   </span>
                 </div>
@@ -303,7 +303,7 @@ export const AppointmentDetailPage: React.FC = () => {
               {item.liDoHuy && (
                 <div className="mt-5 pt-4 border-t border-slate-100">
                   <span className="block text-[11px] font-bold text-rose-500 uppercase tracking-wider mb-1">
-                    Lý do hủy / từ chối (`liDoHuy`)
+                    Lý do hủy / từ chối
                   </span>
                   <p className="text-xs text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200/60">
                     {item.liDoHuy}
@@ -352,7 +352,7 @@ export const AppointmentDetailPage: React.FC = () => {
               Thông tin Khách thuê
             </h3>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-full bg-blue-50 text-blue-700 font-bold text-sm flex items-center justify-center border border-blue-200">
+              <div className="w-11 h-11 rounded-full bg-teal-50 text-teal-700 font-bold text-sm flex items-center justify-center border border-teal-200">
                 {(item.tenKhachHang || user?.hoVaTen || user?.tenDangNhap || 'KH')
                   .slice(0, 2)
                   .toUpperCase()}
@@ -447,7 +447,7 @@ export const AppointmentDetailPage: React.FC = () => {
                       type="button"
                       onClick={() => setShowConfirmRentalModal(true)}
                       disabled={isActionLoading}
-                      className="w-full py-2.5 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all cursor-pointer shadow-2xs"
+                      className="w-full py-2.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-all cursor-pointer shadow-2xs"
                     >
                       Xác nhận thuê phòng
                     </button>
@@ -467,12 +467,12 @@ export const AppointmentDetailPage: React.FC = () => {
                 )}
 
               {item.trangThai === 'XAC_NHAN' && item.khachHangDongY === true && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs text-teal-800">
                   <p className="font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
                     <span>Bạn đã xác nhận: Đồng ý thuê</span>
                   </p>
-                  <p className="mt-1 text-[11px] text-blue-600">
+                  <p className="mt-1 text-[11px] text-teal-600">
                     Đang chờ Chủ trọ bấm xác nhận độc lập trên Cổng Chủ trọ.
                   </p>
                 </div>
@@ -580,13 +580,13 @@ export const AppointmentDetailPage: React.FC = () => {
       {showConfirmRentalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center">
-            <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-4 text-blue-600">
+            <div className="w-16 h-16 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto mb-4 text-teal-600">
               <Home className="w-8 h-8 stroke-[2.2]" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-2">Xác nhận thuê phòng?</h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
               Khi cả bạn và Chủ trọ cùng bấm xác nhận thuê, trạng thái lịch hẹn chuyển sang{' '}
-              <strong>HOAN_THANH</strong> (bạn không mất thêm bất kỳ khoản phí nào trên sàn).
+              <strong>Hoàn tất</strong> (bạn không mất thêm bất kỳ khoản phí nào trên sàn).
             </p>
             <div className="flex items-center gap-3">
               <button
@@ -601,7 +601,7 @@ export const AppointmentDetailPage: React.FC = () => {
                 type="button"
                 onClick={handleConfirmRentalDecision}
                 disabled={isActionLoading}
-                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl cursor-pointer"
+                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl cursor-pointer"
               >
                 {isActionLoading ? 'Đang xử lý...' : 'Đồng ý thuê'}
               </button>
@@ -629,7 +629,7 @@ export const AppointmentDetailPage: React.FC = () => {
       {showContactModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
           <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 text-center">
-            <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-3 text-blue-600">
+            <div className="w-14 h-14 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto mb-3 text-teal-600">
               <Phone className="w-7 h-7 stroke-[2.2]" />
             </div>
             <h3 className="text-lg font-bold text-slate-900 mb-1">Liên hệ Chủ trọ</h3>
@@ -640,7 +640,7 @@ export const AppointmentDetailPage: React.FC = () => {
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400">Số điện thoại:</span>
-                <span className="font-bold text-blue-600">{item.sdtChuTro || '---'}</span>
+                <span className="font-bold text-teal-600">{item.sdtChuTro || '---'}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -654,7 +654,7 @@ export const AppointmentDetailPage: React.FC = () => {
               {item.sdtChuTro && (
                 <a
                   href={`tel:${item.sdtChuTro}`}
-                  className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl inline-flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl inline-flex items-center justify-center gap-1.5"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>Gọi ngay</span>

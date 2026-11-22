@@ -24,16 +24,16 @@ app:
   jwt-secret: ${APP_JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   jwt-expiration-milliseconds: ${APP_JWT_EXPIRATION_MILLISECONDS:86400000}
 
-# Cấu hình DataSource: Mặc định chạy Docker Local (port 3307), có thể cấu hình qua INNFINDER_DB_MODE (LOCAL/CLOUD/AUTO)
+# Cấu hình DataSource Failover: Mặc định AUTO (Ưu tiên TiDB Cloud, tự động fallback sang Docker Local port 3307 khi mất mạng; hoặc đặt LOCAL/CLOUD)
 innfinder:
   datasource:
-    mode: ${INNFINDER_DB_MODE:LOCAL}
+    mode: ${INNFINDER_DB_MODE:AUTO}
     cloud:
       host: ${INNFINDER_CLOUD_DB_HOST:gateway01.ap-southeast-1.prod.aws.tidbcloud.com}
       port: ${INNFINDER_CLOUD_DB_PORT:4000}
       url: ${INNFINDER_CLOUD_DB_URL:jdbc:mariadb://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/innfinder_db?sslMode=verify-full&useUnicode=true&characterEncoding=utf8mb4}
       username: ${INNFINDER_CLOUD_DB_USER:2M9hAfunUGrqrV1.root}
-      password: ${INNFINDER_CLOUD_DB_PASSWORD:g5DgMsD2U5TDKvhk}
+      password: ${INNFINDER_CLOUD_DB_PASSWORD:U12Zrx07qHoBBASg}
     local:
       url: ${INNFINDER_LOCAL_DB_URL:jdbc:mariadb://localhost:3307/innfinder_db?useUnicode=true&characterEncoding=utf8mb4}
       username: ${INNFINDER_LOCAL_DB_USER:innfinder_user}
@@ -47,3 +47,7 @@ cloudinary:
 # Cấu hình Google Gemini AI Embedding
 gemini:
   api-key: ${GEMINI_API_KEY:}
+  chat-model: ${GEMINI_CHAT_MODEL:gemini-3.5-flash-lite}
+  index-delay-ms: ${GEMINI_INDEX_DELAY_MS:60000}
+  request-timeout-seconds: ${GEMINI_REQUEST_TIMEOUT_SECONDS:40}
+  embedding-timeout-seconds: ${GEMINI_EMBEDDING_TIMEOUT_SECONDS:8}

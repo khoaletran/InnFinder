@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Check, Clock, Home, User, X } from 'lucide-react';
 import type { TrangThaiDatLich } from '@/types/booking.types';
 import { formatVND } from '@/utils/formatters';
@@ -296,7 +296,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
         id: 'step-5',
         title: 'Bước 5: Quyết định thuê độc lập (Khách hàng & Chủ trọ)',
         subtitle:
-          'Cả 2 bên cùng chọn Đồng ý ➔ Chốt thuê thành công (HOAN_THANH). Có ít nhất 1 bên chọn Không đồng ý ➔ Hủy & hoàn 100% cọc thế chân về ví Chủ trọ (HUY).',
+          'Cả 2 bên cùng chọn Đồng ý ➔ Chốt thuê thành công. Nếu có bên chọn Không đồng ý ➔ Hủy lịch & hoàn 100% cọc thế chân về ví Chủ trọ.',
         time: 'Hiện tại',
         state: 'active',
         constraintBadge: waitingWho,
@@ -369,7 +369,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
                 </div>
               )}
               {step.state === 'active' && (
-                <div className="w-8 h-8 rounded-full border-2 border-[#0088ff] bg-blue-50 text-[#0088ff] flex items-center justify-center shadow-xs animate-pulse">
+                <div className="w-8 h-8 rounded-full border-2 border-[#0D9488] bg-teal-50 text-[#0D9488] flex items-center justify-center shadow-xs animate-pulse">
                   <Clock className="w-4 h-4 stroke-[2.2]" />
                 </div>
               )}
@@ -405,7 +405,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
                         step.state === 'completed'
                           ? 'bg-emerald-100 text-emerald-800'
                           : step.state === 'active'
-                            ? 'bg-blue-100 text-blue-800'
+                            ? 'bg-teal-100 text-teal-800'
                             : step.state === 'cancelled'
                               ? 'bg-rose-100 text-rose-700'
                               : 'bg-slate-100 text-slate-500'
@@ -420,7 +420,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
                   <span
                     className={`text-xs font-medium whitespace-nowrap ${
                       step.state === 'active'
-                        ? 'text-[#0088ff] font-semibold'
+                        ? 'text-[#0D9488] font-semibold'
                         : step.state === 'cancelled'
                           ? 'text-rose-500'
                           : 'text-slate-400'
@@ -447,7 +447,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
                 <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
                   <div className="flex items-center justify-between gap-2 px-2 py-1 bg-white rounded-lg border border-slate-100">
                     <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-blue-600" />
+                      <User className="w-3.5 h-3.5 text-teal-600" />
                       Khách hàng:
                     </span>
                     {renderPartyDecisionBadge(

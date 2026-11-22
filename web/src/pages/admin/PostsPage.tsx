@@ -13,7 +13,7 @@ const STATUS_FILTER_OPTIONS: Array<{ key: 'ALL' | TrangThaiPhongTro; label: stri
   { key: 'ALL', label: 'Tất cả trạng thái' },
   { key: 'CHO_DUYET', label: 'Chờ duyệt' },
   { key: 'DA_DUYET', label: 'Đã duyệt' },
-  { key: 'HOAN_THANH', label: 'Đã thuê (Hoàn thành)' },
+  { key: 'HOAN_THANH', label: 'Đã thuê' },
   { key: 'HUY', label: 'Đã hủy / Từ chối' },
 ];
 
@@ -258,7 +258,7 @@ export const PostsPage: React.FC = () => {
                                   setRejectingRoomId(room.maPhongTro);
                                   setRejectReason('');
                                 }}
-                                title="Từ chối duyệt (HUY)"
+                                title="Từ chối duyệt"
                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               >
                                 <XCircle className="w-4 h-4" />

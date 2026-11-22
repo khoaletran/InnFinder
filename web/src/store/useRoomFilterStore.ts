@@ -36,9 +36,9 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   capacity: undefined,
   categoryId: undefined,
   selectedAmenities: [],
-  radiusKm: 3,
-  userLat: 10.7845,
-  userLng: 106.6844,
+  radiusKm: undefined,
+  userLat: undefined,
+  userLng: undefined,
 
   setKeyword: (keyword) => set({ keyword }),
   setPriceRange: (minPrice, maxPrice) => set({ minPrice, maxPrice }),
@@ -59,7 +59,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
       capacity: undefined,
       categoryId: undefined,
       selectedAmenities: [],
-      radiusKm: 3,
+      radiusKm: undefined,
     }),
 
   getActiveFilterCount: () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 
 export interface TimeSlotPickerProps {
@@ -65,8 +65,8 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                 disabled
                   ? "bg-slate-50 border-slate-200 text-slate-300 opacity-60"
                   : isSelected
-                    ? "bg-blue-600 border-blue-600 text-white shadow-xs"
-                    : "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50/50"
+                    ? "bg-teal-600 border-teal-600 text-white shadow-xs"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-teal-50/50"
               }`}
             >
               <Clock className={`w-3 h-3 ${isSelected ? "text-white" : "text-slate-400"}`} />

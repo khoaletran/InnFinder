@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,20 +7,17 @@ import {
   Calendar,
   CheckCircle2,
   Home,
-  ImagePlus,
   MapPin,
   MessageSquare,
   Send,
   ShieldCheck,
   Sparkles,
   Star,
-  X,
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { reviewService } from '@/services/review.service';
 import { roomService } from '@/services/room.service';
-import { uploadService } from '@/services/upload.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { formatDate } from '@/utils/formatters';
@@ -43,7 +40,7 @@ const RATING_MOODS: Record<
   3: {
     text: 'Bình thường (3/5 sao)',
     subtext: 'Chất lượng phòng ở mức tạm được, cần cải thiện thêm một số tiện ích',
-    bgClass: 'bg-blue-50 text-blue-800 border-blue-200',
+    bgClass: 'bg-teal-50 text-teal-800 border-teal-200',
   },
   2: {
     text: 'Chưa hài lòng (2/5 sao)',
@@ -76,8 +73,6 @@ export const ReviewPage: React.FC = () => {
   const [diemDraft, setDiem] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [noiDungDraft, setNoiDung] = useState<string | null>(null);
-  const [reviewImages, setReviewImages] = useState<string[]>([]);
-  const [isUploadingImg, setIsUploadingImg] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
@@ -109,7 +104,7 @@ export const ReviewPage: React.FC = () => {
   }, [existingReview, roomId, markRoomAsReviewed]);
 
   const submitMutation = useMutation({
-    mutationFn: (payload: { diem: number; noiDung: string; hinhAnhUrls?: string[] }) =>
+    mutationFn: (payload: { diem: number; noiDung: string }) =>
       reviewService.createReview(roomId || '', payload),
     onSuccess: () => {
       if (roomId) {
@@ -119,11 +114,12 @@ export const ReviewPage: React.FC = () => {
       setShowSuccessModal(true);
     },
     onError: (err: unknown) => {
-      setErrorMessage(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Không thể gửi đánh giá. Chỉ khách đã hoàn tất xem phòng mới được đánh giá.',
-      );
+          : 'Không thể gửi đánh giá. Chỉ khách đã hoàn tất xem phòng mới được đánh giá.';
+      setErrorMessage(msg);
+      toast.error(msg);
     },
   });
 
@@ -145,43 +141,28 @@ export const ReviewPage: React.FC = () => {
     }
   };
 
-  // Đính kèm ảnh thực tế tối đa 10MB/ảnh theo UC 2.5 Bước 4
-  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const oversized = files.find((f) => f.size > 10 * 1024 * 1024);
-    if (oversized) {
-      toast.error(`Ảnh "${oversized.name}" vượt quá giới hạn tối đa 10MB/ảnh!`);
-      return;
-    }
-
-    try {
-      setIsUploadingImg(true);
-      const uploaded = await uploadService.uploadMultipleImages(files, 'reviews');
-      setReviewImages((prev) => [...prev, ...uploaded]);
-      toast.success('Đã tải ảnh thực tế đính kèm đánh giá');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Tải ảnh thất bại');
-    } finally {
-      setIsUploadingImg(false);
-    }
-  };
-
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
+    if (!noiDung.trim()) {
+      const emptyMsg = 'Vui lòng nhập nội dung đánh giá chi tiết trải nghiệm thực tế!';
+      setErrorMessage(emptyMsg);
+      toast.error(emptyMsg);
+      return;
+    }
+
     const parsed = reviewSchema.safeParse({ diem, noiDung: noiDung.trim() });
     if (!parsed.success) {
-      setErrorMessage(parsed.error.issues[0]?.message || 'Dữ liệu đánh giá chưa hợp lệ');
+      const msg = parsed.error.issues[0]?.message || 'Dữ liệu đánh giá chưa hợp lệ';
+      setErrorMessage(msg);
+      toast.error(msg);
       return;
     }
 
     submitMutation.mutate({
       diem: parsed.data.diem,
       noiDung: parsed.data.noiDung,
-      hinhAnhUrls: reviewImages,
     });
   };
 
@@ -249,8 +230,8 @@ export const ReviewPage: React.FC = () => {
             className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6"
           >
             {existingReview && (
-              <div className="p-3.5 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center gap-2 text-xs text-blue-800">
-                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+              <div className="p-3.5 bg-teal-50/80 border border-teal-200/80 rounded-xl flex items-center gap-2 text-xs text-teal-800">
+                <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
                 <span>
                   Bạn đã gửi đánh giá ngày <strong>{formatDate(existingReview.ngayDanhGia)}</strong>.
                 </span>
@@ -259,7 +240,7 @@ export const ReviewPage: React.FC = () => {
 
             <div className="space-y-3 pb-6 border-b border-slate-100">
               <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider">
-                1. Chọn mức điểm đánh giá (`diem` từ 1 đến 5 sao) *
+                1. Chọn mức điểm đánh giá (từ 1 đến 5 sao) *
               </label>
 
               <div className="flex items-center gap-2">
@@ -303,7 +284,7 @@ export const ReviewPage: React.FC = () => {
                     key={tag}
                     type="button"
                     onClick={() => handleAddQuickTag(tag)}
-                    className="text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-500 hover:text-blue-600 transition-all cursor-pointer font-medium"
+                    className="text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all cursor-pointer font-medium"
                   >
                     + {tag}
                   </button>
@@ -314,7 +295,7 @@ export const ReviewPage: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  2. Nội dung nhận xét chi tiết (`noiDung`) *
+                  2. Nội dung nhận xét chi tiết *
                 </label>
                 <span className="text-[11px] text-slate-400 font-mono">
                   {noiDung.length} / 500 ký tự
@@ -326,43 +307,8 @@ export const ReviewPage: React.FC = () => {
                 value={noiDung}
                 onChange={(e) => setNoiDung(e.target.value)}
                 placeholder="Chia sẻ trải nghiệm thực tế về chất lượng phòng, tiện ích và thái độ của chủ trọ (tối thiểu 10 ký tự)..."
-                className="w-full text-xs p-3.5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/40 resize-none leading-relaxed text-slate-800"
+                className="w-full text-xs p-3.5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-slate-50/40 resize-none leading-relaxed text-slate-800"
               />
-            </div>
-
-            {/* Đính kèm ảnh thực tế (tối đa 10MB/ảnh theo UC 2.5 Bước 4) */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider">
-                3. Đính kèm ảnh thực tế (Tùy chọn · tối đa 10MB/ảnh)
-              </label>
-              <div className="flex flex-wrap items-center gap-3">
-                {reviewImages.map((url, idx) => (
-                  <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setReviewImages((prev) => prev.filter((_, i) => i !== idx))}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 cursor-pointer transition-colors">
-                  <ImagePlus className="w-5 h-5" />
-                  <span className="text-[10px] mt-1 font-medium">
-                    {isUploadingImg ? 'Đang tải...' : 'Thêm ảnh'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled={isUploadingImg}
-                    onChange={handleUploadImage}
-                    className="hidden"
-                  />
-                </label>
-              </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
@@ -377,7 +323,7 @@ export const ReviewPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={submitMutation.isPending}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs inline-flex items-center gap-2 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs inline-flex items-center gap-2 disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>
@@ -396,7 +342,7 @@ export const ReviewPage: React.FC = () => {
           <Card className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-blue-600" />
+                <MessageSquare className="w-4 h-4 text-teal-600" />
                 <span>Đánh giá trên phòng này</span>
               </h3>
               <span className="text-xs font-bold text-slate-500">({roomReviews.length})</span>
@@ -452,7 +398,7 @@ export const ReviewPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/appointments')}
-              className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm cursor-pointer"
+              className="px-6 py-2.5 rounded-full bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm cursor-pointer"
             >
               Về danh sách lịch hẹn
             </button>
