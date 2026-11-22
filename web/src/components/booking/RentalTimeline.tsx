@@ -107,22 +107,22 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
       state: 'completed',
     });
 
-    if (daNopCoc || hasAnyDecisionAfterViewing) {
+    if (daNopCoc) {
       steps.push({
         id: 'step-2',
-        title: 'Bước 2: Chủ trọ xác nhận lịch hẹn',
-        subtitle: 'Chủ trọ đã duyệt khung giờ dẫn xem phòng.',
-        time: appointmentTime,
+        title: 'Bước 2: Nộp cọc giữ chân cho Hệ thống',
+        subtitle: `Hệ thống đã tạm giữ ${formatVND(coc)} tiền cọc giữ chân lịch xem.`,
+        time: 'Đã nộp cọc',
         state: 'completed',
       });
     }
 
-    if (daNopCoc) {
+    if (daNopCoc || hasAnyDecisionAfterViewing) {
       steps.push({
         id: 'step-3',
-        title: 'Bước 3: Nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống đã tạm giữ ${formatVND(coc)} tiền cọc giữ chân lịch xem.`,
-        time: 'Đã nộp cọc',
+        title: 'Bước 3: Chủ trọ xác nhận lịch hẹn',
+        subtitle: 'Chủ trọ đã duyệt khung giờ dẫn xem phòng.',
+        time: appointmentTime,
         state: 'completed',
       });
     }
@@ -171,16 +171,16 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
     });
     steps.push({
       id: 'step-2',
-      title: 'Bước 2: Chủ trọ xác nhận lịch xem',
-      subtitle: 'Chủ trọ đã duyệt khung giờ hẹn xem phòng thực tế.',
-      time: appointmentTime,
+      title: 'Bước 2: Nộp cọc giữ chân lịch xem',
+      subtitle: `Khách hàng đã nộp ${formatVND(coc)} cọc giữ chân vào Hệ thống InnFinder.`,
+      time: 'Đã tạm giữ',
       state: 'completed',
     });
     steps.push({
       id: 'step-3',
-      title: 'Bước 3: Nộp cọc giữ chân lịch xem',
-      subtitle: `Khách hàng đã nộp ${formatVND(coc)} cọc giữ chân vào Hệ thống InnFinder.`,
-      time: 'Đã tạm giữ',
+      title: 'Bước 3: Chủ trọ xác nhận lịch xem',
+      subtitle: 'Chủ trọ đã duyệt khung giờ hẹn xem phòng thực tế.',
+      time: appointmentTime,
       state: 'completed',
     });
     steps.push({
@@ -211,44 +211,23 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
     });
     steps.push({
       id: 'step-2',
-      title: 'Bước 2: Chủ trọ đã xác nhận lịch xem',
+      title: 'Bước 2: Nộp cọc giữ chân lịch xem',
+      subtitle: daNopCoc
+        ? `Khách hàng đã nộp ${formatVND(coc)} cọc giữ chân cho Hệ thống.`
+        : `Vui lòng nộp khoản cọc ${formatVND(coc)} cho Hệ thống để giữ lịch xem thực tế.`,
+      time: daNopCoc ? 'Đã nộp cọc' : 'Đang chờ nộp cọc',
+      state: daNopCoc ? 'completed' : 'active',
+      constraintBadge: daNopCoc ? undefined : 'Bắt buộc trước khi xem',
+    });
+    steps.push({
+      id: 'step-3',
+      title: 'Bước 3: Chủ trọ đã xác nhận lịch xem',
       subtitle: 'Chủ trọ đồng ý lịch hẹn và sẵn sàng dẫn xem phòng.',
       time: appointmentTime,
       state: 'completed',
     });
 
-    if (!daNopCoc) {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Nộp tiền cọc giữ chân lịch xem',
-        subtitle: `Vui lòng nộp khoản cọc ${formatVND(coc)} cho Hệ thống để giữ lịch xem thực tế.`,
-        time: 'Đang chờ nộp cọc',
-        state: 'active',
-        constraintBadge: 'Bắt buộc trước khi xem',
-      });
-      steps.push({
-        id: 'step-4',
-        title: 'Bước 4: Gặp xem thực tế & Nhận lại 100% cọc trực tiếp',
-        subtitle: 'Chủ trọ hoàn trả trực tiếp 100% tiền cọc tại buổi gặp xem phòng.',
-        time: 'Chưa diễn ra',
-        state: 'pending',
-      });
-      steps.push({
-        id: 'step-5',
-        title: 'Bước 5: Hai bên xác nhận quyết định độc lập',
-        subtitle: 'Khách hàng và Chủ trọ độc lập chọn Đồng ý thuê hoặc Không thuê.',
-        time: 'Chưa mở khóa',
-        state: 'pending',
-        showDualDecision: true,
-      });
-    } else if (!daNhanLaiCoc) {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Đã nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống đang tạm giữ ${formatVND(coc)} tiền cọc giữ chân lịch xem.`,
-        time: 'Đã nộp cọc',
-        state: 'completed',
-      });
+    if (!daNhanLaiCoc) {
       steps.push({
         id: 'step-4',
         title: 'Bước 4: Dẫn xem thực tế & Hoàn trả cọc trực tiếp',
@@ -268,13 +247,6 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
         showDualDecision: true,
       });
     } else {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Đã nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống tạm giữ ${formatVND(coc)} tiền cọc lịch xem.`,
-        time: 'Đã nộp cọc',
-        state: 'completed',
-      });
       steps.push({
         id: 'step-4',
         title: 'Bước 4: Đã xem phòng & Đã nhận lại 100% cọc trực tiếp',
@@ -307,25 +279,45 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
     steps.push({
       id: 'step-1',
       title: 'Bước 1: Yêu cầu đặt lịch đã được gửi',
-      subtitle: 'Hệ thống đã chuyển đầy đủ thông tin phiếu hẹn đến Chủ trọ.',
+      subtitle: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch hẹn.',
       time: createdTime,
       state: 'completed',
     });
-    steps.push({
-      id: 'step-2',
-      title: 'Bước 2: Chờ Chủ trọ xác nhận lịch xem',
-      subtitle: 'Chủ trọ kiểm tra lịch trống và bấm Xác nhận lịch xem.',
-      time: 'Đang chờ duyệt',
-      state: 'active',
-      constraintBadge: 'Chờ Chủ trọ',
-    });
-    steps.push({
-      id: 'step-3',
-      title: 'Bước 3: Nộp cọc giữ chân lịch xem',
-      subtitle: `Đặt cọc giữ chân ${formatVND(coc)} qua Hệ thống InnFinder.`,
-      time: daNopCoc ? 'Đã nộp cọc' : 'Chờ thực hiện',
-      state: daNopCoc ? 'completed' : 'pending',
-    });
+
+    if (daNopCoc) {
+      steps.push({
+        id: 'step-2',
+        title: 'Bước 2: Nộp cọc giữ chân lịch xem',
+        subtitle: `Khách hàng đã nộp ${formatVND(coc)} cọc giữ chân qua Hệ thống InnFinder.`,
+        time: 'Đã nộp cọc',
+        state: 'completed',
+      });
+      steps.push({
+        id: 'step-3',
+        title: 'Bước 3: Chờ Chủ trọ xác nhận lịch xem',
+        subtitle: 'Chủ trọ kiểm tra lịch trống và bấm Xác nhận lịch xem.',
+        time: 'Đang chờ duyệt',
+        state: 'active',
+        constraintBadge: 'Chờ Chủ trọ',
+      });
+    } else {
+      steps.push({
+        id: 'step-2',
+        title: 'Bước 2: Nộp cọc giữ chân lịch xem',
+        subtitle: `Vui lòng đặt cọc giữ chân ${formatVND(coc)} qua Hệ thống InnFinder để Chủ trọ duyệt lịch.`,
+        time: 'Chờ nộp cọc',
+        state: 'active',
+        constraintBadge: 'Cần nộp cọc',
+      });
+      steps.push({
+        id: 'step-3',
+        title: 'Bước 3: Chờ Chủ trọ xác nhận lịch xem',
+        subtitle: 'Chủ trọ sẽ tiếp nhận và duyệt lịch sau khi bạn hoàn tất nộp cọc.',
+        time: 'Chưa mở khóa',
+        state: 'pending',
+      });
+    }
+
     steps.push({
       id: 'step-4',
       title: 'Bước 4: Gặp xem thực tế & Nhận lại 100% cọc trực tiếp',

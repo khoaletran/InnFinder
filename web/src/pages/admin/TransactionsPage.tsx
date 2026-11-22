@@ -42,13 +42,13 @@ export const TransactionsPage: React.FC = () => {
   const approveWithdrawalMutation = useMutation({
     mutationFn: (id: string) => adminService.approveWithdrawal(id),
     onSuccess: () => {
-      toast.success('Đã phê duyệt lệnh rút tiền thành công!');
+      toast.success('Đã phê duyệt giao dịch thành công!');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'treasury-stats'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi duyệt rút tiền');
+      toast.error(err instanceof Error ? err.message : 'Lỗi duyệt giao dịch');
     },
   });
 
@@ -56,7 +56,7 @@ export const TransactionsPage: React.FC = () => {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       adminService.rejectWithdrawal(id, reason),
     onSuccess: () => {
-      toast.success('Đã từ chối lệnh rút tiền và hoàn số dư về ví Chủ trọ!');
+      toast.success('Đã từ chối giao dịch thành công!');
       setRejectingTxId(null);
       setRejectReason('');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] });
@@ -64,7 +64,7 @@ export const TransactionsPage: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi từ chối rút tiền');
+      toast.error(err instanceof Error ? err.message : 'Lỗi từ chối giao dịch');
     },
   });
 
@@ -211,7 +211,9 @@ export const TransactionsPage: React.FC = () => {
                 filtered.map((tx) => {
                   const isWithdrawal =
                     tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' || tx.loaiGiaoDich === 'RUT_TIEN';
+                  const isRefund = tx.loaiGiaoDich === 'HOAN_COC';
                   const isPending = tx.trangThai === 'CHO_THANH_TOAN';
+                  const isActionable = (isWithdrawal || isRefund) && isPending;
                   const txMeta = formatTransactionType(tx.loaiGiaoDich);
                   return (
                     <tr key={tx.maGiaoDich} className="hover:bg-slate-50/60 transition-colors">
@@ -268,13 +270,13 @@ export const TransactionsPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {isWithdrawal && isPending && (
+                          {isActionable && (
                             <>
                               <button
                                 type="button"
                                 disabled={approveWithdrawalMutation.isPending}
                                 onClick={() => approveWithdrawalMutation.mutate(tx.maGiaoDich)}
-                                title="Phê duyệt chuyển tiền"
+                                title="Phê duyệt giao dịch"
                                 className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer"
                               >
                                 <CheckCircle2 className="w-4 h-4" />
@@ -285,7 +287,7 @@ export const TransactionsPage: React.FC = () => {
                                   setRejectingTxId(tx.maGiaoDich);
                                   setRejectReason('');
                                 }}
-                                title="Từ chối rút tiền"
+                                title="Từ chối giao dịch"
                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
                               >
                                 <XCircle className="w-4 h-4" />
@@ -363,12 +365,12 @@ export const TransactionsPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* MODAL TỪ CHỐI RÚT TIỀN */}
+      {/* MODAL TỪ CHỐI GIAO DỊCH */}
       <Modal
         isOpen={!!rejectingTxId}
         onClose={() => setRejectingTxId(null)}
-        title="Từ chối lệnh rút tiền"
-        subtitle="Số tiền yêu cầu sẽ được hoàn lại 100% vào ví của Chủ trọ."
+        title="Từ chối giao dịch"
+        subtitle="Vui lòng nhập lý do từ chối để hệ thống gửi thông báo cho người dùng."
         maxWidth="sm"
         footer={
           <>

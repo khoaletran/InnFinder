@@ -395,6 +395,7 @@ public class AdminService {
             TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
                     .soTaiKhoan(yc.getSoTaiKhoan())
                     .tenNganHang(yc.getTenNganHang())
+                    .tenChuTaiKhoan(yc.getTenChuTaiKhoan())
                     .nguoiDung(user)
                     .build();
             taiKhoanNganHangRepository.save(tk);

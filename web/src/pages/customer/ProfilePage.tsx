@@ -14,6 +14,7 @@ import {
   Mail,
   Phone,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
   User,
@@ -27,8 +28,9 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer, PageHeader } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { VIETNAM_BANKS } from '@/constants/banks';
+import { VIETNAM_BANKS, getBankByShortName } from '@/constants/banks';
 import { authUserService } from '@/services/authUser.service';
+import { bankService } from '@/services/bank.service';
 import { uploadService } from '@/services/upload.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { formatDate } from '@/utils/formatters';
@@ -85,6 +87,9 @@ export const ProfilePage: React.FC = () => {
   const [newBankName, setNewBankName] = useState('Vietcombank');
   const [newAccountNumber, setNewAccountNumber] = useState('');
   const [newAccountHolder, setNewAccountHolder] = useState('');
+  const [isCheckingBank, setIsCheckingBank] = useState(false);
+  const [isBankVerified, setIsBankVerified] = useState(false);
+  const [bankVerificationMsg, setBankVerificationMsg] = useState<string | null>(null);
 
   const [upgradeCccd, setUpgradeCccd] = useState('');
   const [upgradeFrontUrl, setUpgradeFrontUrl] = useState('');
@@ -92,6 +97,8 @@ export const ProfilePage: React.FC = () => {
   const [upgradeBank, setUpgradeBank] = useState('Vietcombank');
   const [upgradeAccNum, setUpgradeAccNum] = useState('');
   const [upgradeAccHolder, setUpgradeAccHolder] = useState('');
+  const [isCheckingUpgradeBank, setIsCheckingUpgradeBank] = useState(false);
+  const [isUpgradeBankVerified, setIsUpgradeBankVerified] = useState(false);
 
   const {
     data: bankAccounts = [],
@@ -223,12 +230,115 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleAddBank = (e: React.FormEvent) => {
+  const handleLookupBank = async () => {
+    if (!newAccountNumber || newAccountNumber.length < 6) {
+      toast.error('Vui lòng nhập số tài khoản từ 6 đến 20 số');
+      return;
+    }
+    const selectedBank = getBankByShortName(newBankName);
+    if (!selectedBank?.bin) {
+      toast.error('Không tìm thấy mã định danh cho ngân hàng đã chọn');
+      return;
+    }
+    try {
+      setIsCheckingBank(true);
+      setBankVerificationMsg(null);
+      const res = await bankService.lookupAccount({
+        bin: selectedBank.bin,
+        soTaiKhoan: newAccountNumber.trim(),
+      });
+      if (res.hopLe) {
+        setNewAccountHolder(res.tenChuTaiKhoan);
+        setIsBankVerified(true);
+        setBankVerificationMsg(res.tenChuTaiKhoan);
+        toast.success(`Xác thực Napas thành công: ${res.tenChuTaiKhoan}`);
+      } else {
+        setIsBankVerified(false);
+        setBankVerificationMsg(null);
+        toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
+      }
+    } catch (err: unknown) {
+      setIsBankVerified(false);
+      setBankVerificationMsg(null);
+      toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
+    } finally {
+      setIsCheckingBank(false);
+    }
+  };
+
+  const handleLookupUpgradeBank = async () => {
+    if (!upgradeAccNum || upgradeAccNum.length < 6) {
+      toast.error('Vui lòng nhập số tài khoản từ 6 đến 20 số');
+      return;
+    }
+    const selectedBank = getBankByShortName(upgradeBank);
+    if (!selectedBank?.bin) {
+      toast.error('Không tìm thấy mã định danh cho ngân hàng đã chọn');
+      return;
+    }
+    try {
+      setIsCheckingUpgradeBank(true);
+      const res = await bankService.lookupAccount({
+        bin: selectedBank.bin,
+        soTaiKhoan: upgradeAccNum.trim(),
+      });
+      if (res.hopLe) {
+        setUpgradeAccHolder(res.tenChuTaiKhoan);
+        setIsUpgradeBankVerified(true);
+        toast.success(`Xác thực Napas thành công: ${res.tenChuTaiKhoan}`);
+      } else {
+        setIsUpgradeBankVerified(false);
+        toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
+      }
+    } catch (err: unknown) {
+      setIsUpgradeBankVerified(false);
+      toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
+    } finally {
+      setIsCheckingUpgradeBank(false);
+    }
+  };
+
+  const handleAddBank = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newAccountNumber || newAccountNumber.length < 6) {
+      toast.error('Số tài khoản phải gồm từ 6 đến 20 chữ số');
+      return;
+    }
+
+    // Nếu chưa bấm kiểm tra, tự động tra cứu Napas trước khi lưu
+    let finalAccountHolder = newAccountHolder.trim().toUpperCase();
+    if (!isBankVerified || !finalAccountHolder) {
+      const selectedBank = getBankByShortName(newBankName);
+      if (!selectedBank?.bin) {
+        toast.error('Không tìm thấy thông tin ngân hàng');
+        return;
+      }
+      try {
+        setIsCheckingBank(true);
+        const res = await bankService.lookupAccount({
+          bin: selectedBank.bin,
+          soTaiKhoan: newAccountNumber.trim(),
+        });
+        if (!res.hopLe) {
+          toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
+          return;
+        }
+        finalAccountHolder = res.tenChuTaiKhoan;
+        setNewAccountHolder(res.tenChuTaiKhoan);
+        setIsBankVerified(true);
+        setBankVerificationMsg(res.tenChuTaiKhoan);
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
+        return;
+      } finally {
+        setIsCheckingBank(false);
+      }
+    }
+
     const parsed = bankAccountSchema.safeParse({
       tenNganHang: newBankName.trim(),
       soTaiKhoan: newAccountNumber.trim(),
-      tenChuTaiKhoan: newAccountHolder.trim().toUpperCase() || undefined,
+      tenChuTaiKhoan: finalAccountHolder || undefined,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || 'Thông tin ngân hàng chưa hợp lệ');
@@ -237,15 +347,44 @@ export const ProfilePage: React.FC = () => {
     addBankMutation.mutate(parsed.data);
   };
 
-  const handleUpgradeToLandlord = (e: React.FormEvent) => {
+  const handleUpgradeToLandlord = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    let finalAccHolder = upgradeAccHolder.trim().toUpperCase();
+    if (!isUpgradeBankVerified || !finalAccHolder) {
+      const selectedBank = getBankByShortName(upgradeBank);
+      if (!selectedBank?.bin) {
+        toast.error('Không tìm thấy thông tin ngân hàng');
+        return;
+      }
+      try {
+        setIsCheckingUpgradeBank(true);
+        const res = await bankService.lookupAccount({
+          bin: selectedBank.bin,
+          soTaiKhoan: upgradeAccNum.trim(),
+        });
+        if (!res.hopLe) {
+          toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
+          return;
+        }
+        finalAccHolder = res.tenChuTaiKhoan;
+        setUpgradeAccHolder(res.tenChuTaiKhoan);
+        setIsUpgradeBankVerified(true);
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
+        return;
+      } finally {
+        setIsCheckingUpgradeBank(false);
+      }
+    }
+
     const parsed = upgradeLandlordSchema.safeParse({
       cccd: upgradeCccd.trim(),
       anhCccdTruoc: upgradeFrontUrl,
       anhCccdSau: upgradeBackUrl,
       tenNganHang: upgradeBank.trim(),
       soTaiKhoan: upgradeAccNum.trim(),
-      tenChuTaiKhoan: upgradeAccHolder.trim().toUpperCase(),
+      tenChuTaiKhoan: finalAccHolder,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || 'Hồ sơ nâng cấp chưa hợp lệ');
@@ -648,33 +787,64 @@ export const ProfilePage: React.FC = () => {
                 label="Ngân hàng"
                 required
                 value={newBankName}
-                onChange={(shortName) => setNewBankName(shortName)}
+                onChange={(shortName) => {
+                  setNewBankName(shortName);
+                  setIsBankVerified(false);
+                  setBankVerificationMsg(null);
+                }}
               />
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Số tài khoản
                 </label>
-                <input
-                  type="text"
-                  maxLength={20}
-                  placeholder="Nhập 6–20 chữ số"
-                  value={newAccountNumber}
-                  onChange={(e) => setNewAccountNumber(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="Nhập 6–20 chữ số"
+                    value={newAccountNumber}
+                    onChange={(e) => {
+                      setNewAccountNumber(e.target.value.replace(/\D/g, ''));
+                      setIsBankVerified(false);
+                      setBankVerificationMsg(null);
+                    }}
+                    className="flex-1 h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
+                  />
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={handleLookupBank}
+                    disabled={isCheckingBank || newAccountNumber.length < 6}
+                    isLoading={isCheckingBank}
+                  >
+                    <Search className="w-3.5 h-3.5 mr-1" />
+                    Kiểm tra
+                  </AppButton>
+                </div>
               </div>
+
+              {isBankVerified && bankVerificationMsg && (
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Xác thực Napas: <strong className="font-bold">{bankVerificationMsg}</strong></span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tên chủ tài khoản (In hoa)
+                  Tên chủ tài khoản (Hệ thống tự điền)
                 </label>
                 <input
                   type="text"
-                  placeholder="VD: NGUYEN VAN A"
+                  placeholder="Tên chủ tài khoản sẽ tự động hiển thị"
                   value={newAccountHolder}
+                  readOnly={isBankVerified}
                   onChange={(e) => setNewAccountHolder(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm uppercase text-slate-900 focus:outline-none focus:border-teal-600"
+                  className={`w-full h-10 px-3 rounded-xl border border-slate-200 text-sm uppercase font-semibold text-slate-900 focus:outline-none focus:border-teal-600 ${
+                    isBankVerified ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
 
@@ -683,7 +853,11 @@ export const ProfilePage: React.FC = () => {
                   variant="secondary"
                   size="md"
                   fullWidth
-                  onClick={() => setShowBankModal(false)}
+                  onClick={() => {
+                    setShowBankModal(false);
+                    setIsBankVerified(false);
+                    setBankVerificationMsg(null);
+                  }}
                 >
                   Hủy
                 </AppButton>
@@ -692,6 +866,7 @@ export const ProfilePage: React.FC = () => {
                   variant="primary"
                   size="md"
                   fullWidth
+                  disabled={addBankMutation.isPending || isCheckingBank}
                   isLoading={addBankMutation.isPending}
                 >
                   Liên kết
@@ -790,35 +965,56 @@ export const ProfilePage: React.FC = () => {
                 label="Ngân hàng nhận thanh toán"
                 required
                 value={upgradeBank}
-                onChange={(shortName) => setUpgradeBank(shortName)}
+                onChange={(shortName) => {
+                  setUpgradeBank(shortName);
+                  setIsUpgradeBankVerified(false);
+                }}
               />
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Số tài khoản (6–20 số) *
-                  </label>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Số tài khoản (6–20 số) *
+                </label>
+                <div className="flex gap-2">
                   <input
                     type="text"
                     maxLength={20}
                     placeholder="Số tài khoản"
                     value={upgradeAccNum}
-                    onChange={(e) => setUpgradeAccNum(e.target.value.replace(/\D/g, ''))}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
+                    onChange={(e) => {
+                      setUpgradeAccNum(e.target.value.replace(/\D/g, ''));
+                      setIsUpgradeBankVerified(false);
+                    }}
+                    className="flex-1 h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
                   />
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={handleLookupUpgradeBank}
+                    disabled={isCheckingUpgradeBank || upgradeAccNum.length < 6}
+                    isLoading={isCheckingUpgradeBank}
+                  >
+                    <Search className="w-3.5 h-3.5 mr-1" />
+                    Kiểm tra
+                  </AppButton>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Chủ tài khoản *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Tên in hoa"
-                    value={upgradeAccHolder}
-                    onChange={(e) => setUpgradeAccHolder(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm uppercase text-slate-900 focus:outline-none focus:border-teal-600"
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Chủ tài khoản (Hệ thống tự điền) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Tên chủ tài khoản sẽ tự động hiển thị"
+                  value={upgradeAccHolder}
+                  readOnly={isUpgradeBankVerified}
+                  onChange={(e) => setUpgradeAccHolder(e.target.value)}
+                  className={`w-full h-10 px-3 rounded-xl border border-slate-200 text-sm uppercase font-semibold text-slate-900 focus:outline-none focus:border-teal-600 ${
+                    isUpgradeBankVerified ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''
+                  }`}
+                />
               </div>
 
               <div className="flex gap-2 pt-2">

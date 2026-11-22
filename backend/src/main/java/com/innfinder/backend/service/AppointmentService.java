@@ -4,10 +4,12 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
+import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.PhongTro;
+import com.innfinder.backend.entity.TaiKhoanNganHang;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiGD;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
@@ -34,6 +36,7 @@ public class AppointmentService {
     private final ChuTroRepository chuTroRepository;
     private final TransactionService transactionService;
     private final GiaoDichRepository giaoDichRepository;
+    private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
 
     /**
      * Sinh mã phiếu đặt lịch theo chuẩn ISO: ĐL + yyyyMMdd + sequence 3 số
@@ -55,7 +58,7 @@ public class AppointmentService {
         }
 
         String candidate = String.format("%s%03d", prefix, nextSequence);
-        while (phieuDatLichRepository.existsById(candidate)) {
+        while (phieuDatLichRepository.existsById(candidate) || giaoDichRepository.existsByCandidateId(candidate)) {
             nextSequence++;
             candidate = String.format("%s%03d", prefix, nextSequence);
         }
@@ -169,13 +172,34 @@ public class AppointmentService {
     }
 
     /**
+     * 2b. Kiểm tra nhanh trạng thái cọc của lịch hẹn (phục vụ Realtime Webhook / Polling)
+     */
+    @Transactional(readOnly = true)
+    public DepositStatusResponse kiemTraTrangThaiCoc(String maDatLich) {
+        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+
+        boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
+                || phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN
+                || phieu.getTrangThai() == TrangThaiDatLich.HOAN_THANH
+                || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich));
+
+        return DepositStatusResponse.builder()
+                .maDatLich(phieu.getMaDatLich())
+                .daNopCoc(daNop)
+                .soTienCoc(phieu.getCoc())
+                .trangThaiLich(phieu.getTrangThai().name())
+                .build();
+    }
+
+    /**
      * 3. Khách hàng xem danh sách lịch hẹn của mình (kèm cờ đã nộp cọc)
      */
     @Transactional(readOnly = true)
     public List<AppointmentResponse> layLichHenCuaToi(String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
 
-        return phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByNgayHenDesc(khachHang.getMaNguoiDung())
+        return phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(khachHang.getMaNguoiDung())
                 .stream()
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
@@ -505,15 +529,23 @@ public class AppointmentService {
                 );
             }
         } else {
-            // Khách chưa gặp hoặc chưa nhận cọc ngoài đời -> hoàn tiền trực tiếp cho Khách hàng từ ví sàn
+            // Khách chưa gặp hoặc chưa nhận cọc ngoài đời -> hoàn tiền trực tiếp cho Khách hàng từ ví sàn (Admin đối soát duyệt)
             boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
             if (daNop && phieu.getCoc() > 0) {
+                List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
+                String bankNote = "";
+                if (!banks.isEmpty()) {
+                    TaiKhoanNganHang primaryBank = banks.get(0);
+                    bankNote = " về TK " + primaryBank.getTenNganHang() + " - " + primaryBank.getSoTaiKhoan()
+                            + (primaryBank.getTenChuTaiKhoan() != null && !primaryBank.getTenChuTaiKhoan().isBlank()
+                                ? " (" + primaryBank.getTenChuTaiKhoan() + ")" : "");
+                }
                 transactionService.taoGiaoDich(
                         phieu.getKhachHang(),
                         phieu.getCoc(),
                         "HOAN_COC",
-                        nguoiHuy + " lịch hẹn " + maDatLich,
-                        TrangThaiGD.HOAN_TIEN
+                        nguoiHuy + " lịch hẹn " + maDatLich + bankNote,
+                        TrangThaiGD.CHO_THANH_TOAN
                 );
             }
         }

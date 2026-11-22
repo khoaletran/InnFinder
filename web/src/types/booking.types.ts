@@ -47,3 +47,10 @@ export interface AppointmentDecisionRequest {
   dongY: boolean;
   liDoTuChoi?: string;
 }
+
+export interface DepositStatusResponse {
+  maDatLich: string;
+  daNopCoc: boolean;
+  soTienCoc: number;
+  trangThaiLich: string;
+}

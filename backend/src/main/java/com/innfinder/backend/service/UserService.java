@@ -101,6 +101,7 @@ public class UserService {
                         .id(tk.getId())
                         .soTaiKhoan(tk.getSoTaiKhoan())
                         .tenNganHang(tk.getTenNganHang())
+                        .tenChuTaiKhoan(tk.getTenChuTaiKhoan())
                         .build())
                 .toList();
     }
@@ -120,12 +121,14 @@ public class UserService {
                 .nguoiDung(user)
                 .soTaiKhoan(request.getSoTaiKhoan())
                 .tenNganHang(request.getTenNganHang())
+                .tenChuTaiKhoan(request.getTenChuTaiKhoan())
                 .build();
         TaiKhoanNganHang saved = taiKhoanNganHangRepository.save(tk);
         return BankAccountResponse.builder()
                 .id(saved.getId())
                 .soTaiKhoan(saved.getSoTaiKhoan())
                 .tenNganHang(saved.getTenNganHang())
+                .tenChuTaiKhoan(saved.getTenChuTaiKhoan())
                 .build();
     }
 

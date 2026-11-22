@@ -11,4 +11,5 @@ public class BankAccountResponse {
     private Long id;
     private String soTaiKhoan;
     private String tenNganHang;
+    private String tenChuTaiKhoan;
 }

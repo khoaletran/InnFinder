@@ -4,25 +4,31 @@ import { TrangThaiDatLich } from "../../types/booking.types";
 
 export interface RentalProgressBarProps {
   status: TrangThaiDatLich;
+  daNopCoc?: boolean;
+  daNhanLaiCoc?: boolean;
 }
 
-// 4 bước cố định theo thiết kế
+// 5 bước Swimlane cốt lõi (Mục 2.3)
 const STEPS = [
   { key: "GUI", label: "Gửi" },
-  { key: "CHO_XAC_NHAN", label: "Chờ" },
-  { key: "XAC_NHAN", label: "Xác nhận" },
-  { key: "HOAN_THANH", label: "Hoàn tất" },
+  { key: "COC", label: "Cọc" },
+  { key: "DUYET", label: "Duyệt" },
+  { key: "XEM", label: "Xem" },
+  { key: "CHOT", label: "Chốt" },
 ];
 
-// Chuyển Enum backend sang chỉ số bước (0, 1, 2, 3)
-const getActiveStepIndex = (status: TrangThaiDatLich): number => {
+const getActiveStepIndex = (
+  status: TrangThaiDatLich,
+  daNopCoc?: boolean,
+  daNhanLaiCoc?: boolean
+): number => {
   switch (status) {
     case "CHO_XAC_NHAN":
-      return 1;
+      return daNopCoc ? 2 : 1;
     case "XAC_NHAN":
-      return 2;
+      return daNhanLaiCoc ? 4 : 3;
     case "HOAN_THANH":
-      return 3;
+      return 4;
     case "HUY":
     default:
       return 0;
@@ -31,8 +37,10 @@ const getActiveStepIndex = (status: TrangThaiDatLich): number => {
 
 export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
   status,
+  daNopCoc,
+  daNhanLaiCoc,
 }) => {
-  const activeIndex = getActiveStepIndex(status);
+  const activeIndex = getActiveStepIndex(status, daNopCoc, daNhanLaiCoc);
 
   return (
     <View className="w-full mt-2">

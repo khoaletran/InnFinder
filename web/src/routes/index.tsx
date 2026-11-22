@@ -100,6 +100,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/appointments" element={<AppointmentsPage />} />
         <Route path="/appointments/schedule" element={<SchedulePage />} />
         <Route path="/appointments/schedule/:roomId" element={<SchedulePage />} />
+        <Route path="/appointments/deposit" element={<DepositPaymentPage />} />
         <Route path="/appointments/deposit/:appointmentId" element={<DepositPaymentPage />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
         <Route path="/rentals" element={<Navigate to="/appointments" replace />} />

@@ -325,7 +325,7 @@ export default function DepositPaymentScreen() {
             <View className="p-2 bg-white rounded-2xl shadow-sm border border-slate-200 mb-3">
               <Image
                 source={{
-                  uri: `https://img.vietqr.io/image/MB-0392833222-compact2.png?amount=${amount}&addInfo=IFCOC${(params.appointmentId || "").replace(/\D/g, "")}&accountName=INNFINDER%20SAN%20GIAO%20DICH`,
+                  uri: `https://vietqr.app/img?bank=MBBank&acc=0939080305&template=compact&showinfo=true&holder=DO%20MINH%20QUAN&amount=${amount}&des=IFCOC${(params.appointmentId || "").replace(/\D/g, "")}`,
                 }}
                 className="w-56 h-56 rounded-xl"
                 resizeMode="contain"
@@ -336,21 +336,21 @@ export default function DepositPaymentScreen() {
             <View className="w-full bg-white rounded-xl p-3 border border-slate-200 gap-2">
               <View className="flex-row justify-between items-center">
                 <Text className="text-xs text-slate-500">Ngân hàng:</Text>
-                <Text className="text-xs font-bold text-slate-800">MB Bank (Quân Đội)</Text>
+                <Text className="text-xs font-bold text-slate-800">MBBank (Ngân hàng Quân Đội)</Text>
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-xs text-slate-500">Số tài khoản:</Text>
                 <TouchableOpacity
-                  onPress={() => Alert.alert("Số tài khoản", "0392833222\n(Đã chọn sao chép)")}
+                  onPress={() => Alert.alert("Số tài khoản", "0939080305\n(Đã chọn sao chép)")}
                   className="flex-row items-center gap-1"
                 >
-                  <Text className="text-xs font-bold text-teal-700">0392833222</Text>
+                  <Text className="text-xs font-bold text-teal-700">0939080305</Text>
                   <Ionicons name="copy-outline" size={13} color="#0D9488" />
                 </TouchableOpacity>
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-xs text-slate-500">Chủ tài khoản:</Text>
-                <Text className="text-xs font-bold text-slate-800">CONG TY INNFINDER</Text>
+                <Text className="text-xs font-bold text-slate-800 uppercase">DO MINH QUAN</Text>
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-xs text-slate-500">Số tiền cọc:</Text>

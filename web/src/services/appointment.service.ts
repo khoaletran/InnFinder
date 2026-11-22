@@ -4,11 +4,18 @@ import type {
   AppointmentCreateRequest,
   AppointmentDecisionRequest,
   AppointmentResponse,
+  DepositStatusResponse,
 } from '@/types/booking.types';
 
 export const appointmentService = {
   getMyAppointments: async (): Promise<AppointmentResponse[]> => {
     return axiosClient.get<unknown, AppointmentResponse[]>('/api/appointments/my-appointments');
+  },
+
+  getDepositStatus: async (maDatLich: string): Promise<DepositStatusResponse> => {
+    return axiosClient.get<unknown, DepositStatusResponse>(
+      `/api/appointments/${maDatLich}/deposit-status`,
+    );
   },
 
   createAppointment: async (request: AppointmentCreateRequest): Promise<AppointmentResponse> => {

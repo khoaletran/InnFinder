@@ -49,7 +49,7 @@ public class ReviewService {
         }
 
         // 1. KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT: Khách hàng phải có lịch hẹn xem phòng (XAC_NHAN hoặc HOAN_THANH) đối với phòng này
-        boolean daXemHoacThue = phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByNgayHenDesc(nguoiDung.getMaNguoiDung())
+        boolean daXemHoacThue = phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(nguoiDung.getMaNguoiDung())
                 .stream()
                 .anyMatch(p -> p.getPhongTro() != null &&
                         p.getPhongTro().getMaPhongTro().equals(roomId) &&

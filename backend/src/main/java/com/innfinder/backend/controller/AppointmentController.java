@@ -4,6 +4,7 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
+import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AppointmentService;
@@ -59,6 +60,13 @@ public class AppointmentController {
         String username = getCurrentUsername();
         appointmentService.nopTienCoc(maDatLich, username);
         return ApiResponse.ok(null, "Nộp tiền cọc giữ chân thành công");
+    }
+
+    @GetMapping("/{id}/deposit-status")
+    @Operation(summary = "Kiểm tra nhanh trạng thái cọc của lịch hẹn (Polling realtime)")
+    public ApiResponse<DepositStatusResponse> kiemTraTrangThaiCoc(@PathVariable("id") String maDatLich) {
+        DepositStatusResponse res = appointmentService.kiemTraTrangThaiCoc(maDatLich);
+        return ApiResponse.ok(res, "Lấy trạng thái nộp cọc thành công");
     }
 
     @PatchMapping("/{id}/confirm-received-deposit")

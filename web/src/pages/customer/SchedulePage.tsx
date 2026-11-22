@@ -138,6 +138,8 @@ export const SchedulePage: React.FC = () => {
 
     const pad = (n: number) => String(n).padStart(2, '0');
     const isoString = `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
+    const formattedDateDisplay = `${pad(day)}/${pad(month)}/${year} lúc ${pad(hours)}:${pad(minutes)}`;
+    setSubmittedDateTime(formattedDateDisplay);
 
     setIsSubmitting(true);
     try {
@@ -152,8 +154,6 @@ export const SchedulePage: React.FC = () => {
 
       const createdAppointmentId = response?.maDatLich;
       const coc = response?.coc ?? depositAmount;
-      const formattedDateDisplay = `${pad(day)}/${pad(month)}/${year} lúc ${pad(hours)}:${pad(minutes)}`;
-      setSubmittedDateTime(formattedDateDisplay);
 
       if (coc > 0 && createdAppointmentId) {
         toast.success('Đặt lịch thành công! Đang chuyển sang bước nộp cọc giữ chân...');

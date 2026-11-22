@@ -17,4 +17,6 @@ public class CreateBankAccountRequest {
 
     @NotBlank(message = "Tên ngân hàng không được để trống")
     private String tenNganHang;
+
+    private String tenChuTaiKhoan;
 }

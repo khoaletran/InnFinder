@@ -320,7 +320,7 @@ export const AppointmentDetailPage: React.FC = () => {
                   Tiến trình Swimlane Khép kín
                 </Card.Title>
                 <Card.Description className="text-[11px] text-slate-400 mt-0.5">
-                  Đặt lịch ➔ Xác nhận ➔ Nộp cọc ➔ Nhận lại cọc trực tiếp ➔ Hai bên quyết định độc lập
+                  Đặt lịch ➔ Nộp cọc ➔ Chủ trọ xác nhận ➔ Nhận lại cọc trực tiếp ➔ Hai bên quyết định độc lập
                 </Card.Description>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
@@ -380,7 +380,7 @@ export const AppointmentDetailPage: React.FC = () => {
               </p>
             </div>
 
-            {item.trangThai === 'XAC_NHAN' && !isDepositPaid && (
+            {!isDepositPaid && (item.coc ?? 0) > 0 && item.trangThai !== 'HUY' && item.trangThai !== 'HOAN_THANH' && (
               <div className="mb-4">
                 <Link
                   to={`/appointments/deposit/${item.maDatLich}`}

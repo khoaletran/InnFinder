@@ -96,6 +96,9 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String> {
            "AND g.noiDung LIKE CONCAT('%', :maDatLich, '%')")
     boolean existsDepositByMaDatLich(@Param("maNguoiDung") String maNguoiDung, @Param("maDatLich") String maDatLich);
 
+    @Query("SELECT COUNT(g) > 0 FROM GiaoDich g WHERE g.noiDung LIKE CONCAT('%', :candidateId, '%')")
+    boolean existsByCandidateId(@Param("candidateId") String candidateId);
+
     /**
      * Khóa bi quan (Pessimistic Lock) khi Admin phê duyệt giao dịch để chống race-condition / nhiều Admin duyệt trùng
      */

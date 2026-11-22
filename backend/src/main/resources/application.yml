@@ -51,3 +51,12 @@ gemini:
   index-delay-ms: ${GEMINI_INDEX_DELAY_MS:60000}
   request-timeout-seconds: ${GEMINI_REQUEST_TIMEOUT_SECONDS:40}
   embedding-timeout-seconds: ${GEMINI_EMBEDDING_TIMEOUT_SECONDS:8}
+
+# Cấu hình Tra cứu tài khoản ngân hàng Casso / VietQR Open Platform
+casso:
+  app-id: ${CASSO_APP_ID:trial-app_3c1e7aa6dabfbc3b9e51517e}
+  app-secret: ${CASSO_APP_SECRET:sec_JNc1O6gF313FJOiG6IfejyTcVkc7G3xI}
+
+# Cấu hình Cổng đối soát Webhook SePay
+sepay:
+  api-key: ${SEPAY_API_KEY:sepay_innfinder_secret_key_2026}

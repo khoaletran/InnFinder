@@ -15,6 +15,7 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
   status,
   sentDate = '--/--',
   daNhanLaiCoc = false,
+  daNopCoc = false,
   khachHangDongY = null,
   chuTroDongY = null,
 }) => {
@@ -22,8 +23,9 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
     // 1. Trường hợp đơn bị hủy
     if (status === 'HUY') {
       if (index === 0) return 'completed';
-      if (daNhanLaiCoc && index <= 2) return 'completed';
-      if (index === (daNhanLaiCoc ? 3 : 1)) return 'cancelled';
+      if (daNopCoc && index === 1) return 'completed';
+      if (daNhanLaiCoc && index <= 3) return 'completed';
+      if (index === (daNhanLaiCoc ? 4 : daNopCoc ? 2 : 1)) return 'cancelled';
       return 'upcoming';
     }
 
@@ -35,23 +37,24 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
     // 3. Trường hợp mới tạo lịch hẹn, chờ chủ trọ xác nhận
     if (status === 'CHO_XAC_NHAN') {
       if (index === 0) return 'completed';
-      if (index === 1) return 'current';
+      if (index === 1) return daNopCoc ? 'completed' : 'current';
+      if (index === 2) return daNopCoc ? 'current' : 'upcoming';
       return 'upcoming';
     }
 
     // 4. Trường hợp chủ trọ đã xác nhận lịch (XAC_NHAN)
     if (status === 'XAC_NHAN') {
-      if (index <= 1) return 'completed'; // Đã gửi lịch & Chủ trọ đã xác nhận
+      if (index <= 2) return 'completed'; // Đã gửi lịch, đã nộp cọc & Chủ trọ đã xác nhận
 
-      // Kiểm tra bước 2: Xem phòng & hoàn cọc trực tiếp
+      // Kiểm tra bước 3: Xem phòng & hoàn cọc trực tiếp
       if (!daNhanLaiCoc) {
-        if (index === 2) return 'current'; // Đang diễn ra bước gặp xem phòng & nhận lại cọc
-        return 'upcoming'; // Bước 3 (Quyết định 2 bên) đang khóa
+        if (index === 3) return 'current'; // Đang diễn ra bước gặp xem phòng & nhận lại cọc
+        return 'upcoming'; // Bước 4 (Quyết định 2 bên) đang khóa
       }
 
       // Khi đã nhận lại cọc (daNhanLaiCoc === true)
-      if (index === 2) return 'completed'; // Bước 2 đã xong
-      if (index === 3) return 'current';   // Bước 3 đang mở khóa để 2 bên đưa ra quyết định
+      if (index === 3) return 'completed'; // Bước 3 đã xong
+      if (index === 4) return 'current';   // Bước 4 đang mở khóa để 2 bên đưa ra quyết định
       return 'upcoming';
     }
 
@@ -62,32 +65,36 @@ export const RentalProgressBar: React.FC<RentalProgressBarProps> = ({
     index: number,
     stepStatus: 'completed' | 'current' | 'cancelled' | 'upcoming',
   ): string => {
-    if (stepStatus === 'cancelled') return 'Đã hủy';
+    if (stepStatus === 'cancelled') return 'Đã dừng';
     if (stepStatus === 'completed') {
-      if (index === 0 || index === 1) return sentDate;
-      if (index === 2) return 'Đã nhận lại cọc';
-      if (index === 3) return 'Đã chốt thuê';
+      if (index === 0) return sentDate;
+      if (index === 1) return 'Đã nộp cọc';
+      if (index === 2) return 'Đã duyệt';
+      if (index === 3) return 'Đã nhận cọc';
+      if (index === 4) return 'Đã chốt thuê';
       return 'Hoàn tất';
     }
     if (stepStatus === 'current') {
-      if (index === 1) return 'Chờ phản hồi';
-      if (index === 2) return 'Đang xử lý';
-      if (index === 3) {
+      if (index === 1) return 'Chờ nộp cọc';
+      if (index === 2) return 'Chờ chủ trọ';
+      if (index === 3) return 'Chờ xem phòng';
+      if (index === 4) {
         if (khachHangDongY === true && chuTroDongY === null) return 'Chờ chủ trọ';
         if (chuTroDongY === true && khachHangDongY === null) return 'Chờ khách thuê';
         return 'Chờ quyết định';
       }
       return 'Hiện tại';
     }
-    if (index === 3) return 'Chờ mở khóa';
+    if (index === 4) return 'Chờ mở khóa';
     return '--';
   };
 
   const steps = [
-    { label: 'Đã gửi lịch' },
-    { label: 'Chủ trọ xác nhận' },
-    { label: 'Xem phòng & nhận cọc' },
-    { label: 'Quyết định 2 bên' },
+    { label: 'Gửi yêu cầu' },
+    { label: 'Nộp cọc' },
+    { label: 'Chủ trọ duyệt' },
+    { label: 'Xem & nhận cọc' },
+    { label: 'Quyết định' },
   ];
 
   return (

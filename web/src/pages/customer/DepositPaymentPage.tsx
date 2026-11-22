@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -16,7 +16,7 @@ import {
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal';
-import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
+import { ESCROW_ACCOUNT_CONFIG, buildDynamicVietQrUrl } from '@/constants/escrow';
 import { appointmentService } from '@/services/appointment.service';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -47,7 +47,6 @@ export const DepositPaymentPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
 
   const { data: myAppointments = [] } = useQuery({
     queryKey: ['appointments', 'my'],
@@ -104,6 +103,20 @@ export const DepositPaymentPage: React.FC = () => {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  // Hủy lịch hẹn ngay lập tức không hỏi lý do khi người dùng bấm Hủy hoặc Thoát (X)
+  const handleImmediateCancel = async () => {
+    if (appointmentId) {
+      try {
+        await cancelAppointment(appointmentId, 'Khách hàng hủy khi chưa nộp cọc');
+        await fetchAppointments(true);
+        toast.info('Đã hủy lịch hẹn xem phòng');
+      } catch (err) {
+        console.error('Lỗi khi hủy lịch hẹn:', err);
+      }
+    }
+    navigate(targetRoomId ? `/room/${targetRoomId}` : '/appointments');
+  };
+
   const handleConfirmPayment = async () => {
     setErrorMessage(null);
     if (!appointmentId) {
@@ -124,13 +137,30 @@ export const DepositPaymentPage: React.FC = () => {
     setShowSuccessModal(true);
   };
 
-  const handleConfirmCancelAppointment = async (reason: string) => {
-    if (appointmentId) {
-      await cancelAppointment(appointmentId, reason || 'Khách hàng hủy trước khi nộp cọc');
-    }
-    setShowCancelModal(false);
-    navigate('/appointments');
-  };
+  // Polling tự động đối soát tiền cọc qua SePay Webhook mỗi 3 giây
+  useEffect(() => {
+    if (!appointmentId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const status = await appointmentService.getDepositStatus(appointmentId);
+        if (isMounted && status?.daNopCoc) {
+          clearInterval(interval);
+          await fetchAppointments(true);
+          setShowSuccessModal(true);
+          toast.success('Hệ thống đã tự động nhận diện tiền cọc qua SePay thành công!');
+        }
+      } catch {
+        // Bỏ qua lỗi kết nối polling
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [appointmentId, fetchAppointments]);
 
   const cleanApptCode = (appointmentId || '').replace(/\D/g, '') || '123456';
   const vietQrTransferInfo = `IFCOC${cleanApptCode}`;
@@ -155,8 +185,9 @@ export const DepositPaymentPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setShowCancelModal(true)}
+            onClick={handleImmediateCancel}
             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+            title="Hủy lịch hẹn & Thoát"
           >
             <X className="w-4 h-4" />
           </button>
@@ -311,33 +342,40 @@ export const DepositPaymentPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-6 justify-center">
-                <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-sm shrink-0">
+                <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-sm shrink-0 flex flex-col items-center">
                   <img
-                    src={`https://img.vietqr.io/image/MB-0392833222-compact2.png?amount=${amount}&addInfo=${vietQrTransferInfo}&accountName=INNFINDER%20ESCROW`}
-                    alt="VietQR nộp cọc"
-                    className="w-44 h-44 rounded-lg object-contain"
+                    src={buildDynamicVietQrUrl(amount, vietQrTransferInfo)}
+                    alt="VietQR nộp cọc động"
+                    className="w-48 h-48 rounded-lg object-contain"
                   />
+                  <span className="text-[11px] font-medium text-slate-400 mt-1.5">
+                    Quét bằng mọi App Ngân hàng & Ví điện tử
+                  </span>
                 </div>
 
                 <div className="w-full max-w-sm space-y-2.5 text-xs bg-white p-3.5 rounded-xl border border-slate-200">
                   <div className="flex justify-between items-center py-1 border-b border-slate-100">
                     <span className="text-slate-500">Ngân hàng thụ hưởng:</span>
-                    <strong className="text-slate-800">MBBank</strong>
+                    <strong className="text-slate-800">{ESCROW_ACCOUNT_CONFIG.bankName}</strong>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Số tài khoản sàn:</span>
+                    <span className="text-slate-500">Số tài khoản nhận cọc:</span>
                     <button
                       type="button"
-                      onClick={() => handleCopy('0392833222', 'stk')}
+                      onClick={() => handleCopy(ESCROW_ACCOUNT_CONFIG.accountNumber, 'stk')}
                       className="inline-flex items-center gap-1 font-bold text-teal-700 cursor-pointer"
                     >
-                      <span className="font-mono">0392833222</span>
+                      <span className="font-mono">{ESCROW_ACCOUNT_CONFIG.accountNumber}</span>
                       {copiedField === 'stk' ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
                       ) : (
                         <Copy className="w-3.5 h-3.5 text-slate-400" />
                       )}
                     </button>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Chủ tài khoản:</span>
+                    <strong className="text-slate-800 uppercase">{ESCROW_ACCOUNT_CONFIG.accountName}</strong>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-100">
                     <span className="text-slate-500">Số tiền cọc:</span>
@@ -360,6 +398,16 @@ export const DepositPaymentPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              <div className="flex items-center justify-center gap-2.5 px-4 py-3 bg-teal-50/90 border border-teal-200/90 rounded-xl text-teal-900 text-xs shadow-2xs">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-600"></span>
+                </span>
+                <span className="font-semibold text-teal-800 text-xs">
+                  Hệ thống đang tự động lắng nghe và đối soát giao dịch ngân hàng theo thời gian thực...
+                </span>
+              </div>
             </div>
           )}
 
@@ -375,10 +423,10 @@ export const DepositPaymentPage: React.FC = () => {
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowCancelModal(true)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-sm transition-colors cursor-pointer"
+                onClick={handleImmediateCancel}
+                className="px-5 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-sm transition-colors cursor-pointer"
               >
-                Hủy lịch
+                Hủy lịch hẹn
               </button>
               <button
                 type="button"
@@ -407,16 +455,6 @@ export const DepositPaymentPage: React.FC = () => {
         title="Đã nộp cọc giữ chân thành công"
         dateTimeText={formattedDateTime}
         landlordName={displayLandlord}
-      />
-
-      <CancelConfirmModal
-        isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
-        onConfirmCancel={handleConfirmCancelAppointment}
-        title="Hủy lịch xem phòng"
-        description="Vui lòng nhập lý do hủy lịch hẹn này"
-        cancelButtonText="Xác nhận hủy"
-        keepButtonText="Giữ lại lịch"
       />
     </div>
   );

@@ -12,12 +12,8 @@ import java.util.List;
 public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, String> {
     @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
     String findMaxMaDatLichByPrefix(@Param("prefix") String prefix);
-    /**
-     * 1. Lấy danh sách lịch hẹn của một khách hàng (sắp xếp ngày hẹn mới nhất lên đầu)
-     * Dùng cho endpoint: GET /api/appointments/my-appointments
-     */
-    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.hinhAnh", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
-    List<PhieuDatLich> findByKhachHang_MaNguoiDungOrderByNgayHenDesc(String maKhachHang);
+
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(String khachHangMaNguoiDung);
 
     /**
      * 2. Lấy danh sách lịch hẹn đặt vào các phòng thuộc sở hữu của một Chủ trọ
