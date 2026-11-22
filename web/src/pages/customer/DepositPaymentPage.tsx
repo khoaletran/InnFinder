@@ -7,8 +7,10 @@ import {
   Check,
   Copy,
   CreditCard,
+  Loader2,
   Phone,
   QrCode,
+  RefreshCw,
   ShieldCheck,
   Smartphone,
   X,
@@ -44,6 +46,7 @@ export const DepositPaymentPage: React.FC = () => {
 
   const [selectedMethod, setSelectedMethod] = useState<'VIETQR' | 'MOMO'>('VIETQR');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
@@ -117,24 +120,48 @@ export const DepositPaymentPage: React.FC = () => {
     navigate(targetRoomId ? `/room/${targetRoomId}` : '/appointments');
   };
 
-  const handleConfirmPayment = async () => {
+  // Kiểm tra trạng thái cọc thực tế từ SePay Webhook / Ngân hàng MBBank
+  const handleCheckPaymentStatus = async () => {
     setErrorMessage(null);
     if (!appointmentId) {
-      setErrorMessage('Không tìm thấy mã lịch hẹn cần nộp cọc.');
+      setErrorMessage('Không tìm thấy mã lịch hẹn cần kiểm tra cọc.');
       return;
     }
 
     setIsSubmitting(true);
-    const res = await payAppointmentDeposit(appointmentId);
-    setIsSubmitting(false);
+    try {
+      const status = await appointmentService.getDepositStatus(appointmentId);
+      setIsSubmitting(false);
 
-    if (!res.success) {
-      setErrorMessage(res.message || 'Ghi nhận tiền cọc thất bại. Vui lòng thử lại.');
-      return;
+      if (status?.daNopCoc) {
+        await fetchAppointments(true);
+        setShowSuccessModal(true);
+        toast.success('Hệ thống đã nhận diện tiền cọc thành công!');
+      } else {
+        toast.warning(
+          `Hệ thống chưa nhận được tiền trong tài khoản MBBank (${ESCROW_ACCOUNT_CONFIG.accountNumber}). Vui lòng quét mã VietQR và hoàn tất chuyển khoản đúng nội dung "${vietQrTransferInfo}", hoặc đợi 10–30 giây để ngân hàng đối soát.`,
+          { duration: 6000 },
+        );
+      }
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi kiểm tra đối soát tiền cọc');
     }
+  };
 
-    await fetchAppointments(true);
-    setShowSuccessModal(true);
+  // Dành riêng cho chế độ DEV / Demo test giả lập nếu không chuyển khoản ngân hàng thật
+  const handleSimulatePaymentDev = async () => {
+    if (!appointmentId) return;
+    setIsSimulating(true);
+    const res = await payAppointmentDeposit(appointmentId);
+    setIsSimulating(false);
+    if (res.success) {
+      await fetchAppointments(true);
+      setShowSuccessModal(true);
+      toast.success('[DEV TEST] Đã giả lập nộp cọc thành công');
+    } else {
+      toast.error(res.message || 'Lỗi khi giả lập nộp cọc');
+    }
   };
 
   // Polling tự động đối soát tiền cọc qua SePay Webhook mỗi 3 giây
@@ -405,20 +432,33 @@ export const DepositPaymentPage: React.FC = () => {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-600"></span>
                 </span>
                 <span className="font-semibold text-teal-800 text-xs">
-                  Hệ thống đang tự động lắng nghe và đối soát giao dịch ngân hàng theo thời gian thực...
+                  Hệ thống đang tự động lắng nghe và đối soát biến động số dư MBBank qua SePay... Sau khi bạn chuyển khoản, trang sẽ tự động chuyển sang Đặt lịch thành công.
                 </span>
               </div>
             </div>
           )}
 
           <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => navigate('/appointments')}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center sm:text-left py-2 sm:py-0"
-            >
-              Thanh toán sau (Về danh sách lịch)
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/appointments')}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer text-center sm:text-left py-2 sm:py-0"
+              >
+                Thanh toán sau (Về danh sách lịch)
+              </button>
+              {import.meta.env.DEV && (
+                <button
+                  type="button"
+                  disabled={isSimulating}
+                  onClick={handleSimulatePaymentDev}
+                  className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 transition-colors cursor-pointer"
+                  title="Mô phỏng nộp cọc thành công không cần chuyển tiền ngân hàng thật (Chỉ xuất hiện trong môi trường DEV/Demo)"
+                >
+                  {isSimulating ? 'Đang giả lập...' : '⚡ Giả lập cọc (Chỉ DEV)'}
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center justify-end gap-3">
               <button
@@ -431,11 +471,17 @@ export const DepositPaymentPage: React.FC = () => {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={handleConfirmPayment}
+                onClick={handleCheckPaymentStatus}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4" />
-                <span>{isSubmitting ? 'Đang xác nhận cọc...' : `Xác nhận đã nộp cọc ${formatVND(amount)}`}</span>
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span>
+                  {isSubmitting ? 'Đang đối soát ngân hàng...' : 'Tôi đã chuyển khoản - Kiểm tra ngay'}
+                </span>
               </button>
             </div>
           </div>

@@ -156,7 +156,7 @@ export const SchedulePage: React.FC = () => {
       const coc = response?.coc ?? depositAmount;
 
       if (coc > 0 && createdAppointmentId) {
-        toast.success('Đặt lịch thành công! Đang chuyển sang bước nộp cọc giữ chân...');
+        toast.info('Đã tạo phiếu hẹn! Đang chuyển sang bước nộp cọc giữ chân để hoàn tất...');
         navigate(`/appointments/deposit/${createdAppointmentId}`, {
           state: {
             roomId,

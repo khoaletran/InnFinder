@@ -180,8 +180,6 @@ public class AppointmentService {
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
-                || phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN
-                || phieu.getTrangThai() == TrangThaiDatLich.HOAN_THANH
                 || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich));
 
         return DepositStatusResponse.builder()
@@ -203,8 +201,6 @@ public class AppointmentService {
                 .stream()
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
-                            || phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN
-                            || phieu.getTrangThai() == TrangThaiDatLich.HOAN_THANH
                             || daNopCocChoLichHen(khachHang.getMaNguoiDung(), phieu.getMaDatLich());
                     return AppointmentResponse.fromEntity(phieu, daNop);
                 })
@@ -221,8 +217,6 @@ public class AppointmentService {
                 .stream()
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
-                            || phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN
-                            || phieu.getTrangThai() == TrangThaiDatLich.HOAN_THANH
                             || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich()));
                     return java.util.Map.entry(phieu, daNop);
                 })
