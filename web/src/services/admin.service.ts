@@ -6,6 +6,7 @@ import type {
   AdminLandlordRequestItem,
   AdminPostItem,
   AdminReviewItem,
+  AdminRevenueInsightResponse,
   AdminStatisticsFilter,
   AdminStatisticsResponse,
   AdminTransactionItem,
@@ -108,6 +109,21 @@ export const adminService = {
         ? d.cacNamCoDuLieu.map(Number).filter((n) => Number.isFinite(n))
         : [],
     };
+  },
+
+  generateRevenueInsights: async (
+    filters?: AdminStatisticsFilter,
+  ): Promise<AdminRevenueInsightResponse> => {
+    const params: Record<string, number> = {};
+    if (filters?.day !== null && filters?.day !== undefined) params.day = filters.day;
+    if (filters?.month !== null && filters?.month !== undefined) params.month = filters.month;
+    if (filters?.year !== null && filters?.year !== undefined) params.year = filters.year;
+
+    return axiosClient.post<unknown, AdminRevenueInsightResponse>(
+      '/api/admin/statistics/insights',
+      null,
+      { params },
+    );
   },
 
   getDashboardStats: async (): Promise<AdminDashboardStats> => {

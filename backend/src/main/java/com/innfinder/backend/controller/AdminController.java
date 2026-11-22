@@ -9,6 +9,7 @@ import com.innfinder.backend.dto.response.*;
 import com.innfinder.backend.dto.room.AmenityResponse;
 import com.innfinder.backend.dto.room.CategoryResponse;
 import com.innfinder.backend.security.SecurityUtils;
+import com.innfinder.backend.service.AdminInsightService;
 import com.innfinder.backend.service.AdminService;
 import com.innfinder.backend.service.ComplaintService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +32,7 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminInsightService adminInsightService;
     private final ComplaintService complaintService;
 
     @GetMapping("/rooms/pending")
@@ -118,6 +120,16 @@ public class AdminController {
             @RequestParam(required = false) Integer year) {
         AdminStatisticsResponseDTO result = adminService.getStatistics(day, month, year);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thống kê số liệu thành công"));
+    }
+
+    @PostMapping("/statistics/insights")
+    @Operation(summary = "Phân tích biến động biểu đồ doanh thu bằng AI & đề xuất quyết định cho Admin")
+    public ResponseEntity<ApiResponse<AdminRevenueInsightResponseDTO>> generateRevenueInsights(
+            @RequestParam(required = false) Integer day,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        AdminRevenueInsightResponseDTO result = adminInsightService.generateInsights(day, month, year);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Phân tích doanh thu và đề xuất quyết định thành công"));
     }
 
     // ==========================================

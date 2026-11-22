@@ -1,7 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
-import { Calendar, Download, RefreshCw, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  Download,
+  Minus,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -21,6 +33,40 @@ import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
 import { formatVND } from '@/utils/formatters';
 
 const PIE_COLORS = ['#2563eb', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4'];
+
+type QuickBadgeTone = 'emerald' | 'rose' | 'amber' | 'blue' | 'slate';
+
+interface QuickInsightItem {
+  key: string;
+  title: string;
+  badgeText: string;
+  tone: QuickBadgeTone;
+  headline: string;
+  detail: string;
+}
+
+const TONE_CLASSES: Record<QuickBadgeTone, string> = {
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rose: 'bg-rose-50 text-rose-700 border-rose-200',
+  amber: 'bg-amber-50 text-amber-700 border-amber-200',
+  blue: 'bg-blue-50 text-blue-700 border-blue-200',
+  slate: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+const PRIORITY_STYLES: Record<'CAO' | 'TRUNG_BINH' | 'THEO_DOI', { label: string; className: string }> = {
+  CAO: {
+    label: 'Ưu tiên cao',
+    className: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+  TRUNG_BINH: {
+    label: 'Nên thực hiện',
+    className: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  THEO_DOI: {
+    label: 'Theo dõi',
+    className: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+};
 
 function getMaxDaysInMonth(month: number | null, year: number | null): number {
   if (month !== null && year !== null) {
@@ -88,6 +134,13 @@ function buildExportFilename(
   return `bao-cao-doanh-thu-innfinder-${parts.join('-')}.csv`;
 }
 
+function renderToneIcon(tone: QuickBadgeTone) {
+  if (tone === 'emerald') return <TrendingUp className="w-3.5 h-3.5" />;
+  if (tone === 'rose') return <TrendingDown className="w-3.5 h-3.5" />;
+  if (tone === 'amber') return <AlertTriangle className="w-3.5 h-3.5" />;
+  return <Minus className="w-3.5 h-3.5" />;
+}
+
 export const StatisticsPage: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -113,6 +166,25 @@ export const StatisticsPage: React.FC = () => {
         year: selectedYear,
       }),
     placeholderData: (previousData) => previousData,
+  });
+
+  const insightMutation = useMutation({
+    mutationFn: () =>
+      adminService.generateRevenueInsights({
+        day: selectedDay,
+        month: selectedMonth,
+        year: selectedYear,
+      }),
+    onSuccess: (res) => {
+      toast.success(
+        res.nguonPhanTich === 'AI'
+          ? 'Đã hoàn tất phân tích chuyên sâu bằng AI'
+          : 'Đã tổng hợp đánh giá và đề xuất từ số liệu hệ thống',
+      );
+    },
+    onError: () => {
+      toast.error('Không thể phân tích dữ liệu lúc này, vui lòng thử lại');
+    },
   });
 
   const maxDays = getMaxDaysInMonth(selectedMonth, selectedYear);
@@ -149,6 +221,7 @@ export const StatisticsPage: React.FC = () => {
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
+    insightMutation.reset();
     if (!raw) {
       setSelectedDay(null);
       setSelectedMonth(null);
@@ -169,12 +242,14 @@ export const StatisticsPage: React.FC = () => {
 
   const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
+    insightMutation.reset();
     setSelectedDay(val ? Number(val) : null);
   };
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     const nextMonth = val ? Number(val) : null;
+    insightMutation.reset();
     setSelectedMonth(nextMonth);
     const nextMax = getMaxDaysInMonth(nextMonth, selectedYear);
     if (selectedDay !== null && selectedDay > nextMax) {
@@ -185,6 +260,7 @@ export const StatisticsPage: React.FC = () => {
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     const nextYear = val ? Number(val) : null;
+    insightMutation.reset();
     setSelectedYear(nextYear);
     const nextMax = getMaxDaysInMonth(selectedMonth, nextYear);
     if (selectedDay !== null && selectedDay > nextMax) {
@@ -193,6 +269,7 @@ export const StatisticsPage: React.FC = () => {
   };
 
   const handleResetFilters = () => {
+    insightMutation.reset();
     setSelectedDay(null);
     setSelectedMonth(null);
     setSelectedYear(null);
@@ -206,12 +283,149 @@ export const StatisticsPage: React.FC = () => {
     [selectedDay, selectedMonth, selectedYear],
   );
 
+  const quickInsights = useMemo<QuickInsightItem[]>(() => {
+    if (!stats) return [];
+
+    // 1. Xu hướng biểu đồ doanh thu
+    const points = stats.bieuDoDoanhThu ?? [];
+    const latest = points[points.length - 1];
+    const prev = points.length >= 2 ? points[points.length - 2] : undefined;
+    const peak = points.reduce<(typeof points)[number] | null>(
+      (best, cur) => (!best || cur.doanhThu > best.doanhThu ? cur : best),
+      null,
+    );
+    const avgPerBooking =
+      stats.soLichHoanThanh > 0 ? Math.round(stats.tongDoanhThu / stats.soLichHoanThanh) : 0;
+
+    let revTone: QuickBadgeTone = 'slate';
+    let revBadge = 'Ổn định';
+    let revHeadline = 'Chưa phát sinh doanh thu';
+    let revDetail = 'Chưa có lịch hẹn hoàn tất ghi nhận hoa hồng trong kỳ lọc này.';
+
+    if (stats.tongDoanhThu > 0 && latest) {
+      if (prev) {
+        const delta = latest.doanhThu - prev.doanhThu;
+        if (delta > 0) {
+          const pct =
+            prev.doanhThu > 0
+              ? `+${((delta * 100) / prev.doanhThu).toFixed(1)}%`
+              : 'Tăng mới';
+          revTone = 'emerald';
+          revBadge = `Tăng ${pct}`;
+          revHeadline = `${latest.nhan}: ${formatVND(latest.doanhThu)}`;
+          revDetail = `Tăng ${formatVND(delta)} so với ${prev.nhan}. Bình quân ${formatVND(avgPerBooking)}/lịch hoàn tất.`;
+        } else if (delta < 0) {
+          const pct =
+            prev.doanhThu > 0 ? `${((delta * 100) / prev.doanhThu).toFixed(1)}%` : 'Giảm';
+          revTone = 'rose';
+          revBadge = `Giảm ${pct}`;
+          revHeadline = `${latest.nhan}: ${formatVND(latest.doanhThu)}`;
+          revDetail = `Giảm ${formatVND(Math.abs(delta))} so với ${prev.nhan}. Đỉnh cao nhất ở ${peak?.nhan ?? latest.nhan}.`;
+        } else {
+          revTone = 'slate';
+          revBadge = 'Đi ngang';
+          revHeadline = `${latest.nhan}: ${formatVND(latest.doanhThu)}`;
+          revDetail = `Giữ nguyên so với ${prev.nhan}. Bình quân ${formatVND(avgPerBooking)}/lịch hoàn tất.`;
+        }
+      } else {
+        revTone = 'emerald';
+        revBadge = 'Có phát sinh';
+        revHeadline = formatVND(stats.tongDoanhThu);
+        revDetail = `${stats.soLichHoanThanh} lịch hoàn tất, bình quân ${formatVND(avgPerBooking)}/lịch.`;
+      }
+    }
+
+    // 2. Ngân khố & thanh khoản
+    const fundShare =
+      stats.tongQuyHeThong > 0
+        ? ((stats.tongDoanhThu * 100) / stats.tongQuyHeThong).toFixed(1)
+        : '0.0';
+
+    let fundTone: QuickBadgeTone = 'slate';
+    let fundBadge = 'Chưa phát sinh';
+    let fundHeadline = formatVND(stats.tongQuyHeThong);
+    let fundDetail = 'Chưa có cọc tạm giữ hoặc giao dịch ví phát sinh trong kỳ.';
+
+    if (stats.soLenhRutChoDuyet > 0) {
+      fundTone = 'amber';
+      fundBadge = `${stats.soLenhRutChoDuyet} lệnh chờ duyệt`;
+      fundHeadline = `Chờ rút: ${formatVND(stats.quyChoRut)}`;
+      fundDetail = `Hoa hồng chiếm ${fundShare}% tổng quỹ; số dư ví chủ trọ hiện tại ${formatVND(stats.tongSoDuViChuTro)}.`;
+    } else if (stats.tongQuyHeThong > 0) {
+      fundTone = 'emerald';
+      fundBadge = 'Thanh khoản ổn';
+      fundHeadline = `Hoa hồng ${fundShare}% quỹ`;
+      fundDetail = `Cọc tạm giữ ${formatVND(stats.quyTamGiuCoc)} · Ví chủ trọ ${formatVND(stats.tongSoDuViChuTro)} · Không tồn đọng lệnh rút.`;
+    }
+
+    // 3. Cơ cấu loại phòng
+    const topType = stats.coCauLoaiPhong[0];
+    const topPct =
+      topType && stats.tongSoPhong > 0
+        ? ((topType.soLuong * 100) / stats.tongSoPhong).toFixed(1)
+        : '0.0';
+
+    let roomTone: QuickBadgeTone = 'slate';
+    let roomBadge = 'Chưa có tin';
+    let roomHeadline = `${stats.tongSoPhong} phòng trọ`;
+    let roomDetail = 'Chưa có bài đăng phòng trọ mới trong kỳ lọc này.';
+
+    if (stats.tongSoPhong > 0 && topType) {
+      if (stats.soPhongChoDuyet > 0) {
+        roomTone = 'amber';
+        roomBadge = `${stats.soPhongChoDuyet} phòng chờ duyệt`;
+      } else if (Number(topPct) >= 60) {
+        roomTone = 'blue';
+        roomBadge = 'Tập trung cao';
+      } else {
+        roomTone = 'emerald';
+        roomBadge = 'Phân bổ đều';
+      }
+      roomHeadline = `${topType.tenLoaiPhong} (${topPct}%)`;
+      const smallestType =
+        stats.coCauLoaiPhong.length >= 2
+          ? stats.coCauLoaiPhong[stats.coCauLoaiPhong.length - 1]
+          : null;
+      roomDetail = smallestType
+        ? `Chiếm ${topType.soLuong}/${stats.tongSoPhong} phòng; ít nhất là ${smallestType.tenLoaiPhong} (${smallestType.soLuong} phòng).`
+        : `Tất cả ${stats.tongSoPhong} phòng thuộc nhóm ${topType.tenLoaiPhong}.`;
+    }
+
+    return [
+      {
+        key: 'revenue',
+        title: 'Biểu đồ doanh thu',
+        badgeText: revBadge,
+        tone: revTone,
+        headline: revHeadline,
+        detail: revDetail,
+      },
+      {
+        key: 'treasury',
+        title: 'Ngân khố & dòng tiền',
+        badgeText: fundBadge,
+        tone: fundTone,
+        headline: fundHeadline,
+        detail: fundDetail,
+      },
+      {
+        key: 'room-mix',
+        title: 'Cơ cấu loại phòng',
+        badgeText: roomBadge,
+        tone: roomTone,
+        headline: roomHeadline,
+        detail: roomDetail,
+      },
+    ];
+  }, [stats]);
+
   const handleExportReport = () => {
     if (!stats) {
       toast.error('Chưa có dữ liệu để xuất báo cáo');
       return;
     }
 
+    const aiInsight = insightMutation.data;
     const rows: Array<Array<string | number>> = [
       ['BÁO CÁO THỐNG KÊ DOANH THU & NGÂN KHỐ INNFINDER'],
       ['Kỳ thống kê', activePeriodLabel],
@@ -242,6 +456,20 @@ export const StatisticsPage: React.FC = () => {
       ['III. CƠ CẤU LOẠI PHÒNG TRỌ', 'Số lượng phòng'],
       ...stats.coCauLoaiPhong.map((item) => [item.tenLoaiPhong, item.soLuong]),
     ];
+
+    if (aiInsight) {
+      rows.push(
+        [],
+        ['IV. ĐÁNH GIÁ & ĐỀ XUẤT QUYẾT ĐỊNH', 'Nội dung'],
+        ['Tổng quan', aiInsight.tongQuan],
+        ['Đánh giá doanh thu', aiInsight.danhGiaDoanhThu],
+        ['Đánh giá ngân khố', aiInsight.danhGiaNganKho],
+        ['Đánh giá loại phòng', aiInsight.danhGiaLoaiPhong],
+        [],
+        ['Đề xuất quyết định', 'Mức ưu tiên', 'Chi tiết hành động'],
+        ...aiInsight.deXuatQuyetDinh.map((act) => [act.tieuDe, act.mucDoUuTien, act.moTa]),
+      );
+    }
 
     const csvContent =
       '\uFEFF' + rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
@@ -307,6 +535,8 @@ export const StatisticsPage: React.FC = () => {
       </div>
     );
   }
+
+  const aiInsight = insightMutation.data;
 
   return (
     <div className="space-y-5">
@@ -580,6 +810,150 @@ export const StatisticsPage: React.FC = () => {
           </Card.Content>
         </Card>
       </div>
+
+      {/* Chart Evaluation & Decision Recommendations (Instant Quick Summary + On-Demand AI) */}
+      <Card
+        style={{ animationDelay: '360ms' }}
+        className="animate-fade-up bg-white rounded-2xl border border-slate-200 p-6 shadow-xs"
+      >
+        <Card.Header className="p-0 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <Card.Title className="text-sm font-bold text-slate-900">
+              Đánh giá biểu đồ & Đề xuất quyết định
+            </Card.Title>
+            <Card.Description className="text-xs text-slate-500 mt-0.5">
+              Tổng hợp biến động tăng/giảm và gợi ý hành động điều hành theo kỳ lọc ({activePeriodLabel})
+            </Card.Description>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => insightMutation.mutate()}
+            disabled={insightMutation.isPending || !stats}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${insightMutation.isPending ? 'animate-spin' : ''}`} />
+            <span>
+              {insightMutation.isPending
+                ? 'Đang phân tích dữ liệu...'
+                : aiInsight
+                  ? 'Phân tích lại bằng AI'
+                  : 'Phân tích chuyên sâu bằng AI'}
+            </span>
+          </button>
+        </Card.Header>
+
+        <Card.Content className="p-0">
+          <div className="space-y-5">
+            {/* Instant Rule-Based Evaluation Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {quickInsights.map((item) => (
+                <div
+                  key={item.key}
+                  className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between gap-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800">{item.title}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold shrink-0 ${TONE_CLASSES[item.tone]}`}
+                    >
+                      {renderToneIcon(item.tone)}
+                      <span>{item.badgeText}</span>
+                    </span>
+                  </div>
+                  <div className="text-sm font-extrabold text-slate-900">{item.headline}</div>
+                  <p className="text-xs text-slate-600 leading-relaxed">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* On-Demand AI Deep Analysis & Recommended Decisions */}
+            {aiInsight && (
+              <div className="animate-fade-up pt-4 border-t border-slate-200 space-y-4">
+                <div className="p-4 rounded-xl bg-gradient-to-r from-teal-50/80 to-blue-50/70 border border-teal-200/70 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800">
+                      <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Nhận định tổng hợp</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-white border border-teal-200 text-[10px] font-bold text-teal-700">
+                      {aiInsight.nguonPhanTich === 'AI'
+                        ? 'Phân tích AI Gemini'
+                        : 'Phân tích tự động'}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                    {aiInsight.tongQuan}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-blue-700">Biến động doanh thu</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaDoanhThu}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-emerald-700">Đánh giá ngân khố</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaNganKho}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+                    <div className="text-xs font-bold text-indigo-700">Nguồn cung loại phòng</div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {aiInsight.danhGiaLoaiPhong}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="text-xs font-bold text-slate-800">Quyết định đề xuất</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {aiInsight.deXuatQuyetDinh.map((action, idx) => {
+                      const priorityStyle =
+                        PRIORITY_STYLES[action.mucDoUuTien] ?? PRIORITY_STYLES.TRUNG_BINH;
+                      return (
+                        <div
+                          key={`${action.tieuDe}-${idx}`}
+                          className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/90 flex flex-col justify-between gap-2.5"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="text-xs font-bold text-slate-900 leading-snug">
+                                {action.tieuDe}
+                              </h4>
+                              <span
+                                className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-bold ${priorityStyle.className}`}
+                              >
+                                {priorityStyle.label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">{action.moTa}</p>
+                          </div>
+
+                          {action.duongDan && (
+                            <div className="pt-1 flex justify-end">
+                              <Link
+                                to={action.duongDan}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
+                              >
+                                <span>Xử lý ngay</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card.Content>
+      </Card>
     </div>
   );
 };
