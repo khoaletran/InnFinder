@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bell, ShieldCheck, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { landlordService } from '@/services/landlord.service';
-import { useNotificationStore } from '@/store/useNotificationStore';
+import { useLandlordNotifications } from './useLandlordNotifications';
 import { formatVND } from '@/utils/formatters';
 import { NotificationPopover } from './NotificationModal';
 
@@ -20,7 +20,7 @@ export const LandlordHeader: React.FC<LandlordHeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const unreadCount = useLandlordNotifications().unreadCount;
 
   useEffect(() => {
     if (!showNotifications) return;

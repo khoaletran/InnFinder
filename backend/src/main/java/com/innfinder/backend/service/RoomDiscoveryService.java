@@ -28,7 +28,7 @@ public class RoomDiscoveryService {
     public List<Document> findByIds(List<String> ids) {
         if (ids.isEmpty()) return List.of();
         return repository.findByMaPhongTroIn(ids).stream()
-                .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET).map(this::document).toList();
+                .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET && !r.isTamAn()).map(this::document).toList();
     }
 
     private Document document(PhongTro room) {

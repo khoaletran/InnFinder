@@ -1,33 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Building2,
   CheckCircle2,
   Clock,
   Edit,
-  Filter,
+  Eye,
   Loader2,
   MapPin,
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   Trash2,
   XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DeleteRoomModal } from '@/components/landlord/DeleteRoomModal';
+import { RoomDetailModal } from '@/components/landlord/RoomDetailModal';
 import { landlordService } from '@/services/landlord.service';
 import { useLandlordStore, type LandlordRoomFilter } from '@/store/useLandlordStore';
 import type { LandlordRoomItem, TrangThaiPhongTro } from '@/types/landlord.types';
 import { formatVND } from '@/utils/formatters';
 
-const FILTER_TABS: { id: LandlordRoomFilter; label: string }[] = [
-  { id: 'ALL', label: 'Tất cả' },
-  { id: 'DA_DUYET', label: 'Đã duyệt' },
-  { id: 'CHO_DUYET', label: 'Chờ duyệt' },
-  { id: 'HOAN_THANH', label: 'Đã cho thuê' },
-  { id: 'HUY', label: 'Đã hủy' },
+interface RoomStatusTabConfig {
+  id: LandlordRoomFilter;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const ROOM_STATUS_TABS: RoomStatusTabConfig[] = [
+  { id: 'ALL', label: 'Tất cả', icon: Building2 },
+  { id: 'DA_DUYET', label: 'Đã duyệt', icon: CheckCircle2 },
+  { id: 'CHO_DUYET', label: 'Chờ duyệt', icon: Clock },
+  { id: 'HOAN_THANH', label: 'Đã cho thuê', icon: ShieldCheck },
+  { id: 'HUY', label: 'Đã hủy', icon: XCircle },
 ];
 
 const renderApprovalBadge = (status: TrangThaiPhongTro) => {
@@ -86,10 +96,13 @@ export const RoomsPage: React.FC = () => {
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<LandlordRoomItem | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedDetailRoom, setSelectedDetailRoom] = useState<LandlordRoomItem | null>(null);
 
-  const { data: rooms = [], isLoading } = useQuery({
+  const { data: rooms = [], isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['landlord', 'rooms'],
     queryFn: landlordService.getMyRooms,
+    refetchInterval: 15000,
   });
 
   useEffect(() => {
@@ -105,7 +118,7 @@ export const RoomsPage: React.FC = () => {
       trangThai: TrangThaiPhongTro;
     }) => landlordService.toggleRoomStatus(maPhongTro, trangThai),
     onSuccess: (nextStatus) => {
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'rooms'] });
+      void queryClient.invalidateQueries({ queryKey: ['landlord'] });
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
       toast.success(
         nextStatus === 'HOAN_THANH'
@@ -118,10 +131,19 @@ export const RoomsPage: React.FC = () => {
     },
   });
 
+  const visibilityMutation = useMutation({
+    mutationFn: (room: LandlordRoomItem) => landlordService.setRoomVisibility(room.maPhongTro, !room.tamAn),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['landlord'] });
+      toast.success('Đã cập nhật ẩn/hiện tin phòng');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Không đổi được hiển thị'),
+  });
+
   const deleteRoomMutation = useMutation({
     mutationFn: (maPhongTro: string) => landlordService.deleteRoom(maPhongTro),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['landlord', 'rooms'] });
+      void queryClient.invalidateQueries({ queryKey: ['landlord'] });
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
       setDeleteModalOpen(false);
       setSelectedRoom(null);
@@ -153,6 +175,28 @@ export const RoomsPage: React.FC = () => {
     deleteRoomMutation.mutate(selectedRoom.maPhongTro);
   };
 
+  const handleViewDetail = (room: LandlordRoomItem) => {
+    setSelectedDetailRoom(room);
+    setDetailModalOpen(true);
+  };
+
+  // Đếm số lượng phòng theo từng trạng thái cho thanh tab Shopee
+  const statusCounts = useMemo(() => {
+    const counts: Record<LandlordRoomFilter, number> = {
+      ALL: rooms.length,
+      DA_DUYET: 0,
+      CHO_DUYET: 0,
+      HOAN_THANH: 0,
+      HUY: 0,
+    };
+    for (const r of rooms) {
+      if (r.trangThai && r.trangThai in counts) {
+        counts[r.trangThai as LandlordRoomFilter]++;
+      }
+    }
+    return counts;
+  }, [rooms]);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredRooms = rooms.filter((r) => {
     const matchStatus = filterStatus === 'ALL' || r.trangThai === filterStatus;
@@ -164,6 +208,8 @@ export const RoomsPage: React.FC = () => {
     return matchStatus && matchSearch;
   });
 
+  if (loadError) return <LandlordQueryError error={loadError} onRetry={() => void refetch()} />;
+
   return (
     <div className="space-y-6">
       <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
@@ -172,9 +218,6 @@ export const RoomsPage: React.FC = () => {
             <Card.Title className="text-lg font-bold text-slate-900">
               Danh Sách Phòng Trọ
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Quản lý các bài đăng cho thuê, theo dõi kiểm duyệt và tình trạng cho thuê
-            </Card.Description>
           </div>
           <button
             type="button"
@@ -187,9 +230,54 @@ export const RoomsPage: React.FC = () => {
         </Card.Header>
       </Card>
 
+      {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-slate-100">
+          {ROOM_STATUS_TABS.map((tab) => {
+            const isActive = filterStatus === tab.id;
+            const count = statusCounts[tab.id] ?? 0;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilterStatus(tab.id)}
+                className={`flex-1 min-w-[130px] sm:min-w-0 py-3.5 px-3 sm:px-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'text-teal-700 font-bold bg-teal-50/40'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    isActive ? 'text-teal-600' : 'text-slate-400'
+                  }`}
+                />
+                <span>{tab.label}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    isActive
+                      ? 'bg-teal-600 text-white'
+                      : count > 0
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-slate-50 text-slate-400'
+                  }`}
+                >
+                  {count}
+                </span>
+                {/* Active indicator bar like Shopee */}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 shadow-xs" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
         <Card.Content className="p-0 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative w-full md:w-80">
+          <div className="relative w-full md:w-96">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -200,39 +288,8 @@ export const RoomsPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block shrink-0" />
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full">
-              {FILTER_TABS.map((tab) => {
-                const count =
-                  tab.id === 'ALL'
-                    ? rooms.length
-                    : rooms.filter((r) => r.trangThai === tab.id).length;
-                return (
-                  <button
-                    type="button"
-                    key={tab.id}
-                    onClick={() => setFilterStatus(tab.id)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      filterStatus === tab.id
-                        ? 'bg-cyan-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        filterStatus === tab.id
-                          ? 'bg-white/20 text-white'
-                          : 'bg-white text-slate-500'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="text-xs text-slate-500 font-medium">
+            Hiển thị <span className="font-bold text-slate-800">{filteredRooms.length}</span> / {rooms.length} phòng trọ
           </div>
         </Card.Content>
       </Card>
@@ -273,20 +330,24 @@ export const RoomsPage: React.FC = () => {
                     return (
                       <tr key={room.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
+                          <div
+                            onClick={() => handleViewDetail(room)}
+                            className="flex items-center gap-3 cursor-pointer group"
+                            title="Bấm để xem chi tiết phòng trọ"
+                          >
                             <img
                               src={
                                 room.hinhAnhUrl ||
                                 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=200'
                               }
                               alt={room.tenPhong}
-                              className="w-14 h-14 rounded-xl object-cover shrink-0 ring-1 ring-slate-100 bg-slate-100"
+                              className="w-14 h-14 rounded-xl object-cover shrink-0 ring-1 ring-slate-100 bg-slate-100 group-hover:ring-cyan-500/40 transition-all"
                             />
                             <div className="min-w-0">
                               <span className="text-[10px] font-mono font-bold text-slate-400 block">
                                 #{room.maPhongTro}
                               </span>
-                              <h4 className="font-bold text-slate-800 line-clamp-1">
+                              <h4 className="font-bold text-slate-800 line-clamp-1 group-hover:text-cyan-700 transition-colors">
                                 {room.tenPhong}
                               </h4>
                               <p className="text-[11px] text-slate-400 line-clamp-1 flex items-center gap-1 mt-0.5">
@@ -316,6 +377,10 @@ export const RoomsPage: React.FC = () => {
                         <td className="py-3 px-4">{renderApprovalBadge(room.trangThai)}</td>
 
                         <td className="py-3 px-4">
+                          {room.trangThai === 'DA_DUYET' && <button type="button" disabled={visibilityMutation.isPending}
+                            onClick={() => visibilityMutation.mutate(room)} className="mr-2 px-2 py-1 text-xs rounded-lg border border-slate-200">
+                            {room.tamAn ? 'Hiện lại tin (đang tạm ẩn)' : 'Tạm ẩn tin'}
+                          </button>}
                           <button
                             type="button"
                             disabled={!canToggleRent || toggleStatusMutation.isPending}
@@ -346,6 +411,14 @@ export const RoomsPage: React.FC = () => {
 
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleViewDetail(room)}
+                              className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
+                              title="Xem chi tiết phòng"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => navigate(`/landlord/rooms/edit/${room.maPhongTro}`)}
@@ -382,6 +455,13 @@ export const RoomsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         roomName={selectedRoom?.tenPhong || ''}
         loading={deleteRoomMutation.isPending}
+      />
+
+      <RoomDetailModal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        room={selectedDetailRoom}
+        onEdit={(maPhongTro) => navigate(`/landlord/rooms/edit/${maPhongTro}`)}
       />
     </div>
   );

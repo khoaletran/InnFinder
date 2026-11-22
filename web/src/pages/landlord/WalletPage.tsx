@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Landmark, Plus, RefreshCw, Star, Trash2 } from 'lucide-react';
@@ -8,7 +8,7 @@ import { AddBankAccountModal } from '@/components/landlord/AddBankAccountModal';
 import { ConfirmWithdrawModal } from '@/components/landlord/ConfirmWithdrawModal';
 import { TransactionReceiptModal } from '@/components/landlord/TransactionReceiptModal';
 import { WithdrawModal } from '@/components/landlord/WithdrawModal';
-import { matchesTransactionType, transactionDirection, TRANSACTION_STATUSES, TRANSACTION_TYPES } from '@/components/landlord/walletTransactions';
+import { transactionDirection, TRANSACTION_STATUSES, TRANSACTION_TYPES } from '@/components/landlord/walletTransactions';
 import { landlordService } from '@/services/landlord.service';
 import type { BankAccountItem } from '@/types/landlord.types';
 import { formatDateTime, formatVND } from '@/utils/formatters';
@@ -33,9 +33,17 @@ export function WalletPage() {
   const [page, setPage] = useState(1);
 
   const walletQuery = useQuery({ queryKey: ['landlord', 'wallet'], queryFn: landlordService.getWalletInfo, refetchInterval: 30000 });
-  const txQuery = useQuery({ queryKey: ['landlord', 'transactions'], queryFn: landlordService.getTransactions, refetchInterval: 30000 });
+  const dateInvalid = !!fromDate && !!toDate && fromDate > toDate;
+  const txQuery = useQuery({
+    queryKey: ['landlord', 'transactions', search, type, status, fromDate, toDate, page],
+    queryFn: () => landlordService.getTransactionsPage({ search, type, status: status || undefined,
+      fromDate: fromDate || undefined, toDate: toDate || undefined, page: page - 1, size: PAGE_SIZE }),
+    enabled: !dateInvalid, refetchInterval: 30000,
+  });
+  const receiptQuery = useQuery({ queryKey: ['landlord', 'receipt', receiptId],
+    queryFn: () => landlordService.getReceipt(receiptId!), enabled: !!receiptId, refetchInterval: 15000 });
   const wallet = walletQuery.data;
-  const transactions = useMemo(() => txQuery.data ?? [], [txQuery.data]);
+  const transactions = txQuery.data?.content ?? [];
   const accounts = [...(wallet?.dsTaiKhoanNganHang ?? [])].sort((a, b) => Number(!!b.macDinh) - Number(!!a.macDinh));
 
   const invalidateWallet = async () => {
@@ -43,7 +51,7 @@ export function WalletPage() {
       queryClient.invalidateQueries({ queryKey: ['landlord', 'wallet'] }),
       queryClient.invalidateQueries({ queryKey: ['landlord', 'transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] }),
-      queryClient.invalidateQueries({ queryKey: ['user', 'bank-accounts'] }),
+      queryClient.invalidateQueries({ queryKey: ['users', 'bank-accounts'] }),
     ]);
   };
   const withdrawMutation = useMutation({
@@ -74,24 +82,14 @@ export function WalletPage() {
     onError: (error) => toast.error(errorMessage(error)),
   });
   const bankBusy = deleteMutation.isPending || defaultMutation.isPending || addBankMutation.isPending || withdrawMutation.isPending;
-  const dateInvalid = !!fromDate && !!toDate && fromDate > toDate;
-  const filtered = useMemo(() => {
-    if (dateInvalid) return [];
-    const keyword = search.trim().toLocaleLowerCase('vi-VN');
-    return transactions.filter((tx) => {
-      const date = tx.ngayGiaoDich.slice(0, 10);
-      const searchable = [tx.maGiaoDich, tx.noiDung, tx.maDatLich, tx.maPhongTro, tx.maThamChieuNganHang, TRANSACTION_TYPES[tx.loaiGiaoDich]].join(' ').toLocaleLowerCase('vi-VN');
-      return searchable.includes(keyword) && matchesTransactionType(tx, type) && (!status || tx.trangThai === status)
-        && (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
-    });
-  }, [transactions, search, type, status, fromDate, toDate, dateInvalid]);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalElements = dateInvalid ? 0 : txQuery.data?.totalElements ?? 0;
+  const pageCount = Math.max(1, txQuery.data?.totalPages ?? 1);
+  const currentPage = (txQuery.data?.number ?? 0) + 1;
+  const visible = dateInvalid ? [] : transactions;
   const resetFilters = () => { setSearch(''); setType(''); setStatus(''); setFromDate(''); setToDate(''); setPage(1); };
   const refresh = async () => {
     try {
-      await Promise.all([walletQuery.refetch({ throwOnError: true }), txQuery.refetch({ throwOnError: true })]);
+      await Promise.all([walletQuery.refetch({ throwOnError: true }), ...(dateInvalid ? [] : [txQuery.refetch({ throwOnError: true })])]);
       toast.success('Đã cập nhật ví và giao dịch');
     } catch (error) { toast.error(errorMessage(error)); }
   };
@@ -109,8 +107,7 @@ export function WalletPage() {
         <Card.Content><p className="text-2xl font-bold">{typeof value === 'number' ? formatVND(value) : '—'}</p></Card.Content>
       </Card>)}
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs text-slate-500">Tiền chờ rút đã được trừ khỏi số dư khả dụng. Tổng đã nhận gồm cả khoản hoàn tiền về ví.</p>
+    <div className="flex justify-end">
       <button className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" disabled={!wallet || walletQuery.isError || walletQuery.isLoading || bankBusy} onClick={() => setWithdrawOpen(true)}>Rút tiền về ngân hàng</button>
     </div>
 
@@ -136,7 +133,7 @@ export function WalletPage() {
 
     <Card className="p-0 rounded-2xl bg-white border border-slate-200 overflow-hidden">
       <Card.Header className="p-5 flex flex-row items-center justify-between gap-3">
-        <div><Card.Title>Lịch sử giao dịch</Card.Title><Card.Description>Bấm vào giao dịch để xem biên nhận.</Card.Description></div>
+        <div><Card.Title>Lịch sử giao dịch</Card.Title></div>
         <button title="Làm mới" aria-label="Làm mới ví và giao dịch" className={buttonClass} disabled={walletQuery.isFetching || txQuery.isFetching} onClick={() => void refresh()}><RefreshCw className="h-4 w-4" /></button>
       </Card.Header>
       <Card.Content className="p-0">
@@ -155,7 +152,7 @@ export function WalletPage() {
         </div>
         {type === 'FEE' && <p className="px-5 pt-4 text-xs text-slate-500">Bao gồm khoản nhận cọc đã khấu trừ hoa hồng; số tiền trong bảng là tiền ghi nhận vào ví. Xem biên nhận để biết phí đã trừ.</p>}
         {txQuery.isError && <p role="alert" className="p-5 text-sm text-red-600">Không tải được giao dịch: {errorMessage(txQuery.error)}. <button className="underline" onClick={() => void refresh()}>Thử lại</button></p>}
-        {txQuery.isLoading ? <p className="p-8 text-center text-sm text-slate-500">Đang tải giao dịch...</p> : !txQuery.isError && filtered.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{transactions.length ? 'Không có giao dịch phù hợp bộ lọc.' : 'Chưa phát sinh giao dịch.'}</p> :
+        {txQuery.isLoading ? <p className="p-8 text-center text-sm text-slate-500">Đang tải giao dịch...</p> : !txQuery.isError && totalElements === 0 ? <p className="p-8 text-center text-sm text-slate-500">{search || type || status || fromDate || toDate ? 'Không có giao dịch phù hợp bộ lọc.' : 'Chưa phát sinh giao dịch.'}</p> :
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500"><tr>{['Giao dịch', 'Loại', 'Số tiền', 'Trạng thái', 'Thời gian'].map((label) => <th key={label} className="px-5 py-3">{label}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{visible.map((tx) => {
@@ -173,7 +170,7 @@ export function WalletPage() {
             })}</tbody>
           </table></div>}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 text-sm">
-          <span>{filtered.length} giao dịch · Trang {currentPage}/{pageCount}</span><div className="flex gap-2"><button className={buttonClass} disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Trước</button><button className={buttonClass} disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>Sau</button></div>
+          <span>{totalElements} giao dịch · Trang {currentPage}/{pageCount}</span><div className="flex gap-2"><button className={buttonClass} disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Trước</button><button className={buttonClass} disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>Sau</button></div>
         </div>
       </Card.Content>
     </Card>
@@ -183,7 +180,9 @@ export function WalletPage() {
       onConfirm={(amount, account) => { setWithdrawOpen(false); setWithdrawal({ amount, account }); }}
       onAddAccount={async (number, bank, holder) => { await addBankMutation.mutateAsync({ number, bank, holder }); }} loading={addBankMutation.isPending} />
     <ConfirmWithdrawModal isOpen={!!withdrawal} onClose={() => { if (!withdrawMutation.isPending) setWithdrawal(null); }} onConfirm={() => { if (withdrawal && !withdrawMutation.isPending) withdrawMutation.mutate(withdrawal); }} amount={withdrawal?.amount ?? 0} account={withdrawal?.account ?? null} loading={withdrawMutation.isPending} />
-    <TransactionReceiptModal transaction={transactions.find((tx) => tx.maGiaoDich === receiptId) ?? null} onClose={() => setReceiptId(null)} />
+    {receiptId && receiptQuery.isLoading && <p role="status" className="text-sm">Đang tải biên nhận...</p>}
+    {receiptId && receiptQuery.error && <p role="alert" className="text-sm text-red-600">Không tải được biên nhận. <button onClick={() => void receiptQuery.refetch()}>Thử lại</button></p>}
+    <TransactionReceiptModal transaction={receiptQuery.data ?? null} onClose={() => setReceiptId(null)} />
     {deleteAccount && <Modal isOpen onClose={() => { if (!deleteMutation.isPending) setDeleteAccount(null); }} title="Hủy liên kết ngân hàng" footer={<button className={`${buttonClass} text-red-600`} disabled={deleteMutation.isPending || !deleteAccount.id} onClick={() => deleteMutation.mutate(deleteAccount.id!)}>{deleteMutation.isPending ? 'Đang xử lý...' : 'Xác nhận hủy liên kết'}</button>}>
       <p className="text-sm">Hủy liên kết {deleteAccount.tenNganHang} · {deleteAccount.soTaiKhoan}?</p>
       <p className="mt-2 text-xs text-slate-500">Các giao dịch và yêu cầu rút tiền đã tạo vẫn giữ thông tin người nhận. Khi xóa ngân hàng mặc định, tài khoản còn lại đầu tiên sẽ được chọn thay thế.</p>

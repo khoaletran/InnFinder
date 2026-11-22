@@ -25,39 +25,18 @@ import type {
 } from '@/types/room.types';
 import type { TransactionResponse } from '@/types/transaction.types';
 
-// Dữ liệu dự phòng chuẩn Regex (LPT\d{3}, TI\d{4}, PTDDMMYYHHmmSS) chỉ dùng khi chưa bật Backend
-const FALLBACK_CATEGORIES: CategoryItem[] = [
-  { maLpt: 'LPT001', tenLoaiPhongTro: 'Phòng trọ khép kín', soTienCoc: 200000, phiThu: 20000 },
-  { maLpt: 'LPT002', tenLoaiPhongTro: 'Căn hộ mini / Studio', soTienCoc: 300000, phiThu: 30000 },
-  { maLpt: 'LPT003', tenLoaiPhongTro: 'Phòng trọ chung chủ', soTienCoc: 150000, phiThu: 15000 },
-  { maLpt: 'LPT004', tenLoaiPhongTro: 'Nhà nguyên căn', soTienCoc: 500000, phiThu: 50000 },
-  { maLpt: 'LPT005', tenLoaiPhongTro: 'Ký túc xá / Sleepbox', soTienCoc: 100000, phiThu: 10000 },
-];
-
-const FALLBACK_AMENITIES: AmenityItem[] = [
-  { maTienIch: 'TI0001', tenTienIch: 'Máy lạnh', bieuTuong: 'wind' },
-  { maTienIch: 'TI0002', tenTienIch: 'Tủ lạnh', bieuTuong: 'refrigerator' },
-  { maTienIch: 'TI0003', tenTienIch: 'Máy giặt', bieuTuong: 'shirt' },
-  { maTienIch: 'TI0004', tenTienIch: 'Wifi tốc độ cao', bieuTuong: 'wifi' },
-  { maTienIch: 'TI0005', tenTienIch: 'Gác lửng', bieuTuong: 'home' },
-  { maTienIch: 'TI0006', tenTienIch: 'Ban công thoáng mát', bieuTuong: 'sun' },
-  { maTienIch: 'TI0007', tenTienIch: 'Camera an ninh', bieuTuong: 'video' },
-  { maTienIch: 'TI0008', tenTienIch: 'Khóa vân tay', bieuTuong: 'lock' },
-  { maTienIch: 'TI0009', tenTienIch: 'Chỗ để xe miễn phí', bieuTuong: 'bike' },
-  { maTienIch: 'TI0010', tenTienIch: 'Bếp nấu ăn riêng', bieuTuong: 'flame' },
-];
-
-function mapRoomSummaryToLandlordItem(r: RoomSummaryResponse): LandlordRoomItem {
+function mapRoomSummaryToLandlordItem(r: RoomSummaryResponse & { cocPhong?: number; tamAn?: boolean }): LandlordRoomItem {
   return {
     id: r.maPhongTro,
     maPhongTro: r.maPhongTro,
     tenPhong: r.tieuDe || `${r.tenLoaiPhong || 'Phòng trọ'} - ${r.diaChi.split(',')[0]}`,
     giaThue: r.giaThue,
-    cocPhong: r.giaThue,
+    cocPhong: r.cocPhong,
     dienTich: r.dienTich,
     soNguoi: r.soNguoi,
     trangThai: r.trangThai || 'CHO_DUYET',
     isRented: r.trangThai === 'HOAN_THANH',
+    tamAn: (r as typeof r & { tamAn?: boolean }).tamAn,
     hinhAnhUrl: r.anhDaiDien || r.hinhAnh?.[0]?.duongDan || '',
     danhSachAnh: r.hinhAnh?.map((img) => img.duongDan) || (r.anhDaiDien ? [r.anhDaiDien] : []),
     diaChi: r.diaChi,
@@ -86,6 +65,7 @@ function mapRoomDetailToLandlordItem(r: RoomDetailResponse): LandlordRoomItem {
     soNguoi: r.soNguoi,
     trangThai: r.trangThai || 'CHO_DUYET',
     isRented: r.trangThai === 'HOAN_THANH',
+    tamAn: (r as typeof r & { tamAn?: boolean }).tamAn,
     hinhAnhUrl: images[0] || '',
     danhSachAnh: images,
     diaChi: r.diaChi,
@@ -132,38 +112,18 @@ export const landlordService = {
     return Array.isArray(urls) ? urls : [];
   },
 
-  // GET /api/categories/room-types (axiosClient đã unwrap trực tiếp data)
   getCategories: async (): Promise<CategoryItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, CategoryResponse[]>('/api/categories/room-types');
-      if (Array.isArray(list) && list.length > 0) {
-        return list.map((c) => ({
-          maLpt: c.maLpt || c.maLoaiPhong || 'LPT001',
-          tenLoaiPhongTro: c.tenLoaiPhongTro || c.tenLoaiPhong || 'Phòng trọ',
-          soTienCoc: c.soTienCoc,
-          phiThu: c.phiThu,
-        }));
-      }
-    } catch {
-      // fallback offline
-    }
-    return FALLBACK_CATEGORIES;
+    const list = await axiosClient.get<unknown, CategoryResponse[]>('/api/categories/room-types');
+    return list.map((c) => ({
+      maLpt: c.maLpt || c.maLoaiPhong || '',
+      tenLoaiPhongTro: c.tenLoaiPhongTro || c.tenLoaiPhong || 'Phòng trọ',
+      soTienCoc: c.soTienCoc,
+      phiThu: c.phiThu,
+    }));
   },
 
-  // GET /api/categories/amenities
   getAmenities: async (): Promise<AmenityItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, AmenityResponse[]>('/api/categories/amenities');
-      if (Array.isArray(list) && list.length > 0) {
-        return list.map((a) => ({
-          maTienIch: a.maTienIch,
-          tenTienIch: a.tenTienIch,
-        }));
-      }
-    } catch {
-      // fallback offline
-    }
-    return FALLBACK_AMENITIES;
+    return axiosClient.get<unknown, AmenityResponse[]>('/api/categories/amenities');
   },
 
   // 1. Tổng hợp thống kê Dashboard từ API thực tế
@@ -183,7 +143,7 @@ export const landlordService = {
     const avgScore =
       reviews.length > 0
         ? (reviews.reduce((sum, r) => sum + r.diem, 0) / reviews.length).toFixed(1)
-        : '5.0';
+        : 'Chưa có';
 
     return {
       tongPhong,
@@ -201,21 +161,12 @@ export const landlordService = {
 
   // 2. Quản lý phòng trọ (LandlordRoomController)
   getMyRooms: async (): Promise<LandlordRoomItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, RoomSummaryResponse[]>(
-        '/api/landlord/rooms/my-rooms',
-      );
-      if (Array.isArray(list)) {
-        return list.map(mapRoomSummaryToLandlordItem);
-      }
-    } catch {
-      // return empty if unauthenticated/offline
-    }
-    return [];
+    const list = await axiosClient.get<unknown, (RoomSummaryResponse & { cocPhong?: number; tamAn?: boolean })[]>('/api/landlord/rooms/my-rooms');
+    return list.map(mapRoomSummaryToLandlordItem);
   },
 
   getRoomById: async (id: string): Promise<LandlordRoomItem | undefined> => {
-    const detail = await axiosClient.get<unknown, RoomDetailResponse>(`/api/rooms/${id}`);
+    const detail = await axiosClient.get<unknown, RoomDetailResponse>(`/api/landlord/rooms/${id}`);
     return detail ? mapRoomDetailToLandlordItem(detail) : undefined;
   },
 
@@ -239,6 +190,10 @@ export const landlordService = {
     await axiosClient.patch<unknown, string>(`/api/landlord/rooms/${id}/status`, { trangThai });
   },
 
+  setRoomVisibility: async (id: string, tamAn: boolean): Promise<void> => {
+    await axiosClient.patch(`/api/landlord/rooms/${id}/visibility`, { tamAn });
+  },
+
   deleteRoom: async (id: string): Promise<boolean> => {
     await axiosClient.patch<unknown, string>(`/api/landlord/rooms/${id}/status`, {
       trangThai: 'HUY',
@@ -257,17 +212,8 @@ export const landlordService = {
 
   // 3. Quản lý lịch hẹn xem phòng (LandlordAppointmentController)
   getAppointments: async (): Promise<LandlordAppointmentItem[]> => {
-    try {
-      const list = await axiosClient.get<unknown, AppointmentResponse[]>(
-        '/api/landlord/appointments',
-      );
-      if (Array.isArray(list)) {
-        return list.map(mapAppointmentToLandlordItem);
-      }
-    } catch {
-      // offline
-    }
-    return [];
+    const list = await axiosClient.get<unknown, AppointmentResponse[]>('/api/landlord/appointments');
+    return list.map(mapAppointmentToLandlordItem);
   },
 
   approveAppointment: async (id: string): Promise<boolean> => {
@@ -276,7 +222,7 @@ export const landlordService = {
   },
 
   cancelAppointment: async (id: string, liDoHuy: string): Promise<boolean> => {
-    await axiosClient.patch<unknown, string>(`/api/landlord/appointments/${id}/reject`, {
+    await axiosClient.patch<unknown, string>(`/api/landlord/appointments/${id}/cancel`, {
       liDoHuy,
     });
     return true;
@@ -298,6 +244,12 @@ export const landlordService = {
   getWalletInfo: async (): Promise<LandlordWalletInfo> => {
     return axiosClient.get<unknown, LandlordWalletInfo>('/api/landlord/wallet');
   },
+
+  getTransactionsPage: async (params: { search: string; type: string; status?: string; fromDate?: string; toDate?: string; page: number; size: number }): Promise<{
+    content: LandlordTransactionItem[]; totalElements: number; totalPages: number; number: number;
+  }> => axiosClient.get('/api/landlord/transactions', { params }),
+
+  getReceipt: async (id: string): Promise<LandlordTransactionItem> => axiosClient.get(`/api/landlord/transactions/${id}`),
 
   getTransactions: async (): Promise<LandlordTransactionItem[]> => {
     return axiosClient.get<unknown, LandlordTransactionItem[]>('/api/transactions/my-history');
@@ -332,11 +284,11 @@ export const landlordService = {
 
   // 5. Đánh giá & Khiếu nại (ReviewController & ComplaintController)
   getReviews: async (): Promise<ReviewItem[]> => {
-    try {
       const list = await axiosClient.get<unknown, ReviewResponseDTO[]>('/api/landlord/reviews');
       if (Array.isArray(list)) {
         return list.map((r) => ({
           id: r.maDanhGia,
+          maPhongTro: r.maPhongTro,
           khachHangTen: r.tenNguoiDung || r.tenDangNhap || 'Khách thuê',
           hinhDaiDien: r.hinhDaiDien,
           phongTen: r.tieuDePhong || r.diaChiPhong || `Phòng #${r.maPhongTro}`,
@@ -345,14 +297,10 @@ export const landlordService = {
           thoiGian: r.ngayDanhGia,
         }));
       }
-    } catch {
-      // fallback
-    }
-    return [];
+    throw new Error('Dữ liệu phản hồi không hợp lệ');
   },
 
   getComplaints: async (): Promise<ComplaintItem[]> => {
-    try {
       const list = await axiosClient.get<unknown, ComplaintResponseDTO[]>(
         '/api/complaints/my-complaints',
         { params: { type: 'RECEIVED' } },
@@ -366,14 +314,11 @@ export const landlordService = {
           vanDe: c.vanDe,
           hinhAnh: c.hinhAnh,
           trangThai: c.trangThai,
-          mucDoViPham: c.mucDoViPham || 'NHE',
+          mucDoViPham: c.mucDoViPham,
           ngayGui: c.ngayGui || c.createdAt || c.ngayTao || '',
           ketQua: c.ketQua || c.ketLuan,
         }));
       }
-    } catch {
-      // fallback
-    }
-    return [];
+    throw new Error('Dữ liệu phản hồi không hợp lệ');
   },
 };

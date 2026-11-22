@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, LogOut, Shield, ShieldCheck } from 'lucide-react';
+import { ArrowLeftRight, LogOut, Shield } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
@@ -76,32 +76,34 @@ export const LandlordSidebar: React.FC = () => {
           </Link>
         )}
 
-        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-          <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center overflow-hidden shrink-0 text-xs">
-            {user?.hinhDaiDien || user?.avatarUrl ? (
-              <img
-                src={user.hinhDaiDien || user.avatarUrl}
-                alt={user.hoVaTen || user.tenDangNhap}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              (user?.hoVaTen || user?.tenDangNhap || 'CT').charAt(0).toUpperCase()
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-900 truncate">
-              {user?.hoVaTen || user?.tenDangNhap || 'Chủ trọ'}
-            </p>
-            <div className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
-              <ShieldCheck className="w-3 h-3" />
-              <span>Đã xác thực CCCD</span>
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+          <Link
+            to="/landlord/profile"
+            title="Xem hồ sơ cá nhân"
+            className="flex items-center gap-3 flex-1 min-w-0 group hover:opacity-85 transition-opacity"
+          >
+            <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center overflow-hidden shrink-0 text-xs">
+              {user?.hinhDaiDien || user?.avatarUrl ? (
+                <img
+                  src={user.hinhDaiDien || user.avatarUrl}
+                  alt={user.hoVaTen || user.tenDangNhap}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                (user?.hoVaTen || user?.tenDangNhap || 'CT').charAt(0).toUpperCase()
+              )}
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors truncate">
+                {user?.hoVaTen || user?.tenDangNhap || 'Chủ trọ'}
+              </p>
+            </div>
+          </Link>
           <button
             type="button"
             title="Đăng xuất"
             onClick={handleLogout}
-            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer shrink-0"
           >
             <LogOut className="w-4 h-4" />
           </button>

@@ -42,6 +42,7 @@ public class RoomUpdateRequest {
     private String viDo;
     @Min(value = 0, message = "Tiền cọc phòng phải lớn hơn hoặc bằng 0")
     private Long coc;
+    @com.fasterxml.jackson.annotation.JsonAlias("dsMaTienIch")
     private List<String> dsTienIch;
     private List<String> hinhAnhUrls;
 }

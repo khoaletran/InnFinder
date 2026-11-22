@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+import { useAuthStore } from '@/store/useAuthStore';
+import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -45,6 +47,13 @@ const roomFormSchema = z.object({
 
 type RoomFormField = keyof z.infer<typeof roomFormSchema>;
 
+const draftSchema = z.object({
+  categoryId: z.string(), area: z.string(), maxPeople: z.string(), description: z.string(),
+  address: z.string(), lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180),
+  selectedAmenityCodes: z.array(z.string()), imageUrls: z.array(z.url()).max(10),
+  price: z.string(), contractDeposit: z.string(),
+});
+
 interface CreateRoomFormProps {
   isEdit: boolean;
   id?: string;
@@ -60,6 +69,15 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   amenities,
   existingRoom,
 }) => {
+  const userId = useAuthStore((state) => state.user?.maNguoiDung ?? '');
+  const draftKey = `innfinder-landlord-draft:${userId}:${id ?? 'new'}`;
+  const [draft] = useState(() => {
+    try {
+      const parsed = draftSchema.safeParse(JSON.parse(localStorage.getItem(draftKey) ?? 'null'));
+      return parsed.success ? parsed.data : null;
+    } catch { return null; }
+  });
+  const savedSuccessfully = useRef(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,28 +87,26 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
 
   // Basic Info
   const [selectedCategoryId, setCategoryId] = useState<string>(
-    () => existingRoom?.maLpt || categories[0]?.maLpt || 'LPT001',
+    () => draft?.categoryId ?? existingRoom?.maLpt ?? categories[0]?.maLpt ?? '',
   );
-  const categoryId =
-    categories.length > 0 && !categories.some((c) => c.maLpt === selectedCategoryId)
-      ? categories[0].maLpt
-      : selectedCategoryId;
+  const categoryId = selectedCategoryId;
 
-  const [area, setArea] = useState<string>(() => String(existingRoom?.dienTich || 25));
-  const [maxPeople, setMaxPeople] = useState<string>(() => String(existingRoom?.soNguoi || 2));
-  const [description, setDescription] = useState<string>(() => existingRoom?.moTa || '');
+  const [area, setArea] = useState<string>(() => draft?.area ?? String(existingRoom?.dienTich ?? 25));
+  const [maxPeople, setMaxPeople] = useState<string>(() => draft?.maxPeople ?? String(existingRoom?.soNguoi ?? 2));
+  const [description, setDescription] = useState<string>(() => draft?.description ?? existingRoom?.moTa ?? '');
 
   // Location & Map
-  const [address, setAddress] = useState<string>(() => existingRoom?.diaChi || '');
+  const [address, setAddress] = useState<string>(() => draft?.address ?? existingRoom?.diaChi ?? '');
   const [lat, setLat] = useState<number>(() =>
-    existingRoom?.viDo ? Number(existingRoom.viDo) : 10.8012,
+    draft?.lat ?? (existingRoom?.viDo ? Number(existingRoom.viDo) : 10.8012),
   );
   const [lng, setLng] = useState<number>(() =>
-    existingRoom?.kinhDo ? Number(existingRoom.kinhDo) : 106.7145,
+    draft?.lng ?? (existingRoom?.kinhDo ? Number(existingRoom.kinhDo) : 106.7145),
   );
 
   // Amenities (maTienIch codes: TI0001...)
   const [selectedAmenityCodes, setSelectedAmenityCodes] = useState<string[]>(() => {
+    if (draft) return draft.selectedAmenityCodes;
     if (existingRoom?.dsMaTienIch && existingRoom.dsMaTienIch.length > 0) {
       return existingRoom.dsMaTienIch;
     }
@@ -100,11 +116,12 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
         .map((a) => a.maTienIch);
       if (mapped.length > 0) return mapped;
     }
-    return ['TI0001', 'TI0004'];
+    return [];
   });
 
   // Images
   const [imageUrls, setImageUrls] = useState<string[]>(() => {
+    if (draft) return draft.imageUrls;
     if (existingRoom?.danhSachAnh && existingRoom.danhSachAnh.length > 0) {
       return existingRoom.danhSachAnh;
     }
@@ -117,10 +134,48 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   // Price & Contract Deposit
-  const [price, setPrice] = useState<string>(() => String(existingRoom?.giaThue || ''));
+  const [price, setPrice] = useState<string>(() => draft?.price ?? String(existingRoom?.giaThue ?? ''));
   const [contractDeposit, setContractDeposit] = useState<string>(() =>
-    String(existingRoom?.cocPhong ?? existingRoom?.giaThue ?? ''),
+    draft?.contractDeposit ?? String(existingRoom?.cocPhong ?? ''),
   );
+
+  const formSnapshot = JSON.stringify({ categoryId, area, maxPeople, description, address, lat, lng,
+    selectedAmenityCodes, imageUrls, price, contractDeposit });
+  const [savedSnapshot, setSavedSnapshot] = useState(formSnapshot);
+  const dirty = formSnapshot !== savedSnapshot;
+  useEffect(() => {
+    if (!dirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (savedSuccessfully.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    const checkLink = (event: MouseEvent) => {
+      const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!anchor || savedSuccessfully.current) return;
+      if (!window.confirm('Thông tin phòng chưa được lưu. Bạn muốn rời trang?')) {
+        event.preventDefault(); event.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    document.addEventListener('click', checkLink, true);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      document.removeEventListener('click', checkLink, true);
+    };
+  }, [dirty]);
+  const leaveForm = () => {
+    if (!dirty || window.confirm('Thông tin phòng chưa được lưu. Bạn muốn rời trang?')) navigate('/landlord/rooms');
+  };
+  const saveDraft = () => {
+    try {
+      const parsed = draftSchema.safeParse(JSON.parse(formSnapshot));
+      if (!parsed.success) { toast.error('Kiểm tra tọa độ và hình ảnh trước khi lưu nháp'); return; }
+      localStorage.setItem(draftKey, formSnapshot);
+      setSavedSnapshot(formSnapshot);
+      toast.success('Đã lưu bản nháp trên trình duyệt cho tài khoản này');
+    } catch { toast.error('Không thể lưu bản nháp trên trình duyệt'); }
+  };
 
   const uploadImagesMutation = useMutation({
     mutationFn: (files: File[]) => landlordService.uploadImages(files),
@@ -144,7 +199,10 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
       isEdit && id
         ? landlordService.updateRoom(id, payload)
         : landlordService.createRoom(payload),
-    onSuccess: () => {
+    onSuccess: (room) => {
+      savedSuccessfully.current = true;
+      try { localStorage.removeItem(draftKey); } catch { /* Saving the room must still finish if storage is unavailable. */ }
+      queryClient.setQueryData(['landlord', 'room-detail', room.maPhongTro], room);
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'rooms'] });
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
       toast.success(
@@ -177,7 +235,10 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
 
   const processFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    const validFiles = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
+    if (uploadImagesMutation.isPending) return;
+    const validFiles = Array.from(fileList).filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    if (validFiles.some((file) => file.size > 10 * 1024 * 1024)) { toast.error('Mỗi ảnh tối đa 10MB'); return; }
+    if (validFiles.length + imageUrls.length > 10) { toast.error('Mỗi phòng tối đa 10 ảnh'); return; }
     if (validFiles.length === 0) {
       toast.error('Vui lòng chọn định dạng tệp hình ảnh (JPG, PNG, WEBP)');
       return;
@@ -186,6 +247,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   };
 
   const handleAddManualUrl = () => {
+    if (imageUrls.length >= 10) { toast.error('Mỗi phòng tối đa 10 ảnh'); return; }
     const trimmed = manualImageUrl.trim();
     if (!trimmed) return;
     try {
@@ -264,7 +326,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
       kinhDo: String(lng),
       viDo: String(lat),
       coc: numDeposit,
-      dsMaTienIch: selectedAmenityCodes,
+      dsTienIch: selectedAmenityCodes,
       hinhAnhUrls: imageUrls,
     };
 
@@ -285,7 +347,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
             <button
               type="button"
               aria-label="Quay về danh sách phòng"
-              onClick={() => navigate('/landlord/rooms')}
+              onClick={leaveForm}
               className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -294,14 +356,12 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
               <Card.Title className="text-lg font-bold text-slate-900">
                 {isEdit ? `Chỉnh Sửa Phòng Trọ #${id}` : 'Đăng Tin Phòng Trọ Mới'}
               </Card.Title>
-              <Card.Description className="text-xs text-slate-500">
-                Điền thông tin, chọn tiện ích và thêm hình ảnh để gửi bài đăng xét duyệt.
-              </Card.Description>
             </div>
           </div>
         </Card.Header>
       </Card>
 
+      {draft && <p className="rounded-xl bg-cyan-50 p-3 text-sm text-cyan-800">Đã khôi phục bản nháp của tài khoản này.</p>}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
           <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
@@ -382,8 +442,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     <Info className="w-4 h-4 text-cyan-600 shrink-0" />
                     <span>
                       Loại phòng <strong>{selectedCategory.tenLoaiPhongTro}</strong> áp dụng mức cọc giữ chân lịch xem:{' '}
-                      <strong>{formatVND(viewingDeposit)}</strong> (Phí hoa hồng sàn khi chốt thuê thành công:{' '}
-                      <strong>{formatVND(platformFee)}</strong>)
+                      <strong>{formatVND(viewingDeposit)}</strong>
                     </span>
                   </div>
                 </div>
@@ -396,9 +455,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
               <Card.Title className="text-base font-bold text-slate-900">
                 Giá thuê & Tiền cọc hợp đồng
               </Card.Title>
-              <Card.Description className="text-xs text-slate-500">
-                Phân tách minh bạch giữa thỏa thuận thuê phòng ngoài đời thực và cọc giữ chân lịch xem trên sàn InnFinder
-              </Card.Description>
             </Card.Header>
 
             <Card.Content className="p-0 space-y-5">
@@ -424,9 +480,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     </span>
                   </div>
                   {fieldError('price')}
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    Khách thuê thanh toán trực tiếp cho Chủ trọ (Sàn không thu hộ giá thuê).
-                  </span>
                 </div>
 
                 <div>
@@ -450,9 +503,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     </span>
                   </div>
                   {fieldError('contractDeposit')}
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    Tiền cọc ký hợp đồng thuê trực tiếp giữa hai bên ngoài đời thực.
-                  </span>
                 </div>
               </div>
 
@@ -513,9 +563,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
             <Card.Title className="text-base font-bold text-slate-900">
               Vị trí địa chỉ & Tọa độ bản đồ
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Nhập địa chỉ chính xác và kéo thả ghim trên bản đồ để khách hàng dễ dàng tìm kiếm theo khu vực
-            </Card.Description>
           </Card.Header>
 
           <Card.Content className="p-0 space-y-4">
@@ -572,8 +619,8 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
             </div>
 
             <MapPicker
-              lat={lat}
-              lng={lng}
+              lat={Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : 10.8012}
+              lng={Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : 106.7145}
               onChange={(newLat, newLng) => {
                 setLat(newLat);
                 setLng(newLng);
@@ -590,9 +637,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
             <Card.Title className="text-base font-bold text-slate-900">
               Tiện ích & Mô tả
             </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Chọn tiện ích thực tế và mô tả đặc điểm, nội quy phòng.
-            </Card.Description>
           </div>
           <Chip size="sm" color="success" variant="soft">
             <Chip.Label>Đã chọn {selectedAmenityCodes.length} tiện ích</Chip.Label>
@@ -785,11 +829,13 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
         <button
           type="button"
-          onClick={() => navigate('/landlord/rooms')}
+          onClick={leaveForm}
           className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
         >
           Hủy
         </button>
+        <button type="button" onClick={saveDraft} disabled={saveRoomMutation.isPending || uploadImagesMutation.isPending}
+          className="px-4 py-2.5 text-sm font-semibold border border-slate-200 rounded-xl">Lưu bản nháp</button>
         <button
           type="submit"
           disabled={saveRoomMutation.isPending || uploadImagesMutation.isPending}
@@ -816,23 +862,27 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
 export const CreateRoomPage: React.FC<CreateRoomPageProps> = ({ isEdit = false }) => {
   const { id } = useParams<{ id: string }>();
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['categories', 'room-types'],
     queryFn: landlordService.getCategories,
   });
 
-  const { data: amenities = [] } = useQuery({
+  const { data: amenities = [], isLoading: amenitiesLoading, error: amenitiesError, refetch: refetchAmenities } = useQuery({
     queryKey: ['categories', 'amenities'],
     queryFn: landlordService.getAmenities,
   });
 
-  const { data: existingRoom, isLoading: fetchingRoom } = useQuery({
+  const { data: existingRoom, isLoading: fetchingRoom, error: roomError, refetch: refetchRoom } = useQuery({
     queryKey: ['landlord', 'room-detail', id],
     queryFn: () => landlordService.getRoomById(id!),
     enabled: isEdit && Boolean(id),
   });
 
-  if (fetchingRoom) {
+  const loadError = categoriesError || amenitiesError || roomError;
+  if (loadError) return <LandlordQueryError error={loadError} onRetry={() => {
+    void refetchCategories(); void refetchAmenities(); if (isEdit) void refetchRoom();
+  }} />;
+  if (fetchingRoom || categoriesLoading || amenitiesLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-slate-400">
         <Loader2 className="w-7 h-7 animate-spin text-cyan-600 mb-2" />
@@ -840,6 +890,10 @@ export const CreateRoomPage: React.FC<CreateRoomPageProps> = ({ isEdit = false }
       </div>
     );
   }
+
+  if (!categories.length || (isEdit && !existingRoom)) return <LandlordQueryError
+    error={new Error(!categories.length ? 'Chưa có loại phòng. Vui lòng liên hệ quản trị viên.' : 'Không tìm thấy phòng thuộc tài khoản của bạn.')}
+    onRetry={() => { void refetchCategories(); if (isEdit) void refetchRoom(); }} />;
 
   return (
     <CreateRoomForm

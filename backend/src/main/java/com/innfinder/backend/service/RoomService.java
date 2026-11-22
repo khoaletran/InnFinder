@@ -69,6 +69,33 @@ public class RoomService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
         return RoomDetailResponse.fromEntity(room);
     }
+    @Transactional(readOnly = true)
+    public RoomDetailResponse getOwnedRoomDetail(String id) {
+        ChuTro owner = getAuthenticatedLandlord();
+        PhongTro room = phongTroRepository.findByMaPhongTro(id)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+        validateRoomOwnership(room, owner);
+        return RoomDetailResponse.fromEntity(room);
+    }
+
+    private List<TienIch> loadAmenities(List<String> codes) {
+        List<String> unique = codes.stream().distinct().toList();
+        List<TienIch> items = tienIchRepository.findAllById(unique);
+        if (items.size() != unique.size()) throw new AppException(ErrorCode.AMENITY_NOT_FOUND);
+        return items;
+    }
+
+    private void validateImageUrls(List<String> urls) {
+        if (urls == null || urls.isEmpty() || urls.size() > 10) throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
+        for (String url : urls) {
+            try {
+                java.net.URI uri = java.net.URI.create(url);
+                if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
+                        || uri.getHost() == null) throw new IllegalArgumentException();
+            } catch (IllegalArgumentException ex) { throw new AppException(ErrorCode.INVALID_IMAGE_FILE); }
+        }
+    }
+
     /* ==============================================================
      * CÁC PHƯƠNG THỨC DÀNH CHO CHỦ TRỌ (CHẶN 4)
      * ============================================================== */
@@ -88,7 +115,7 @@ public class RoomService {
         // 3. Lấy danh sách tiện ích
         List<TienIch> dsTienIch = Collections.emptyList();
         if (request.getDsTienIch() != null && !request.getDsTienIch().isEmpty()) {
-            dsTienIch = tienIchRepository.findAllById(request.getDsTienIch());
+            dsTienIch = loadAmenities(request.getDsTienIch());
         }
         // 4. Sinh mã phòng tự động theo quy tắc: PTDDMMYYHHmmSS (14 ký tự)
         String maPhongTro = generateRoomCode();
@@ -135,15 +162,15 @@ public class RoomService {
     public RoomDetailResponse createRoomFromJson(RoomCreateRequest request) {
         ChuTro currentLandlord = getAuthenticatedLandlord();
 
+        validateImageUrls(request.getHinhAnhUrls());
         // 1. Kiểm tra loại phòng
         LoaiPhongTro loaiPhong = loaiPhongTroRepository.findById(request.getMaLpt())
-                .orElseGet(() -> loaiPhongTroRepository.findAll().stream().findFirst()
-                        .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND)));
+                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
 
         // 2. Lấy danh sách tiện ích
         List<TienIch> dsTienIch = Collections.emptyList();
         if (request.getDsTienIch() != null && !request.getDsTienIch().isEmpty()) {
-            dsTienIch = tienIchRepository.findAllById(request.getDsTienIch());
+            dsTienIch = loadAmenities(request.getDsTienIch());
         }
 
         // 3. Sinh mã phòng tự động theo quy tắc: PTDDMMYYHHmmSS (14 ký tự)
@@ -171,7 +198,7 @@ public class RoomService {
         List<HinhAnh> listHinhAnh = new ArrayList<>();
         List<String> urls = request.getHinhAnhUrls();
         if (urls == null || urls.isEmpty()) {
-            urls = List.of("https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600");
+            throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
         }
 
         for (int i = 0; i < urls.size(); i++) {
@@ -196,7 +223,7 @@ public class RoomService {
     @Transactional
     public RoomDetailResponse updateRoom(String maPhongTro, RoomUpdateRequest request) {
         ChuTro currentLandlord = getAuthenticatedLandlord();
-        PhongTro phongTro = phongTroRepository.findByMaPhongTro(maPhongTro)
+        PhongTro phongTro = phongTroRepository.findByIdForUpdate(maPhongTro)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
         // Kiểm tra quyền sở hữu phòng
         validateRoomOwnership(phongTro, currentLandlord);
@@ -219,10 +246,11 @@ public class RoomService {
         }
         // Cập nhật danh sách tiện ích
         if (request.getDsTienIch() != null) {
-            List<TienIch> dsTienIchMoi = tienIchRepository.findAllById(request.getDsTienIch());
+            List<TienIch> dsTienIchMoi = loadAmenities(request.getDsTienIch());
             phongTro.setDsTienIch(dsTienIchMoi);
         }
 
+        if (request.getHinhAnhUrls() != null) validateImageUrls(request.getHinhAnhUrls());
         // Cập nhật danh sách hình ảnh nếu có
         if (request.getHinhAnhUrls() != null && !request.getHinhAnhUrls().isEmpty()) {
             List<HinhAnh> listHinhAnh = new ArrayList<>();
@@ -245,7 +273,7 @@ public class RoomService {
         }
 
         // Nếu bài đăng từng bị từ chối duyệt (HUY), tự động chuyển về CHO_DUYET để Admin duyệt lại
-        if (phongTro.getTrangThai() == TrangThaiPhongTro.HUY) {
+        if (phongTro.getTrangThai() != TrangThaiPhongTro.CHO_DUYET) {
             phongTro.setTrangThai(TrangThaiPhongTro.CHO_DUYET);
             log.info("Phòng {} từng bị từ chối, chuyển về trạng thái CHO_DUYET sau khi sửa", maPhongTro);
         }
@@ -260,13 +288,29 @@ public class RoomService {
     @Transactional
     public void updateRoomStatus(String maPhongTro, TrangThaiPhongTro newStatus) {
         ChuTro currentLandlord = getAuthenticatedLandlord();
-        PhongTro phongTro = phongTroRepository.findByMaPhongTro(maPhongTro)
+        PhongTro phongTro = phongTroRepository.findByIdForUpdate(maPhongTro)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
         validateRoomOwnership(phongTro, currentLandlord);
+        TrangThaiPhongTro current = phongTro.getTrangThai();
+        boolean allowed = newStatus == TrangThaiPhongTro.HUY
+                || (current == TrangThaiPhongTro.DA_DUYET && newStatus == TrangThaiPhongTro.HOAN_THANH)
+                || (current == TrangThaiPhongTro.HOAN_THANH && newStatus == TrangThaiPhongTro.DA_DUYET);
+        if (!allowed) throw new AppException(ErrorCode.ROOM_STATUS_NOT_ALLOWED);
         phongTro.setTrangThai(newStatus);
         phongTroRepository.save(phongTro);
         log.info("Chủ trọ {} đã đổi trạng thái phòng {} sang {}", currentLandlord.getMaChuTro(), maPhongTro, newStatus);
     }
+    @Transactional
+    public void setRoomVisibility(String id, boolean hidden) {
+        ChuTro owner = getAuthenticatedLandlord();
+        PhongTro room = phongTroRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+        validateRoomOwnership(room, owner);
+        if (room.getTrangThai() != TrangThaiPhongTro.DA_DUYET) throw new AppException(ErrorCode.ROOM_STATUS_NOT_ALLOWED);
+        room.setTamAn(hidden);
+        phongTroRepository.save(room);
+    }
+
     /**
      * Lấy danh sách toàn bộ các phòng trọ do chính Chủ trọ đang đăng nhập sở hữu
      */

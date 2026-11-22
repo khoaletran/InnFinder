@@ -71,7 +71,19 @@ public class LandlordRoomController {
         roomService.updateRoomStatus(id, request.getTrangThai());
         return ApiResponse.ok(null, "Cập nhật trạng thái phòng trọ thành công");
     }
-    @Operation(summary = "Lấy danh sách các phòng trọ của tôi", description = "Lấy toàn bộ các bài đăng phòng trọ thuộc quyền sở hữu của Chủ trọ đang đăng nhập.")
+    public record VisibilityRequest(@jakarta.validation.constraints.NotNull Boolean tamAn) {}
+
+    @PatchMapping("/{id}/visibility")
+    public ApiResponse<String> setVisibility(@PathVariable String id, @Valid @RequestBody VisibilityRequest request) {
+        roomService.setRoomVisibility(id, request.tamAn());
+        return ApiResponse.ok(null, "Đã cập nhật ẩn/hiện tin phòng");
+    }
+
+    @GetMapping("/{id}")
+    public ApiResponse<RoomDetailResponse> getOwnedRoom(@PathVariable String id) {
+        return ApiResponse.ok(roomService.getOwnedRoomDetail(id), "Lấy chi tiết phòng của bạn thành công");
+    }
+
     @GetMapping("/my-rooms")
     public ApiResponse<List<RoomSummaryResponse>> getMyRooms() {
         List<RoomSummaryResponse> data = roomService.getMyRooms();

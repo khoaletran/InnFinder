@@ -29,6 +29,7 @@ public class PhongTroSpecification {
             List<Predicate> predicates = new ArrayList<>();
             // 1. RÀNG BUỘC BẮT BUỘC: Chỉ lấy phòng ĐÃ DUYỆT cho khách vãng lai
             predicates.add(cb.equal(root.get("trangThai"), TrangThaiPhongTro.DA_DUYET));
+            predicates.add(cb.isFalse(root.get("tamAn")));
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }

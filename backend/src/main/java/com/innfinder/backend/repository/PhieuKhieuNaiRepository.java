@@ -11,4 +11,6 @@ public interface PhieuKhieuNaiRepository extends JpaRepository<PhieuKhieuNai, St
     List<PhieuKhieuNai> findByTrangThai(TrangThaiKhieuNai trangThai);
     List<PhieuKhieuNai> findByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
     List<PhieuKhieuNai> findByNguoiGui_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
+    List<PhieuKhieuNai> findTop20ByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(String id);
+
 }

@@ -53,4 +53,10 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
      */
     @Query("SELECT COALESCE(SUM(p.coc), 0L) FROM PhieuDatLich p WHERE p.trangThai = :trangThai AND p.coc > 0")
     Long sumCocByTrangThai(@Param("trangThai") TrangThaiDatLich trangThai);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.maDatLich = :id")
+    java.util.Optional<PhieuDatLich> findByIdForUpdate(@Param("id") String id);
+
+    List<PhieuDatLich> findTop20ByPhongTro_ChuPhongTro_MaChuTroOrderByThoiGianDatDesc(String id);
+
 }

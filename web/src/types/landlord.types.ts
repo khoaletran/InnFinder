@@ -28,6 +28,7 @@ export interface LandlordRoomItem {
   soNguoi?: number;
   trangThai: TrangThaiPhongTro;
   isRented?: boolean;
+  tamAn?: boolean;
   hinhAnhUrl?: string;
   danhSachAnh?: string[];
   diaChi: string;
@@ -51,7 +52,7 @@ export interface RoomCreatePayload {
   kinhDo: string;
   viDo: string;
   coc: number;
-  dsMaTienIch: string[];
+  dsTienIch: string[];
   hinhAnhUrls: string[];
 }
 
@@ -110,6 +111,7 @@ export interface LandlordWalletInfo {
 
 export interface ReviewItem {
   id: string;
+  maPhongTro?: string;
   khachHangTen: string;
   hinhDaiDien?: string;
   phongTen: string;
@@ -127,7 +129,7 @@ export interface ComplaintItem {
   vanDe: string;
   hinhAnh?: string;
   trangThai: TrangThaiKhieuNai;
-  mucDoViPham: MucDoViPham;
+  mucDoViPham?: MucDoViPham;
   ngayGui: string;
   ketQua?: string;
 }

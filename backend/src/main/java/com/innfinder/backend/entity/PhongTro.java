@@ -51,6 +51,10 @@ public class PhongTro {
     @Column(name = "dia_chi", nullable = false)
     private String diaChi;
 
+    @Builder.Default
+    @Column(name = "tam_an", nullable = false)
+    private boolean tamAn = false;
+
     @Column(name = "kinh_do", length = 50)
     private String kinhDo;
 

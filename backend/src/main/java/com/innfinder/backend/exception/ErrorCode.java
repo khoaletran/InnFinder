@@ -26,6 +26,8 @@ public enum ErrorCode {
     AI_BUSY("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ một chút rồi thử lại.", HttpStatus.TOO_MANY_REQUESTS),
 
     // --- PHÂN HỆ 2: PHÒNG TRỌ, DANH MỤC, YÊU THÍCH, CLOUDINARY ---
+    ROOM_STATUS_NOT_ALLOWED("Chỉ được mở lại phòng đã cho thuê, đánh dấu đã cho thuê hoặc gỡ tin; phòng chờ duyệt/từ chối phải được Admin duyệt", HttpStatus.BAD_REQUEST),
+    ROOM_UNAVAILABLE("Phòng không còn sẵn sàng cho thuê. Vui lòng hủy lịch để xử lý cọc theo thực tế", HttpStatus.BAD_REQUEST),
     ROOM_NOT_FOUND("Không tìm thấy phòng trọ yêu cầu", HttpStatus.NOT_FOUND),
     CATEGORY_NOT_FOUND("Không tìm thấy loại phòng trọ", HttpStatus.NOT_FOUND),
     AMENITY_NOT_FOUND("Không tìm thấy tiện ích yêu cầu", HttpStatus.NOT_FOUND),

@@ -27,7 +27,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AppointmentService {
-
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final PhongTroRepository phongTroRepository;
@@ -91,8 +90,12 @@ public class AppointmentService {
 
         NguoiDung khachHang = getNguoiDungByUsername(username);
 
-        PhongTro phongTro = phongTroRepository.findByMaPhongTro(request.getMaPhongTro())
+        PhongTro phongTro = phongTroRepository.findByIdForUpdate(request.getMaPhongTro())
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+
+        if (phongTro.getTrangThai() != TrangThaiPhongTro.DA_DUYET || phongTro.isTamAn()) {
+            throw new AppException(ErrorCode.ROOM_UNAVAILABLE);
+        }
 
         // Không cho phép chủ nhà tự đặt phòng của chính mình
         if (phongTro.getChuPhongTro() != null &&
@@ -136,7 +139,7 @@ public class AppointmentService {
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public void nopTienCoc(String maDatLich, String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         // 1. Kiểm tra quyền sở hữu lịch hẹn
@@ -227,6 +230,9 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
+        String roomStatus = phongTroRepository.findStatusForUpdate(phieu.getPhongTro().getMaPhongTro());
+        if (!TrangThaiPhongTro.DA_DUYET.name().equals(roomStatus)) throw new AppException(ErrorCode.ROOM_UNAVAILABLE);
+
         // RÀNG BUỘC SWIMLANE: Nếu lịch hẹn yêu cầu cọc thì khách hàng bắt buộc phải nộp cọc trước khi chủ trọ xác nhận
         if (phieu.getCoc() != null && phieu.getCoc() > 0) {
             boolean daNop = phieu.getKhachHang() != null &&
@@ -276,7 +282,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
@@ -306,7 +312,7 @@ public class AppointmentService {
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public AppointmentResponse khachHangDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
@@ -374,6 +380,9 @@ public class AppointmentService {
         long coc = phieu.getCoc() != null ? phieu.getCoc() : 0L;
         long phiThu = phieu.getPhiThu() != null ? phieu.getPhiThu() : 0L;
         PhongTro phongTro = phieu.getPhongTro();
+        // A locking scalar read sees the latest room state without refreshing pending appointment decisions.
+        String roomStatus = phongTroRepository.findStatusForUpdate(phongTro.getMaPhongTro());
+        if (roomStatus == null) throw new AppException(ErrorCode.ROOM_NOT_FOUND);
         ChuTro chuTro = (phongTro != null) ? phongTro.getChuPhongTro() : null;
 
         // KỊCH BẢN 2: CÓ ÍT NHẤT 1 BÊN TỪ CHỐI (false) - Quyết toán ngay lập tức không để kẹt deadlock
@@ -386,10 +395,7 @@ public class AppointmentService {
             phieuDatLichRepository.save(phieu);
 
             // Giữ nguyên trạng thái phòng trọ DA_DUYET để tiếp tục hiển thị đón khách khác
-            if (phongTro != null) {
-                phongTro.setTrangThai(TrangThaiPhongTro.DA_DUYET);
-                phongTroRepository.save(phongTro);
-            }
+            // A different appointment may already have rented this room. Cancellation must not reopen it.
 
             // Sàn hoàn trả đủ 100% cọc (coc) vào ví Chủ trọ (Khóa bi quan để chống race condition ghi đè số dư)
             if (chuTro != null && coc > 0) {
@@ -411,6 +417,9 @@ public class AppointmentService {
 
         // KỊCH BẢN 1: CẢ 2 BÊN CÙNG ĐỒNG Ý THUÊ (true && true)
         if (Boolean.TRUE.equals(phieu.getKhachHangDongY()) && Boolean.TRUE.equals(phieu.getChuTroDongY())) {
+            if (!TrangThaiPhongTro.DA_DUYET.name().equals(roomStatus)) {
+                throw new AppException(ErrorCode.ROOM_UNAVAILABLE);
+            }
             phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
             phieuDatLichRepository.save(phieu);
 
@@ -467,7 +476,7 @@ public class AppointmentService {
         NguoiDung currentUser = getNguoiDungByUsername(username);
         String currentUserId = currentUser.getMaNguoiDung();
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         boolean isKhachHang = phieu.getKhachHang().getMaNguoiDung().equals(currentUserId);
@@ -525,7 +534,7 @@ public class AppointmentService {
     private PhieuDatLich getPhieuDatLichVaKiemTraQuyenChuTro(String maDatLich, String username) {
         NguoiDung chuTro = getNguoiDungByUsername(username);
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (phieu.getPhongTro().getChuPhongTro() == null ||

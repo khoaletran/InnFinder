@@ -1,3 +1,4 @@
+import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
 import React, { useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
@@ -46,7 +47,8 @@ const renderComplaintStatusBadge = (status: TrangThaiKhieuNai) => {
   }
 };
 
-const renderSeverityBadge = (severity: MucDoViPham) => {
+const renderSeverityBadge = (severity?: MucDoViPham) => {
+  if (!severity) return null;
   switch (severity) {
     case 'NANG':
       return (
@@ -71,22 +73,39 @@ const renderSeverityBadge = (severity: MucDoViPham) => {
 };
 
 export const ReviewsComplaintsPage: React.FC = () => {
+  const [search, setSearch] = useState('');
+  const [rating, setRating] = useState('');
+  const [complaintStatus, setComplaintStatus] = useState('');
+  const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'reviews' | 'complaints'>('reviews');
 
-  const { data: reviews = [], isLoading: reviewsLoading } = useQuery({
+  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError, refetch: refetchReviews } = useQuery({
     queryKey: ['landlord', 'reviews'],
     queryFn: landlordService.getReviews,
+    refetchInterval: 30000,
   });
 
-  const { data: complaints = [], isLoading: complaintsLoading } = useQuery({
+  const { data: complaints = [], isLoading: complaintsLoading, error: complaintsError, refetch: refetchComplaints } = useQuery({
     queryKey: ['landlord', 'complaints'],
     queryFn: landlordService.getComplaints,
+    refetchInterval: 30000,
   });
 
   const averageRating =
     reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.diem, 0) / reviews.length).toFixed(1)
-      : '5.0';
+      : 'Chưa có đánh giá';
+
+  const keyword = search.trim().toLowerCase();
+  const filteredReviews = reviews.filter((item) => (!rating || item.diem === Number(rating))
+    && [item.phongTen, item.maPhongTro, item.khachHangTen, item.noiDung].join(' ').toLowerCase().includes(keyword));
+  const filteredComplaints = complaints.filter((item) => (!complaintStatus || item.trangThai === complaintStatus)
+    && [item.maKhieuNai, item.nguoiGuiTen, item.vanDe, item.ketQua].join(' ').toLowerCase().includes(keyword));
+  const count = activeTab === 'reviews' ? filteredReviews.length : filteredComplaints.length;
+  const pageCount = Math.max(1, Math.ceil(count / 10));
+  const currentPage = Math.min(page, pageCount);
+  const offset = (currentPage - 1) * 10;
+  const loadError = activeTab === 'reviews' ? reviewsError : complaintsError;
 
   return (
     <div className="space-y-6">
@@ -97,14 +116,14 @@ export const ReviewsComplaintsPage: React.FC = () => {
               Đánh Giá & Khiếu Nại
             </Card.Title>
             <Card.Description className="text-xs text-slate-500">
-              Điểm trung bình hiện tại: <strong className="text-amber-600">{averageRating} / 5.0</strong> • Theo dõi phản hồi khách hàng và tiến trình xử lý khiếu nại
+              Điểm trung bình hiện tại: <strong className="text-amber-600">{averageRating}{reviews.length ? ' / 5.0' : ''}</strong>
             </Card.Description>
           </div>
 
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
             <button
               type="button"
-              onClick={() => setActiveTab('reviews')}
+              onClick={() => { setActiveTab('reviews'); setPage(1); }}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'reviews'
                   ? 'bg-white text-cyan-700 shadow-xs'
@@ -116,7 +135,7 @@ export const ReviewsComplaintsPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('complaints')}
+              onClick={() => { setActiveTab('complaints'); setPage(1); }}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'complaints'
                   ? 'bg-white text-cyan-700 shadow-xs'
@@ -130,6 +149,16 @@ export const ReviewsComplaintsPage: React.FC = () => {
         </Card.Header>
       </Card>
 
+      <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4">
+        <input aria-label="Tìm kiếm đánh giá, phòng hoặc khiếu nại" placeholder="Tìm phòng, người gửi, nội dung..." value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="flex-1 min-w-48 rounded-lg border border-slate-200 p-2 text-sm" />
+        {activeTab === 'reviews' ? <select aria-label="Lọc số sao" value={rating} onChange={(e) => { setRating(e.target.value); setPage(1); }} className="rounded-lg border border-slate-200 p-2 text-sm">
+          <option value="">Tất cả số sao</option>{[1,2,3,4,5].map((value) => <option key={value} value={value}>{value} sao</option>)}
+        </select> : <select aria-label="Lọc trạng thái khiếu nại" value={complaintStatus} onChange={(e) => { setComplaintStatus(e.target.value); setPage(1); }} className="rounded-lg border border-slate-200 p-2 text-sm">
+          <option value="">Tất cả trạng thái</option><option value="CHO_DUYET">Chờ duyệt</option><option value="DANG_XU_LY">Đang xử lý</option><option value="DA_XU_LI">Đã xử lý</option>
+        </select>}
+      </div>
+      {loadError && <LandlordQueryError error={loadError} onRetry={() => { void refetchReviews(); void refetchComplaints(); }} />}
       {/* Tab 1: Reviews */}
       {activeTab === 'reviews' && (
         <div className="space-y-4">
@@ -140,14 +169,14 @@ export const ReviewsComplaintsPage: React.FC = () => {
                 <span className="text-xs">Đang tải đánh giá từ khách thuê...</span>
               </Card.Content>
             </Card>
-          ) : reviews.length === 0 ? (
+          ) : filteredReviews.length === 0 ? (
             <Card className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center">
               <Card.Content className="p-0 text-slate-400 text-xs">
-                Chưa có đánh giá nào từ khách thuê sau khi xem phòng.
+                Không có đánh giá phù hợp.
               </Card.Content>
             </Card>
           ) : (
-            reviews.map((rev) => (
+            filteredReviews.slice(offset, offset + 10).map((rev) => (
               <Card
                 key={rev.id}
                 className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3"
@@ -212,14 +241,14 @@ export const ReviewsComplaintsPage: React.FC = () => {
                 <span className="text-xs">Đang tải danh sách khiếu nại...</span>
               </Card.Content>
             </Card>
-          ) : complaints.length === 0 ? (
+          ) : filteredComplaints.length === 0 ? (
             <Card className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center">
               <Card.Content className="p-0 text-slate-400 text-xs">
-                Tuyệt vời! Hiện không có khiếu nại hay phản ánh vi phạm nào liên quan đến bạn.
+                Không có khiếu nại phù hợp.
               </Card.Content>
             </Card>
           ) : (
-            complaints.map((comp) => (
+            filteredComplaints.slice(offset, offset + 10).map((comp) => (
               <Card
                 key={comp.id}
                 className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3"
@@ -282,6 +311,11 @@ export const ReviewsComplaintsPage: React.FC = () => {
           )}
         </div>
       )}
+      <div className="flex items-center justify-between text-sm">
+        <span>{count} kết quả · Trang {currentPage}/{pageCount}</span>
+        <div className="flex gap-3"><button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="disabled:opacity-40">Trước</button>
+          <button disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)} className="disabled:opacity-40">Sau</button></div>
+      </div>
     </div>
   );
 };
