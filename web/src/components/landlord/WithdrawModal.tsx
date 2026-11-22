@@ -32,7 +32,7 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
 }) => {
   const user = useAuthStore((s) => s.user);
   const [amount, setAmount] = useState<string>('');
-  const [selectedAccIdx, setSelectedAccIdx] = useState<number>(0);
+  const [selectedAccIdx, setSelectedAccIdx] = useState<number>(() => Math.max(0, bankAccounts.findIndex((account) => account.macDinh)));
   const [showAddAcc, setShowAddAcc] = useState(() => bankAccounts.length === 0);
   const [newAccNumber, setNewAccNumber] = useState('');
   const [newBankName, setNewBankName] = useState(VIETNAM_BANKS[0]?.shortName || 'Vietcombank');
@@ -44,8 +44,9 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     const selectedAccount = bankAccounts[selectedAccIdx];
-    if (!selectedAccount) {
+    if (!selectedAccount?.id) {
       const msg = 'Vui lòng thêm và chọn tài khoản ngân hàng nhận tiền';
       setError(msg);
       toast.error(msg);
@@ -117,7 +118,7 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
       isOpen={true}
       onClose={onClose}
       title="Rút tiền về tài khoản ngân hàng"
-      subtitle="Chuyển khoản về tài khoản ngân hàng đã liên kết"
+      subtitle="Tạo yêu cầu rút về ngân hàng đã liên kết để quản trị viên đối soát"
       maxWidth="md"
       footer={
         <>
@@ -292,7 +293,7 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
                       <Landmark className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-800">{acc.tenNganHang}</p>
+                      <p className="text-xs font-bold text-slate-800">{acc.tenNganHang}{acc.macDinh ? ' · Mặc định' : ''}</p>
                       <p className="text-[11px] font-mono text-slate-500">{acc.soTaiKhoan}</p>
                     </div>
                   </div>

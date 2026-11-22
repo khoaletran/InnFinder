@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Inbox,
 } from 'lucide-react';
-import { useNotificationStore } from '@/store/useNotificationStore';
+import { useLandlordNotifications } from './useLandlordNotifications';
 import type { NotificationItem } from '@/types/auth-user.types';
 import { toast } from 'sonner';
 
@@ -23,7 +23,7 @@ interface NotificationPopoverProps {
 
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, error, refetch } = useLandlordNotifications();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   if (!isOpen) return null;
@@ -174,6 +174,8 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ isOpen
           )}
         </div>
 
+        {error && <div role="alert" className="p-4 text-xs text-red-600">Không tải được thông báo. <button onClick={() => void refetch()} className="underline">Thử lại</button></div>}
+        {isLoading && <p className="p-4 text-xs text-slate-500">Đang tải thông báo...</p>}
         {/* Notification List */}
         <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
           {filteredList.length === 0 ? (

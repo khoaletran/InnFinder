@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { CheckCircle2, ShieldAlert } from 'lucide-react';
+import React from 'react';
+import { CheckCircle2, Info } from 'lucide-react';
 import { Modal } from '@/components/common/Modal';
-import { useAuthStore } from '@/store/useAuthStore';
 import type { BankAccountItem } from '@/types/landlord.types';
 import { formatVND } from '@/utils/formatters';
 
@@ -21,24 +20,10 @@ const ConfirmWithdrawModalContent: React.FC<{
   account: BankAccountItem;
   loading?: boolean;
 }> = ({ onClose, onConfirm, amount, account, loading = false }) => {
-  const user = useAuthStore((s) => s.user);
-  const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
-
-  const accountHolder =
-    account.tenChuTaiKhoan ||
-    user?.hoVaTen ||
-    user?.tenDangNhap ||
-    'Chủ tài khoản';
-
+  const accountHolder = account.tenChuTaiKhoan || 'Chưa cung cấp';
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length < 6) {
-      setError('Vui lòng nhập đủ 6 chữ số mã xác thực OTP');
-      return;
-    }
-    setError('');
-    onConfirm();
+    if (!loading) onConfirm();
   };
 
   return (
@@ -99,27 +84,9 @@ const ConfirmWithdrawModalContent: React.FC<{
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">
-            Mã OTP xác thực (6 chữ số)
-          </label>
-          <input
-            type="text"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => {
-              setOtp(e.target.value.replace(/\D/g, ''));
-              if (error) setError('');
-            }}
-            placeholder="123456"
-            className="w-full text-center tracking-widest text-base font-bold py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-          />
-          {error && <p className="text-[11px] text-red-500 mt-1 text-center">{error}</p>}
-        </div>
-
-        <div className="flex items-center gap-2 p-2.5 bg-amber-50 rounded-xl text-[11px] text-amber-700">
-          <ShieldAlert className="w-4 h-4 shrink-0" />
-          <span>Giao dịch rút tiền an toàn được bảo vệ xác thực 2 lớp.</span>
+        <div className="flex items-center gap-2 p-2.5 bg-cyan-50 rounded-xl text-[11px] text-cyan-800">
+          <Info className="w-4 h-4 shrink-0" />
+          <span>Số tiền sẽ được trừ khỏi số dư khả dụng và chờ quản trị viên đối soát. Nếu bị từ chối, tiền sẽ được hoàn lại ví.</span>
         </div>
       </form>
     </Modal>

@@ -18,4 +18,6 @@ public interface PhieuKhieuNaiRepository extends JpaRepository<PhieuKhieuNai, St
 
     @EntityGraph(attributePaths = {"nguoiGui", "doiTuongKhieuNai", "nguoiDuyet"})
     List<PhieuKhieuNai> findByNguoiGui_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
+    List<PhieuKhieuNai> findTop20ByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(String id);
+
 }

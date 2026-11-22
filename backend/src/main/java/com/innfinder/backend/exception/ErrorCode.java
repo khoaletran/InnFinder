@@ -26,6 +26,8 @@ public enum ErrorCode {
     AI_BUSY("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ một chút rồi thử lại.", HttpStatus.TOO_MANY_REQUESTS),
 
     // --- PHÂN HỆ 2: PHÒNG TRỌ, DANH MỤC, YÊU THÍCH, CLOUDINARY ---
+    ROOM_STATUS_NOT_ALLOWED("Chỉ được mở lại phòng đã cho thuê, đánh dấu đã cho thuê hoặc gỡ tin; phòng chờ duyệt/từ chối phải được Admin duyệt", HttpStatus.BAD_REQUEST),
+    ROOM_UNAVAILABLE("Phòng không còn sẵn sàng cho thuê. Vui lòng hủy lịch để xử lý cọc theo thực tế", HttpStatus.BAD_REQUEST),
     ROOM_NOT_FOUND("Không tìm thấy phòng trọ yêu cầu", HttpStatus.NOT_FOUND),
     CATEGORY_NOT_FOUND("Không tìm thấy loại phòng trọ", HttpStatus.NOT_FOUND),
     AMENITY_NOT_FOUND("Không tìm thấy tiện ích yêu cầu", HttpStatus.NOT_FOUND),
@@ -67,7 +69,7 @@ public enum ErrorCode {
     INVALID_CURRENT_PASSWORD("Mật khẩu hiện tại không chính xác", HttpStatus.BAD_REQUEST),
     BANK_ACCOUNT_EXISTED("Số tài khoản ngân hàng này đã được liên kết trong tài khoản của bạn", HttpStatus.BAD_REQUEST),
     BANK_ACCOUNT_NOT_FOUND("Không tìm thấy tài khoản ngân hàng yêu cầu", HttpStatus.NOT_FOUND),
-    BANK_ACCOUNT_NOT_OWNED("Bạn không có quyền xóa tài khoản ngân hàng này", HttpStatus.FORBIDDEN),
+    BANK_ACCOUNT_NOT_OWNED("Bạn không có quyền sử dụng tài khoản ngân hàng này", HttpStatus.FORBIDDEN),
     ALREADY_A_LANDLORD("Tài khoản của bạn đã được kích hoạt quyền Chủ trọ", HttpStatus.BAD_REQUEST),
     LANDLORD_REQUEST_PENDING("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Quản trị viên xét duyệt", HttpStatus.BAD_REQUEST),
     INVALID_LANDLORD_REQUEST_STATUS("Đơn đăng ký chủ trọ không ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST),

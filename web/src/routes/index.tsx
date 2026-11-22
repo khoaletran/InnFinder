@@ -49,6 +49,7 @@ import { WalletPage as CustomerWalletPage } from '@/pages/customer/WalletPage';
 import { AppointmentsPage as LandlordAppointmentsPage } from '@/pages/landlord/AppointmentsPage';
 import { CreateRoomPage } from '@/pages/landlord/CreateRoomPage';
 import { DashboardPage as LandlordDashboardPage } from '@/pages/landlord/DashboardPage';
+import { ProfilePage as LandlordProfilePage } from '@/pages/landlord/ProfilePage';
 import { ReviewsComplaintsPage } from '@/pages/landlord/ReviewsComplaintsPage';
 import { RoomsPage } from '@/pages/landlord/RoomsPage';
 import { WalletPage as LandlordWalletPage } from '@/pages/landlord/WalletPage';
@@ -150,6 +151,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="appointments" element={<LandlordAppointmentsPage />} />
         <Route path="wallet" element={<LandlordWalletPage />} />
         <Route path="reviews" element={<ReviewsComplaintsPage />} />
+        <Route path="profile" element={<LandlordProfilePage />} />
       </Route>
 
       {/* 5. ADMIN CONSOLE ROUTES (Thành viên 1) */}

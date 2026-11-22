@@ -1,7 +1,6 @@
 package com.innfinder.backend.dto.landlord;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -15,10 +14,11 @@ public class WithdrawRequest {
     @Min(value = 50000, message = "Số tiền rút tối thiểu là 50.000 VNĐ")
     private Long soTien;
 
-    @NotBlank(message = "Số tài khoản ngân hàng không được để trống")
+    private Long bankAccountId;
+
+    // Tương thích client cũ: vẫn phải đối chiếu ngân hàng thuộc người đang đăng nhập.
     private String soTaiKhoan;
 
-    @NotBlank(message = "Tên ngân hàng không được để trống")
     private String tenNganHang;
 
     private String ghiChu;

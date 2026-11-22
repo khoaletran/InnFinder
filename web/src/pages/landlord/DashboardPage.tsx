@@ -1,3 +1,4 @@
+import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
 import React, { useEffect } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +17,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { landlordService } from '@/services/landlord.service';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useLandlordStore } from '@/store/useLandlordStore';
 import type { TrangThaiPhongTro } from '@/types/landlord.types';
 import { formatPhoneNumber, formatVND } from '@/utils/formatters';
@@ -53,12 +53,12 @@ const renderRoomStatusChip = (status: TrangThaiPhongTro) => {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
   const setStoreStats = useLandlordStore((s) => s.setStats);
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['landlord', 'dashboard-stats'],
     queryFn: landlordService.getDashboardStats,
+    refetchInterval: 30000,
   });
 
   const { data: rooms = [] } = useQuery({
@@ -77,7 +77,6 @@ export const DashboardPage: React.FC = () => {
     }
   }, [stats, setStoreStats]);
 
-  const displayName = user?.hoVaTen || user?.tenDangNhap || 'Chủ trọ';
   const diemUyTin = stats?.diemUyTin ?? 100;
   const reputationRank =
     diemUyTin >= 90
@@ -88,6 +87,8 @@ export const DashboardPage: React.FC = () => {
 
   const recentRooms = rooms.slice(0, 4);
   const recentAppointments = appointments.slice(0, 4);
+
+  if (statsError) return <LandlordQueryError error={statsError} onRetry={() => void refetchStats()} />;
 
   if (statsLoading && !stats) {
     return (
@@ -100,26 +101,6 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 rounded-3xl p-6 text-white shadow-lg shadow-cyan-600/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
-            Cổng Quản Trị Dành Cho Chủ Trọ
-          </span>
-          <h2 className="text-2xl font-extrabold mt-1">Xin chào, {displayName}! 👋</h2>
-          <p className="text-xs text-cyan-100 mt-1 max-w-xl">
-            Hiện bạn có <strong>{stats?.yeuCauMoi ?? 0} lịch hẹn xem phòng</strong> mới đang chờ xác nhận. Hãy kiểm tra và phản hồi khách sớm nhé!
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('/landlord/rooms/create')}
-          className="px-5 py-2.5 bg-white text-cyan-700 hover:bg-cyan-50 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
-        >
-          <PlusCircle className="w-4 h-4 text-cyan-600" />
-          <span>Đăng phòng mới ngay</span>
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <Card.Header className="p-0 flex flex-row items-center justify-between">
@@ -212,9 +193,6 @@ export const DashboardPage: React.FC = () => {
               <Card.Title className="text-base font-bold text-slate-900">
                 Lịch Hẹn Xem Phòng Gần Đây
               </Card.Title>
-              <Card.Description className="text-xs text-slate-500">
-                Theo dõi các lịch xem phòng và đối soát cọc thế chân
-              </Card.Description>
             </div>
             <button
               type="button"
@@ -304,9 +282,6 @@ export const DashboardPage: React.FC = () => {
                 <Card.Title className="text-base font-bold text-slate-900">
                   Phòng Trọ Của Bạn
                 </Card.Title>
-                <Card.Description className="text-xs text-slate-500">
-                  Danh sách bài đăng mới nhất
-                </Card.Description>
               </div>
               <button
                 type="button"

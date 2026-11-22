@@ -42,6 +42,7 @@ public class RoomCreateRequest {
     @Builder.Default
     private Long coc = 0L;
     // Danh sách mã tiện ích (ví dụ: ["TI0001", "TI0002"])
+    @com.fasterxml.jackson.annotation.JsonAlias("dsMaTienIch")
     private List<String> dsTienIch;
 
     // Danh sách URL hình ảnh (hỗ trợ request dạng JSON)

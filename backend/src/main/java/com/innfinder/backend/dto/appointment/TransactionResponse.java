@@ -19,6 +19,15 @@ public class TransactionResponse {
     private Long soTien;
     private String loaiGiaoDich;
     private String noiDung;
+    private String maDatLich;
+    private String maPhongTro;
+    private String maThamChieuNganHang;
+    private String nganHangNhan;
+    private String taiKhoanNhan;
+    private String tenNguoiNhan;
+    private Long cocGoc;
+    private Long phiHoaHong;
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime ngayGiaoDich;
     private TrangThaiGD trangThai;
@@ -30,6 +39,11 @@ public class TransactionResponse {
                 .soTien(entity.getSoTien())
                 .loaiGiaoDich(entity.getLoaiGiaoDich())
                 .noiDung(entity.getNoiDung())
+                .maDatLich(entity.getPhieuDatLich() == null ? null : entity.getPhieuDatLich().getMaDatLich())
+                .maPhongTro(entity.getPhieuDatLich() == null ? null : entity.getPhieuDatLich().getPhongTro().getMaPhongTro())
+                .maThamChieuNganHang(entity.getMaThamChieuNganHang())
+                .nganHangNhan(entity.getNganHangNhan()).taiKhoanNhan(entity.getTaiKhoanNhan())
+                .tenNguoiNhan(entity.getTenNguoiNhan()).cocGoc(entity.getCocGoc()).phiHoaHong(entity.getPhiHoaHong())
                 .ngayGiaoDich(entity.getNgayGiaoDich())
                 .trangThai(entity.getTrangThai())
                 .build();
