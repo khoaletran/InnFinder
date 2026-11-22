@@ -27,6 +27,7 @@ import { PageContainer, PageHeader } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { useBookingStore } from '@/store/useBookingStore';
 import type { AppointmentResponse, TrangThaiDatLich } from '@/types/booking.types';
+import { formatVND } from '@/utils/formatters';
 
 type StatusFilter = 'ALL' | TrangThaiDatLich;
 
@@ -478,16 +479,40 @@ export const AppointmentsPage: React.FC = () => {
         </div>
       )}
 
-      <CancelConfirmModal
-        isOpen={cancelModalVisible}
-        isLoading={isCanceling}
-        onClose={() => setCancelModalVisible(false)}
-        onConfirmCancel={handleConfirmCancel}
-        title="Hủy lịch xem phòng"
-        description="Vui lòng chọn hoặc nhập lý do hủy lịch hẹn"
-        cancelButtonText={isCanceling ? 'Đang hủy...' : 'Xác nhận hủy'}
-        keepButtonText="Giữ lại lịch"
-      />
+      {(() => {
+        const selectedAppt = appointments.find((a) => a.maDatLich === selectedAppointmentId);
+        const isLateCancel =
+          selectedAppt?.trangThai === 'XAC_NHAN' &&
+          selectedAppt.ngayHen &&
+          new Date(selectedAppt.ngayHen).getTime() - new Date().getTime() < 2 * 60 * 60 * 1000;
+
+        return (
+          <CancelConfirmModal
+            isOpen={cancelModalVisible}
+            isLoading={isCanceling}
+            onClose={() => setCancelModalVisible(false)}
+            onConfirmCancel={handleConfirmCancel}
+            title={
+              isLateCancel
+                ? 'Hủy lịch hẹn sát giờ (< 2 tiếng)?'
+                : 'Hủy lịch xem phòng'
+            }
+            description={
+              isLateCancel
+                ? `⚠️ CẢNH BÁO: Còn dưới 2 tiếng trước giờ hẹn! Theo quy chế sàn, việc hủy sát giờ sẽ không được hoàn cọc mà tiền cọc (${formatVND(selectedAppt?.coc || 0)}) sẽ chuyển bồi thường cho Chủ trọ. Bạn có chắc chắn muốn hủy?`
+                : 'Vui lòng chọn hoặc nhập lý do hủy lịch hẹn. Tiền cọc sẽ được hoàn trả theo quy định.'
+            }
+            cancelButtonText={
+              isCanceling
+                ? 'Đang hủy...'
+                : isLateCancel
+                  ? 'Chấp nhận mất cọc & Hủy'
+                  : 'Xác nhận hủy'
+            }
+            keepButtonText="Giữ lại lịch"
+          />
+        );
+      })()}
     </PageContainer>
   );
 };

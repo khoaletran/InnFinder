@@ -436,6 +436,18 @@ export const AppointmentDetailPage: React.FC = () => {
                       <span>Không thuê</span>
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeclineType('CANCEL');
+                      setShowDeclineModal(true);
+                    }}
+                    disabled={isActionLoading}
+                    className="w-full py-2 px-4 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Hủy lịch xem phòng
+                  </button>
                 </>
               )}
 
@@ -616,11 +628,29 @@ export const AppointmentDetailPage: React.FC = () => {
         title={
           declineType === 'DECLINE_RENTAL'
             ? 'Xác nhận không thuê phòng?'
-            : 'Hủy yêu cầu xem phòng?'
+            : item.trangThai === 'XAC_NHAN' &&
+                item.ngayHen &&
+                new Date(item.ngayHen).getTime() - new Date().getTime() < 2 * 60 * 60 * 1000
+              ? 'Hủy lịch hẹn sát giờ (< 2 tiếng)?'
+              : 'Hủy lịch hẹn xem phòng?'
         }
-        description="Vui lòng nhập lý do để ghi nhận minh bạch vào phiếu đặt lịch:"
+        description={
+          declineType === 'DECLINE_RENTAL'
+            ? 'Vui lòng nhập lý do để ghi nhận minh bạch vào phiếu đặt lịch:'
+            : item.trangThai === 'XAC_NHAN' &&
+                item.ngayHen &&
+                new Date(item.ngayHen).getTime() - new Date().getTime() < 2 * 60 * 60 * 1000
+              ? `⚠️ CẢNH BÁO: Còn dưới 2 tiếng trước giờ hẹn! Theo quy chế sàn, việc hủy sát giờ sẽ KHÔNG được hoàn cọc mà toàn bộ tiền cọc (${formatVND(item.coc || 0)}) sẽ chuyển bồi thường cho Chủ trọ. Bạn có chắc chắn muốn hủy?`
+              : `Hủy hợp lệ (> 2 tiếng trước hẹn hoặc chờ duyệt). Toàn bộ tiền cọc (${formatVND(item.coc || 0)}) sẽ được gửi lệnh hoàn tiền về ngân hàng sau khi Admin đối soát.`
+        }
         confirmButtonText={
-          declineType === 'DECLINE_RENTAL' ? 'Xác nhận không thuê' : 'Hủy yêu cầu'
+          declineType === 'DECLINE_RENTAL'
+            ? 'Xác nhận không thuê'
+            : item.trangThai === 'XAC_NHAN' &&
+                item.ngayHen &&
+                new Date(item.ngayHen).getTime() - new Date().getTime() < 2 * 60 * 60 * 1000
+              ? 'Tôi chấp nhận mất cọc & Hủy'
+              : 'Xác nhận hủy & Hoàn cọc'
         }
         onClose={() => setShowDeclineModal(false)}
         onConfirm={handleDeclineOrCancel}

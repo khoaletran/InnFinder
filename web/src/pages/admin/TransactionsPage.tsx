@@ -319,13 +319,48 @@ export const TransactionsPage: React.FC = () => {
         subtitle={selectedTx ? `Mã giao dịch: ${selectedTx.maGiaoDich}` : undefined}
         maxWidth="md"
         footer={
-          <button
-            type="button"
-            onClick={() => setSelectedTx(null)}
-            className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
-          >
-            Đóng
-          </button>
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={() => setSelectedTx(null)}
+              className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              Đóng
+            </button>
+            {selectedTx && selectedTx.trangThai === 'CHO_THANH_TOAN' && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const txId = selectedTx.maGiaoDich;
+                    setSelectedTx(null);
+                    setRejectingTxId(txId);
+                    setRejectReason('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer"
+                >
+                  Từ chối
+                </button>
+                <button
+                  type="button"
+                  disabled={approveWithdrawalMutation.isPending}
+                  onClick={() => {
+                    const txId = selectedTx.maGiaoDich;
+                    setSelectedTx(null);
+                    approveWithdrawalMutation.mutate(txId);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {approveWithdrawalMutation.isPending ? (
+                    <Spinner size="sm" color="current" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  <span>Xác nhận đã chuyển tiền</span>
+                </button>
+              </div>
+            )}
+          </div>
         }
       >
         {selectedTx && (
@@ -337,6 +372,70 @@ export const TransactionsPage: React.FC = () => {
               </div>
               {renderStatusBadge(selectedTx.trangThai)}
             </div>
+
+            {/* Khối VietQR 1-chạm nếu là lệnh hoàn cọc hoặc rút tiền đang chờ xử lý */}
+            {selectedTx.trangThai === 'CHO_THANH_TOAN' &&
+              selectedTx.soTaiKhoan && (
+                <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row items-center gap-4">
+                  <div className="bg-white p-2 rounded-xl shadow-xs shrink-0 text-center">
+                    <img
+                      src={`https://vietqr.app/img?bank=${encodeURIComponent(
+                        selectedTx.tenNganHang || 'MBBank',
+                      )}&acc=${encodeURIComponent(
+                        selectedTx.soTaiKhoan,
+                      )}&template=compact&amount=${selectedTx.soTien}&des=${encodeURIComponent(
+                        (selectedTx.loaiGiaoDich === 'HOAN_COC' ? 'HOAN COC ' : 'RUT TIEN ') +
+                          selectedTx.maGiaoDich,
+                      )}&holder=${encodeURIComponent(
+                        selectedTx.tenChuTaiKhoan || selectedTx.nguoiThucHien,
+                      )}`}
+                      alt="Mã VietQR chuyển khoản"
+                      className="w-32 h-32 object-contain mx-auto"
+                    />
+                    <span className="text-[10px] text-slate-500 font-semibold block mt-1">
+                      Quét bằng App Ngân hàng
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-700 w-full">
+                    <div className="font-bold text-emerald-800 text-sm flex items-center gap-1.5">
+                      <span>Mã VietQR 1-Chạm</span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                        Tự động điền
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 space-y-0.5">
+                      <div>
+                        Ngân hàng: <strong>{selectedTx.tenNganHang || 'MBBank'}</strong>
+                      </div>
+                      <div>
+                        Số tài khoản: <strong className="font-mono">{selectedTx.soTaiKhoan}</strong>
+                      </div>
+                      <div>
+                        Chủ tài khoản:{' '}
+                        <strong>
+                          {selectedTx.tenChuTaiKhoan || selectedTx.nguoiThucHien}
+                        </strong>
+                      </div>
+                      <div>
+                        Số tiền:{' '}
+                        <strong className="text-emerald-700 font-bold">
+                          {formatVND(selectedTx.soTien)}
+                        </strong>
+                      </div>
+                      <div>
+                        Nội dung CK:{' '}
+                        <strong className="font-mono text-slate-800">
+                          {(selectedTx.loaiGiaoDich === 'HOAN_COC' ? 'HOAN COC ' : 'RUT TIEN ') +
+                            selectedTx.maGiaoDich}
+                        </strong>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 italic">
+                      Admin mở App ngân hàng quét mã QR trên để chuyển tiền, sau đó bấm &quot;Xác nhận đã chuyển tiền&quot;.
+                    </p>
+                  </div>
+                </div>
+              )}
 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1.5 border-b border-slate-100">
@@ -352,6 +451,7 @@ export const TransactionsPage: React.FC = () => {
                   <span className="text-slate-500">Ngân hàng nhận</span>
                   <span className="font-bold text-slate-800">
                     {selectedTx.tenNganHang} ({selectedTx.soTaiKhoan})
+                    {selectedTx.tenChuTaiKhoan ? ` - ${selectedTx.tenChuTaiKhoan}` : ''}
                   </span>
                 </div>
               )}

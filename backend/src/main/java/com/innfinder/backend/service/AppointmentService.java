@@ -507,14 +507,14 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
-        String nguoiHuy = isKhachHang ? "Khách hàng hủy" : "Chủ trọ hủy";
-        phieu.setTrangThai(TrangThaiDatLich.HUY);
-        phieu.setLiDoHuy(nguoiHuy + ": " + request.getLiDoHuy());
-        phieuDatLichRepository.save(phieu);
-
         // Xử lý dòng tiền hoàn cọc dựa trên cờ daNhanLaiCoc
         if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             // Khách đã nhận lại cọc từ chủ trọ ngoài đời -> tiền cọc trên sàn hoàn về ví Chủ trọ
+            String nguoiHuy = isKhachHang ? "Khách hàng hủy sau khi xem" : "Chủ trọ hủy sau khi xem";
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            phieu.setLiDoHuy(nguoiHuy + ": " + request.getLiDoHuy());
+            phieuDatLichRepository.save(phieu);
+
             if (phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
                 ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
                 ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
@@ -528,26 +528,140 @@ public class AppointmentService {
                         TrangThaiGD.THANH_CONG
                 );
             }
-        } else {
-            // Khách chưa gặp hoặc chưa nhận cọc ngoài đời -> hoàn tiền trực tiếp cho Khách hàng từ ví sàn (Admin đối soát duyệt)
-            boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-            if (daNop && phieu.getCoc() > 0) {
-                List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
-                String bankNote = "";
-                if (!banks.isEmpty()) {
-                    TaiKhoanNganHang primaryBank = banks.get(0);
-                    bankNote = " về TK " + primaryBank.getTenNganHang() + " - " + primaryBank.getSoTaiKhoan()
-                            + (primaryBank.getTenChuTaiKhoan() != null && !primaryBank.getTenChuTaiKhoan().isBlank()
-                                ? " (" + primaryBank.getTenChuTaiKhoan() + ")" : "");
+            return;
+        }
+
+        // Trường hợp chưa gặp mặt hoặc chưa nhận lại cọc ngoài đời thực
+        boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+
+        if (isKhachHang) {
+            // 1. Khách hàng hủy khi chờ chủ trọ duyệt (CHO_XAC_NHAN): Luôn hoàn 100% hợp lệ
+            if (phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN) {
+                phieu.setTrangThai(TrangThaiDatLich.HUY);
+                phieu.setLiDoHuy("Khách hàng hủy khi chờ duyệt: " + request.getLiDoHuy());
+                phieuDatLichRepository.save(phieu);
+
+                if (daNop && phieu.getCoc() > 0) {
+                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy khi chờ duyệt");
                 }
-                transactionService.taoGiaoDich(
-                        phieu.getKhachHang(),
-                        phieu.getCoc(),
-                        "HOAN_COC",
-                        nguoiHuy + " lịch hẹn " + maDatLich + bankNote,
-                        TrangThaiGD.CHO_THANH_TOAN
-                );
+                return;
             }
+
+            // 2. Khách hàng hủy khi đã XÁC NHẬN: Áp dụng mốc 2 tiếng
+            boolean isSatGio = phieu.getNgayHen() != null && LocalDateTime.now().isAfter(phieu.getNgayHen().minusHours(2));
+
+            if (!isSatGio) {
+                // Hủy hợp lệ (trước giờ hẹn >= 2 tiếng) -> Hoàn 100% cọc
+                phieu.setTrangThai(TrangThaiDatLich.HUY);
+                phieu.setLiDoHuy("Khách hàng hủy hợp lệ (> 2h): " + request.getLiDoHuy());
+                phieuDatLichRepository.save(phieu);
+
+                if (daNop && phieu.getCoc() > 0) {
+                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy hợp lệ (> 2h)");
+                }
+            } else {
+                // Hủy vi phạm (sát giờ < 2 tiếng) -> Tịch thu cọc, bồi thường cho Chủ trọ
+                phieu.setTrangThai(TrangThaiDatLich.HUY);
+                phieu.setLiDoHuy("Khách hủy sát giờ (< 2h): " + request.getLiDoHuy() + " (Tịch thu cọc bồi thường Chủ trọ)");
+                phieuDatLichRepository.save(phieu);
+
+                if (daNop && phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
+                    ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
+                    ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+                    chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
+                    chuTroRepository.save(chuTroLocked);
+
+                    transactionService.taoGiaoDich(
+                            chuTroLocked.getNguoiDung(),
+                            phieu.getCoc(),
+                            "BOI_THUONG_HUY_SAT_GIO",
+                            "Bồi thường tiền cọc do khách hủy sát giờ lịch " + maDatLich,
+                            TrangThaiGD.THANH_CONG
+                    );
+                }
+            }
+        } else {
+            // Chủ trọ hủy lịch: Luôn hoàn 100% cọc cho khách + trừ điểm uy tín nếu hủy sau khi đã duyệt
+            if (phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN && phieu.getPhongTro().getChuPhongTro() != null) {
+                ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
+                ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+                chuTroLocked.setDiemUyTin(Math.max(0, chuTroLocked.getDiemUyTin() - 5));
+                chuTroRepository.save(chuTroLocked);
+                phieu.setLiDoHuy("Chủ trọ hủy sau khi xác nhận: " + request.getLiDoHuy() + " (Bị trừ 5 điểm uy tín)");
+            } else {
+                phieu.setLiDoHuy("Chủ trọ từ chối/hủy: " + request.getLiDoHuy());
+            }
+
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            phieuDatLichRepository.save(phieu);
+
+            if (daNop && phieu.getCoc() > 0) {
+                taoGiaoDichHoanCocChoKhach(phieu, "Chủ trọ hủy lịch hẹn");
+            }
+        }
+    }
+
+    /**
+     * Hàm phụ trợ tạo giao dịch hoàn cọc cho khách hàng để Admin đối soát duyệt
+     */
+    private void taoGiaoDichHoanCocChoKhach(PhieuDatLich phieu, String lyDo) {
+        List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
+        String bankNote = "";
+        if (!banks.isEmpty()) {
+            TaiKhoanNganHang primaryBank = banks.get(0);
+            bankNote = " về TK " + primaryBank.getTenNganHang() + " - " + primaryBank.getSoTaiKhoan()
+                    + (primaryBank.getTenChuTaiKhoan() != null && !primaryBank.getTenChuTaiKhoan().isBlank()
+                        ? " (" + primaryBank.getTenChuTaiKhoan() + ")" : "");
+        }
+        transactionService.taoGiaoDich(
+                phieu.getKhachHang(),
+                phieu.getCoc(),
+                "HOAN_COC",
+                lyDo + " lịch " + phieu.getMaDatLich() + bankNote,
+                TrangThaiGD.CHO_THANH_TOAN
+        );
+    }
+
+    /**
+     * Chủ trọ báo cáo khách không đến xem phòng (No-show) sau giờ hẹn 30 phút.
+     * Tiền cọc giữ chân được bồi thường chuyển thẳng vào ví Chủ trọ.
+     */
+    @Transactional
+    public void baoCaoNoShow(String maDatLich, String username) {
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
+
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // Chỉ được báo sau giờ hẹn 30 phút
+        if (phieu.getNgayHen() != null && LocalDateTime.now().isBefore(phieu.getNgayHen().plusMinutes(30))) {
+            throw new AppException(ErrorCode.NO_SHOW_TOO_EARLY);
+        }
+
+        // Không cho báo nếu đã nhận cọc trực tiếp
+        if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
+        }
+
+        phieu.setTrangThai(TrangThaiDatLich.HUY);
+        phieu.setLiDoHuy("Chủ trọ báo khách vắng mặt (No-show): Tịch thu cọc bồi thường Chủ trọ");
+        phieuDatLichRepository.save(phieu);
+
+        boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+        if (daNop && phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
+            ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
+            ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+            chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
+            chuTroRepository.save(chuTroLocked);
+
+            transactionService.taoGiaoDich(
+                    chuTroLocked.getNguoiDung(),
+                    phieu.getCoc(),
+                    "BOI_THUONG_NO_SHOW",
+                    "Bồi thường tiền cọc do khách vắng mặt (No-show) lịch " + maDatLich,
+                    TrangThaiGD.THANH_CONG
+            );
         }
     }
 

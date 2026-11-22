@@ -135,6 +135,7 @@ export interface AdminTransactionItem {
   thucNhan?: number;
   tenNganHang?: string;
   soTaiKhoan?: string;
+  tenChuTaiKhoan?: string;
   ghiChu?: string;
   maDatLich?: string;
 }

@@ -80,4 +80,12 @@ public class LandlordAppointmentController {
         appointmentService.huyLichHen(maDatLich, username, request);
         return ApiResponse.ok(null, "Đã cập nhật trạng thái không thuê phòng và hoàn cọc cho khách");
     }
+
+    @PatchMapping("/{id}/no-show")
+    @Operation(summary = "Chủ trọ báo cáo khách vắng mặt (No-show) sau giờ hẹn 30 phút")
+    public ApiResponse<String> baoCaoNoShow(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        appointmentService.baoCaoNoShow(maDatLich, username);
+        return ApiResponse.ok(null, "Đã ghi nhận khách vắng mặt và bồi thường cọc thành công");
+    }
 }
