@@ -123,7 +123,7 @@ export const PostsPage: React.FC = () => {
   const currentList = allRooms.filter((r) => r.trangThai === statusFilter);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -171,14 +171,14 @@ export const PostsPage: React.FC = () => {
       ) : (
         <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
           <Card.Content className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table aria-label="Kiểm duyệt phòng" className="w-full text-left text-xs">
               <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4 whitespace-nowrap">Mã & Phòng trọ</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">Giá thuê / Tháng</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Địa chỉ</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Chủ trọ</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">Thao tác</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Mã & Phòng trọ</th>
+                  <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Giá thuê / Tháng</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Địa chỉ</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Chủ trọ</th>
+                  <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">

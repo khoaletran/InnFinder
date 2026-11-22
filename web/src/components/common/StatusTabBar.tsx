@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 export interface StatusTabItem<T extends string> {
   key: T;
@@ -23,9 +23,9 @@ export function StatusTabBar<T extends string>({
   return (
     <div className="bg-surface rounded-[var(--radius-card)] border border-border overflow-hidden">
       <div
-        role="tablist"
+        role="group"
         aria-label={ariaLabel}
-        className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-surface-muted"
+        className="flex items-center overflow-x-auto"
       >
         {tabs.map((tab) => {
           const isActive = activeKey === tab.key;
@@ -35,10 +35,9 @@ export function StatusTabBar<T extends string>({
             <button
               key={tab.key}
               type="button"
-              role="tab"
-              aria-selected={isActive}
+              aria-pressed={isActive}
               onClick={() => onChange(tab.key)}
-              className={`flex-1 min-w-[130px] sm:min-w-0 py-3 px-3 sm:px-4 text-[13px] transition-colors duration-150 relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
+              className={`flex-1 min-w-max focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent py-3 px-3 sm:px-4 text-[13px] transition-colors duration-150 relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
                 isActive
                   ? 'text-accent font-semibold bg-surface'
                   : 'text-text-muted font-medium hover:text-text hover:bg-surface-subtle'
@@ -46,7 +45,7 @@ export function StatusTabBar<T extends string>({
             >
               {Icon && (
                 <Icon
-                  className={`w-4 h-4 shrink-0 ${isActive ? 'text-accent' : 'text-text-subtle'}`}
+                  className={`w-4 h-4 shrink-0 ${isActive ? 'text-accent' : 'text-text-muted'}`}
                 />
               )}
               <span>{tab.label}</span>

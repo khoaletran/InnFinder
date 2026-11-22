@@ -200,7 +200,7 @@ export const CategoriesPage: React.FC = () => {
   const isRefreshing = isFetchingFees || isFetchingRoomTypes || isFetchingAmenities;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Title & Tabs */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -214,7 +214,7 @@ export const CategoriesPage: React.FC = () => {
               onClick={() => setActiveTab('DEPOSIT_FEES')}
               className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'DEPOSIT_FEES'
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
@@ -226,7 +226,7 @@ export const CategoriesPage: React.FC = () => {
               onClick={() => setActiveTab('ROOM_TYPES')}
               className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'ROOM_TYPES'
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
@@ -238,7 +238,7 @@ export const CategoriesPage: React.FC = () => {
               onClick={() => setActiveTab('AMENITIES')}
               className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === 'AMENITIES'
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
@@ -261,15 +261,15 @@ export const CategoriesPage: React.FC = () => {
         ) : (
           <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
+              <table aria-label="Danh mục và biểu phí" className="w-full text-left text-xs">
+                <thead className="bg-tone-slate-soft border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Mã & Loại phòng trọ</th>
-                    <th className="py-3 px-4">Mô tả đặc trưng</th>
-                    <th className="py-3 px-4 text-right">Cọc giữ chân</th>
-                    <th className="py-3 px-4 text-right">Hoa hồng sàn</th>
-                    <th className="py-3 px-4 text-right">Chủ trọ thực nhận</th>
-                    <th className="py-3 px-4 text-right">Điều chỉnh</th>
+                    <th scope="col" className="py-3 px-4">Mã & Loại phòng trọ</th>
+                    <th scope="col" className="py-3 px-4">Mô tả đặc trưng</th>
+                    <th scope="col" className="py-3 px-4 text-right">Cọc giữ chân</th>
+                    <th scope="col" className="py-3 px-4 text-right">Hoa hồng sàn</th>
+                    <th scope="col" className="py-3 px-4 text-right">Chủ trọ thực nhận</th>
+                    <th scope="col" className="py-3 px-4 text-right">Điều chỉnh</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
@@ -277,7 +277,7 @@ export const CategoriesPage: React.FC = () => {
                     <AdminTableSkeleton rows={5} cols={6} />
                   ) : apiDepositFees.length > 0 ? (
                     apiDepositFees.map((f) => (
-                      <tr key={f.maLoaiPhong} className="hover:bg-surface-subtle transition-colors">
+                      <tr key={f.maLoaiPhong} className="hover:bg-tone-teal-soft/50 transition-colors">
                         <td className="py-3 px-4">
                           <span className="font-medium text-text block">{f.tenLoaiPhong}</span>
                           <span className="inline-block font-mono text-[11px] text-text-muted bg-surface-muted px-2 py-0.5 rounded-md mt-1">
@@ -285,17 +285,17 @@ export const CategoriesPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-text-secondary max-w-xs">{f.moTa || '--'}</td>
-                        <td className="py-3 px-4 text-right font-semibold text-text text-[13px] tabular-nums">
+                        <td className="py-3 px-4 text-right font-semibold text-tone-amber-strong text-[13px] tabular-nums">
                           {formatVND(f.soTienCoc)}
                         </td>
                         <td
                           className={`py-3 px-4 text-right font-semibold text-[13px] tabular-nums ${
-                            f.phiThu > 0 ? 'text-accent' : 'text-text-muted'
+                            f.phiThu > 0 ? 'text-tone-teal-base' : 'text-text-muted'
                           }`}
                         >
                           {formatVND(f.phiThu)}
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold text-success-text text-[13px] tabular-nums">
+                        <td className="py-3 px-4 text-right font-semibold text-tone-blue-base text-[13px] tabular-nums">
                           {formatVND(Math.max(f.soTienCoc - f.phiThu, 0))}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -333,13 +333,13 @@ export const CategoriesPage: React.FC = () => {
         ) : (
           <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
+              <table aria-label="Danh mục và biểu phí" className="w-full text-left text-xs">
+                <thead className="bg-tone-slate-soft border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Mã loại phòng</th>
-                    <th className="py-3 px-4">Tên loại phòng trọ</th>
-                    <th className="py-3 px-4">Mô tả chi tiết</th>
-                    <th className="py-3 px-4 text-right">Chỉnh sửa</th>
+                    <th scope="col" className="py-3 px-4">Mã loại phòng</th>
+                    <th scope="col" className="py-3 px-4">Tên loại phòng trọ</th>
+                    <th scope="col" className="py-3 px-4">Mô tả chi tiết</th>
+                    <th scope="col" className="py-3 px-4 text-right">Chỉnh sửa</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
@@ -347,7 +347,7 @@ export const CategoriesPage: React.FC = () => {
                     <AdminTableSkeleton rows={5} cols={4} />
                   ) : normalizedRoomTypes.length > 0 ? (
                     normalizedRoomTypes.map((rt) => (
-                      <tr key={rt.code} className="hover:bg-surface-subtle transition-colors">
+                      <tr key={rt.code} className="hover:bg-tone-teal-soft/50 transition-colors">
                         <td className="py-3 px-4">
                           <span className="inline-block font-mono text-[11px] font-medium text-text-secondary bg-surface-muted px-2 py-0.5 rounded-md">
                             {rt.code}
@@ -392,13 +392,13 @@ export const CategoriesPage: React.FC = () => {
         ) : (
           <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
             <Card.Content className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
+              <table aria-label="Danh mục và biểu phí" className="w-full text-left text-xs">
+                <thead className="bg-tone-slate-soft border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Mã tiện ích</th>
-                    <th className="py-3 px-4">Tên tiện ích</th>
-                    <th className="py-3 px-4">Mô tả tiện ích</th>
-                    <th className="py-3 px-4 text-right">Chỉnh sửa</th>
+                    <th scope="col" className="py-3 px-4">Mã tiện ích</th>
+                    <th scope="col" className="py-3 px-4">Tên tiện ích</th>
+                    <th scope="col" className="py-3 px-4">Mô tả tiện ích</th>
+                    <th scope="col" className="py-3 px-4 text-right">Chỉnh sửa</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
@@ -408,7 +408,7 @@ export const CategoriesPage: React.FC = () => {
                     apiAmenities.map((am, idx) => {
                       const displayCode = am.maTienIch || `TI${String(idx + 1).padStart(4, '0')}`;
                       return (
-                        <tr key={displayCode} className="hover:bg-surface-subtle transition-colors">
+                        <tr key={displayCode} className="hover:bg-tone-teal-soft/50 transition-colors">
                           <td className="py-3 px-4">
                             <span className="inline-block font-mono text-[11px] font-medium text-text-secondary bg-surface-muted px-2 py-0.5 rounded-md">
                               {displayCode}

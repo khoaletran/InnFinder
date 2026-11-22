@@ -83,7 +83,7 @@ export const AdminRefreshButton: React.FC<AdminRefreshButtonProps> = ({
       disabled={isRefreshing}
       className="px-3.5 py-2 rounded-[var(--radius-control)] bg-surface border border-border hover:bg-bg text-xs font-medium text-text-secondary inline-flex items-center gap-1.5 disabled:opacity-50 transition-colors duration-150 cursor-pointer self-start sm:self-auto shrink-0"
     >
-      <RefreshCw className={`w-3.5 h-3.5 text-text-muted ${isRefreshing ? 'animate-spin' : ''}`} />
+      <RefreshCw className={`w-3.5 h-3.5 text-tone-teal-base ${isRefreshing ? 'animate-spin' : ''}`} />
       <span>{label}</span>
     </button>
   );

@@ -2,8 +2,33 @@
 @import "@heroui/styles";
 @import "leaflet/dist/leaflet.css";
 @import "./styles/tokens.css";
+@import "./styles/ledger-table.css";
 
 @theme {
+  --color-tone-teal-soft: var(--tone-teal-soft);
+  --color-tone-teal-base: var(--tone-teal-base);
+  --color-tone-teal-strong: var(--tone-teal-strong);
+  --color-tone-teal-dot: var(--tone-teal-dot);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-green-base: var(--tone-green-base);
+  --color-tone-green-strong: var(--tone-green-strong);
+  --color-tone-green-dot: var(--tone-green-dot);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-amber-base: var(--tone-amber-base);
+  --color-tone-amber-strong: var(--tone-amber-strong);
+  --color-tone-amber-dot: var(--tone-amber-dot);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-blue-base: var(--tone-blue-base);
+  --color-tone-blue-strong: var(--tone-blue-strong);
+  --color-tone-blue-dot: var(--tone-blue-dot);
+  --color-tone-red-soft: var(--tone-red-soft);
+  --color-tone-red-base: var(--tone-red-base);
+  --color-tone-red-strong: var(--tone-red-strong);
+  --color-tone-red-dot: var(--tone-red-dot);
+  --color-tone-slate-soft: var(--tone-slate-soft);
+  --color-tone-slate-base: var(--tone-slate-base);
+  --color-tone-slate-strong: var(--tone-slate-strong);
+  --color-tone-slate-dot: var(--tone-slate-dot);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-subtle: var(--surface-subtle);

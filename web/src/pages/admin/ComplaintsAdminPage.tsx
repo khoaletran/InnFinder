@@ -173,7 +173,7 @@ export const ComplaintsAdminPage: React.FC = () => {
   const filtered = complaints.filter((c) => c.trangThai === statusFilter);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -219,16 +219,16 @@ export const ComplaintsAdminPage: React.FC = () => {
       ) : (
         <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
           <Card.Content className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table aria-label="Khiếu nại" className="w-full text-left text-xs">
               <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Mã khiếu nại</th>
-                  <th className="py-3 px-4">Người tố cáo</th>
-                  <th className="py-3 px-4">Đối tượng bị phản ánh</th>
-                  <th className="py-3 px-4">Vấn đề vi phạm</th>
-                  <th className="py-3 px-4">Thời gian</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Phán quyết</th>
+                  <th scope="col" className="py-3 px-4">Mã khiếu nại</th>
+                  <th scope="col" className="py-3 px-4">Người tố cáo</th>
+                  <th scope="col" className="py-3 px-4">Đối tượng bị phản ánh</th>
+                  <th scope="col" className="py-3 px-4">Vấn đề vi phạm</th>
+                  <th scope="col" className="py-3 px-4">Thời gian</th>
+                  <th scope="col" className="py-3 px-4">Trạng thái</th>
+                  <th scope="col" className="py-3 px-4 text-right">Phán quyết</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">

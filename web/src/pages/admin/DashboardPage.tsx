@@ -9,11 +9,14 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
+  AlertTriangle,
+  CircleDollarSign,
 } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { MoneyText } from '@/components/common/MoneyText';
+import { formatVND } from '@/utils/formatters';
 
 export const DashboardPage: React.FC = () => {
   const {
@@ -110,11 +113,11 @@ export const DashboardPage: React.FC = () => {
       </header>
 
       <div className="grid gap-5 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card className="min-w-0 rounded-xl border border-border bg-surface-subtle p-5 @lg:p-6">
+        <Card className="min-w-0 rounded-xl border border-border border-t-[3px] border-t-tone-teal-base bg-surface p-5 shadow-[var(--shadow-card)] @lg:p-6">
           <Card.Header className="flex flex-wrap items-start justify-between gap-4 p-0">
             <div className="min-w-0">
               <Card.Title className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.04em] text-text-muted">
-                <Wallet aria-hidden="true" className="size-4" />
+                <span className="grid size-8 place-items-center rounded-lg bg-tone-teal-soft text-tone-teal-base"><Wallet aria-hidden="true" className="size-4" /></span>
                 Ngân khố hệ thống
               </Card.Title>
               <p className="mt-3 text-[13px] font-medium text-text-muted">Tổng tiền trong ngân khố</p>
@@ -126,7 +129,7 @@ export const DashboardPage: React.FC = () => {
             </div>
             <Link
               to="/admin/transactions"
-              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-bg"
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-tone-teal-base px-3.5 text-sm font-semibold text-white transition-colors hover:bg-tone-teal-strong"
             >
               Quản lý dòng tiền <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
@@ -135,23 +138,23 @@ export const DashboardPage: React.FC = () => {
           <Card.Content className="p-0">
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
               <div>
-                <p className="text-[13px] text-text-muted">Quỹ giữ hộ</p>
+                <p className="flex items-center gap-2 text-[13px] text-text-muted"><span className="size-2 rounded-full bg-tone-blue-dot" />Quỹ giữ hộ</p>
                 <MoneyText amount={treasury?.tongQuyHeThong} className="text-xl font-semibold text-text" />
               </div>
               <div>
-                <p className="text-[13px] text-text-muted">Doanh thu hoa hồng</p>
-                <MoneyText amount={treasury?.tongDoanhThu} className="text-xl font-semibold text-accent" />
+                <p className="flex items-center gap-2 text-[13px] text-text-muted"><span className="size-2 rounded-full bg-tone-teal-dot" />Doanh thu hoa hồng</p>
+                <MoneyText amount={treasury?.tongDoanhThu} className="text-xl font-semibold text-tone-teal-base" />
               </div>
             </div>
             <dl className="mt-4 grid gap-y-3 border-t border-border pt-4 @md:grid-cols-3 @md:divide-x @md:divide-border">
               {[
-                { label: 'Cọc tạm giữ', amount: treasury?.quyTamGiuCoc },
-                { label: 'Số dư ví chủ trọ', amount: treasury?.tongSoDuViChuTro },
-                { label: 'Tiền chờ chi trả', amount: treasury?.quyChoRut },
-              ].map(({ label, amount }, index) => (
+                { label: 'Cọc tạm giữ', amount: treasury?.quyTamGiuCoc, dotClass: 'bg-tone-amber-dot', highlight: false },
+                { label: 'Số dư ví chủ trọ', amount: treasury?.tongSoDuViChuTro, dotClass: 'bg-tone-blue-dot', highlight: false },
+                { label: 'Tiền chờ chi trả', amount: treasury?.quyChoRut, dotClass: (treasury?.quyChoRut ?? 0) > 0 ? 'bg-tone-amber-dot' : 'bg-tone-slate-dot', highlight: (treasury?.quyChoRut ?? 0) > 0 },
+              ].map(({ label, amount, dotClass, highlight }, index) => (
                 <div key={label} className={index === 0 ? '@md:pr-3' : '@md:px-3'}>
-                  <dt className="text-[13px] text-text-muted">{label}</dt>
-                  <dd className="mt-0.5"><MoneyText amount={amount} className="text-lg font-semibold text-text" /></dd>
+                  <dt className="flex items-center gap-2 text-[13px] text-text-muted"><span className={`size-2 rounded-full ${dotClass}`} />{label}</dt>
+                  <dd className="mt-0.5"><MoneyText amount={amount} className={`text-lg font-semibold ${highlight ? 'text-tone-amber-strong' : 'text-text'}`} /></dd>
                 </div>
               ))}
             </dl>
@@ -169,36 +172,41 @@ export const DashboardPage: React.FC = () => {
                   <li key={to}>
                     <Link
                       to={to}
-                      className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-text hover:bg-surface-muted"
+                      className="flex min-h-12 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-text hover:bg-bg"
                     >
+                      <span className={`size-2 shrink-0 rounded-full ${to === '/admin/complaints' ? 'bg-tone-red-dot' : 'bg-tone-amber-dot'}`} />
                       <span className="flex-1">{label}</span>
-                      <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-warning-text">{count}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${to === '/admin/complaints' ? 'bg-tone-red-soft text-tone-red-strong' : 'bg-tone-amber-soft text-tone-amber-strong'}`}>{count}</span>
                       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="flex min-h-12 items-center gap-2 text-sm text-text-muted">
-                <Check aria-hidden="true" className="size-5 shrink-0" />
-                Không có việc chờ xử lý
-              </p>
+              <div className="flex min-h-36 flex-col items-center justify-center text-center">
+                <span className="grid size-10 place-items-center rounded-full bg-tone-green-soft text-tone-green-base"><Check aria-hidden="true" className="size-5" /></span>
+                <p className="mt-2 text-[15px] font-semibold text-text">Mọi việc đã được xử lý</p>
+                <p className="mt-0.5 text-[13px] text-text-muted">Hiện không có yêu cầu nào đang chờ.</p>
+              </div>
             )}
           </Card.Content>
         </Card>
       </div>
 
-      <dl className="grid gap-4 @sm:grid-cols-2">
+      <dl className="grid gap-4 @sm:grid-cols-2 @4xl:grid-cols-4">
         {[
-          { label: 'Tổng người dùng', value: stats?.nguoiDung.total ?? 0, Icon: Users },
-          { label: 'Tin đăng phòng trọ', value: stats?.soTinDang.total ?? 0, Icon: Building2 },
-        ].map(({ label, value, Icon }) => (
-          <div key={label} className="relative rounded-xl border border-border bg-surface p-5 pr-16">
+          { label: 'Tổng người dùng', value: (stats?.nguoiDung.total ?? 0).toLocaleString('vi-VN'), Icon: Users, iconClass: 'bg-tone-blue-soft text-tone-blue-base', valueClass: 'text-text', borderClass: '' },
+          { label: 'Tin đăng phòng trọ', value: (stats?.soTinDang.total ?? 0).toLocaleString('vi-VN'), Icon: Building2, iconClass: 'bg-tone-teal-soft text-tone-teal-base', valueClass: 'text-text', borderClass: '' },
+          { label: 'Doanh thu hoa hồng', value: formatVND(treasury?.tongDoanhThu), Icon: CircleDollarSign, iconClass: 'bg-tone-green-soft text-tone-green-base', valueClass: 'text-tone-green-strong', borderClass: '' },
+          { label: 'Khiếu nại chờ duyệt', value: String(stats?.khieuNai.total ?? 0), Icon: AlertTriangle, iconClass: (stats?.khieuNai.total ?? 0) > 0 ? 'bg-tone-red-soft text-tone-red-base' : 'bg-tone-slate-soft text-tone-slate-base', valueClass: (stats?.khieuNai.total ?? 0) > 0 ? 'text-tone-red-strong' : 'text-text', borderClass: (stats?.khieuNai.total ?? 0) > 0 ? 'border-l-[3px] border-l-tone-red-base' : '' },
+        ].map(({ label, value, Icon, iconClass, valueClass, borderClass }) => (
+          <div key={label} className={`relative rounded-xl border border-border bg-surface p-5 pr-16 transition-all hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${borderClass}`}>
             <dt className="text-[13px] font-medium text-text-muted">{label}</dt>
-            <dd className="mt-1 text-[2rem] leading-[1.1] font-bold tabular-nums text-text">
-              {value.toLocaleString('vi-VN')}
+            <dd className={`mt-1 text-[clamp(1.4rem,2cqi,2rem)] leading-[1.1] font-bold tabular-nums ${valueClass}`}>
+              {value}
             </dd>
-            <span className="absolute right-5 top-5 grid size-9 place-items-center rounded-lg bg-surface-muted text-text-muted">
+            {label === 'Khiếu nại chờ duyệt' && (stats?.khieuNai.total ?? 0) > 0 && <span className="mt-2 inline-block rounded-md bg-tone-red-soft px-2 py-0.5 text-xs font-semibold text-tone-red-strong">Cần xử lý</span>}
+            <span className={`absolute right-5 top-5 grid size-10 place-items-center rounded-[10px] ${iconClass}`}>
               <Icon aria-hidden="true" className="size-[18px]" />
             </span>
           </div>

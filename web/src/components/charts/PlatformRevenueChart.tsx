@@ -108,11 +108,11 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
                 dataKey="giaTri"
                 stroke={colors.primary}
                 strokeWidth={2}
-                fillOpacity={0.08}
+                fillOpacity={0.1}
                 fill={colors.primary}
                 dot={({ cx, cy, index }) =>
                   index === data.length - 1 && typeof cx === 'number' && typeof cy === 'number'
-                    ? <circle key="latest-revenue" cx={cx} cy={cy} r={3.5} fill={colors.primary} />
+                    ? <circle key="latest-revenue" cx={cx} cy={cy} r={4} fill={colors.surface} stroke={colors.primary} strokeWidth={2} />
                     : <g key={index} />
                 }
                 activeDot={{ r: 5 }}

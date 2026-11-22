@@ -238,20 +238,20 @@ export const UsersPage: React.FC = () => {
     switch (status) {
       case 'CHO_DUYET':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning-bg text-warning-text">
-            Chờ duyệt
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-tone-amber-soft text-tone-amber-strong">
+            <span className="size-1.5 rounded-full bg-tone-amber-dot" />Chờ duyệt
           </span>
         );
       case 'DA_DUYET':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-success-bg text-success-text">
-            Đã duyệt
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-tone-green-soft text-tone-green-strong">
+            <span className="size-1.5 rounded-full bg-tone-green-dot" />Đã duyệt
           </span>
         );
       case 'TU_CHOI':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-danger-bg text-danger-text">
-            Đã từ chối
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-tone-red-soft text-tone-red-strong">
+            <span className="size-1.5 rounded-full bg-tone-red-dot" />Đã từ chối
           </span>
         );
     }
@@ -268,7 +268,7 @@ export const UsersPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Title & Tab Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -282,7 +282,7 @@ export const UsersPage: React.FC = () => {
               onClick={() => setActiveTab('USERS')}
               className={`px-3.5 py-1.5 rounded-md transition-colors cursor-pointer ${
                 activeTab === 'USERS'
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
@@ -293,13 +293,13 @@ export const UsersPage: React.FC = () => {
               onClick={() => setActiveTab('LANDLORD_REQUESTS')}
               className={`px-3.5 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'LANDLORD_REQUESTS'
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
               Duyệt CCCD Chủ trọ
               {pendingLandlordCount > 0 && (
-                <span className="px-1.5 py-0.5 bg-accent text-white rounded-full text-[10px] font-medium leading-none tabular-nums">
+                <span className="px-1.5 py-0.5 bg-tone-amber-soft text-tone-amber-strong rounded-full text-[10px] font-semibold leading-none tabular-nums">
                   {pendingLandlordCount}
                 </span>
               )}
@@ -376,7 +376,7 @@ export const UsersPage: React.FC = () => {
 
             {!hasSearchQuery ? (
               <Card.Content className="py-14 px-6 text-center">
-                <div className="w-12 h-12 rounded-xl bg-surface-muted text-accent flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 rounded-full bg-tone-slate-soft text-tone-slate-base flex items-center justify-center mx-auto mb-3">
                   <Search className="w-6 h-6" />
                 </div>
                 <h3 className="text-sm font-semibold text-text">
@@ -392,15 +392,15 @@ export const UsersPage: React.FC = () => {
             ) : (
               <>
                 <Card.Content className="p-0 overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
+                  <table aria-label="Người dùng" className="w-full text-left text-xs">
+                <thead className="bg-tone-slate-soft border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Mã & Thành viên</th>
-                    <th className="py-3 px-4">Liên hệ</th>
-                    <th className="py-3 px-4">CCCD</th>
-                    <th className="py-3 px-4">Vai trò</th>
-                    <th className="py-3 px-4">Trạng thái</th>
-                    <th className="py-3 px-4 text-right">Thao tác</th>
+                    <th scope="col" className="py-3 px-4">Mã & Thành viên</th>
+                    <th scope="col" className="py-3 px-4">Liên hệ</th>
+                    <th scope="col" className="py-3 px-4">CCCD</th>
+                    <th scope="col" className="py-3 px-4">Vai trò</th>
+                    <th scope="col" className="py-3 px-4">Trạng thái</th>
+                    <th scope="col" className="py-3 px-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
@@ -410,7 +410,7 @@ export const UsersPage: React.FC = () => {
                     users.map((u) => {
                       const isLocked = u.trangThai === 'KHOA' || u.trangThaiKhoa;
                       return (
-                        <tr key={u.maNguoiDung} className="hover:bg-surface-subtle transition-colors">
+                        <tr key={u.maNguoiDung} className="hover:bg-tone-teal-soft/50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-surface-muted text-text-secondary font-semibold flex items-center justify-center text-xs overflow-hidden shrink-0">
@@ -444,7 +444,7 @@ export const UsersPage: React.FC = () => {
                               <span
                                 className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
                                   u.vaiTro === 'QUAN_TRI'
-                                    ? 'bg-accent-soft text-accent'
+                                    ? 'bg-tone-teal-soft text-tone-teal-strong'
                                     : 'bg-surface-muted text-text-secondary'
                                 }`}
                               >
@@ -694,7 +694,7 @@ export const UsersPage: React.FC = () => {
           ) : (
             <Card className="p-12 text-center bg-surface rounded-xl border border-border">
               <Card.Content className="p-0">
-                <ShieldCheck className="w-10 h-10 text-success-text mx-auto mb-2" />
+                <span className="mx-auto mb-2 grid size-10 place-items-center rounded-full bg-tone-green-soft text-tone-green-base"><ShieldCheck className="size-6" /></span>
                 <h4 className="text-xs font-semibold text-text">Danh sách trống</h4>
                 <p className="text-[11px] text-text-muted">
                   Không có hồ sơ đăng ký làm Chủ trọ nào ở trạng thái này.

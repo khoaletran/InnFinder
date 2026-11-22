@@ -1,6 +1,32 @@
 :root {
+  /* Semantic color families for compact Admin accents */
+  --tone-teal-soft: #F0FDFA;
+  --tone-teal-base: #0F766E;
+  --tone-teal-strong: #115E59;
+  --tone-teal-dot: #14B8A6;
+  --tone-green-soft: #F0FDF4;
+  --tone-green-base: #15803D;
+  --tone-green-strong: #166534;
+  --tone-green-dot: #22C55E;
+  --tone-amber-soft: #FFFBEB;
+  --tone-amber-base: #B45309;
+  --tone-amber-strong: #92400E;
+  --tone-amber-dot: #F59E0B;
+  --tone-blue-soft: #EFF6FF;
+  --tone-blue-base: #1D4ED8;
+  --tone-blue-strong: #1E40AF;
+  --tone-blue-dot: #3B82F6;
+  --tone-red-soft: #FEF2F2;
+  --tone-red-base: #B91C1C;
+  --tone-red-strong: #991B1B;
+  --tone-red-dot: #EF4444;
+  --tone-slate-soft: #F1F5F9;
+  --tone-slate-base: #475569;
+  --tone-slate-strong: #334155;
+  --tone-slate-dot: #94A3B8;
   /* Neutrals (light surface) */
   --bg: #F8FAFC;
+  --table-header: var(--bg);
   --surface: #FFFFFF;
   --surface-subtle: #FAFBFC;
   --surface-muted: #F1F5F9;
@@ -66,4 +92,18 @@
   --shadow-tab-active: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-modal: 0 20px 40px rgba(15, 23, 42, 0.12);
   --overlay-backdrop: rgba(15, 23, 42, 0.4);
+}
+
+.admin-shell {
+  --table-header: #F8FAFC;
+  --bg: #F4F6F9;
+  --sidebar-label: rgba(94, 234, 212, 0.85);
+  --sidebar-role-bg: rgba(45, 212, 191, 0.12);
+  --sidebar-role-text: #99F6E4;
+  --sidebar-text: #CBD5E1;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-active-bg: rgba(45, 212, 191, 0.10);
+  --sidebar-active-text: #FFFFFF;
+  --sidebar-active-icon: #2DD4BF;
+  --sidebar-active-indicator: #2DD4BF;
 }

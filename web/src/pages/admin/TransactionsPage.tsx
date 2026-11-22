@@ -2,20 +2,23 @@ import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
 import {
-  ArrowUpRight,
+  Copy,
+  Info,
+  Eye,
   CheckCircle2,
   Clock,
-  Eye,
   RotateCcw,
+  XCircle,
   Search,
   Wallet,
-  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
+import { RowActions, StatusBadge, TableCell } from '@/components/common/TableParts';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
+import { MoneyText } from '@/components/common/MoneyText';
 import {
   AdminErrorState,
   AdminRefreshButton,
@@ -117,14 +120,14 @@ export const TransactionsPage: React.FC = () => {
 
   const renderStatusBadge = (status: TrangThaiGD) => {
     const badge = getTransactionStatusBadge(status);
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium ${badge.bgClass} ${badge.textClass}`}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />
-        {badge.label}
-      </span>
-    );
+    const colors: Record<TrangThaiGD, { bg: string; text: string; dot: string }> = {
+      CHO_THANH_TOAN: { bg: 'bg-tone-amber-soft', text: 'text-tone-amber-strong', dot: 'bg-tone-amber-dot' },
+      THANH_CONG: { bg: 'bg-tone-green-soft', text: 'text-tone-green-strong', dot: 'bg-tone-green-dot' },
+      HOAN_TIEN: { bg: 'bg-tone-blue-soft', text: 'text-tone-blue-strong', dot: 'bg-tone-blue-dot' },
+      THAT_BAI: { bg: 'bg-tone-red-soft', text: 'text-tone-red-strong', dot: 'bg-tone-red-dot' },
+    };
+    const tone = colors[status] ?? colors.THAT_BAI;
+    return <StatusBadge className={tone.bg + ' ' + tone.text} dotClass={tone.dot}>{badge.label}</StatusBadge>;
   };
 
   const typeFiltered = useMemo(
@@ -169,7 +172,7 @@ export const TransactionsPage: React.FC = () => {
   const soLenhRutChoDuyet = treasury?.soLenhRutChoDuyet ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-7">
       {/* Title & Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -186,132 +189,53 @@ export const TransactionsPage: React.FC = () => {
         />
       </div>
 
-      {/* Company Treasury Summary — White Card with Thin Border & Dividers */}
-      <Card className="bg-surface rounded-xl border border-border p-5 lg:p-6">
-        <Card.Header className="p-0 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-border">
-          <div>
-            <div className="flex items-center gap-2 text-text-muted text-xs font-medium uppercase tracking-wider">
-              <Wallet className="w-4 h-4 text-accent" />
-              Ngân khố công ty
-            </div>
-            <Card.Title className="text-sm font-medium text-text-secondary mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span>Tổng tiền thực tế trong ngân khố</span>
-              {isTreasuryLoading ? (
-                <span className="inline-block h-7 w-40 rounded-lg bg-surface-muted animate-pulse align-middle" />
-              ) : (
-                <span className="text-[28px] leading-tight font-semibold text-text tabular-nums tracking-[-0.01em]">
-                  {formatVND(treasury?.tongQuyThucTe ?? 0)}
-                </span>
-              )}
-            </Card.Title>
-            <p className="text-xs text-text-muted mt-1 tabular-nums">
-              {isTreasuryLoading ? (
-                <span className="inline-block h-4 w-72 rounded bg-surface-muted animate-pulse" />
-              ) : (
-                <>
-                  Tiền của công ty ({formatVND(tongDoanhThu)}) + Quỹ đang giữ hộ (
-                  {formatVND(treasury?.tongQuyHeThong ?? 0)})
-                </>
-              )}
-            </p>
-          </div>
+      <Card className="rounded-xl border border-border border-t-[3px] border-t-tone-teal-base bg-surface p-4 sm:p-5">
+        <Card.Header className="p-0">
+          <Card.Title className="flex items-center gap-2 text-[13px] font-semibold text-text-muted">
+            <Wallet aria-hidden="true" className="size-4 text-accent" />
+            Tổng tiền thực tế trong ngân khố
+          </Card.Title>
+          {isTreasuryLoading ? (
+            <span className="mt-1 h-10 w-40 animate-pulse rounded bg-surface-muted" />
+          ) : (
+            <MoneyText amount={treasury?.tongQuyThucTe} className="mt-1 block text-[40px] font-bold leading-none text-text" unitClassName="ml-1 text-base text-text-muted" />
+          )}
+          <p className="mt-1 text-[13px] text-text-muted">
+            Tiền của công ty + quỹ đang giữ hộ{treasury && (' (' + formatVND(treasury.tongQuyHeThong) + ')')}
+          </p>
         </Card.Header>
-
-        <Card.Content className="p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border mt-4">
-          <div className="py-2 sm:pr-4">
-            <span className="text-xs font-medium text-text-muted block mb-1">
-              Tiền của công ty (Hoa hồng sàn)
-            </span>
-            {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
-            ) : (
-              <div className="text-lg font-semibold text-accent tabular-nums">
-                {formatVND(tongDoanhThu)}
+        <Card.Content className="mt-3 p-0">
+          <dl className="grid grid-cols-2 gap-3 border-t border-border pt-3 lg:grid-cols-4">
+            {[
+              { label: 'Tiền của công ty', amount: tongDoanhThu, color: 'text-accent', help: 'Doanh thu từ phí hoa hồng lịch hẹn hoàn tất' },
+              { label: 'Cọc tạm giữ', amount: quyTamGiuCoc, color: 'text-text', help: 'Tiền cọc lịch hẹn đang chờ xem phòng' },
+              { label: 'Số dư ví chủ trọ', amount: tongSoDuViChuTro, color: 'text-text', help: 'Số dư khả dụng để rút về ngân hàng' },
+              { label: 'Tiền chờ chi trả', amount: quyChoRut, color: quyChoRut > 0 ? 'text-tone-amber-strong' : 'text-text-muted', help: 'Khoản rút tiền đang chờ duyệt', withdrawal: true },
+            ].map(({ label, amount, color, help, withdrawal }) => (
+              <div key={label} className="min-w-0">
+                <dt className="flex items-center gap-1 text-[13px] text-text-muted">
+                  {label}
+                  <span title={help} aria-label={help} role="img" tabIndex={0} className="shrink-0"><Info aria-hidden="true" className="size-3.5" /></span>
+                </dt>
+                <dd className="mt-1">
+                  {isTreasuryLoading ? <div className="h-7 w-24 animate-pulse rounded bg-surface-muted" /> :
+                    <MoneyText amount={amount} className={'text-2xl font-semibold leading-none ' + color} />}
+                </dd>
+                {withdrawal && soLenhRutChoDuyet > 0 && (
+                  <dd><button type="button" className="mt-1 text-left text-[13px] font-semibold text-tone-amber-strong hover:underline"
+                    onClick={() => { setFilterType('WITHDRAWAL'); setStatusFilter('CHO_THANH_TOAN'); }}>
+                    {soLenhRutChoDuyet} lệnh chờ duyệt →
+                  </button></dd>
+                )}
               </div>
-            )}
-            <p className="text-[11px] text-text-muted mt-1">
-              Doanh thu thực từ phí hoa hồng lịch hẹn hoàn tất
-            </p>
-          </div>
-
-          <div className="py-2 sm:px-4">
-            <span className="text-xs font-medium text-text-muted block mb-1">
-              Cọc giữ chân tạm giữ
-            </span>
-            {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
-            ) : (
-              <div
-                className={`text-lg font-semibold tabular-nums ${
-                  quyTamGiuCoc > 0 ? 'text-text' : 'text-text-muted'
-                }`}
-              >
-                {formatVND(quyTamGiuCoc)}
-              </div>
-            )}
-            <p className="text-[11px] text-text-muted mt-1">
-              Tiền cọc lịch hẹn đang chờ xem phòng
-            </p>
-          </div>
-
-          <div className="py-2 sm:px-4">
-            <span className="text-xs font-medium text-text-muted block mb-1">
-              Tổng số dư ví Chủ trọ
-            </span>
-            {isTreasuryLoading ? (
-              <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
-            ) : (
-              <div
-                className={`text-lg font-semibold tabular-nums ${
-                  tongSoDuViChuTro > 0 ? 'text-text' : 'text-text-muted'
-                }`}
-              >
-                {formatVND(tongSoDuViChuTro)}
-              </div>
-            )}
-            <p className="text-[11px] text-text-muted mt-1">
-              Khả dụng cho chủ trọ rút về ngân hàng
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFilterType('WITHDRAWAL');
-              setStatusFilter('CHO_THANH_TOAN');
-            }}
-            className="text-left py-2 sm:pl-4 hover:bg-surface-subtle rounded-lg transition-colors cursor-pointer flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-xs font-medium text-text-muted">
-                  Tiền chờ chi trả rút
-                </span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
-              </div>
-              {isTreasuryLoading ? (
-                <div className="h-6 w-28 rounded bg-surface-muted animate-pulse my-1" />
-              ) : (
-                <div
-                  className={`text-lg font-semibold tabular-nums ${
-                    quyChoRut > 0 ? 'text-text' : 'text-text-muted'
-                  }`}
-                >
-                  {formatVND(quyChoRut)}
-                </div>
-              )}
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning-bg text-warning-text tabular-nums">
-                {soLenhRutChoDuyet} lệnh chờ duyệt
-              </span>
-            </div>
-          </button>
+            ))}
+          </dl>
         </Card.Content>
       </Card>
 
+      <section className="space-y-3" aria-label="Bộ lọc và danh sách giao dịch">
       {/* Filter Tabs & Search */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border pb-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex flex-wrap rounded-lg bg-surface-muted p-1 gap-1 text-xs">
           {[
             { key: 'ALL' as const, label: 'Tất cả biến động sổ cái' },
@@ -324,7 +248,7 @@ export const TransactionsPage: React.FC = () => {
               onClick={() => setFilterType(tab.key)}
               className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 filterType === tab.key
-                  ? 'bg-surface text-text font-semibold border border-border/60'
+                  ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
                   : 'text-text-muted hover:text-text font-medium'
               }`}
             >
@@ -337,6 +261,7 @@ export const TransactionsPage: React.FC = () => {
           <Search className="w-4 h-4 text-text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Tìm giao dịch"
             placeholder="Tìm mã giao dịch, người thực hiện..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -345,36 +270,15 @@ export const TransactionsPage: React.FC = () => {
         </form>
       </div>
 
-      {/* Status Tab Bar */}
       <StatusTabBar
         ariaLabel="Lọc giao dịch theo trạng thái"
         activeKey={statusFilter}
         onChange={setStatusFilter}
         tabs={[
-          {
-            key: 'CHO_THANH_TOAN',
-            label: 'Chờ thanh toán',
-            count: statusCounts.CHO_THANH_TOAN,
-            icon: Clock,
-          },
-          {
-            key: 'THANH_CONG',
-            label: 'Thành công',
-            count: statusCounts.THANH_CONG,
-            icon: CheckCircle2,
-          },
-          {
-            key: 'HOAN_TIEN',
-            label: 'Hoàn tiền',
-            count: statusCounts.HOAN_TIEN,
-            icon: RotateCcw,
-          },
-          {
-            key: 'THAT_BAI',
-            label: 'Thất bại',
-            count: statusCounts.THAT_BAI,
-            icon: XCircle,
-          },
+          { key: 'CHO_THANH_TOAN', label: 'Chờ thanh toán', count: statusCounts.CHO_THANH_TOAN, icon: Clock },
+          { key: 'THANH_CONG', label: 'Thành công', count: statusCounts.THANH_CONG, icon: CheckCircle2 },
+          { key: 'HOAN_TIEN', label: 'Hoàn tiền', count: statusCounts.HOAN_TIEN, icon: RotateCcw },
+          { key: 'THAT_BAI', label: 'Thất bại', count: statusCounts.THAT_BAI, icon: XCircle },
         ]}
       />
 
@@ -386,129 +290,94 @@ export const TransactionsPage: React.FC = () => {
           onRetry={() => void refetch()}
         />
       ) : (
-        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
-          <Card.Content className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Mã giao dịch</th>
-                  <th className="py-3 px-4">Loại giao dịch</th>
-                  <th className="py-3 px-4 text-right">Số tiền</th>
-                  <th className="py-3 px-4">Người thực hiện</th>
-                  <th className="py-3 px-4">Ngân hàng thụ hưởng</th>
-                  <th className="py-3 px-4">Thời gian</th>
-                  <th className="py-3 px-4">Trạng thái</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
-                {isLoading ? (
-                  <AdminTableSkeleton rows={6} cols={8} />
-                ) : filtered.length > 0 ? (
-                  filtered.map((tx) => {
-                    const isWithdrawal =
-                      tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' || tx.loaiGiaoDich === 'RUT_TIEN';
-                    const isPending = tx.trangThai === 'CHO_THANH_TOAN';
-                    const txMeta = formatTransactionType(tx.loaiGiaoDich);
-                    return (
-                      <tr key={tx.maGiaoDich} className="hover:bg-surface-subtle transition-colors">
-                        <td className="py-3 px-4 font-mono font-medium text-accent">
-                          {tx.maGiaoDich}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-medium text-text block">{txMeta.label}</span>
-                          {tx.phongTro && (
-                            <span className="text-[11px] text-text-muted block max-w-xs truncate">
-                              {tx.phongTro}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span
-                            className={`font-semibold text-[13px] tabular-nums ${
-                              tx.soTien === 0
-                                ? 'text-text-muted'
-                                : isWithdrawal
-                                  ? 'text-danger-text'
-                                  : tx.trangThai === 'HOAN_TIEN'
-                                    ? 'text-info-text'
-                                    : 'text-success-text'
-                            }`}
-                          >
-                            {isWithdrawal ? '-' : '+'}
-                            {formatVND(tx.soTien)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-text">
-                          {tx.nguoiThucHien}
-                        </td>
-                        <td className="py-3 px-4 text-text-secondary">
-                          {tx.tenNganHang ? (
-                            <div>
-                              <span className="font-medium text-text">{tx.tenNganHang}</span>
-                              <span className="block text-[11px] font-mono text-text-muted">
-                                {tx.soTaiKhoan}
-                              </span>
-                            </div>
-                          ) : (
-                            txMeta.method
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-text-muted tabular-nums">
-                          {formatDateTime(tx.thoiGian)}
-                        </td>
-                        <td className="py-3 px-4">{renderStatusBadge(tx.trangThai)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTx(tx)}
-                              title="Xem chi tiết giao dịch"
-                              className="p-1.5 text-text-muted hover:text-accent hover:bg-accent-soft rounded-lg cursor-pointer transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            {isWithdrawal && isPending && (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={approveWithdrawalMutation.isPending}
-                                  onClick={() => approveWithdrawalMutation.mutate(tx.maGiaoDich)}
-                                  title="Phê duyệt chuyển tiền"
-                                  className="p-1.5 text-success-text hover:bg-success-bg rounded-lg cursor-pointer transition-colors"
-                                >
-                                  <CheckCircle2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRejectingTxId(tx.maGiaoDich);
-                                    setRejectReason('');
-                                  }}
-                                  title="Từ chối rút tiền"
-                                  className="p-1.5 text-danger-text hover:bg-danger-bg rounded-lg cursor-pointer transition-colors"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-text-muted">
-                      Không có giao dịch nào phù hợp với bộ lọc hiện tại.
-                    </td>
+        <div className="ledger-results rounded-xl border border-border bg-surface">
+          <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 id="ledger-results-title" className="text-sm font-semibold text-text">Danh sách giao dịch</h2>
+            <span aria-live="polite" className="text-[13px] text-text-muted">
+              {isLoading ? 'Đang tải…' : filtered.length.toLocaleString('vi-VN') + ' giao dịch'}
+            </span>
+          </header>
+          <table className="ledger-table text-left" aria-labelledby="ledger-results-title" role="table">
+            <colgroup>
+              {[10, 20, 13, 14, 12, 9, 13, 9].map((width, index) => <col key={index} style={{ width: width + '%' }} />)}
+            </colgroup>
+            <thead>
+              <tr>
+                {['Mã GD', 'Loại giao dịch', 'Số tiền', 'Người thực hiện', 'Ngân hàng', 'Thời gian', 'Trạng thái', ''].map((label, index) => (
+                  <th key={label} scope="col" className={'py-3 ' + (index === 2 ? 'text-right' : '')}>
+                    {label || <span className="sr-only">Thao tác</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {isLoading ? <AdminTableSkeleton rows={6} cols={8} /> : filtered.length ? filtered.map((tx) => {
+                const isWithdrawal = tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' || tx.loaiGiaoDich === 'RUT_TIEN';
+                const isIncoming = tx.loaiGiaoDich === 'COC_XEM_PHONG' || tx.loaiGiaoDich === 'THU_HOA_HONG';
+                const statusAllowsProcessing = isWithdrawal && tx.trangThai === 'CHO_THANH_TOAN';
+                const [time, date] = formatDateTime(tx.thoiGian).replace(',', '').split(' ');
+                const account = tx.soTaiKhoan?.trim();
+                const ghost = 'grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text';
+                return (
+                  <tr key={tx.maGiaoDich} role="row" className="group hover:bg-surface-subtle">
+                    <TableCell label="Mã GD">
+                      <div className="flex items-center gap-1">
+                        <code className="truncate text-[13px] text-text-muted" title={tx.maGiaoDich}>{tx.maGiaoDich}</code>
+                        <button type="button" aria-label={'Sao chép mã ' + tx.maGiaoDich}
+                          className="grid size-6 shrink-0 place-items-center rounded text-text-muted hover:bg-surface-muted focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                          onClick={() => {
+                            if (!navigator.clipboard) { toast.error('Không thể sao chép mã giao dịch'); return; }
+                            void navigator.clipboard.writeText(tx.maGiaoDich).then(
+                              () => toast.success('Đã sao chép mã giao dịch'),
+                              () => toast.error('Không thể sao chép mã giao dịch'),
+                            );
+                          }}>
+                          <Copy aria-hidden="true" className="size-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell label="Loại giao dịch">
+                      <span className="block truncate font-medium text-text" title={formatTransactionType(tx.loaiGiaoDich).label}>{formatTransactionType(tx.loaiGiaoDich).label}</span>
+                      {tx.phongTro && <span className="block truncate text-xs text-text-muted" title={tx.phongTro}>{tx.phongTro}</span>}
+                    </TableCell>
+                    <TableCell label="Số tiền" className="text-right">
+                      <MoneyText amount={Math.abs(tx.soTien)} prefix={tx.soTien ? isWithdrawal ? '−' : isIncoming ? '+' : tx.soTien < 0 ? '−' : '' : ''}
+                        className={'font-semibold ' + (isIncoming && tx.soTien > 0 ? 'text-tone-green-base' : 'text-text')} />
+                    </TableCell>
+                    <TableCell label="Người thực hiện"><span className="block truncate text-[13px] text-text-muted" title={tx.nguoiThucHien}>{tx.nguoiThucHien}</span></TableCell>
+                    <TableCell label="Ngân hàng">
+                      {tx.tenNganHang ? (
+                        <>
+                          <span className="block truncate text-[13px] text-text-muted" title={tx.tenNganHang}>{tx.tenNganHang}</span>
+                          {account && <span className="block whitespace-nowrap font-mono text-xs text-text-muted">{'••••' + (account.length > 4 ? account.slice(-4) : '')}</span>}
+                        </>
+                      ) : <span className="text-text-subtle" aria-label="Không có ngân hàng">—</span>}
+                    </TableCell>
+                    <TableCell label="Thời gian">
+                      <span className="block whitespace-nowrap text-[13px] tabular-nums text-text-muted">{time}</span>
+                      {date && <span className="block whitespace-nowrap text-xs tabular-nums text-text-muted">{date}</span>}
+                    </TableCell>
+                    <TableCell label="Trạng thái">{renderStatusBadge(tx.trangThai)}</TableCell>
+                    <TableCell label="Thao tác">
+                      <RowActions actions={statusAllowsProcessing ? [
+                        { label: 'Duyệt', run: () => approveWithdrawalMutation.mutate(tx.maGiaoDich), disabled: approveWithdrawalMutation.isPending },
+                        { label: 'Từ chối', danger: true, run: () => { setRejectingTxId(tx.maGiaoDich); setRejectReason(''); } },
+                      ] : undefined}>
+                        <button type="button" onClick={() => setSelectedTx(tx)} aria-label={'Xem giao dịch ' + tx.maGiaoDich} className={ghost}>
+                          <Eye aria-hidden="true" className="size-4" />
+                        </button>
+                      </RowActions>
+                    </TableCell>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </Card.Content>
-        </Card>
+                );
+              }) : (
+                <tr><td colSpan={8} className="text-center text-[13px] text-text-muted">Không có giao dịch nào phù hợp với bộ lọc hiện tại.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
+      </section>
 
       {/* MODAL CHI TIẾT GIAO DỊCH */}
       <Modal

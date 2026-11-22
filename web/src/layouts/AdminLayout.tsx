@@ -1,18 +1,34 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, Home, UserCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
 import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { ADMIN_NAV_ITEMS } from '@/constants/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adminService } from '@/services/admin.service';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: dashboard } = useQuery({
+    queryKey: ['admin', 'dashboard-stats'],
+    queryFn: () => adminService.getDashboardStats(),
+  });
+  const { data: treasury } = useQuery({
+    queryKey: ['admin', 'treasury-stats'],
+    queryFn: () => adminService.getTreasuryStats(),
+  });
+  const pendingByPath: Record<string, number> = {
+    '/admin/users': dashboard?.hangDoi.xacMinhChuTro ?? 0,
+    '/admin/posts': dashboard?.hangDoi.tinMoi ?? 0,
+    '/admin/transactions': treasury?.soLenhRutChoDuyet ?? 0,
+    '/admin/complaints': dashboard?.hangDoi.baoCaoViPham ?? 0,
+  };
 
-  const isDashboard = location.pathname === '/admin/dashboard';
+  const isResponsive = ['/admin/dashboard', '/admin/transactions', '/admin/users', '/admin/posts', '/admin/reviews', '/admin/complaints', '/admin/categories'].includes(location.pathname);
   const isProfileRoute = location.pathname.startsWith('/admin/profile');
   const currentNav =
     ADMIN_NAV_ITEMS.find((item) =>
@@ -27,9 +43,9 @@ export const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-bg flex text-text ${isDashboard ? 'flex-col md:flex-row' : ''}`}>
+    <div className={`admin-shell min-h-screen bg-bg flex text-text ${isResponsive ? 'flex-col md:flex-row' : ''}`}>
       {/* Admin Sidebar */}
-      <aside className={`bg-sidebar-bg text-[var(--sidebar-text)] flex flex-col justify-between shrink-0 z-30 border-r border-[var(--sidebar-border)] ${isDashboard ? 'w-full md:fixed md:inset-y-0 md:left-0 md:w-64' : 'fixed inset-y-0 left-0 w-64'}`}>
+      <aside className={`bg-sidebar-bg text-[var(--sidebar-text)] flex flex-col justify-between shrink-0 z-30 border-r border-[var(--sidebar-border)] ${isResponsive ? 'w-full md:fixed md:inset-y-0 md:left-0 md:w-64' : 'fixed inset-y-0 left-0 w-64'}`}>
         <div>
           {/* Brand Header */}
           <div className="h-16 px-6 border-b border-[var(--sidebar-border)] flex items-center justify-between">
@@ -39,7 +55,7 @@ export const AdminLayout: React.FC = () => {
                 <span className="font-bold text-base text-white tracking-wide block leading-none">
                   InnFinder
                 </span>
-                <span className="text-[10px] tracking-wider text-[var(--sidebar-text)] font-medium uppercase">
+                <span className="text-[11px] tracking-[0.08em] text-[var(--sidebar-label)] font-semibold uppercase">
                   Quản trị
                 </span>
               </div>
@@ -47,7 +63,7 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           {/* Centralized Navigation Links from @/constants/navigation */}
-          <nav className={`p-3 ${isDashboard ? 'flex gap-1 overflow-x-auto whitespace-nowrap md:block md:space-y-1' : 'space-y-1'}`}>
+          <nav className={`p-3 ${isResponsive ? 'flex gap-1 overflow-x-auto whitespace-nowrap md:block md:space-y-1' : 'space-y-1'}`}>
             {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -58,7 +74,7 @@ export const AdminLayout: React.FC = () => {
                   className={({ isActive }) =>
                     `relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[13px] transition-colors ${
                       isActive
-                        ? 'bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] font-medium'
+                        ? 'bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] font-semibold'
                         : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-text-hover)] font-normal'
                     }`
                   }
@@ -66,10 +82,15 @@ export const AdminLayout: React.FC = () => {
                   {({ isActive }) => (
                     <>
                       {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[var(--sidebar-active-indicator)] rounded-r-full" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--sidebar-active-indicator)] rounded-r-full" />
                       )}
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[var(--sidebar-active-icon)]' : ''}`} />
                       <span>{item.label}</span>
+                      {(pendingByPath[item.path] ?? 0) > 0 && (
+                        <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${item.path === '/admin/complaints' ? 'bg-tone-red-soft text-tone-red-strong' : 'bg-tone-amber-soft text-tone-amber-strong'}`}>
+                          {pendingByPath[item.path]}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>
@@ -124,7 +145,7 @@ export const AdminLayout: React.FC = () => {
                 <p className="text-xs font-medium text-[var(--sidebar-active-text)] truncate">
                   {user?.hoVaTen || user?.tenDangNhap || 'Quản trị viên'}
                 </p>
-                <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-[var(--sidebar-active-bg)] text-[var(--sidebar-text)]">
+                <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-[var(--sidebar-role-bg)] text-[var(--sidebar-role-text)]">
                   Quản trị viên
                 </span>
               </div>
@@ -142,11 +163,11 @@ export const AdminLayout: React.FC = () => {
       </aside>
 
       {/* Main Content Pane */}
-      <div className={`flex-1 min-w-0 flex flex-col min-h-screen ${isDashboard ? 'md:ml-64' : 'ml-64'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col min-h-screen ${isResponsive ? 'md:ml-64' : 'ml-64'}`}>
         {/* Top Header Bar */}
-        <header className={`h-16 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isDashboard ? 'gap-2 px-4 md:px-8' : 'px-8'}`}>
+        <header className={`h-16 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isResponsive ? 'gap-2 px-4 md:px-8' : 'px-8'}`}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-surface-muted text-text-secondary flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-tone-teal-soft text-tone-teal-base flex items-center justify-center shrink-0">
               <HeaderIcon className="w-4 h-4" />
             </div>
             <span className="text-sm font-semibold text-text leading-tight tracking-[-0.01em]">
@@ -156,14 +177,14 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <AdminNotificationBell />
-            <div className={`text-xs text-text-muted font-medium ${isDashboard ? 'hidden sm:block' : ''}`}>
+            <div className={`text-xs text-text-muted font-medium ${isResponsive ? 'hidden sm:block' : ''}`}>
               Xin chào, <strong className="font-semibold text-text">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
             </div>
           </div>
         </header>
 
         {/* Content Body */}
-        <main className={`relative flex-1 ${isDashboard ? 'overflow-x-clip p-4 sm:p-6 lg:p-8' : 'p-6 lg:p-8'}`}>
+        <main className={`relative flex-1 ${isResponsive ? 'overflow-x-clip p-4 sm:p-6 lg:p-8' : 'p-6 lg:p-8'}`}>
           <Outlet />
           <RouteLoadingOverlay />
         </main>

@@ -8,6 +8,7 @@ import { Modal } from '@/components/common/Modal';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
+import { StatusBadge } from '@/components/common/TableParts';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatDateTime } from '@/utils/formatters';
 import type { AdminReviewItem } from '@/types/admin.types';
@@ -63,7 +64,7 @@ export const ReviewsPage: React.FC = () => {
   const filteredReviews = reviews.filter((r) => r.diem === Number(ratingFilter));
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
@@ -102,7 +103,7 @@ export const ReviewsPage: React.FC = () => {
       ) : filteredReviews.length > 0 ? (
         <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
           <Card.Header className="p-4 border-b border-border flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-semibold text-text">
+            <Card.Title className="text-sm font-semibold text-text">
               Danh sách đánh giá ({filteredReviews.length})
             </Card.Title>
           </Card.Header>
@@ -111,15 +112,15 @@ export const ReviewsPage: React.FC = () => {
             {filteredReviews.map((rev) => {
               const isHidden = rev.trangThai === 'AN';
               return (
-                <div key={rev.maDanhGia} className="p-5 hover:bg-surface-subtle transition-colors">
+                <div key={rev.maDanhGia} className="px-5 py-4 hover:bg-surface-subtle transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                     <div>
-                      <span className="font-semibold text-text text-xs">{rev.nguoiDanhGia}</span>
+                      <span className="font-semibold text-text text-sm">{rev.nguoiDanhGia}</span>
                       <span className="text-text-subtle text-xs mx-2">•</span>
                       <span className="text-text-secondary text-xs font-medium">
                         {rev.tenPhongTro}
                       </span>
-                      <code className="ml-2 text-[11px] font-mono text-accent">
+                      <code className="ml-2 text-xs font-mono text-text-muted">
                         #{rev.phongTroId}
                       </code>
                     </div>
@@ -134,27 +135,28 @@ export const ReviewsPage: React.FC = () => {
                           />
                         ))}
                       </div>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                      <StatusBadge
+                        dotClass={isHidden ? 'bg-tone-slate-dot' : 'bg-tone-green-dot'}
+                        className={
                           isHidden
                             ? 'bg-surface-muted text-text-muted'
                             : 'bg-success-bg text-success-text'
-                        }`}
+                        }
                       >
                         {isHidden ? 'Tạm ẩn' : 'Hiển thị'}
-                      </span>
+                      </StatusBadge>
                     </div>
                   </div>
 
                   <p
-                    className={`text-xs leading-relaxed bg-surface-subtle p-3 rounded-lg border border-border mb-3 ${
+                    className={`mb-3 text-[13px] leading-relaxed ${
                       isHidden ? 'text-text-muted italic' : 'text-text-secondary'
                     }`}
                   >
                     "{rev.noiDung || 'Khách thuê đánh giá sao không kèm nhận xét'}"
                   </p>
 
-                  <div className="flex items-center justify-between text-[11px] text-text-muted">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
                     <span>Thời gian gửi: {formatDateTime(rev.thoiGian)}</span>
                     <div className="flex items-center gap-2">
                       <button
