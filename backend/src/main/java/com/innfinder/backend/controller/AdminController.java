@@ -137,11 +137,14 @@ public class AdminController {
     }
 
     @PatchMapping("/transactions/{id}/approve")
-    @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền")
-    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(@PathVariable String id) {
+    @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền hoặc hoàn cọc (kèm mã tham chiếu ngân hàng)")
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body) {
         String adminUsername = SecurityUtils.getCurrentUsername();
-        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername);
-        return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt yêu cầu rút tiền thành công"));
+        String maThamChieu = body != null ? body.get("maThamChieu") : null;
+        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername, maThamChieu);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt yêu cầu chuyển tiền thành công"));
     }
 
     @PatchMapping("/transactions/{id}/reject")

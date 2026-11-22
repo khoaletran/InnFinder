@@ -6,6 +6,7 @@ import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.entity.ChuTro;
+import com.innfinder.backend.entity.GiaoDich;
 import com.innfinder.backend.entity.NguoiDung;
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.PhongTro;
@@ -191,18 +192,55 @@ public class AppointmentService {
     }
 
     /**
+     * Tự động kiểm tra và chuyển trạng thái HUY đối với các lịch hẹn CHO_XAC_NHAN quá hạn:
+     * 1. Quá 24 giờ kể từ thời điểm gửi yêu cầu (thoiGianDat + 24h)
+     * 2. Hoặc thời điểm hiện tại chỉ còn cách giờ hẹn dưới 2 tiếng (now >= ngayHen - 2h)
+     */
+    @Transactional
+    public PhieuDatLich kiemTraVaTuDongHuyQuaHan(PhieuDatLich phieu) {
+        if (phieu == null || phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
+            return phieu;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        boolean qua24h = phieu.getThoiGianDat() != null && now.isAfter(phieu.getThoiGianDat().plusHours(24));
+        boolean satGioHen = phieu.getNgayHen() != null && now.isAfter(phieu.getNgayHen().minusHours(2));
+
+        if (qua24h || satGioHen) {
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            phieu.setLiDoHuy("Hệ thống tự động hủy do chủ trọ quá hạn phản hồi");
+            phieu = phieuDatLichRepository.save(phieu);
+
+            boolean daNop = (phieu.getKhachHang() != null) && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich());
+            if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
+                taoGiaoDichHoanCocChoKhach(phieu, "Tự động hoàn cọc do quá hạn phản hồi", null);
+            }
+        }
+        return phieu;
+    }
+
+    /**
      * 3. Khách hàng xem danh sách lịch hẹn của mình (kèm cờ đã nộp cọc)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<AppointmentResponse> layLichHenCuaToi(String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
 
         return phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(khachHang.getMaNguoiDung())
                 .stream()
+                .map(this::kiemTraVaTuDongHuyQuaHan)
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
                             || daNopCocChoLichHen(khachHang.getMaNguoiDung(), phieu.getMaDatLich());
-                    return AppointmentResponse.fromEntity(phieu, daNop);
+                    AppointmentResponse resp = AppointmentResponse.fromEntity(phieu, daNop);
+                    if (phieu.getTrangThai() == TrangThaiDatLich.HUY && daNop && !Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())
+                            && phieu.getCoc() != null && phieu.getCoc() > 0) {
+                        List<GiaoDich> refunds = giaoDichRepository.findRefundTransactions(khachHang.getMaNguoiDung(), phieu.getMaDatLich());
+                        if (!refunds.isEmpty()) {
+                            resp.setThongTinHoanCoc(refunds.get(0));
+                        }
+                    }
+                    return resp;
                 })
                 .toList();
     }
@@ -210,11 +248,12 @@ public class AppointmentService {
     /**
      * 4. Chủ trọ xem danh sách khách hẹn xem các phòng của mình (kèm cờ đã nộp cọc)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<AppointmentResponse> layLichHenChoChuTro(String username) {
         NguoiDung chuTro = getNguoiDungByUsername(username);
         return phieuDatLichRepository.findAppointmentsByLandlordId(chuTro.getMaNguoiDung())
                 .stream()
+                .map(this::kiemTraVaTuDongHuyQuaHan)
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
                             || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich()));
@@ -277,13 +316,7 @@ public class AppointmentService {
         // Chỉ hoàn cọc nếu khách hàng đã thực sự nộp cọc trước đó
         boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
         if (daNop && phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    phieu.getCoc(),
-                    "HOAN_COC",
-                    "Hoàn cọc do chủ trọ từ chối lịch hẹn " + maDatLich,
-                    TrangThaiGD.HOAN_TIEN
-            );
+            taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ từ chối", null);
         }
     }
 
@@ -536,7 +569,7 @@ public class AppointmentService {
                 phieuDatLichRepository.save(phieu);
 
                 if (daNop && phieu.getCoc() > 0) {
-                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy khi chờ duyệt");
+                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy khi chờ duyệt", request);
                 }
                 return;
             }
@@ -551,7 +584,7 @@ public class AppointmentService {
                 phieuDatLichRepository.save(phieu);
 
                 if (daNop && phieu.getCoc() > 0) {
-                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy hợp lệ (> 2h)");
+                    taoGiaoDichHoanCocChoKhach(phieu, "Khách hàng hủy hợp lệ (> 2h)", request);
                 }
             } else {
                 // Hủy vi phạm (sát giờ < 2 tiếng) -> Tịch thu cọc, bồi thường cho Chủ trọ
@@ -590,23 +623,60 @@ public class AppointmentService {
             phieuDatLichRepository.save(phieu);
 
             if (daNop && phieu.getCoc() > 0) {
-                taoGiaoDichHoanCocChoKhach(phieu, "Chủ trọ hủy lịch hẹn");
+                taoGiaoDichHoanCocChoKhach(phieu, "Chủ trọ hủy lịch hẹn", null);
             }
         }
     }
 
     /**
      * Hàm phụ trợ tạo giao dịch hoàn cọc cho khách hàng để Admin đối soát duyệt
+     * Tiếp nhận thông tin tài khoản ngân hàng từ request (nếu có) hoặc từ bảng TaiKhoanNganHang
      */
-    private void taoGiaoDichHoanCocChoKhach(PhieuDatLich phieu, String lyDo) {
-        List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
+    private void taoGiaoDichHoanCocChoKhach(PhieuDatLich phieu, String lyDo, AppointmentCancelRequest request) {
         String bankNote = "";
-        if (!banks.isEmpty()) {
-            TaiKhoanNganHang primaryBank = banks.get(0);
-            bankNote = " về TK " + primaryBank.getTenNganHang() + " - " + primaryBank.getSoTaiKhoan()
-                    + (primaryBank.getTenChuTaiKhoan() != null && !primaryBank.getTenChuTaiKhoan().isBlank()
-                        ? " (" + primaryBank.getTenChuTaiKhoan() + ")" : "");
+        String tenNganHang = null;
+        String soTaiKhoan = null;
+        String tenChuTaiKhoan = null;
+
+        if (request != null && request.getSoTaiKhoan() != null && !request.getSoTaiKhoan().isBlank()) {
+            tenNganHang = request.getTenNganHang() != null ? request.getTenNganHang().trim() : "Ngân hàng";
+            soTaiKhoan = request.getSoTaiKhoan().trim();
+            tenChuTaiKhoan = (request.getTenChuTaiKhoan() != null && !request.getTenChuTaiKhoan().isBlank())
+                    ? request.getTenChuTaiKhoan().trim()
+                    : (phieu.getKhachHang() != null ? phieu.getKhachHang().getHoVaTen() : "");
+
+            // Tự động lưu hoặc liên kết tài khoản ngân hàng này cho người dùng nếu chưa có
+            try {
+                if (phieu.getKhachHang() != null) {
+                    List<TaiKhoanNganHang> existing = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
+                    boolean alreadyExists = existing.stream().anyMatch(b -> b.getSoTaiKhoan().equalsIgnoreCase(request.getSoTaiKhoan().trim()));
+                    if (!alreadyExists) {
+                        TaiKhoanNganHang newBank = TaiKhoanNganHang.builder()
+                                .nguoiDung(phieu.getKhachHang())
+                                .tenNganHang(tenNganHang)
+                                .soTaiKhoan(soTaiKhoan)
+                                .tenChuTaiKhoan(tenChuTaiKhoan)
+                                .build();
+                        taiKhoanNganHangRepository.save(newBank);
+                    }
+                }
+            } catch (Exception ignored) {}
+        } else {
+            // Lấy từ danh mục ngân hàng đã liên kết
+            List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
+            if (!banks.isEmpty()) {
+                TaiKhoanNganHang primaryBank = banks.get(0);
+                tenNganHang = primaryBank.getTenNganHang();
+                soTaiKhoan = primaryBank.getSoTaiKhoan();
+                tenChuTaiKhoan = primaryBank.getTenChuTaiKhoan();
+            }
         }
+
+        if (tenNganHang != null && soTaiKhoan != null) {
+            bankNote = " về TK " + tenNganHang + " - " + soTaiKhoan
+                    + (tenChuTaiKhoan != null && !tenChuTaiKhoan.isBlank() ? " (" + tenChuTaiKhoan + ")" : "");
+        }
+
         transactionService.taoGiaoDich(
                 phieu.getKhachHang(),
                 phieu.getCoc(),
@@ -618,7 +688,7 @@ public class AppointmentService {
 
     /**
      * Chủ trọ báo cáo khách không đến xem phòng (No-show) sau giờ hẹn 30 phút.
-     * Tiền cọc giữ chân được bồi thường chuyển thẳng vào ví Chủ trọ.
+     * Tiền cọc được lập lệnh bồi thường CHO_THANH_TOAN (đóng băng tại Sàn 24h để đối soát khiếu nại).
      */
     @Transactional
     public void baoCaoNoShow(String maDatLich, String username) {
@@ -639,23 +709,68 @@ public class AppointmentService {
         }
 
         phieu.setTrangThai(TrangThaiDatLich.HUY);
-        phieu.setLiDoHuy("Chủ trọ báo khách vắng mặt (No-show): Tịch thu cọc bồi thường Chủ trọ");
+        phieu.setLiDoHuy("Chủ trọ báo khách vắng mặt (No-show): Chờ đối soát 24h để bồi thường cọc");
         phieuDatLichRepository.save(phieu);
 
-        boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-        if (daNop && phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
+        boolean daNop = (phieu.getKhachHang() != null) && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+        if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
             ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
-            ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
-            chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
-            chuTroRepository.save(chuTroLocked);
-
+            // Đóng băng tiền cọc: Tạo giao dịch CHO_THANH_TOAN chờ 24h đối soát / Admin duyệt
             transactionService.taoGiaoDich(
-                    chuTroLocked.getNguoiDung(),
+                    chuTro.getNguoiDung(),
                     phieu.getCoc(),
                     "BOI_THUONG_NO_SHOW",
-                    "Bồi thường tiền cọc do khách vắng mặt (No-show) lịch " + maDatLich,
-                    TrangThaiGD.THANH_CONG
+                    "Bồi thường tiền cọc (chờ đối soát 24h) do khách vắng mặt (No-show) lịch " + maDatLich,
+                    TrangThaiGD.CHO_THANH_TOAN
             );
+        }
+    }
+
+    /**
+     * Khách hàng báo cáo Chủ trọ vắng mặt (No-show) sau giờ hẹn 30 phút.
+     * Tiền cọc được lập lệnh hoàn trả 100% cho Khách hàng (CHO_THANH_TOAN chờ đối soát duyệt).
+     * Trừ 10 điểm uy tín của Chủ trọ để răn đe hành vi bỏ rơi khách.
+     */
+    @Transactional
+    public void khachBaoCaoNoShow(String maDatLich, String username) {
+        NguoiDung khachHang = getNguoiDungByUsername(username);
+
+        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+
+        if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // Chỉ được báo sau giờ hẹn 30 phút
+        if (phieu.getNgayHen() != null && LocalDateTime.now().isBefore(phieu.getNgayHen().plusMinutes(30))) {
+            throw new AppException(ErrorCode.NO_SHOW_TOO_EARLY);
+        }
+
+        // Không cho báo nếu đã nhận lại cọc
+        if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
+        }
+
+        phieu.setTrangThai(TrangThaiDatLich.HUY);
+        phieu.setLiDoHuy("Khách báo chủ trọ vắng mặt (No-show)");
+
+        // Trừ 10 điểm uy tín của chủ trọ
+        if (phieu.getPhongTro() != null && phieu.getPhongTro().getChuPhongTro() != null) {
+            ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
+            chuTro.setDiemUyTin(Math.max(0, (chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100) - 10));
+            chuTroRepository.save(chuTro);
+        }
+
+        phieuDatLichRepository.save(phieu);
+
+        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
+        if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
+            taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ vắng mặt (No-show)", null);
         }
     }
 

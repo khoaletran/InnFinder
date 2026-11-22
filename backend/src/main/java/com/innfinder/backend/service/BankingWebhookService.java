@@ -1,22 +1,30 @@
 package com.innfinder.backend.service;
 
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
+import com.innfinder.backend.entity.GiaoDich;
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiGD;
 import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.PhieuDatLichRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Service xử lý đối soát Webhook biến động số dư tài khoản ngân hàng từ SePay
+ * Hỗ trợ cả 2 chiều:
+ * 1. Tiền vào (in): Khách hàng nộp cọc giữ chân lịch xem phòng.
+ * 2. Tiền ra (out): Admin/Sàn chuyển khoản hoàn cọc hoặc chi trả tiền rút về ngân hàng.
  */
 @Slf4j
 @Service
@@ -27,6 +35,9 @@ public class BankingWebhookService {
     private final GiaoDichRepository giaoDichRepository;
     private final TransactionService transactionService;
 
+    @Autowired(required = false)
+    private CacheManager cacheManager;
+
     @Value("${sepay.api-key:sepay_innfinder_secret_key_2026}")
     private String sepayApiKey;
 
@@ -35,13 +46,17 @@ public class BankingWebhookService {
     // Pattern 2: Cụm 11 số độc lập có dạng ngày yyyyMMdd (VD: 20261119001)
     private static final Pattern PATTERN_DATE_SEQUENCE = Pattern.compile("\\b(20\\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])\\d{3})\\b");
 
+    // Pattern nhận diện mã giao dịch tiền ra: GD + 11 số (Ví dụ: GD20261122001)
+    private static final Pattern PATTERN_GD_PREFIX = Pattern.compile("(?i)(?:GD)\\s*(\\d{11})");
+    private static final Pattern PATTERN_GD_FULL = Pattern.compile("(?i)\\b(GD20\\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])\\d{3})\\b");
+
     /**
      * Xử lý webhook từ SePay khi có biến động số dư tài khoản
      */
     @Transactional
     public Map<String, Object> xuLySePayWebhook(String authHeader, SePayWebhookPayload payload) {
-        log.info("[SePay Webhook] Nhận request: referenceCode={}, amount={}, content={}",
-                payload.getReferenceCode(), payload.getTransferAmount(), payload.getContent());
+        log.info("[SePay Webhook] Nhận request: referenceCode={}, transferType={}, amount={}, content={}",
+                payload.getReferenceCode(), payload.getTransferType(), payload.getTransferAmount(), payload.getContent());
 
         // 1. Kiểm tra API Key (nếu SePay có gửi header Authorization)
         if (sepayApiKey != null && !sepayApiKey.isBlank() && authHeader != null) {
@@ -51,33 +66,88 @@ public class BankingWebhookService {
             }
         }
 
-        // 2. Bỏ qua giao dịch tiền ra (transferType != "in")
-        if (payload.getTransferType() != null && !"in".equalsIgnoreCase(payload.getTransferType())) {
-            log.info("[SePay Webhook] Bỏ qua giao dịch tiền ra: {}", payload.getTransferType());
-            return Map.of("success", true, "message", "Bỏ qua giao dịch tiền ra");
-        }
-
-        // 3. Bóc tách mã phiếu đặt lịch từ content hoặc description
         String rawContent = payload.getContent() != null ? payload.getContent() : payload.getDescription();
         if (rawContent == null || rawContent.isBlank()) {
             log.warn("[SePay Webhook] Không có nội dung chuyển khoản để đối soát.");
             return Map.of("success", false, "message", "Nội dung chuyển khoản trống");
         }
 
+        String transferType = payload.getTransferType() != null ? payload.getTransferType().trim().toLowerCase() : "in";
+
+        // =========================================================================
+        // NHÁNH 1: TIỀN RA (transferType == "out") - Tự động đối soát Hoàn cọc & Rút tiền
+        // =========================================================================
+        if ("out".equalsIgnoreCase(transferType)) {
+            return xuLySePayTienRa(payload, rawContent);
+        }
+
+        // =========================================================================
+        // NHÁNH 2: TIỀN VÀO (transferType == "in") - Tự động đối soát Nộp cọc xem phòng
+        // =========================================================================
+        return xuLySePayTienVao(payload, rawContent);
+    }
+
+    /**
+     * Xử lý giao dịch tiền ra khỏi tài khoản Sàn (Admin chuyển khoản hoàn cọc hoặc duyệt rút tiền)
+     */
+    private Map<String, Object> xuLySePayTienRa(SePayWebhookPayload payload, String rawContent) {
+        String maGiaoDich = extractMaGiaoDich(rawContent);
+        if (maGiaoDich == null) {
+            log.info("[SePay Webhook] Bỏ qua giao dịch tiền ra không tìm thấy mã GD: '{}'", rawContent);
+            return Map.of("success", true, "message", "Bỏ qua giao dịch tiền ra không có mã GD");
+        }
+
+        GiaoDich gd = giaoDichRepository.findById(maGiaoDich).orElse(null);
+        if (gd == null) {
+            log.warn("[SePay Webhook] Mã giao dịch tiền ra không tồn tại trong CSDL: {}", maGiaoDich);
+            return Map.of("success", false, "message", "Giao dịch không tồn tại: " + maGiaoDich);
+        }
+
+        if (gd.getTrangThai() == TrangThaiGD.THANH_CONG || gd.getTrangThai() == TrangThaiGD.HOAN_TIEN) {
+            log.info("[SePay Webhook] Giao dịch {} đã được đối soát hoàn tất trước đó.", maGiaoDich);
+            return Map.of("success", true, "message", "Giao dịch đã hoàn tất trước đó");
+        }
+
+        // Tự động chuyển trạng thái sang THANH_CONG
+        gd.setTrangThai(TrangThaiGD.THANH_CONG);
+        String timeNow = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
+        String oldNote = gd.getNoiDung() != null ? gd.getNoiDung() : "";
+        gd.setNoiDung(oldNote + " [ĐÃ TỰ ĐỘNG ĐỐI SOÁT SEPAY TIỀN RA lúc " + timeNow + " - Mã SePay: " + refCode + "]");
+        giaoDichRepository.save(gd);
+
+        // Xóa cache thống kê Admin để cập nhật số liệu
+        evictAdminStatisticsCache();
+
+        log.info("[SePay Webhook] ĐỐI SOÁT THÀNH CÔNG TIỀN RA: Giao dịch {} đã hoàn tất chuyển tiền (GD: {})",
+                maGiaoDich, refCode);
+
+        return Map.of(
+                "success", true,
+                "maGiaoDich", maGiaoDich,
+                "amount", payload.getTransferAmount() != null ? payload.getTransferAmount() : gd.getSoTien(),
+                "message", "Đối soát tiền ra thành công"
+        );
+    }
+
+    /**
+     * Xử lý giao dịch tiền vào tài khoản Sàn (Khách hàng nộp cọc giữ chân lịch xem phòng)
+     */
+    private Map<String, Object> xuLySePayTienVao(SePayWebhookPayload payload, String rawContent) {
         String maDatLich = extractMaDatLich(rawContent);
         if (maDatLich == null) {
             log.warn("[SePay Webhook] Không tìm thấy mã lịch hẹn trong nội dung: '{}'", rawContent);
             return Map.of("success", true, "message", "Không tìm thấy mã lịch hẹn, không thể đối soát");
         }
 
-        // 4. Tìm kiếm lịch hẹn trong CSDL
+        // Tìm kiếm lịch hẹn trong CSDL
         PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich).orElse(null);
         if (phieu == null) {
             log.warn("[SePay Webhook] Lịch hẹn không tồn tại trong CSDL: {}", maDatLich);
             return Map.of("success", false, "message", "Lịch hẹn không tồn tại: " + maDatLich);
         }
 
-        // 5. Kiểm tra chống trùng lặp (Idempotency)
+        // Kiểm tra chống trùng lặp (Idempotency)
         boolean daNop = phieu.getKhachHang() != null &&
                 giaoDichRepository.existsDepositByMaDatLich(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
         if (daNop) {
@@ -85,7 +155,7 @@ public class BankingWebhookService {
             return Map.of("success", true, "message", "Lịch hẹn đã được nộp cọc trước đó");
         }
 
-        // 6. Ghi nhận giao dịch cọc giữ chân vào sổ cái GiaoDich
+        // Ghi nhận giao dịch cọc giữ chân vào sổ cái GiaoDich
         Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
                 ? payload.getTransferAmount()
                 : phieu.getCoc();
@@ -101,6 +171,8 @@ public class BankingWebhookService {
                 TrangThaiGD.THANH_CONG
         );
 
+        evictAdminStatisticsCache();
+
         log.info("[SePay Webhook] ĐỐI SOÁT THÀNH CÔNG: Lịch hẹn {} đã nhận cọc {} đ qua SePay (GD: {})",
                 maDatLich, transferAmount, refCode);
 
@@ -110,6 +182,14 @@ public class BankingWebhookService {
                 "amount", transferAmount,
                 "message", "Đối soát cọc giữ chân thành công"
         );
+    }
+
+    private void evictAdminStatisticsCache() {
+        try {
+            if (cacheManager != null && cacheManager.getCache("admin_statistics") != null) {
+                cacheManager.getCache("admin_statistics").clear();
+            }
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -132,4 +212,24 @@ public class BankingWebhookService {
 
         return null;
     }
+
+    /**
+     * Bóc tách mã giao dịch theo định dạng GDyyyyMMddxxx từ nội dung bất kỳ
+     */
+    public String extractMaGiaoDich(String content) {
+        if (content == null) return null;
+
+        Matcher m1 = PATTERN_GD_PREFIX.matcher(content);
+        if (m1.find()) {
+            return "GD" + m1.group(1);
+        }
+
+        Matcher m2 = PATTERN_GD_FULL.matcher(content);
+        if (m2.find()) {
+            return m2.group(1).toUpperCase();
+        }
+
+        return null;
+    }
 }
+

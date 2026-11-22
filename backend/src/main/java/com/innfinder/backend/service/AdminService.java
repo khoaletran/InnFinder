@@ -214,7 +214,7 @@ public class AdminService {
 
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
-    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername) {
+    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername, String maThamChieu) {
         // 1. Khóa bản ghi giao dịch (Pessimistic Lock) để chống 2 Admin cùng duyệt
         GiaoDich gd = giaoDichRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
@@ -234,10 +234,26 @@ public class AdminService {
         gd.setTrangThai(TrangThaiGD.THANH_CONG);
         String timeNow = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         String oldNote = gd.getNoiDung() != null ? gd.getNoiDung() : "";
-        gd.setNoiDung(oldNote + " [ĐÃ DUYỆT BỞI ADMIN: " + adminUsername + " lúc " + timeNow + "]");
+        String refText = (maThamChieu != null && !maThamChieu.isBlank()) ? " - Mã tham chiếu: " + maThamChieu.trim() : "";
+        gd.setNoiDung(oldNote + " [ĐÃ DUYỆT BỞI ADMIN: " + adminUsername + " lúc " + timeNow + refText + "]");
         gd = giaoDichRepository.save(gd);
 
+        // Nếu là lệnh bồi thường No-show: Giải ngân tiền từ Sàn vào ví Chủ trọ
+        if ("BOI_THUONG_NO_SHOW".equalsIgnoreCase(gd.getLoaiGiaoDich()) && gd.getNguoiDung() != null) {
+            ChuTro chuTro = chuTroRepository.findByIdForUpdate(gd.getNguoiDung().getMaNguoiDung()).orElse(null);
+            if (chuTro != null) {
+                chuTro.setSoDu(chuTro.getSoDu() + soTienDuyet);
+                chuTroRepository.save(chuTro);
+            }
+        }
+
         return AdminTransactionResponseDTO.fromEntity(gd);
+    }
+
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername) {
+        return approveTransaction(id, adminUsername, null);
     }
 
     @Transactional

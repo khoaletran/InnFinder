@@ -154,4 +154,69 @@ public class TransactionService {
         GiaoDich gd = taoGiaoDich(user, request.getSoTien(), "RUT_TIEN", noiDung, TrangThaiGD.CHO_THANH_TOAN);
         return TransactionResponse.fromEntity(gd);
     }
+
+    /**
+     * Khách hàng cập nhật lại thông tin STK khi yêu cầu hoàn cọc trước đó bị từ chối do sai STK
+     */
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public TransactionResponse capNhatLaiStkHoanCoc(String username, String maGiaoDich, com.innfinder.backend.dto.appointment.RetryRefundRequest request) {
+        NguoiDung user = nguoiDungRepository.findByTenDangNhap(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        GiaoDich gd = giaoDichRepository.findByIdForUpdate(maGiaoDich)
+                .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
+
+        if (!gd.getNguoiDung().getMaNguoiDung().equals(user.getMaNguoiDung())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (!"HOAN_COC".equalsIgnoreCase(gd.getLoaiGiaoDich())) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        if (gd.getTrangThai() != TrangThaiGD.THAT_BAI) {
+            throw new AppException(ErrorCode.TRANSACTION_ALREADY_PROCESSED);
+        }
+
+        String tenNganHang = request.getTenNganHang().trim();
+        String soTaiKhoan = request.getSoTaiKhoan().trim();
+        String tenChuTaiKhoan = (request.getTenChuTaiKhoan() != null && !request.getTenChuTaiKhoan().isBlank())
+                ? request.getTenChuTaiKhoan().trim().toUpperCase()
+                : (user.getHoVaTen() != null ? user.getHoVaTen() : user.getTenDangNhap());
+
+        // Tự động lưu/liên kết tài khoản ngân hàng mới này nếu chưa có
+        try {
+            com.innfinder.backend.entity.TaiKhoanNganHang newBank = com.innfinder.backend.entity.TaiKhoanNganHang.builder()
+                    .nguoiDung(user)
+                    .tenNganHang(tenNganHang)
+                    .soTaiKhoan(soTaiKhoan)
+                    .tenChuTaiKhoan(tenChuTaiKhoan)
+                    .build();
+            boolean alreadyExists = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
+                    .stream()
+                    .anyMatch(b -> b.getSoTaiKhoan().equalsIgnoreCase(soTaiKhoan));
+            if (!alreadyExists) {
+                taiKhoanNganHangRepository.save(newBank);
+            }
+        } catch (Exception ignored) {}
+
+        String timeNow = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        String oldNote = gd.getNoiDung() != null ? gd.getNoiDung() : "";
+        if (oldNote.contains(" [TỪ CHỐI")) {
+            oldNote = oldNote.substring(0, oldNote.indexOf(" [TỪ CHỐI")).trim();
+        }
+        if (oldNote.contains(" về TK ")) {
+            oldNote = oldNote.substring(0, oldNote.indexOf(" về TK ")).trim();
+        }
+
+        String newNote = oldNote + " về TK " + tenNganHang + " - " + soTaiKhoan + " (" + tenChuTaiKhoan + ")"
+                + " [KHÁCH ĐÃ CẬP NHẬT LẠI STK lúc " + timeNow + "]";
+
+        gd.setNoiDung(newNote);
+        gd.setTrangThai(TrangThaiGD.CHO_THANH_TOAN);
+        gd = giaoDichRepository.save(gd);
+
+        return TransactionResponse.fromEntity(gd);
+    }
 }

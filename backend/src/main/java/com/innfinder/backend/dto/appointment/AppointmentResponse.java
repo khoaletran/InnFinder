@@ -30,6 +30,13 @@ public class AppointmentResponse {
     private String liDoHuy;
     private Boolean daNopCoc;
 
+    // Tiến độ hoàn tiền (nếu có giao dịch hoàn cọc khi hủy lịch)
+    private String maGiaoDichHoanCoc;
+    private String trangThaiHoanCoc;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime thoiGianHoanCoc;
+    private String lyDoTuChoiHoanCoc;
+
     // Thông tin tóm tắt phòng trọ để hiển thị trên thẻ card
     private String maPhongTro;
     private String diaChiPhong;
@@ -118,5 +125,27 @@ public class AppointmentResponse {
             }
         }
         return builder.build();
+    }
+
+    public void setThongTinHoanCoc(com.innfinder.backend.entity.GiaoDich gd) {
+        if (gd != null) {
+            this.maGiaoDichHoanCoc = gd.getMaGiaoDich();
+            this.trangThaiHoanCoc = gd.getTrangThai() != null ? gd.getTrangThai().name() : null;
+            this.thoiGianHoanCoc = gd.getNgayGiaoDich();
+            if (gd.getTrangThai() == com.innfinder.backend.entity.enums.TrangThaiGD.THAT_BAI && gd.getNoiDung() != null) {
+                String nd = gd.getNoiDung();
+                int idxReason = nd.indexOf("- Lý do: ");
+                if (idxReason >= 0) {
+                    this.lyDoTuChoiHoanCoc = nd.substring(idxReason + 9).replace("]", "").trim();
+                } else {
+                    int idx = nd.indexOf("[TỪ CHỐI");
+                    if (idx >= 0) {
+                        this.lyDoTuChoiHoanCoc = nd.substring(idx).replace("[", "").replace("]", "").trim();
+                    } else {
+                        this.lyDoTuChoiHoanCoc = nd;
+                    }
+                }
+            }
+        }
     }
 }

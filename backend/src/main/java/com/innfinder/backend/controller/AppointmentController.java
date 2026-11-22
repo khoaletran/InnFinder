@@ -95,4 +95,12 @@ public class AppointmentController {
         appointmentService.khachHangXacNhanThue(maDatLich, username);
         return ApiResponse.ok(null, "Xác nhận thuê phòng thành công");
     }
+
+    @PostMapping("/{id}/report-landlord-noshow")
+    @Operation(summary = "Khách hàng báo cáo Chủ trọ vắng mặt (No-show) sau giờ hẹn 30 phút")
+    public ApiResponse<String> khachBaoCaoNoShow(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        appointmentService.khachBaoCaoNoShow(maDatLich, username);
+        return ApiResponse.ok(null, "Đã ghi nhận báo cáo chủ trọ vắng mặt. Yêu cầu hoàn cọc đang được xử lý.");
+    }
 }

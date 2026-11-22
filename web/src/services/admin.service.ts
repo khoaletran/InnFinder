@@ -285,9 +285,10 @@ export const adminService = {
     }));
   },
 
-  approveWithdrawal: (id: string) => {
+  approveWithdrawal: (id: string, maThamChieu?: string) => {
     return axiosClient.patch<unknown, AdminTransactionItem>(
       `/api/admin/transactions/${id}/approve`,
+      maThamChieu ? { maThamChieu } : {},
     );
   },
 
