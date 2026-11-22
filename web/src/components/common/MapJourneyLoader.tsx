@@ -199,47 +199,48 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
         <div className="flex items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2">
             <InnFinderPinIcon size={24} />
-            <span className="text-sm font-extrabold tracking-tight text-teal-700">InnFinder</span>
+            <span className="text-sm font-bold tracking-tight text-accent">InnFinder</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-teal-50/90 border border-teal-200 text-xs font-extrabold text-teal-700 tabular-nums">
+          <span className="px-2.5 py-0.5 rounded-[var(--radius-badge)] bg-accent-soft border border-accent-border text-xs font-semibold text-accent tabular-nums">
             {currentPercent}%
           </span>
         </div>
 
         {/* Bản đồ hành trình 5 mốc 0 - 25 - 50 - 75 - 100 */}
-        <div className="rounded-2xl bg-[#F0FDFA]/95 border border-teal-200/80 shadow-md flex items-center justify-center overflow-hidden">
+        <div className="rounded-[var(--radius-card)] bg-accent-soft border border-accent-border shadow-[var(--shadow-card-hover)] flex items-center justify-center overflow-hidden">
           <div className="relative shrink-0" style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
+            {/* brand-exception: SVG illustration map palette */}
             <svg width={MAP_WIDTH} height={MAP_HEIGHT} viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}>
               {/* Nền bản đồ phẳng (không dùng gradient) */}
-              <rect x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} rx="12" fill="#F0FDFA" />
+              <rect x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} rx="12" fill="#F0FDFA" /* brand-exception */ />
 
               {/* Công viên & khối nhà */}
-              <rect x="14" y="16" width="76" height="44" rx="8" fill="#DCFCE7" opacity="0.75" />
-              <rect x="136" y="14" width="74" height="40" rx="6" fill="#E2E8F0" opacity="0.6" />
-              <rect x="268" y="152" width="78" height="48" rx="8" fill="#DCFCE7" opacity="0.7" />
-              <rect x="18" y="88" width="58" height="44" rx="6" fill="#E2E8F0" opacity="0.55" />
-              <rect x="134" y="164" width="84" height="38" rx="6" fill="#E2E8F0" opacity="0.55" />
-              <rect x="278" y="18" width="66" height="42" rx="6" fill="#E2E8F0" opacity="0.55" />
+              <rect x="14" y="16" width="76" height="44" rx="8" fill="#DCFCE7" opacity="0.75" /* brand-exception */ />
+              <rect x="136" y="14" width="74" height="40" rx="6" fill="#E2E8F0" opacity="0.6" /* brand-exception */ />
+              <rect x="268" y="152" width="78" height="48" rx="8" fill="#DCFCE7" opacity="0.7" /* brand-exception */ />
+              <rect x="18" y="88" width="58" height="44" rx="6" fill="#E2E8F0" opacity="0.55" /* brand-exception */ />
+              <rect x="134" y="164" width="84" height="38" rx="6" fill="#E2E8F0" opacity="0.55" /* brand-exception */ />
+              <rect x="278" y="18" width="66" height="42" rx="6" fill="#E2E8F0" opacity="0.55" /* brand-exception */ />
 
               {/* Dòng sông uốn lượn */}
               <path
                 d="M -10 116 Q 95 96, 178 122 T 370 104"
-                stroke="#BAE6FD"
+                stroke="#BAE6FD" /* brand-exception */
                 strokeWidth="14"
                 fill="none"
                 strokeLinecap="round"
               />
 
               {/* Lưới đường phố trắng */}
-              <line x1="0" y1="78" x2={MAP_WIDTH} y2="78" stroke="#FFFFFF" strokeWidth="5" />
-              <line x1="0" y1="152" x2={MAP_WIDTH} y2="152" stroke="#FFFFFF" strokeWidth="5" />
-              <line x1="112" y1="0" x2="112" y2={MAP_HEIGHT} stroke="#FFFFFF" strokeWidth="5" />
-              <line x1="248" y1="0" x2="248" y2={MAP_HEIGHT} stroke="#FFFFFF" strokeWidth="5" />
+              <line x1="0" y1="78" x2={MAP_WIDTH} y2="78" stroke="#FFFFFF" strokeWidth="5" /* brand-exception */ />
+              <line x1="0" y1="152" x2={MAP_WIDTH} y2="152" stroke="#FFFFFF" strokeWidth="5" /* brand-exception */ />
+              <line x1="112" y1="0" x2="112" y2={MAP_HEIGHT} stroke="#FFFFFF" strokeWidth="5" /* brand-exception */ />
+              <line x1="248" y1="0" x2="248" y2={MAP_HEIGHT} stroke="#FFFFFF" strokeWidth="5" /* brand-exception */ />
 
               {/* Tuyến hành trình dự kiến nét đứt */}
               <path
                 d={routePath}
-                stroke="#99F6E4"
+                stroke="#99F6E4" /* brand-exception */
                 strokeWidth="3.5"
                 strokeDasharray="6, 5"
                 fill="none"
@@ -251,7 +252,7 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
               {completedPath && (
                 <path
                   d={completedPath}
-                  stroke="#0D9488"
+                  stroke="#0F766E" /* brand-exception */
                   strokeWidth="3.5"
                   fill="none"
                   strokeLinecap="round"
@@ -268,16 +269,16 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
                       cx={station.x}
                       cy={station.y}
                       r={isReached ? 13 : 10}
-                      fill={isReached ? '#CCFBF1' : '#E2E8F0'}
+                      fill={isReached ? '#CCFBF1' : '#E2E8F0'} /* brand-exception */
                       opacity="0.9"
                     />
                     <circle
                       cx={station.x}
                       cy={station.y}
                       r={6.5}
-                      fill={isReached ? '#0D9488' : '#94A3B8'}
+                      fill={isReached ? '#0F766E' : '#94A3B8'} /* brand-exception */
                     />
-                    <circle cx={station.x} cy={station.y} r="2.6" fill="#FFFFFF" />
+                    <circle cx={station.x} cy={station.y} r="2.6" fill="#FFFFFF" /* brand-exception */ />
                   </g>
                 );
               })}
@@ -295,10 +296,10 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
                     top: labelTop,
                     transform: 'translateX(-50%)',
                   }}
-                  className={`absolute px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-tight tabular-nums transition-colors ${
+                  className={`absolute px-2 py-0.5 rounded-[var(--radius-badge)] text-[10px] font-semibold tracking-tight tabular-nums transition-colors ${
                     isReached
-                      ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-white/90 text-slate-500 border border-slate-200'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface/90 text-text-muted border border-border'
                   }`}
                 >
                   {station.percent}%
@@ -316,7 +317,7 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
                   width: 40,
                   height: 40,
                 }}
-                className="absolute rounded-full border-2 border-teal-600 bg-teal-600/15 animate-ping pointer-events-none"
+                className="absolute rounded-full border-2 border-accent bg-accent/15 animate-ping pointer-events-none"
               />
             )}
 
@@ -329,8 +330,8 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
                 width: 22,
                 height: 9,
                 borderRadius: 11,
-                backgroundColor: '#0F172A',
-                opacity: 0.28,
+                backgroundColor: 'var(--text)',
+                opacity: 0.24,
               }}
               className="absolute pointer-events-none"
             />
@@ -353,13 +354,13 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
 
         {/* Thanh tiến độ & thông điệp */}
         <div className="space-y-1.5 px-1">
-          <div className="h-1.5 w-full rounded-full bg-slate-200/80 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-teal-600 transition-all duration-200 ease-out"
+              className="h-full rounded-full bg-accent transition-all duration-200 ease-out"
               style={{ width: `${currentPercent}%` }}
             />
           </div>
-          <p className="text-xs font-semibold text-slate-700 text-center">
+          <p className="text-xs font-medium text-text-secondary text-center">
             {currentPercent === 100 ? 'Đã sẵn sàng!' : message}
           </p>
         </div>

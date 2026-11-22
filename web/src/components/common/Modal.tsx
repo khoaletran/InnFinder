@@ -48,17 +48,19 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--overlay-backdrop)] animate-in fade-in duration-150"
     >
       <Card
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${maxWidthClasses[maxWidth]} bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden p-0`}
+        className={`w-full ${maxWidthClasses[maxWidth]} bg-surface rounded-[var(--radius-modal)] shadow-[var(--shadow-modal)] border border-border overflow-hidden p-0`}
       >
-        <Card.Header className="px-6 py-4 border-b border-slate-100 flex flex-row items-center justify-between">
+        <Card.Header className="px-6 py-4 border-b border-border flex flex-row items-center justify-between">
           <div>
-            <Card.Title className="text-base font-bold text-slate-900">{title}</Card.Title>
+            <Card.Title className="text-[18px] font-semibold tracking-[-0.01em] text-text">
+              {title}
+            </Card.Title>
             {subtitle && (
-              <Card.Description className="text-xs text-slate-500 mt-0.5">
+              <Card.Description className="text-xs text-text-muted mt-0.5">
                 {subtitle}
               </Card.Description>
             )}
@@ -66,16 +68,17 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Đóng"
+            className="w-8 h-8 rounded-[var(--radius-control)] flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-muted transition-colors duration-150 cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </Card.Header>
 
         <Card.Content className="px-6 py-5 max-h-[78vh] overflow-y-auto">{children}</Card.Content>
 
         {footer && (
-          <Card.Footer className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+          <Card.Footer className="px-6 py-3.5 border-t border-border bg-surface-subtle flex items-center justify-end gap-3">
             {footer}
           </Card.Footer>
         )}
