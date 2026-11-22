@@ -1,9 +1,33 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useEffectEvent, useRef } from 'react';
 import L from 'leaflet';
 import { ExternalLink, Locate, Radar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
+
+interface Camera {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+interface Bounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+export interface MapViewport extends Camera {
+  bounds: Bounds;
+}
+
+interface FitRequest {
+  lat: number;
+  lng: number;
+  radius?: number;
+  bounds?: Bounds;
+}
 
 export interface RoomMapProps {
   rooms: RoomSummaryResponse[];
@@ -17,6 +41,13 @@ export interface RoomMapProps {
   onLocateUser?: () => void;
   isLocating?: boolean;
   interactivePreview?: boolean;
+  searchCenter?: { lat: number; lng: number } | null;
+  camera?: Camera | null;
+  fit?: FitRequest | null;
+  resultKey?: string;
+  panToSelection?: boolean;
+  onViewport?: (viewport: MapViewport, persist: boolean) => void;
+  onSearchViewport?: () => void;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -26,26 +57,95 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   onSelectRoom,
   onHoverRoom,
   userCoords = null,
-  radiusKm = 2,
+  radiusKm,
   onRadiusChange,
   onLocateUser,
   isLocating = false,
   interactivePreview = true,
+  searchCenter,
+  camera,
+  fit,
+  resultKey,
+  panToSelection = true,
+  onViewport,
+  onSearchViewport,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const circleLayerRef = useRef<L.Circle | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const roomMarkers = useRef(new Map<string, L.Marker>());
+  const selectMarker = useEffectEvent((room: RoomSummaryResponse) => onSelectRoom?.(room));
+  const hoverMarker = useEffectEvent((id: string | null) => onHoverRoom?.(id));
   const hasPannedToInitialRef = useRef(false);
   const navigate = useNavigate();
+
+  const searchMap = Boolean(onSearchViewport);
+  const appliedFit = useRef<FitRequest | null>(null);
+  const fittedResults = useRef<string | null>(null);
+  const movingProgrammatically = useRef(false);
+  const circleLat = searchMap ? searchCenter?.lat : userCoords?.lat;
+  const circleLng = searchMap ? searchCenter?.lng : userCoords?.lng;
+  const circleRadius = radiusKm ?? (searchMap ? undefined : 2);
+
+  const reportViewport = useEffectEvent((map: L.Map, persist: boolean) => {
+    const center = map.getCenter().wrap();
+    const { lat, lng } = center;
+    const bounds = map.getBounds();
+    const fullWorld = bounds.getEast() - bounds.getWest() >= 360;
+    onViewport?.({
+      lat, lng, zoom: map.getZoom(),
+      bounds: {
+        south: Math.max(-90, bounds.getSouth()), north: Math.min(90, bounds.getNorth()),
+        west: fullWorld ? -180 : bounds.getSouthWest().wrap().lng,
+        east: fullWorld ? 180 : bounds.getNorthEast().wrap().lng,
+      },
+    }, persist);
+  });
+
+  const syncCamera = useEffectEvent((map: L.Map) => {
+    if (!searchMap || !map.getSize().x || !map.getSize().y) return;
+    movingProgrammatically.current = true;
+    try {
+      if (fit && appliedFit.current !== fit) {
+        appliedFit.current = fit;
+        fittedResults.current = resultKey ?? null;
+        const measurement = fit.bounds ? null
+          : L.circle([fit.lat, fit.lng], { radius: (fit.radius ?? 1) * 1000 }).addTo(map);
+        const bounds = fit.bounds
+          ? L.latLngBounds([fit.bounds.south, fit.bounds.west], [fit.bounds.north, fit.bounds.east])
+          : measurement!.getBounds();
+        measurement?.remove();
+        map.fitBounds(bounds, { padding: [36, 36], maxZoom: 16, animate: false });
+        reportViewport(map, true);
+      } else if (camera) {
+        fittedResults.current = resultKey ?? null;
+        if (!map.getCenter().wrap().equals([camera.lat, camera.lng]) || map.getZoom() !== camera.zoom) {
+          map.setView([camera.lat, camera.lng], camera.zoom, { animate: false });
+        }
+      } else if (resultKey !== undefined && fittedResults.current !== resultKey && !searchCenter) {
+        const positions = rooms.flatMap(room => {
+          const coords = getValidCoords(room);
+          return coords ? [[coords.lat, coords.lng] as [number, number]] : [];
+        });
+        if (positions.length) {
+          fittedResults.current = resultKey;
+          map.fitBounds(positions, { padding: [36, 36], maxZoom: 15, animate: false });
+          reportViewport(map, true);
+        }
+      }
+    } finally {
+      movingProgrammatically.current = false;
+    }
+  });
 
   const userLat = userCoords?.lat;
   const userLng = userCoords?.lng;
 
   const initialCoordsRef = useRef<[number, number]>([
-    userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
-    userCoords?.lng || (rooms[0] ? getValidCoords(rooms[0])?.lng : null) || 105.8542,
+    camera?.lat ?? userCoords?.lat ?? (rooms[0] ? getValidCoords(rooms[0])?.lat : null) ?? 21.0285,
+    camera?.lng ?? userCoords?.lng ?? (rooms[0] ? getValidCoords(rooms[0])?.lng : null) ?? 105.8542,
   ]);
 
   // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
@@ -70,20 +170,17 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
-    // Đảm bảo Leaflet tính toán chuẩn tỷ lệ khung hình 1:1 ngay khi render
-    const resizeTimer = setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
+    const moved = () => reportViewport(map, !movingProgrammatically.current);
+    map.on('moveend', moved);
     const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      movingProgrammatically.current = true;
+      map.invalidateSize({ pan: false });
+      movingProgrammatically.current = false;
+      syncCamera(map);
+      reportViewport(map, false);
     });
-    if (mapContainerRef.current) {
-      resizeObserver.observe(mapContainerRef.current);
-    }
-
+    resizeObserver.observe(mapContainerRef.current);
     return () => {
-      clearTimeout(resizeTimer);
       resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
@@ -93,16 +190,21 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (map) syncCamera(map);
+  }, [camera?.lat, camera?.lng, camera?.zoom, fit, rooms, resultKey]);
+
   // 2. Căn giữa bản đồ vào vị trí người dùng khi vừa xác định được tọa độ lần đầu
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || userLat === undefined || userLng === undefined) return;
+    if (!map || searchMap || userLat === undefined || userLng === undefined) return;
 
     if (!hasPannedToInitialRef.current) {
       hasPannedToInitialRef.current = true;
       map.setView([userLat, userLng], 14);
     }
-  }, [userLat, userLng]);
+  }, [searchMap, userLat, userLng]);
 
   // 3. Tự động tính bán kính quét sao cho vòng tròn LUÔN HIỂN THỊ TRỌN VẸN 100% trong khung nhìn bản đồ
   useEffect(() => {
@@ -193,15 +295,19 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   // 5. Render VÒNG TRÒN XANH quét bán kính phòng trọ (Đảm bảo luôn là hình tròn trọn vẹn trong khung hình)
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || userLat === undefined || userLng === undefined) return;
-
-    const effectiveRadius = (radiusKm && radiusKm > 0 ? radiusKm : 2) * 1000;
+    if (!map) return;
+    if (circleLat === undefined || circleLng === undefined || !circleRadius) {
+      circleLayerRef.current?.remove();
+      circleLayerRef.current = null;
+      return;
+    }
+    const effectiveRadius = circleRadius * 1000;
 
     if (circleLayerRef.current) {
-      circleLayerRef.current.setLatLng([userLat, userLng]);
+      circleLayerRef.current.setLatLng([circleLat, circleLng]);
       circleLayerRef.current.setRadius(effectiveRadius);
     } else {
-      circleLayerRef.current = L.circle([userLat, userLng], {
+      circleLayerRef.current = L.circle([circleLat, circleLng], {
         radius: effectiveRadius,
         color: '#0d9488',
         fillColor: '#0d9488',
@@ -210,7 +316,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
         dashArray: '6, 8',
       }).addTo(map);
     }
-  }, [userLat, userLng, radiusKm]);
+  }, [circleLat, circleLng, circleRadius]);
 
   // 6. Cập nhật các marker giá phòng trên bản đồ
   useEffect(() => {
@@ -219,50 +325,51 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     if (!map || !markersLayer) return;
 
     markersLayer.clearLayers();
-
-    rooms.forEach((room) => {
+    roomMarkers.current.clear();
+    rooms.forEach(room => {
       const coords = getValidCoords(room);
       if (!coords) return;
 
-      const isSelected = selectedRoom?.maPhongTro === room.maPhongTro;
-      const isHovered = hoveredRoomId === room.maPhongTro;
       const millions = room.giaThue ? room.giaThue / 1_000_000 : 0;
-      const priceText =
-        millions > 0 ? `${millions % 1 === 0 ? millions : millions.toFixed(1)}tr` : 'Xem';
-
-      const customIcon = L.divIcon({
-        className: '',
-        html: `<div class="custom-price-marker ${isSelected ? 'active' : ''} ${isHovered ? 'hovered' : ''}">${priceText}</div>`,
-        iconSize: [64, 30],
-        iconAnchor: [32, 15],
-      });
-
+      const price = millions > 0 ? `${millions % 1 === 0 ? millions : millions.toFixed(1)}tr` : 'Xem';
       const marker = L.marker([coords.lat, coords.lng], {
-        icon: customIcon,
-        zIndexOffset: isSelected || isHovered ? 600 : 100,
+        title: room.tieuDe || price,
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="custom-price-marker">${price}</div>`,
+          iconSize: [64, 30],
+          iconAnchor: [32, 15],
+        }),
       });
-
-      if (onSelectRoom) {
-        marker.on('click', () => onSelectRoom(room));
-      }
-      if (onHoverRoom) {
-        marker.on('mouseover', () => onHoverRoom(room.maPhongTro));
-        marker.on('mouseout', () => onHoverRoom(null));
-      }
-
+      marker.on('click', () => selectMarker(room));
+      marker.on('mouseover', () => hoverMarker(room.maPhongTro));
+      marker.on('mouseout', () => hoverMarker(null));
+      roomMarkers.current.set(room.maPhongTro, marker);
       markersLayer.addLayer(marker);
     });
-  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom]);
+  }, [rooms]);
+
+  const selectedRoomId = selectedRoom?.maPhongTro;
+  useEffect(() => {
+    roomMarkers.current.forEach((marker, id) => {
+      const selected = selectedRoomId === id;
+      const hovered = hoveredRoomId === id;
+      const element = marker.getElement()?.firstElementChild;
+      element?.classList.toggle('active', selected);
+      element?.classList.toggle('hovered', hovered);
+      marker.setZIndexOffset(selected || hovered ? 600 : 100);
+    });
+  }, [rooms, selectedRoomId, hoveredRoomId]);
 
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !selectedRoom) return;
+    if (!map || !selectedRoom || !panToSelection) return;
     const coords = getValidCoords(selectedRoom);
     if (coords) {
       map.panTo([coords.lat, coords.lng], { animate: true, duration: 0.6 });
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, panToSelection]);
 
   const previewImage =
     selectedRoom?.anhDaiDien ||
@@ -279,18 +386,18 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     <div className="relative w-full h-full min-h-[300px]">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Badge bán kính quét tự động thay đổi theo độ mở rộng của bản đồ */}
-      <div className="absolute top-3 left-3 z-10 pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
-          <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
-          <span>
-            Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
-          </span>
-          <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-            Tự động lọt lòng bản đồ
-          </span>
+      {circleRadius && circleLat !== undefined && (
+        <div className="absolute top-3 left-3 z-10 pointer-events-none bg-white/95 px-3 py-1.5 rounded-xl shadow-md flex items-center gap-2 text-xs font-semibold">
+          <Radar className="w-3.5 h-3.5 text-teal-600" />
+          <span>Bán kính quét: {circleRadius} km</span>
         </div>
-      </div>
+      )}
+      {onSearchViewport && (
+        <button type="button" onClick={onSearchViewport}
+          className="absolute top-14 left-3 z-10 bg-white px-3 py-2 rounded-xl shadow-md text-sm font-semibold">
+          Tìm trong vùng bản đồ
+        </button>
+      )}
 
       {/* Nút định vị GPS của người dùng */}
       {onLocateUser && (
@@ -299,6 +406,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
             type="button"
             onClick={onLocateUser}
             disabled={isLocating}
+            aria-label="Định vị vị trí hiện tại của tôi"
             title="Định vị vị trí hiện tại của tôi"
             className="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-200/90 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >

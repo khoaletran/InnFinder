@@ -189,22 +189,10 @@ export const getValidCoords = (room: {
   viDo?: string | number;
   kinhDo?: string | number;
 }): { lat: number; lng: number } | null => {
-  if (room.viDo === undefined || room.kinhDo === undefined) return null;
-  const c1 = typeof room.viDo === 'number' ? room.viDo : parseFloat(room.viDo);
-  const c2 = typeof room.kinhDo === 'number' ? room.kinhDo : parseFloat(room.kinhDo);
-  if (isNaN(c1) || isNaN(c2)) return null;
-
-  let lat = c1;
-  let lng = c2;
-
-  if (c1 > 90 && c2 <= 90) {
-    lat = c2;
-    lng = c1;
-  } else if (c2 > 90 && c1 <= 90) {
-    lat = c1;
-    lng = c2;
-  }
-
-  if (lat < -90 || lat > 90) return null;
-  return { lat, lng };
+  if (room.viDo == null || room.kinhDo == null || String(room.viDo).trim() === '' || String(room.kinhDo).trim() === '') return null;
+  const lat = Number(room.viDo);
+  const lng = Number(room.kinhDo);
+  if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+  if (Math.abs(lng) <= 90 && Math.abs(lat) <= 180) return { lat: lng, lng: lat };
+  return null;
 };

@@ -24,6 +24,7 @@ import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -50,19 +51,73 @@ public class RoomService {
      * ============================================================== */
     @Transactional(readOnly = true)
     public Page<RoomSummaryResponse> searchRooms(RoomFilterRequest filter) {
-        Sort sort = Sort.by(
-                "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                filter.getSortBy() != null ? filter.getSortBy() : "thoiGianDang"
-        );
-        Pageable pageable = PageRequest.of(
-                Math.max(0, filter.getPage()),
-                filter.getSize() > 0 ? filter.getSize() : 10,
-                sort
-        );
-        Specification<PhongTro> spec = PhongTroSpecification.buildFilter(filter);
-        Page<PhongTro> roomPage = phongTroRepository.findAll(spec, pageable);
-        return roomPage.map(RoomSummaryResponse::fromEntity);
+        return searchRooms(filter, List.of());
     }
+
+    @Transactional(readOnly = true)
+    public Page<RoomSummaryResponse> searchRooms(RoomFilterRequest filter, List<String> rankedIds) {
+        boolean bbox = filter.getSouth() != null || filter.getWest() != null
+                || filter.getNorth() != null || filter.getEast() != null;
+        boolean radius = filter.getRadiusKm() != null;
+        boolean distance = "distance".equals(filter.getSortBy());
+        boolean validCenter = SearchCoordinates.valid(filter.getCenterLat(), filter.getCenterLng());
+        if ((bbox && (!SearchCoordinates.valid(filter.getSouth(), filter.getWest())
+                || !SearchCoordinates.valid(filter.getNorth(), filter.getEast())
+                || filter.getSouth() > filter.getNorth()))
+                || (radius && (!validCenter || !Double.isFinite(filter.getRadiusKm())
+                || filter.getRadiusKm() <= 0 || filter.getRadiusKm() > 20040))
+                || (distance && !validCenter)) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        if (bbox || radius) filter.setLocation(null);
+        String field = Set.of("giaThue", "dienTich").contains(
+                Objects.toString(filter.getSortBy(), "")) ? filter.getSortBy() : "thoiGianDang";
+        Sort sort = Sort.by("ASC".equalsIgnoreCase(filter.getSortDirection())
+                ? Sort.Direction.ASC : Sort.Direction.DESC, field).and(Sort.by("maPhongTro"));
+        Pageable pageable = PageRequest.of(Math.max(0, filter.getPage()),
+                filter.getSize() > 0 ? Math.min(filter.getSize(), 100) : 10, sort);
+        Specification<PhongTro> spec = PhongTroSpecification.buildFilter(filter);
+        if (!rankedIds.isEmpty()) {
+            spec = spec.and((root, query, cb) -> root.get("maPhongTro").in(rankedIds));
+        }
+        if (!bbox && !radius && !distance && !"relevance".equals(filter.getSortBy())) {
+            return phongTroRepository.findAll(spec, pageable).map(RoomSummaryResponse::fromEntity);
+        }
+
+        SearchCoordinates center = validCenter
+                ? new SearchCoordinates(filter.getCenterLat(), filter.getCenterLng()) : null;
+        var matches = new ArrayList<SpatialRoom>();
+        for (PhongTro room : phongTroRepository.findAll(spec, sort)) {
+            SearchCoordinates position = SearchCoordinates.of(room);
+            double km = position != null && center != null ? center.distanceTo(position) : Double.POSITIVE_INFINITY;
+            if (radius && km > filter.getRadiusKm()) continue;
+            if (bbox && (position == null || !insideBounds(position, filter))) continue;
+            matches.add(new SpatialRoom(room, km));
+        }
+
+        if (distance) matches.sort(Comparator.comparingDouble(SpatialRoom::distance));
+        if ("relevance".equals(filter.getSortBy()) && !rankedIds.isEmpty()) {
+            Map<String, Integer> ranks = new HashMap<>();
+            for (int i = 0; i < rankedIds.size(); i++) ranks.put(rankedIds.get(i), i);
+            matches.sort(Comparator.comparingInt(match -> ranks.get(match.room().getMaPhongTro())));
+        }
+        int start = (int) Math.min(pageable.getOffset(), matches.size());
+        int end = Math.min(start + pageable.getPageSize(), matches.size());
+        var content = matches.subList(start, end).stream()
+                .map(match -> RoomSummaryResponse.fromEntity(match.room())).toList();
+        return new PageImpl<>(content, pageable, matches.size());
+    }
+
+    private boolean insideBounds(SearchCoordinates position, RoomFilterRequest filter) {
+        boolean insideLongitude = filter.getWest() <= filter.getEast()
+                ? position.lng() >= filter.getWest() && position.lng() <= filter.getEast()
+                : position.lng() >= filter.getWest() || position.lng() <= filter.getEast();
+        return position.lat() >= filter.getSouth() && position.lat() <= filter.getNorth() && insideLongitude;
+    }
+
+    private record SpatialRoom(PhongTro room, double distance) {}
+
     @Transactional(readOnly = true)
     public RoomDetailResponse getRoomDetail(String maPhongTro) {
         PhongTro room = phongTroRepository.findByMaPhongTro(maPhongTro)

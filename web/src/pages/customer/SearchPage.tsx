@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowUpDown,
@@ -18,11 +18,10 @@ import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
-import { RoomMap } from '@/components/map/RoomMap';
+import { RoomMap, type MapViewport } from '@/components/map/RoomMap';
 import { RoomCard } from '@/components/room/RoomCard';
-import { roomService } from '@/services/room.service';
-import { useRoomFilterStore } from '@/store/useRoomFilterStore';
-import type { RoomSummaryResponse } from '@/types/room.types';
+import { roomService, type SearchBounds, type SearchLocation } from '@/services/room.service';
+import type { RoomFilterRequest, RoomSummaryResponse } from '@/types/room.types';
 import { getValidCoords } from '@/utils/formatters';
 
 type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'radius' | null;
@@ -55,249 +54,253 @@ function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number)
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.asin(Math.sqrt(Math.min(1, a)));
   return R * c;
 }
 
 export const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const filterStore = useRoomFilterStore();
-
-  const [manualKeyword, setManualKeyword] = useState(
-    () => searchParams.get('keyword') || filterStore.keyword || '',
-  );
-  const [searchInputDraft, setSearchInputDraft] = useState<string | null>(null);
-  const submittedKeyword = searchParams.get('keyword') ?? manualKeyword;
-  const searchInput = searchInputDraft ?? submittedKeyword;
-
-  const [useAiSearch, setUseAiSearch] = useState(() => searchParams.get('ai') === '1');
-  const [currentPage, setCurrentPage] = useState(0);
+  const queryClient = useQueryClient();
+  const submittedKeyword = searchParams.get('keyword') ?? '';
+  const [draft, setDraft] = useState<{ url: string; text: string } | null>(null);
+  const url = JSON.stringify([submittedKeyword, searchParams.get('location')]);
+  const searchInput = draft?.url === url ? draft.text : submittedKeyword;
+  const useAiSearch = searchParams.get('ai') === '1';
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomSummaryResponse | null>(null);
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
-
-  const popoverBarRef = useRef<HTMLDivElement>(null);
-
-  // Bán kính quét động (km) tự động thay đổi theo mức độ mở rộng / thu nhỏ của bản đồ
-  const [dynamicRadiusKm, setDynamicRadiusKm] = useState<number>(5);
-
-  // Vị trí GPS thật khi người dùng bấm định vị hoặc cấp quyền
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(
-    filterStore.userLat && filterStore.userLng
-      ? { lat: filterStore.userLat, lng: filterStore.userLng }
-      : null,
-  );
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  const [sortBy, setSortBy] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
+  const gpsRequest = useRef<object | null>(null);
+  useEffect(() => () => { gpsRequest.current = null; }, []);
+  const popoverBarRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<MapViewport>(null);
+  const [suggestionIndex, setSuggestionIndex] = useState(-1);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionText, setSuggestionText] = useState('');
+  const currentParams = useRef(searchParams);
 
   useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      if (popoverBarRef.current && !popoverBarRef.current.contains(e.target as Node)) {
+    currentParams.current = searchParams;
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleOutside = (event: MouseEvent) => {
+      if (!popoverBarRef.current?.contains(event.target as Node)) {
         setActivePopover(null);
+        setSuggestionsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  // Tự động nhận diện GPS thực tế của người dùng khi vừa mở trang
-  const setUserLocation = filterStore.setUserLocation;
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setGpsCoords(coords);
-        setUserLocation(coords.lat, coords.lng);
-      },
-      (err) => {
-        console.warn('Geolocation tự động không khả dụng hoặc bị từ chối:', err);
-      },
-      { timeout: 8000, enableHighAccuracy: true },
-    );
-  }, [setUserLocation]);
+    const timer = window.setTimeout(() => setSuggestionText(searchInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
+  const { data: suggestions = [] } = useQuery({
+    queryKey: ['location-suggestions', suggestionText],
+    queryFn: ({ signal }) => roomService.suggestLocations(suggestionText, signal),
+    enabled: suggestionsOpen && suggestionText.length >= 2 && suggestionText === searchInput.trim(),
+  });
+  const visibleSuggestions = suggestionsOpen && suggestionText === searchInput.trim() ? suggestions : [];
+
+  function update(patch: Record<string, string | number | undefined>, replace = false) {
+    const next = new URLSearchParams(currentParams.current);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined || value === '') next.delete(key);
+      else next.set(key, String(value));
+    }
+    if (next.toString() === currentParams.current.toString()) return;
+    currentParams.current = next;
+    setSearchParams(next, { replace });
+  }
+
+  const numberParam = (key: string) => {
+    const raw = searchParams.get(key);
+    return raw !== null && raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : undefined;
+  };
+  const currentPage = Math.max(0, Math.floor(numberParam('page') ?? 0));
+  const sortBy = searchParams.get('sort') ?? 'NEWEST';
+  const centerLat = numberParam('lat');
+  const centerLng = numberParam('lng');
+  const center = centerLat !== undefined && centerLng !== undefined ? { lat: centerLat, lng: centerLng } : null;
+  const cameraLat = numberParam('viewLat');
+  const cameraLng = numberParam('viewLng');
+  const cameraZoom = numberParam('zoom');
+  const camera = cameraLat !== undefined && cameraLng !== undefined && cameraZoom !== undefined
+    ? { lat: cameraLat, lng: cameraLng, zoom: cameraZoom } : null;
+  const south = numberParam('south'), west = numberParam('west');
+  const north = numberParam('north'), east = numberParam('east');
+  const bbox = south !== undefined && west !== undefined && north !== undefined && east !== undefined
+    ? { south, west, north, east } : undefined;
+  const radiusKm = numberParam('radius');
+  const location = searchParams.get('location') ?? undefined;
+  const filterStore = {
+    minPrice: numberParam('minPrice'),
+    maxPrice: numberParam('maxPrice'),
+    minArea: numberParam('minArea'),
+    maxArea: numberParam('maxArea'),
+    capacity: numberParam('capacity'),
+    categoryId: searchParams.get('category') ?? undefined,
+    selectedAmenities: searchParams.get('amenities')?.split(',').filter(Boolean) ?? [],
+    radiusKm,
+  };
   const { data: roomTypes = [] } = useQuery({
-    queryKey: ['categories', 'room-types'],
-    queryFn: roomService.getRoomTypes,
+    queryKey: ['categories', 'room-types'], queryFn: roomService.getRoomTypes,
   });
-
   const { data: amenities = [] } = useQuery({
-    queryKey: ['categories', 'amenities'],
-    queryFn: roomService.getAmenities,
+    queryKey: ['categories', 'amenities'], queryFn: roomService.getAmenities,
   });
 
-  const {
-    data: queryResult,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: [
-      'rooms',
-      'search',
-      {
-        useAiSearch,
-        keyword: submittedKeyword,
-        minPrice: filterStore.minPrice,
-        maxPrice: filterStore.maxPrice,
-        minArea: filterStore.minArea,
-        maxArea: filterStore.maxArea,
-        capacity: filterStore.capacity,
-        categoryId: filterStore.categoryId,
-        selectedAmenities: filterStore.selectedAmenities,
-        currentPage,
-        sortBy,
-      },
-    ],
-    queryFn: async () => {
+  const filters: RoomFilterRequest = {
+    location: bbox || radiusKm ? undefined : location,
+    centerLat, centerLng, radiusKm, ...bbox,
+    minGia: filterStore.minPrice, maxGia: filterStore.maxPrice,
+    minDienTich: filterStore.minArea, maxDienTich: filterStore.maxArea,
+    soNguoi: filterStore.capacity, maLpt: filterStore.categoryId,
+    dsTienIch: filterStore.selectedAmenities,
+    page: currentPage, size: 20,
+    sortBy: sortBy === 'DISTANCE' && center ? 'distance' : sortBy.startsWith('PRICE') ? 'giaThue'
+      : useAiSearch && !searchParams.has('sort') ? 'relevance' : 'thoiGianDang',
+    sortDirection: sortBy === 'PRICE_ASC' ? 'ASC' : 'DESC',
+  };
+  const { data: queryResult, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['rooms', 'search', useAiSearch, submittedKeyword, filters],
+    queryFn: async ({ signal }) => {
       if (useAiSearch && submittedKeyword.trim()) {
-        const aiRooms = await roomService.aiSearchRooms(submittedKeyword.trim(), 30);
-        const content = aiRooms || [];
-        return {
-          content,
-          totalElements: content.length,
-          totalPages: 1,
-        };
+        const cacheKey = ['rooms', 'inferred', submittedKeyword];
+        try {
+          const response = await roomService.searchDetails(submittedKeyword, filters, signal);
+          const inferred = response.inferred;
+          if (inferred.location || inferred.minGia != null || inferred.maxGia != null
+              || inferred.maLpt || inferred.dsTienIch?.length) {
+            queryClient.setQueryData(cacheKey, inferred);
+          }
+          return { ...response.results, fallback: response.fallback ? 'keyword' : null };
+        } catch (error) {
+          if (signal.aborted) throw error;
+          const known = queryClient.getQueryData<RoomFilterRequest>(cacheKey);
+          const mappedArea = Boolean(bbox || radiusKm);
+          const response = await roomService.searchRooms({
+            ...filters,
+            location: mappedArea ? undefined : filters.location ?? known?.location ?? undefined,
+            minGia: filters.minGia ?? known?.minGia ?? undefined,
+            maxGia: filters.maxGia ?? known?.maxGia ?? undefined,
+            maLpt: filters.maLpt ?? known?.maLpt ?? undefined,
+            dsTienIch: filters.dsTienIch?.length ? filters.dsTienIch : known?.dsTienIch,
+            keyword: !known && !mappedArea ? submittedKeyword : undefined,
+          });
+          return { ...response, fallback: known ? 'criteria' : mappedArea ? 'area' : 'keyword' };
+        }
       }
-      const sortField = sortBy === 'NEWEST' ? 'thoiGianDang' : 'giaThue';
-      const sortDirection = sortBy === 'PRICE_ASC' ? ('ASC' as const) : ('DESC' as const);
-      const res = await roomService.searchRooms({
-        keyword: submittedKeyword.trim() || undefined,
-        minGia: filterStore.minPrice,
-        maxGia: filterStore.maxPrice,
-        minDienTich: filterStore.minArea,
-        maxDienTich: filterStore.maxArea,
-        soNguoi: filterStore.capacity,
-        maLpt: filterStore.categoryId,
-        dsTienIch: filterStore.selectedAmenities,
-        page: currentPage,
-        size: 50,
-        sortBy: sortField,
-        sortDirection,
-      });
-      return {
-        content: res.content || [],
-        totalElements: res.totalElements || (res.content || []).length,
-        totalPages: res.totalPages || 1,
-      };
+      const keyword = bbox || radiusKm ? undefined : submittedKeyword.trim() || undefined;
+      return roomService.searchRooms({ ...filters, keyword }).then(result => ({ ...result, fallback: null }));
     },
   });
 
   const rooms = useMemo(() => queryResult?.content ?? [], [queryResult?.content]);
-  const totalElements = queryResult?.totalElements || 0;
-  const totalPages = queryResult?.totalPages || 1;
+  const totalElements = queryResult?.totalElements ?? 0;
+  const totalPages = queryResult?.totalPages ?? 0;
+  const activeSelectedRoom = rooms.find(room => room.maPhongTro === selectedRoom?.maPhongTro) ?? null;
+  const filteredRooms = rooms.map(room => {
+    const coords = getValidCoords(room);
+    const distanceInKm = center && coords ? getDistanceInKm(center.lat, center.lng, coords.lat, coords.lng) : null;
+    return { room, distanceInKm };
+  });
 
-  // 3. Tâm quét hiệu lực: Ưu tiên GPS thật, nếu chưa có thì tự động căn vào phòng đầu tiên đang xem
-  const activeCenterCoords = useMemo(() => {
-    if (gpsCoords) return gpsCoords;
-    if (rooms.length > 0) {
-      const firstValid = getValidCoords(rooms[0]);
-      if (firstValid) return firstValid;
-    }
-    return { lat: 21.0285, lng: 105.8542 };
-  }, [gpsCoords, rooms]);
+  const clearArea = { south: undefined, west: undefined, north: undefined, east: undefined };
+  const clearCamera = { viewLat: undefined, viewLng: undefined, zoom: undefined };
+  const [fit, setFit] = useState<{ bounds?: SearchBounds; radius?: number; lat: number; lng: number } | null>(null);
 
-  const activeSelectedRoom = useMemo(() => {
-    if (selectedRoom && rooms.some((r) => r.maPhongTro === selectedRoom.maPhongTro)) {
-      return selectedRoom;
-    }
-    return rooms[0] ?? null;
-  }, [rooms, selectedRoom]);
-
-  // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
-  const roomsWithDistance = useMemo(() => {
-    return rooms.map((room) => {
-      let distanceInKm: number | null = null;
-      if (activeCenterCoords) {
-        const coords = getValidCoords(room);
-        if (coords) {
-          distanceInKm = getDistanceInKm(
-            activeCenterCoords.lat,
-            activeCenterCoords.lng,
-            coords.lat,
-            coords.lng,
-          );
-        }
-      }
-      return { room, distanceInKm };
-    });
-  }, [rooms, activeCenterCoords]);
-
-  // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
-  const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
-
-  // Lọc các phòng nằm trong bán kính quét hiện tại
-  const filteredRooms = useMemo(() => {
-    if (!activeCenterCoords) return roomsWithDistance;
-    return roomsWithDistance.filter((item) => {
-      if (item.distanceInKm === null) return true;
-      return item.distanceInKm <= effectiveRadius;
-    });
-  }, [roomsWithDistance, effectiveRadius, activeCenterCoords]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = searchInput.trim();
-    filterStore.setKeyword(trimmed);
-    setManualKeyword(trimmed);
-    setSearchInputDraft(null);
-    setCurrentPage(0);
+  function handleSearchSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    update({ keyword: searchInput.trim(), location: undefined, radius: undefined, lat: undefined,
+      lng: undefined, ...clearArea, ...clearCamera, page: 0 });
+    setFit(null);
+    setSelectedRoom(null);
+    setDraft(null);
+    setSuggestionsOpen(false);
     setActivePopover(null);
-    if (trimmed) {
-      setSearchParams({ keyword: trimmed });
-    } else {
-      setSearchParams({});
-    }
-  };
+  }
 
-  const handleLocateUser = () => {
+  function selectLocation(item: SearchLocation) {
+    update({ keyword: undefined, location: item.name, lat: item.lat, lng: item.lng,
+      radius: undefined, ...clearArea, ...clearCamera, page: 0 });
+    setDraft(null);
+    setSelectedRoom(null);
+    setSuggestionsOpen(false);
+    setFit({ lat: item.lat, lng: item.lng, bounds: item.bounds });
+  }
+
+  function selectRadius(radius?: number, preferredPosition?: { lat: number; lng: number }) {
+    const position = preferredPosition ?? center ?? viewportRef.current ?? gpsCoords;
+    if (radius && !position) return;
+    update({ ...clearArea, ...clearCamera, radius, lat: position?.lat, lng: position?.lng, page: 0 });
+    if (radius && position) setFit({ ...position, radius });
+  }
+
+  function handleLocateUser() {
+    if (gpsRequest.current) return;
     if (!navigator.geolocation) {
       toast.error('Trình duyệt của bạn không hỗ trợ định vị GPS.');
       return;
     }
+    const request = {};
+    gpsRequest.current = request;
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setGpsCoords(coords);
-        setUserLocation(coords.lat, coords.lng);
+      ({ coords }) => {
+        if (gpsRequest.current !== request) return;
+        gpsRequest.current = null;
         setIsLocating(false);
-        toast.success('Đã cập nhật vị trí hiện tại của bạn');
+        const position = { lat: coords.latitude, lng: coords.longitude };
+        setGpsCoords(position);
+        setSelectedRoom(null);
+        selectRadius(Number(currentParams.current.get('radius')) || 5, position);
       },
-      () => {
-        toast.warning('Không thể lấy vị trí hiện tại. Vui lòng cấp quyền định vị cho trình duyệt.');
+      (failure) => {
+        if (gpsRequest.current !== request) return;
+        gpsRequest.current = null;
         setIsLocating(false);
+        toast.warning(failure.code === 3 ? 'Định vị quá thời gian. Hãy thử lại.'
+          : 'Không thể lấy vị trí hiện tại. Hãy kiểm tra quyền định vị.');
       },
       { timeout: 10000, enableHighAccuracy: true },
     );
-  };
+  }
 
-  const handleResetFilters = () => {
-    filterStore.resetFilter();
-    setManualKeyword('');
-    setSearchInputDraft('');
-    setSearchParams({});
-    setCurrentPage(0);
+  function searchViewport() {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    update({ ...viewport.bounds, lat: viewport.lat, lng: viewport.lng, radius: undefined, page: 0 });
+    setSelectedRoom(null);
+  }
+
+  function handleResetFilters() {
+    update(Object.fromEntries([...currentParams.current.keys()].map(key => [key, undefined])));
+    setDraft(null);
+    setFit(null);
+    setSelectedRoom(null);
     setActivePopover(null);
-  };
+  }
 
-  const handleExpandRadius = () => {
-    if (!filterStore.radiusKm) {
-      filterStore.setRadiusKm(15);
-      toast.info('Đã mở rộng phạm vi tìm kiếm lên 15 km quanh khu vực hiện tại');
-    } else if (filterStore.radiusKm < 20) {
-      const nextRadius = Math.min(20, filterStore.radiusKm + 5);
-      filterStore.setRadiusKm(nextRadius);
-      toast.info(`Đã mở rộng bán kính lên ${nextRadius} km`);
-    } else {
-      filterStore.setRadiusKm(undefined);
-      toast.info('Đã bỏ giới hạn bán kính để hiển thị tất cả khu vực');
+  const selectedRoomId = activeSelectedRoom?.maPhongTro;
+  useEffect(() => {
+    if (!selectedRoomId) return;
+    const list = listRef.current;
+    const card = list?.querySelector<HTMLElement>(`[data-room-id="${CSS.escape(selectedRoomId)}"]`);
+    if (list && card && list.clientHeight > 0) {
+      list.scrollTo({
+        top: list.scrollTop + card.getBoundingClientRect().top - list.getBoundingClientRect().top,
+        behavior: 'smooth',
+      });
     }
-    setCurrentPage(0);
-  };
+  }, [selectedRoomId, mobileView]);
 
   const hasPriceFilter =
     filterStore.minPrice !== undefined || filterStore.maxPrice !== undefined;
@@ -343,13 +346,38 @@ export const SearchPage: React.FC = () => {
               <input
                 type="text"
                 value={searchInput}
-                onChange={(e) => setSearchInputDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft({ url, text: e.target.value });
+                  setSuggestionIndex(-1);
+                  setSuggestionsOpen(true);
+                }}
+                onFocus={() => setSuggestionsOpen(true)}
+                role="combobox"
+                aria-label="Tìm khu vực hoặc phòng"
+                aria-autocomplete="list"
+                aria-expanded={visibleSuggestions.length > 0}
+                aria-controls="location-suggestions"
+                aria-activedescendant={visibleSuggestions[suggestionIndex] ? `location-option-${suggestionIndex}` : undefined}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setSuggestionsOpen(false);
+                  if (visibleSuggestions.length === 0) return;
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    const count = visibleSuggestions.length;
+                    const direction = event.key === 'ArrowDown' ? 1 : -1;
+                    setSuggestionIndex(index => index < 0 ? direction === 1 ? 0 : count - 1 : (index + direction + count) % count);
+                  }
+                  if (event.key === 'Enter' && visibleSuggestions[suggestionIndex]) {
+                    event.preventDefault();
+                    selectLocation(visibleSuggestions[suggestionIndex]);
+                  }
+                }}
                 placeholder="Quận, tên đường hoặc mô tả tự nhiên..."
                 className="w-full h-10 pl-10 pr-24 bg-slate-50 focus:bg-white text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
               />
               <button
                 type="button"
-                onClick={() => setUseAiSearch(!useAiSearch)}
+                onClick={() => update({ ai: useAiSearch ? undefined : '1', page: 0 })}
                 title="Tìm kiếm ngữ nghĩa AI"
                 className={`absolute right-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                   useAiSearch
@@ -360,6 +388,17 @@ export const SearchPage: React.FC = () => {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>AI</span>
               </button>
+              {visibleSuggestions.length > 0 && (
+                <ul id="location-suggestions" role="listbox" className="absolute top-full mt-1 w-full bg-white rounded-xl border shadow-lg z-50">
+                  {visibleSuggestions.map((item, index) => (
+                    <li key={item.name} id={`location-option-${index}`} role="option"
+                      aria-selected={index === suggestionIndex}
+                      className={`cursor-pointer px-3 py-2 text-sm ${index === suggestionIndex ? 'bg-teal-100' : 'hover:bg-teal-50'}`}
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => selectLocation(item)}>{item.name}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <AppButton type="submit" variant="primary" size="md">
@@ -394,8 +433,8 @@ export const SearchPage: React.FC = () => {
                         key={preset.label}
                         type="button"
                         onClick={() => {
-                          filterStore.setPriceRange(preset.min, preset.max);
-                          setCurrentPage(0);
+                          update({ minPrice: preset.min, maxPrice: preset.max, page: 0 });
+
                           setActivePopover(null);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
@@ -433,8 +472,8 @@ export const SearchPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      filterStore.setCategoryId(undefined);
-                      setCurrentPage(0);
+                      update({ category: undefined, page: 0 });
+
                       setActivePopover(null);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
@@ -455,8 +494,8 @@ export const SearchPage: React.FC = () => {
                         key={code}
                         type="button"
                         onClick={() => {
-                          filterStore.setCategoryId(code);
-                          setCurrentPage(0);
+                          update({ category: code, page: 0 });
+
                           setActivePopover(null);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-left ${
@@ -499,8 +538,8 @@ export const SearchPage: React.FC = () => {
                         key={preset.label}
                         type="button"
                         onClick={() => {
-                          filterStore.setAreaRange(preset.min, preset.max);
-                          setCurrentPage(0);
+                          update({ minArea: preset.min, maxArea: preset.max, page: 0 });
+
                           setActivePopover(null);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
@@ -546,8 +585,8 @@ export const SearchPage: React.FC = () => {
                             const next = active
                               ? filterStore.selectedAmenities.filter((id) => id !== am.maTienIch)
                               : [...filterStore.selectedAmenities, am.maTienIch];
-                            filterStore.setSelectedAmenities(next);
-                            setCurrentPage(0);
+                            update({ amenities: next.join(','), page: 0 });
+
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer text-left ${
                             active
@@ -566,8 +605,8 @@ export const SearchPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          filterStore.setSelectedAmenities([]);
-                          setCurrentPage(0);
+                          update({ amenities: undefined, page: 0 });
+
                         }}
                         className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
                       >
@@ -606,8 +645,8 @@ export const SearchPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      filterStore.setRadiusKm(undefined);
-                      setCurrentPage(0);
+                      selectRadius(undefined);
+
                       setActivePopover(null);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
@@ -624,8 +663,8 @@ export const SearchPage: React.FC = () => {
                       key={km}
                       type="button"
                       onClick={() => {
-                        filterStore.setRadiusKm(km);
-                        setCurrentPage(0);
+                        selectRadius(km);
+
                         setActivePopover(null);
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm cursor-pointer ${
@@ -644,7 +683,7 @@ export const SearchPage: React.FC = () => {
               )}
             </div>
 
-            {filterStore.getActiveFilterCount() > 0 && (
+            {(hasPriceFilter || hasAreaFilter || amenityCount > 0 || radiusKm || location || bbox || filterStore.categoryId) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -669,25 +708,28 @@ export const SearchPage: React.FC = () => {
           <div className="shrink-0 px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
             <div>
               <h1 className="text-base font-bold text-slate-900">
-                {filteredRooms.length} phòng phù hợp
-                {submittedKeyword ? ` · "${submittedKeyword}"` : ''}
+                {totalElements} phòng phù hợp
+                {bbox ? ' · Vùng bản đồ' : radiusKm ? ` · Bán kính ${radiusKm} km` : location || submittedKeyword ? ` · "${location ?? submittedKeyword}"` : ''}
               </h1>
               <p className="text-xs text-slate-600">
-                Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí
+                {queryResult?.fallback === 'keyword' ? 'Tìm bằng từ khóa dự phòng'
+                  : queryResult?.fallback === 'criteria' ? 'Đang dùng tiêu chí từ lần tìm trước'
+                  : queryResult?.fallback === 'area' ? 'Đang tìm theo vùng và bộ lọc đã chọn'
+                  : 'Di chuột vào phòng hoặc giá trên bản đồ để đối chiếu vị trí'}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                setSortBy((prev) =>
-                  prev === 'NEWEST'
-                    ? 'PRICE_ASC'
-                    : prev === 'PRICE_ASC'
-                      ? 'PRICE_DESC'
-                      : 'NEWEST',
-                )
-              }
+              onClick={() => {
+                const distanceCenter = center ?? viewportRef.current;
+                if (sortBy === 'PRICE_DESC' && distanceCenter) {
+                  update({ page: 0, sort: 'DISTANCE', lat: distanceCenter.lat, lng: distanceCenter.lng });
+                } else {
+                  update({ page: 0, sort: sortBy === 'NEWEST' ? 'PRICE_ASC'
+                    : sortBy === 'PRICE_ASC' ? 'PRICE_DESC' : 'NEWEST' });
+                }
+              }}
               className="h-9 px-3 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shrink-0"
             >
               <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
@@ -696,12 +738,12 @@ export const SearchPage: React.FC = () => {
                   ? 'Mới nhất'
                   : sortBy === 'PRICE_ASC'
                     ? 'Giá tăng'
-                    : 'Giá giảm'}
+                    : sortBy === 'DISTANCE' ? 'Gần tâm tìm kiếm' : 'Giá giảm'}
               </span>
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+          <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 overscroll-contain">
             {error ? (
               <div className="bg-white rounded-2xl border border-red-200 p-6 text-center space-y-3 shadow-xs">
                 <AlertCircle className="w-8 h-8 text-red-600 mx-auto" />
@@ -724,8 +766,8 @@ export const SearchPage: React.FC = () => {
             ) : filteredRooms.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredRooms.map(({ room, distanceInKm }) => (
+                  <div key={room.maPhongTro} data-room-id={room.maPhongTro}>
                   <RoomCard
-                    key={room.maPhongTro}
                     room={room}
                     layout="vertical"
                     distanceInKm={distanceInKm}
@@ -734,6 +776,7 @@ export const SearchPage: React.FC = () => {
                     isHighlighted={hoveredRoomId === room.maPhongTro}
                     onHoverChange={setHoveredRoomId}
                   />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -745,7 +788,7 @@ export const SearchPage: React.FC = () => {
                     <AppButton variant="primary" size="md" onClick={handleResetFilters}>
                       Xóa bộ lọc
                     </AppButton>
-                    <AppButton variant="secondary" size="md" onClick={handleExpandRadius}>
+                    <AppButton variant="secondary" size="md" onClick={() => selectRadius(radiusKm === 20 ? undefined : radiusKm ? Math.min(20, radiusKm + 5) : 15)}>
                       Mở rộng bán kính
                     </AppButton>
                   </>
@@ -766,7 +809,7 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 disabled={currentPage === 0}
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                onClick={() => update({ page: Math.max(0, currentPage - 1) })}
                 className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" /> Trước
@@ -774,7 +817,7 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 disabled={currentPage >= totalPages - 1}
-                onClick={() => setCurrentPage((p) => p + 1)}
+                onClick={() => update({ page: currentPage + 1 })}
                 className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
               >
                 Tiếp <ChevronRight className="w-3.5 h-3.5" />
@@ -793,11 +836,20 @@ export const SearchPage: React.FC = () => {
             rooms={rooms}
             selectedRoom={activeSelectedRoom}
             hoveredRoomId={hoveredRoomId}
-            onSelectRoom={(r) => setSelectedRoom(r)}
+            onSelectRoom={setSelectedRoom}
             onHoverRoom={setHoveredRoomId}
-            userCoords={activeCenterCoords}
-            radiusKm={effectiveRadius}
-            onRadiusChange={(r) => setDynamicRadiusKm(r)}
+            userCoords={gpsCoords}
+            searchCenter={center}
+            radiusKm={radiusKm}
+            camera={camera}
+            fit={fit}
+            resultKey={`${submittedKeyword}|${location ?? ''}`}
+            panToSelection={false}
+            onViewport={(viewport, persist) => {
+              viewportRef.current = viewport;
+              if (persist) update({ viewLat: viewport.lat, viewLng: viewport.lng, zoom: viewport.zoom }, true);
+            }}
+            onSearchViewport={searchViewport}
             onLocateUser={handleLocateUser}
             isLocating={isLocating}
           />

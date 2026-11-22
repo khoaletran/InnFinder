@@ -146,41 +146,7 @@ public class AiSearchService {
      */
     @Transactional(readOnly = true)
     public List<RoomSummaryResponse> searchByNaturalLanguage(String prompt) {
-        if (prompt == null || prompt.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 1. Tải tất cả các vector phòng trong cơ sở dữ liệu
-        List<PhongTroVector> allVectors = vectorRepository.findAll();
-        if (allVectors.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 2. Sinh vector cho câu truy vấn của người dùng (tự động chuẩn hóa lỗi telex)
-        List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
-
-        // 3. Tính độ tương đồng Cosine Similarity cho từng phòng
-        Map<String, Double> scoreMap = new HashMap<>();
-        TypeReference<List<Double>> listType = new TypeReference<>() {};
-
-        for (PhongTroVector pv : allVectors) {
-            try {
-                List<Double> roomVector = objectMapper.readValue(pv.getEmbeddingJson(), listType);
-                double similarity = embeddingService.cosineSimilarity(queryVector, roomVector);
-                scoreMap.put(pv.getMaPhongTro(), similarity);
-            } catch (Exception e) {
-                log.warn("Lỗi đọc vector phòng {}: {}", pv.getMaPhongTro(), e.getMessage());
-            }
-        }
-
-        // 4. Lấy top phòng có điểm tương đồng cao nhất (ngưỡng linh hoạt > 0.0)
-        List<String> sortedRoomIds = scoreMap.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0.0) // Lọc ngưỡng tương đồng linh hoạt
-                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
-                .limit(25)
-                .map(Map.Entry::getKey)
-                .toList();
-
+        List<String> sortedRoomIds = rankedRoomIds(prompt).stream().limit(25).toList();
         if (sortedRoomIds.isEmpty()) {
             return Collections.emptyList();
         }
@@ -216,5 +182,42 @@ public class AiSearchService {
         return matchedRooms.stream()
                 .map(RoomSummaryResponse::fromEntity)
                 .toList();
+    }
+    @Transactional(readOnly = true)
+    public List<String> rankedRoomIds(String prompt) {
+        if (prompt == null || prompt.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. Tải tất cả các vector phòng trong cơ sở dữ liệu
+        List<PhongTroVector> allVectors = vectorRepository.findAll();
+        if (allVectors.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 2. Sinh vector cho câu truy vấn của người dùng (tự động chuẩn hóa lỗi telex)
+        List<Double> queryVector = embeddingService.getEmbedding(prompt.trim());
+
+        // 3. Tính độ tương đồng Cosine Similarity cho từng phòng
+        Map<String, Double> scoreMap = new HashMap<>();
+        TypeReference<List<Double>> listType = new TypeReference<>() {};
+
+        for (PhongTroVector pv : allVectors) {
+            try {
+                List<Double> roomVector = objectMapper.readValue(pv.getEmbeddingJson(), listType);
+                double similarity = embeddingService.cosineSimilarity(queryVector, roomVector);
+                scoreMap.put(pv.getMaPhongTro(), similarity);
+            } catch (Exception e) {
+                log.warn("Lỗi đọc vector phòng {}: {}", pv.getMaPhongTro(), e.getMessage());
+            }
+        }
+
+        // 4. Lấy top phòng có điểm tương đồng cao nhất (ngưỡng linh hoạt > 0.0)
+        return scoreMap.entrySet().stream()
+                .filter(entry -> entry.getValue() > 0.0) // Lọc ngưỡng tương đồng linh hoạt
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .map(Map.Entry::getKey)
+                .toList();
+
     }
 }

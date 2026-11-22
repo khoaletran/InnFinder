@@ -9,30 +9,45 @@ import type {
   RoomSummaryResponse,
 } from '@/types/room.types';
 
+export interface SearchBounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+export interface SearchLocation {
+  name: string;
+  lat: number;
+  lng: number;
+  bounds: SearchBounds;
+}
+
+const searchParams = (filter: RoomFilterRequest) => ({
+  ...filter,
+  page: filter.page ?? 0,
+  size: filter.size ?? 20,
+  dsTienIch: filter.dsTienIch?.join(',') || undefined,
+});
+
 export const roomService = {
   searchRooms: async (
     filter: RoomFilterRequest = {},
   ): Promise<PageResponse<RoomSummaryResponse>> => {
     return axiosClient.get<unknown, PageResponse<RoomSummaryResponse>>('/api/rooms', {
-      params: {
-        page: filter.page ?? 0,
-        size: filter.size ?? 20,
-        keyword: filter.keyword || undefined,
-        minGia: filter.minGia,
-        maxGia: filter.maxGia,
-        minDienTich: filter.minDienTich,
-        maxDienTich: filter.maxDienTich,
-        soNguoi: filter.soNguoi,
-        maLpt: filter.maLpt,
-        dsTienIch:
-          filter.dsTienIch && filter.dsTienIch.length > 0
-            ? filter.dsTienIch.join(',')
-            : undefined,
-        sortBy: filter.sortBy,
-        sortDirection: filter.sortDirection,
-      },
+      params: searchParams(filter),
     });
   },
+
+  searchDetails: (prompt: string, filter: RoomFilterRequest, signal: AbortSignal) =>
+    axiosClient.get<unknown, {
+      results: PageResponse<RoomSummaryResponse>;
+      inferred: RoomFilterRequest;
+      fallback: boolean;
+    }>('/api/rooms/ai-search/details', { params: { ...searchParams(filter), prompt }, signal }),
+
+  suggestLocations: (query: string, signal: AbortSignal) =>
+    axiosClient.get<unknown, SearchLocation[]>('/api/locations/suggestions', { params: { query }, signal }),
 
   aiSearchRooms: async (prompt: string, limit = 10): Promise<RoomSummaryResponse[]> => {
     return axiosClient.get<unknown, RoomSummaryResponse[]>('/api/rooms/ai-search', {

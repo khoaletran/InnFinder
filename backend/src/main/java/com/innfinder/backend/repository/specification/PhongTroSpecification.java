@@ -15,10 +15,7 @@ package com.innfinder.backend.repository.specification;
  */
 import com.innfinder.backend.dto.room.RoomFilterRequest;
 import com.innfinder.backend.entity.PhongTro;
-import com.innfinder.backend.entity.TienIch;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
@@ -48,6 +45,11 @@ public class PhongTroSpecification {
                 // Kết hợp bằng điều kiện HOẶC (OR)
                 predicates.add(cb.or(matchDiaChi, matchMoTa, matchLoaiPhong));
             }
+            if (filter.getLocation() != null && !filter.getLocation().isBlank()) {
+                String location = filter.getLocation().strip().toLowerCase(java.util.Locale.ROOT)
+                        .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+                predicates.add(cb.like(cb.lower(root.get("diaChi")), "%" + location + "%", '!'));
+            }
             // 3. Lọc theo khoảng giá thuê
             if (filter.getMinGia() != null && filter.getMinGia() >= 0) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("giaThue"), filter.getMinGia()));
@@ -72,10 +74,14 @@ public class PhongTroSpecification {
             }
             // 7. Lọc theo danh sách tiện ích
             if (filter.getDsTienIch() != null && !filter.getDsTienIch().isEmpty()) {
-                Join<PhongTro, TienIch> tienIchJoin = root.join("dsTienIch", JoinType.INNER);
-                predicates.add(tienIchJoin.get("maTienIch").in(filter.getDsTienIch()));
-                // Đảm bảo không bị trùng lặp kết quả do JOIN N-N
-                query.distinct(true);
+                for (String amenity : filter.getDsTienIch().stream().distinct().toList()) {
+                    var match = query.subquery(String.class);
+                    var room = match.correlate(root);
+                    var amenityJoin = room.join("dsTienIch");
+                    match.select(amenityJoin.get("maTienIch"))
+                            .where(cb.equal(amenityJoin.get("maTienIch"), amenity));
+                    predicates.add(cb.exists(match));
+                }
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

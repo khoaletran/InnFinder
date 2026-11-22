@@ -82,6 +82,14 @@ export interface RoomDetailResponse {
 
 export interface RoomFilterRequest {
   keyword?: string;
+  location?: string;
+  centerLat?: number;
+  centerLng?: number;
+  radiusKm?: number;
+  south?: number;
+  west?: number;
+  north?: number;
+  east?: number;
   minGia?: number;
   maxGia?: number;
   minDienTich?: number;

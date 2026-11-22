@@ -33,6 +33,14 @@ public class RoomFilterRequest {
     private String maLpt;
     // Danh sách mã tiện ích bắt buộc phải có (TI0001, TI0002...)
     private List<String> dsTienIch;
+    private String location;
+    private Double centerLat;
+    private Double centerLng;
+    private Double radiusKm;
+    private Double south;
+    private Double west;
+    private Double north;
+    private Double east;
     // Phân trang & Sắp xếp
     private int page = 0;
     private int size = 10;
