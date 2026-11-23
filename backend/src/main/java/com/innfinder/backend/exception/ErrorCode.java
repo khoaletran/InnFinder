@@ -43,6 +43,13 @@ public enum ErrorCode {
 
     APPOINTMENT_NOT_FOUND("Không tìm thấy thông tin phiếu đặt lịch", HttpStatus.NOT_FOUND),
     APPOINTMENT_TIME_INVALID("Thời gian hẹn xem phòng phải sau thời điểm hiện tại", HttpStatus.BAD_REQUEST),
+    APPOINTMENT_MINIMUM_ADVANCE_TIME("Lịch xem phòng phải được đặt trước giờ hẹn tối thiểu 3 giờ", HttpStatus.BAD_REQUEST),
+    APPOINTMENT_EXPIRED("Lịch hẹn đã quá hạn phản hồi và đã được tự động hủy", HttpStatus.BAD_REQUEST),
+    ROOM_NOT_AVAILABLE("Phòng trọ hiện không ở trạng thái sẵn sàng để đặt lịch hoặc đã được thuê", HttpStatus.BAD_REQUEST),
+    DUPLICATE_APPOINTMENT("Bạn đã có một lịch hẹn đang chờ hoặc đã xác nhận cho phòng này vào khung giờ này", HttpStatus.BAD_REQUEST),
+    APPOINTMENT_CONFIRM_TOO_EARLY("Chỉ có thể xác nhận đã nhận lại cọc trong vòng 2 giờ trước giờ hẹn trở đi", HttpStatus.BAD_REQUEST),
+    CANNOT_CANCEL_AFTER_DEPOSIT_RETURN("Bạn đã xác nhận nhận lại cọc, không thể hủy lịch thông thường. Vui lòng chọn Không thuê.", HttpStatus.BAD_REQUEST),
+    DECISION_ALREADY_MADE("Bạn đã gửi quyết định trước đó và đang chờ đối phương xác nhận", HttpStatus.BAD_REQUEST),
     CANNOT_BOOK_OWN_ROOM("Bạn không thể tự đặt lịch xem phòng trọ của chính mình", HttpStatus.BAD_REQUEST),
     INVALID_APPOINTMENT_STATUS("Trạng thái lịch hẹn không hợp lệ để thực hiện thao tác này", HttpStatus.BAD_REQUEST),
     NOT_APPOINTMENT_OWNER("Bạn không có quyền thao tác trên lịch hẹn này", HttpStatus.FORBIDDEN),

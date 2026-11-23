@@ -32,7 +32,7 @@ public class TransactionService {
     private final ChuTroRepository chuTroRepository;
     private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
 
-    private synchronized String generateMaGiaoDich() {
+    public synchronized String generateMaGiaoDich() {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "GD" + datePart;
         String maxId = giaoDichRepository.findMaxMaGiaoDichByPrefix(prefix);

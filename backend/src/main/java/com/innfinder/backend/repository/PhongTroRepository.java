@@ -13,6 +13,7 @@ package com.innfinder.backend.repository;
  * @created: 11/5/2026 10:05 PM
  */
 import com.innfinder.backend.entity.PhongTro;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -20,6 +21,9 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -42,4 +46,8 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     List<PhongTro> findByMaPhongTroIn(List<String> maPhongTroList);
 
     long countByTrangThai(TrangThaiPhongTro trangThai);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PhongTro p WHERE p.maPhongTro = :maPhongTro")
+    Optional<PhongTro> findByIdForUpdate(@Param("maPhongTro") String maPhongTro);
 }

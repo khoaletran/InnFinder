@@ -2,12 +2,16 @@ package com.innfinder.backend.repository;
 
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, String> {
     @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
@@ -49,4 +53,30 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
      */
     @Query("SELECT COALESCE(SUM(p.coc), 0L) FROM PhieuDatLich p WHERE p.trangThai = :trangThai AND p.coc > 0")
     Long sumCocByTrangThai(@Param("trangThai") TrangThaiDatLich trangThai);
+
+    /**
+     * 7. Khóa bi quan (Pessimistic Lock) khi duyệt, hủy hoặc xử lý quyết toán lịch hẹn
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.maDatLich = :maDatLich")
+    Optional<PhieuDatLich> findByIdForUpdate(@Param("maDatLich") String maDatLich);
+
+    /**
+     * 8. Kiểm tra lịch trùng đang hoạt động của cùng một khách hàng cho cùng một phòng
+     */
+    @Query("SELECT COUNT(p) > 0 FROM PhieuDatLich p " +
+           "WHERE p.khachHang.maNguoiDung = :maKhachHang " +
+           "AND p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.ngayHen = :ngayHen " +
+           "AND (p.trangThai = com.innfinder.backend.entity.enums.TrangThaiDatLich.XAC_NHAN " +
+           "     OR (p.trangThai = com.innfinder.backend.entity.enums.TrangThaiDatLich.CHO_XAC_NHAN " +
+           "         AND p.thoiGianDat > :minBookingTime " +
+           "         AND p.ngayHen > :minViewingTime))")
+    boolean existsActiveDuplicateAppointment(
+            @Param("maKhachHang") String maKhachHang,
+            @Param("maPhongTro") String maPhongTro,
+            @Param("ngayHen") LocalDateTime ngayHen,
+            @Param("minBookingTime") LocalDateTime minBookingTime,
+            @Param("minViewingTime") LocalDateTime minViewingTime
+    );
 }
