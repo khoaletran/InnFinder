@@ -4,6 +4,8 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
+import com.innfinder.backend.exception.AppException;
+import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,7 +40,10 @@ public class LandlordAppointmentController {
     @Operation(summary = "Chủ trọ xác nhận đồng ý lịch hẹn")
     public ApiResponse<String> xacNhanLichHen(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
-        appointmentService.xacNhanLichHen(maDatLich, username);
+        boolean success = appointmentService.xacNhanLichHen(maDatLich, username);
+        if (!success) {
+            throw new AppException(ErrorCode.APPOINTMENT_EXPIRED);
+        }
         return ApiResponse.ok(null, "Xác nhận lịch hẹn thành công");
     }
 

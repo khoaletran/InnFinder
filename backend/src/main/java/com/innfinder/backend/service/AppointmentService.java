@@ -88,20 +88,38 @@ public class AppointmentService {
      */
     @Transactional
     public AppointmentResponse taoDatLich(String username, AppointmentCreateRequest request) {
-        // Validate thời gian hẹn
-        if (request.getNgayHen().isBefore(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.APPOINTMENT_TIME_INVALID);
+        LocalDateTime now = LocalDateTime.now();
+        // RÀNG BUỘC TOÀN SÀN: Lịch xem phòng phải được đặt trước giờ hẹn tối thiểu 3 giờ
+        if (request.getNgayHen().isBefore(now.plusHours(3))) {
+            throw new AppException(ErrorCode.APPOINTMENT_MINIMUM_ADVANCE_TIME);
         }
 
         NguoiDung khachHang = getNguoiDungByUsername(username);
 
-        PhongTro phongTro = phongTroRepository.findByMaPhongTro(request.getMaPhongTro())
+        // Khóa bi quan phòng trọ (Pessimistic Lock) để chống tạo trùng đồng thời & kiểm tra trạng thái
+        PhongTro phongTro = phongTroRepository.findByIdForUpdate(request.getMaPhongTro())
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+
+        if (phongTro.getTrangThai() != TrangThaiPhongTro.DA_DUYET) {
+            throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE);
+        }
 
         // Không cho phép chủ nhà tự đặt phòng của chính mình
         if (phongTro.getChuPhongTro() != null &&
                 phongTro.getChuPhongTro().getMaChuTro().equals(khachHang.getMaNguoiDung())) {
             throw new AppException(ErrorCode.CANNOT_BOOK_OWN_ROOM);
+        }
+
+        // Kiểm tra lịch trùng đang hoạt động của cùng khách cho cùng phòng, cùng giờ
+        boolean daDatTrung = phieuDatLichRepository.existsActiveDuplicateAppointment(
+                khachHang.getMaNguoiDung(),
+                phongTro.getMaPhongTro(),
+                request.getNgayHen(),
+                now.minusHours(24),
+                now.plusHours(2)
+        );
+        if (daDatTrung) {
+            throw new AppException(ErrorCode.DUPLICATE_APPOINTMENT);
         }
 
         // Lấy tiền cọc giữ chân và phí thu hoa hồng theo Loại phòng -> Cọc
@@ -119,7 +137,7 @@ public class AppointmentService {
                 .khachHang(khachHang)
                 .phongTro(phongTro)
                 .ngayHen(request.getNgayHen())
-                .thoiGianDat(LocalDateTime.now())
+                .thoiGianDat(now)
                 .trangThai(TrangThaiDatLich.CHO_XAC_NHAN)
                 .coc(tienCoc)
                 .phiThu(phiThu)
@@ -183,11 +201,21 @@ public class AppointmentService {
         boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
                 || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich));
 
+        // Hạn duyệt thực tế: min(thoiGianDat + 24h, ngayHen - 2h)
+        LocalDateTime thoiGianDat = phieu.getThoiGianDat() != null ? phieu.getThoiGianDat() : phieu.getNgayHen().minusHours(24);
+        LocalDateTime limit24h = thoiGianDat.plusHours(24);
+        LocalDateTime limitHen = phieu.getNgayHen().minusHours(2);
+        LocalDateTime hanDuyet = limit24h.isBefore(limitHen) ? limit24h : limitHen;
+
+        boolean conHieuLuc = phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN && LocalDateTime.now().isBefore(hanDuyet);
+
         return DepositStatusResponse.builder()
                 .maDatLich(phieu.getMaDatLich())
                 .daNopCoc(daNop)
                 .soTienCoc(phieu.getCoc())
                 .trangThaiLich(phieu.getTrangThai().name())
+                .hanDuyet(hanDuyet)
+                .conHieuLuc(conHieuLuc)
                 .build();
     }
 
@@ -274,14 +302,36 @@ public class AppointmentService {
 
     /**
      * 5. Chủ trọ xác nhận đồng ý lịch hẹn (CHO_XAC_NHAN -> XAC_NHAN)
+     * Trả về false nếu lịch hẹn đã quá hạn duyệt (transaction tự động commit việc chuyển HUY và hoàn cọc)
      */
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
-    public void xacNhanLichHen(String maDatLich, String username) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
+    public boolean xacNhanLichHen(String maDatLich, String username) {
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // Tính hạn duyệt thực tế: min(thoiGianDat + 24h, ngayHen - 2h)
+        LocalDateTime thoiGianDat = phieu.getThoiGianDat() != null ? phieu.getThoiGianDat() : phieu.getNgayHen().minusHours(24);
+        LocalDateTime limit24h = thoiGianDat.plusHours(24);
+        LocalDateTime limitHen = phieu.getNgayHen().minusHours(2);
+        LocalDateTime hanDuyet = limit24h.isBefore(limitHen) ? limit24h : limitHen;
+
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(hanDuyet) || now.isEqual(hanDuyet)) {
+            // ĐÃ QUÁ HẠN DUYỆT: Tự động hủy và hoàn cọc (nếu có) ngay trong transaction này
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            phieu.setLiDoHuy("Tự động hủy: Chủ trọ quá hạn phản hồi duyệt lịch hẹn");
+            phieuDatLichRepository.save(phieu);
+
+            boolean daNop = phieu.getKhachHang() != null &&
+                    daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+            if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
+                taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ quá hạn duyệt lịch", null);
+            }
+            return false; // Hết hạn, transaction đã commit HUY và hoàn cọc an toàn
         }
 
         // RÀNG BUỘC SWIMLANE: Nếu lịch hẹn yêu cầu cọc thì khách hàng bắt buộc phải nộp cọc trước khi chủ trọ xác nhận
@@ -295,6 +345,7 @@ public class AppointmentService {
 
         phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
         phieuDatLichRepository.save(phieu);
+        return true;
     }
 
     /**
@@ -303,7 +354,7 @@ public class AppointmentService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public void tuChoiLichHen(String maDatLich, String username, AppointmentCancelRequest request) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
@@ -327,7 +378,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
@@ -338,8 +389,21 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
+        // Cửa sổ xem phòng: Chỉ mở từ 2 tiếng trước giờ hẹn trở đi
+        if (phieu.getNgayHen() != null && LocalDateTime.now().isBefore(phieu.getNgayHen().minusHours(2))) {
+            throw new AppException(ErrorCode.APPOINTMENT_CONFIRM_TOO_EARLY);
+        }
+
         if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
+        }
+
+        // Nếu có cọc thì bắt buộc khách phải nộp cọc trước đó
+        if (phieu.getCoc() != null && phieu.getCoc() > 0) {
+            boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
+            if (!daNop) {
+                throw new AppException(ErrorCode.DEPOSIT_NOT_PAID_YET);
+            }
         }
 
         phieu.setDaNhanLaiCoc(true);
@@ -357,7 +421,7 @@ public class AppointmentService {
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public AppointmentResponse khachHangDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
@@ -372,6 +436,10 @@ public class AppointmentService {
         boolean coYeuCauCoc = phieu.getCoc() != null && phieu.getCoc() > 0;
         if (coYeuCauCoc && !Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             throw new AppException(ErrorCode.DEPOSIT_NOT_REFUNDED_YET);
+        }
+
+        if (phieu.getKhachHangDongY() != null) {
+            throw new AppException(ErrorCode.DECISION_ALREADY_MADE);
         }
 
         phieu.setKhachHangDongY(request.getDongY());
@@ -392,7 +460,7 @@ public class AppointmentService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public AppointmentResponse chuTroDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
@@ -402,6 +470,10 @@ public class AppointmentService {
         boolean coYeuCauCoc = phieu.getCoc() != null && phieu.getCoc() > 0;
         if (coYeuCauCoc && !Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             throw new AppException(ErrorCode.DEPOSIT_NOT_REFUNDED_YET);
+        }
+
+        if (phieu.getChuTroDongY() != null) {
+            throw new AppException(ErrorCode.DECISION_ALREADY_MADE);
         }
 
         phieu.setChuTroDongY(request.getDongY());
@@ -436,14 +508,10 @@ public class AppointmentService {
             }
             phieuDatLichRepository.save(phieu);
 
-            // Giữ nguyên trạng thái phòng trọ DA_DUYET để tiếp tục hiển thị đón khách khác
-            if (phongTro != null) {
-                phongTro.setTrangThai(TrangThaiPhongTro.DA_DUYET);
-                phongTroRepository.save(phongTro);
-            }
+            // Nhánh Không thuê: Giữ nguyên trạng thái phòng trọ, không cập nhật gì thêm
 
             // Sàn hoàn trả đủ 100% cọc (coc) vào ví Chủ trọ (Khóa bi quan để chống race condition ghi đè số dư)
-            if (chuTro != null && coc > 0) {
+            if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc()) && chuTro != null && coc > 0) {
                 ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + coc);
                 chuTroRepository.save(chuTroLocked);
@@ -462,14 +530,42 @@ public class AppointmentService {
 
         // KỊCH BẢN 1: CẢ 2 BÊN CÙNG ĐỒNG Ý THUÊ (true && true)
         if (Boolean.TRUE.equals(phieu.getKhachHangDongY()) && Boolean.TRUE.equals(phieu.getChuTroDongY())) {
+            // Khóa phòng với Pessimistic Lock để tuần tự hóa hai phiếu cùng chốt một phòng
+            PhongTro phongTroLocked = (phongTro != null)
+                    ? phongTroRepository.findByIdForUpdate(phongTro.getMaPhongTro()).orElse(phongTro)
+                    : null;
+
+            // KIỂM TRA CHỐNG XUNG ĐỘT: Chỉ phòng còn DA_DUYET mới được chốt thuê
+            if (phongTroLocked == null || phongTroLocked.getTrangThai() != TrangThaiPhongTro.DA_DUYET) {
+                // PHIẾU NÀY LÀ PHIẾU THUA CUỘC: Phòng đã được người khác chốt thuê trước (hoặc không khả dụng)
+                phieu.setTrangThai(TrangThaiDatLich.HUY);
+                phieu.setLiDoHuy("Phòng trọ đã được khách hàng khác chốt thuê thành công trước đó");
+                phieuDatLichRepository.save(phieu);
+
+                // Hoàn lại cọc thế chân 100% cho chủ trọ (vì chủ trọ đã ứng trả khách), sàn không thu hoa hồng
+                if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc()) && chuTro != null && coc > 0) {
+                    ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+                    chuTroLocked.setSoDu(chuTroLocked.getSoDu() + coc);
+                    chuTroRepository.save(chuTroLocked);
+
+                    transactionService.taoGiaoDich(
+                            chuTroLocked.getNguoiDung(),
+                            coc,
+                            "HOAN_COC",
+                            "Hoàn 100% cọc thế chân do phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
+                                    " đã được khách khác chốt trước",
+                            TrangThaiGD.THANH_CONG
+                    );
+                }
+                return;
+            }
+
+            // Phòng còn DA_DUYET: Chốt thuê thành công!
+            phongTroLocked.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
+            phongTroRepository.save(phongTroLocked);
+
             phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
             phieuDatLichRepository.save(phieu);
-
-            // Phòng trọ hoàn tất thuê, tự động ẩn khỏi tìm kiếm
-            if (phongTro != null) {
-                phongTro.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
-                phongTroRepository.save(phongTro);
-            }
 
             // Giải ngân (coc - phiThu) vào ví chủ trọ (Khóa bi quan để chống race condition ghi đè số dư)
             long thucNhanChuTro = Math.max(0L, coc - phiThu);
@@ -482,7 +578,7 @@ public class AppointmentService {
                         chuTroLocked.getNguoiDung(),
                         thucNhanChuTro,
                         "CONG_TIEN_COC",
-                        "Tiền cọc thuê phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
+                        "Tiền cọc thuê phòng " + phongTroLocked.getMaPhongTro() +
                                 " (Đã trừ hoa hồng sàn " + phiThu + " VNĐ)",
                         TrangThaiGD.THANH_CONG
                 );
@@ -518,7 +614,7 @@ public class AppointmentService {
         NguoiDung currentUser = getNguoiDungByUsername(username);
         String currentUserId = currentUser.getMaNguoiDung();
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         boolean isKhachHang = phieu.getKhachHang().getMaNguoiDung().equals(currentUserId);
@@ -536,8 +632,15 @@ public class AppointmentService {
 
         // Xử lý dòng tiền hoàn cọc dựa trên cờ daNhanLaiCoc
         if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            if (isKhachHang) {
+                if (Boolean.TRUE.equals(phieu.getKhachHangDongY())) {
+                    throw new AppException(ErrorCode.DECISION_ALREADY_MADE);
+                }
+                throw new AppException(ErrorCode.CANNOT_CANCEL_AFTER_DEPOSIT_RETURN);
+            }
+
             // Khách đã nhận lại cọc từ chủ trọ ngoài đời -> tiền cọc trên sàn hoàn về ví Chủ trọ
-            String nguoiHuy = isKhachHang ? "Khách hàng hủy sau khi xem" : "Chủ trọ hủy sau khi xem";
+            String nguoiHuy = "Chủ trọ hủy sau khi xem";
             phieu.setTrangThai(TrangThaiDatLich.HUY);
             phieu.setLiDoHuy(nguoiHuy + ": " + request.getLiDoHuy());
             phieuDatLichRepository.save(phieu);
@@ -778,9 +881,15 @@ public class AppointmentService {
      * Hàm phụ trợ kiểm tra lịch tồn tại và người gọi có đúng là chủ sở hữu phòng trọ
      */
     private PhieuDatLich getPhieuDatLichVaKiemTraQuyenChuTro(String maDatLich, String username) {
+        return getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, false);
+    }
+
+    private PhieuDatLich getPhieuDatLichVaKiemTraQuyenChuTro(String maDatLich, String username, boolean forUpdate) {
         NguoiDung chuTro = getNguoiDungByUsername(username);
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = (forUpdate
+                ? phieuDatLichRepository.findByIdForUpdate(maDatLich)
+                : phieuDatLichRepository.findById(maDatLich))
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (phieu.getPhongTro().getChuPhongTro() == null ||
