@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Calendar as CalendarIcon,
   CheckCircle2,
+  Clock,
   Coins,
   Info,
   MapPin,
@@ -54,6 +55,7 @@ export const SchedulePage: React.FC = () => {
 
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [isCustomTimeModalOpen, setIsCustomTimeModalOpen] = useState<boolean>(false);
   const [submittedDateTime, setSubmittedDateTime] = useState<string>('');
 
   const { data: roomData } = useQuery({
@@ -306,17 +308,31 @@ export const SchedulePage: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Giờ hẹn chính xác <span className="text-rose-500">*</span>
+                  Giờ hẹn chính xác (24h) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="time"
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium text-slate-800"
-                />
+                <div
+                  onClick={() => setIsCustomTimeModalOpen(true)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 text-sm bg-white border border-slate-200 hover:border-teal-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium text-left cursor-pointer transition-colors shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                    {selectedTime ? (
+                      <span className="font-bold text-slate-900 font-mono text-base">
+                        {selectedTime}{' '}
+                        <span className="text-xs font-semibold text-teal-600 font-sans">
+                          (Hệ 24h)
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Chọn giờ hẹn theo hệ 24h</span>
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 hover:bg-teal-100 transition-colors">
+                    Chọn giờ cụ thể
+                  </span>
+                </div>
                 <p className="text-xs text-slate-400">
-                  Khung giờ dẫn khách hoạt động từ 08:00 đến 19:00 hàng ngày.
+                  Khung giờ dẫn khách hoạt động từ 07:00 đến 21:00. Cách hiện tại tối thiểu 3 tiếng.
                 </p>
               </div>
             </div>
@@ -325,6 +341,8 @@ export const SchedulePage: React.FC = () => {
               selectedTime={selectedTime}
               onSelectTime={(time) => setSelectedTime(time)}
               selectedDate={selectedDate}
+              isCustomModalOpen={isCustomTimeModalOpen}
+              setIsCustomModalOpen={setIsCustomTimeModalOpen}
             />
           </div>
 
