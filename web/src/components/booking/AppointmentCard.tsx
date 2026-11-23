@@ -84,7 +84,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   };
 
   const fullStr = formatAppointmentDateTime(item.ngayHen);
-  const canCancel = item.trangThai === 'CHO_XAC_NHAN' || item.trangThai === 'XAC_NHAN';
+  const canCancel =
+    (item.trangThai === 'CHO_XAC_NHAN' || item.trangThai === 'XAC_NHAN') && !item.daNhanLaiCoc;
   const hasUnpaidDeposit = (item.coc ?? 0) > 0 && !item.daNopCoc && !isDepositPaid;
 
   const displayImage =

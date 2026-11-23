@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Calendar,
   Check,
@@ -392,6 +393,17 @@ export const DepositPaymentPage: React.FC = () => {
 
               {selectedMethod === 'VIETQR' && (
                 <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  {/* Cảnh báo bắt buộc trước khi chuyển khoản */}
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-2xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-900 uppercase">Lưu ý quan trọng trước khi chuyển khoản:</p>
+                      <p className="mt-0.5 text-amber-800 leading-relaxed">
+                        Vui lòng chuyển <strong>đúng và đủ số tiền</strong> ({formatVND(amount)}) cùng <strong>chính xác nội dung</strong> (<span className="font-mono font-bold text-teal-800">{vietQrTransferInfo}</span>). Quý khách tự chịu trách nhiệm, hệ thống <strong>không giải quyết và không đền bù khi chuyển sai nội dung hoặc thiếu tiền</strong>.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="text-center">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       Quét mã VietQR bằng ứng dụng Ngân Hàng

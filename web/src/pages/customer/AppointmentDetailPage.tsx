@@ -436,30 +436,15 @@ export const AppointmentDetailPage: React.FC = () => {
 
           {isDepositPaid && !item.daNhanLaiCoc && (
             <>
-              {(() => {
-                const isViewingWindowOpen =
-                  !item.ngayHen ||
-                  new Date().getTime() >= new Date(item.ngayHen).getTime() - 2 * 60 * 60 * 1000;
-
-                return (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmRefundModal(true)}
-                      disabled={isActionLoading || !isViewingWindowOpen}
-                      className="w-full py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Đã nhận lại cọc từ Chủ trọ</span>
-                    </button>
-                    {!isViewingWindowOpen && (
-                      <p className="text-[11px] text-slate-500 text-center mt-1">
-                        (Mở trước giờ hẹn 2 tiếng khi bạn gặp Chủ trọ)
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
+              <button
+                type="button"
+                onClick={() => setShowConfirmRefundModal(true)}
+                disabled={isActionLoading}
+                className="w-full py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Đã nhận lại cọc từ Chủ trọ</span>
+              </button>
 
               {item.ngayHen &&
                 new Date().getTime() >= new Date(item.ngayHen).getTime() + 30 * 60 * 1000 && (
