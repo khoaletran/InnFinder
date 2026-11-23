@@ -594,4 +594,30 @@ class AppointmentNoShowAndExpiryTest {
                 eq(TrangThaiGD.CHO_THANH_TOAN)
         );
     }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 17: CHỦ TRỌ XÁC NHẬN ĐÃ TRẢ CỌC CHO KHÁCH (TÙY CHỌN & IDEMPOTENT)
+    // =========================================================================
+    @Test
+    @DisplayName("TH17: Chủ trọ xác nhận đã trả cọc trực tiếp -> Cờ daNhanLaiCoc = true và idempotent")
+    void testChuTroXacNhanDaTraCoc_ThanhCongVaIdempotent() {
+        phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
+        phieu.setDaNhanLaiCoc(false);
+        phieu.setCoc(200_000L);
+
+        when(nguoiDungRepository.findByTenDangNhap("chu_tro")).thenReturn(Optional.of(chuTroUser));
+        when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Lần 1: Chủ trọ bấm xác nhận đã trả cọc
+        var res1 = appointmentService.chuTroXacNhanDaTraCoc(phieu.getMaDatLich(), "chu_tro");
+        assertTrue(res1.getDaNhanLaiCoc());
+        assertTrue(phieu.getDaNhanLaiCoc());
+        verify(phieuDatLichRepository, times(1)).save(phieu);
+
+        // Lần 2: Bấm lại (idempotent) -> Không ném lỗi và không cần save lại
+        var res2 = appointmentService.chuTroXacNhanDaTraCoc(phieu.getMaDatLich(), "chu_tro");
+        assertTrue(res2.getDaNhanLaiCoc());
+        verify(phieuDatLichRepository, times(1)).save(phieu);
+    }
 }

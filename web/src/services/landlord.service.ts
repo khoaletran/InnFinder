@@ -287,6 +287,13 @@ export const landlordService = {
     return true;
   },
 
+  confirmDepositRefunded: async (id: string): Promise<LandlordAppointmentItem> => {
+    const res = await axiosClient.patch<unknown, AppointmentResponse>(
+      `/api/landlord/appointments/${id}/confirm-deposit-refunded`,
+    );
+    return mapAppointmentToLandlordItem(res);
+  },
+
   submitDecision: async (
     id: string,
     dongY: boolean,

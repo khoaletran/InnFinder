@@ -57,6 +57,14 @@ public class LandlordAppointmentController {
         return ApiResponse.ok(null, "Từ chối lịch hẹn thành công");
     }
 
+    @PatchMapping("/{id}/confirm-deposit-refunded")
+    @Operation(summary = "Chủ trọ xác nhận đã trả cọc trực tiếp cho khách (tùy chọn, mở khóa quyết định)")
+    public ApiResponse<AppointmentResponse> chuTroXacNhanDaTraCoc(@PathVariable("id") String maDatLich) {
+        String username = getCurrentUsername();
+        AppointmentResponse res = appointmentService.chuTroXacNhanDaTraCoc(maDatLich, username);
+        return ApiResponse.ok(res, "Xác nhận đã trả cọc cho khách thành công");
+    }
+
     @PatchMapping("/{id}/decision")
     @Operation(summary = "Chủ trọ đưa ra quyết định độc lập (Đồng ý cho thuê / Từ chối cho thuê)")
     public ApiResponse<AppointmentResponse> chuTroDuaRaQuyetDinh(

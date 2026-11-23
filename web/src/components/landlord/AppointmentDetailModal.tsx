@@ -22,6 +22,7 @@ interface AppointmentDetailModalProps {
   appointment: LandlordAppointmentItem | null;
   onApprove?: (id: string) => void;
   onCancel?: (id: string) => void;
+  onConfirmDepositRefunded?: (id: string) => void;
 }
 
 const renderDecisionText = (val: boolean | null | undefined, agree: string, decline: string) => {
@@ -50,6 +51,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   appointment,
   onApprove,
   onCancel,
+  onConfirmDepositRefunded,
 }) => {
   if (!appointment) return null;
 
@@ -124,6 +126,19 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                   </button>
                 )}
               </div>
+            )}
+            {appointment.trangThai === 'XAC_NHAN' && !appointment.daNhanLaiCoc && onConfirmDepositRefunded && (
+              <button
+                type="button"
+                onClick={() => {
+                  onConfirmDepositRefunded(appointment.id);
+                  onClose();
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
+                <span>Xác nhận đã trả cọc</span>
+              </button>
             )}
           </div>
           <button
@@ -202,15 +217,16 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           </div>
           <div className="flex items-center justify-between text-slate-600">
             <span>Trạng thái hoàn cọc trực tiếp:</span>
-            <span
-              className={`font-bold ${
-                appointment.daNhanLaiCoc ? 'text-emerald-700' : 'text-amber-700'
-              }`}
-            >
-              {appointment.daNhanLaiCoc
-                ? 'Khách đã xác nhận nhận lại cọc'
-                : 'Chờ khách xác nhận đã nhận lại cọc'}
-            </span>
+            {appointment.daNhanLaiCoc ? (
+              <span className="font-bold text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Khách hàng đã nhận lại cọc
+              </span>
+            ) : (
+              <span className="font-bold text-amber-700">
+                Chờ đối soát cọc thế chân
+              </span>
+            )}
           </div>
         </div>
 

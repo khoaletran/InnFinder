@@ -409,6 +409,34 @@ public class AppointmentService {
     }
 
     /**
+     * 7b. CHỦ TRỌ XÁC NHẬN ĐÃ TRẢ CỌC CHO KHÁCH (Tùy chọn - không bắt buộc)
+     * Giải quyết trường hợp khách hàng quên thao tác hoặc hai bên đã đối soát xong trực tiếp ngoài đời.
+     * Cờ daNhanLaiCoc được bật true -> Mở khóa quyền đưa ra quyết định thuê / không thuê cho cả hai bên.
+     */
+    @Transactional
+    public AppointmentResponse chuTroXacNhanDaTraCoc(String maDatLich, String username) {
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
+
+        if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        // Idempotent: Nếu đã đánh dấu rồi thì trả về thành công luôn
+        if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
+            boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
+                    || daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
+            return AppointmentResponse.fromEntity(phieu, daNop);
+        }
+
+        phieu.setDaNhanLaiCoc(true);
+        PhieuDatLich saved = phieuDatLichRepository.save(phieu);
+
+        boolean daNop = (saved.getCoc() == null || saved.getCoc() == 0)
+                || daNopCocChoLichHen(saved.getKhachHang().getMaNguoiDung(), maDatLich);
+        return AppointmentResponse.fromEntity(saved, daNop);
+    }
+
+    /**
      * 8. BƯỚC 5a SWIMLANE MỚI: Khách hàng đưa ra quyết định độc lập (Thuê / Không thuê)
      * Ràng buộc: Bắt buộc daNhanLaiCoc = true nếu phòng có cọc > 0.
      */
