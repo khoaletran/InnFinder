@@ -34,7 +34,13 @@ interface BookingState {
     maDatLich: string,
     dongY: boolean,
     liDoTuChoi?: string,
-  ) => Promise<{ success: boolean; isCompleted?: boolean; message?: string }>;
+  ) => Promise<{
+    success: boolean;
+    isCompleted?: boolean;
+    trangThai?: string;
+    liDoHuy?: string;
+    message?: string;
+  }>;
   reportLandlordNoShow: (
     maDatLich: string,
   ) => Promise<{ success: boolean; message?: string }>;
@@ -176,7 +182,12 @@ export const useBookingStore = create<BookingState>()(
                 : item,
             ),
           }));
-          return { success: true, isCompleted };
+          return {
+            success: true,
+            isCompleted,
+            trangThai: updated.trangThai,
+            liDoHuy: updated.liDoHuy,
+          };
         } catch (err: unknown) {
           return {
             success: false,

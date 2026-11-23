@@ -61,4 +61,6 @@ export interface DepositStatusResponse {
   daNopCoc: boolean;
   soTienCoc: number;
   trangThaiLich: string;
+  hanDuyet?: string;
+  conHieuLuc?: boolean;
 }
