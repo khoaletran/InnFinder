@@ -5,11 +5,14 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  Compass,
   ExternalLink,
   Home,
+  Mail,
   MapPin,
   Phone,
   RefreshCw,
+  Sparkles,
   XCircle,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -321,6 +324,75 @@ export const AppointmentDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* THÔNG BÁO TÌNH TRẠNG PHÒNG ĐÃ ĐƯỢC KHÁCH XEM SỚM HƠN CHỐT THUÊ */}
+      {item.trangThai === 'HUY' &&
+        (item.liDoHuy?.includes('chốt thuê') ||
+          item.liDoHuy?.includes('khách hẹn xem sớm hơn') ||
+          item.liDoHuy?.includes('khách hàng khác chốt thuê')) && (
+          <Card className="bg-linear-to-br from-amber-50/70 via-white to-teal-50/50 rounded-2xl p-5 border border-amber-200/90 shadow-xs space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                    Thông báo tình trạng phòng #{item.maPhongTro}
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Chào bạn {item.tenKhachHang || 'bạn'},
+                </h3>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  Phòng trọ <strong>#{item.maPhongTro}</strong> ({item.tieuDePhong || 'Phòng trọ'}) vừa được một khách hàng hẹn xem sớm hơn chốt thuê thành công.
+                </p>
+                <p className="text-xs text-slate-500 italic">
+                  InnFinder xin gửi lời xin lỗi vì bạn chưa kịp trải nghiệm căn phòng này!
+                </p>
+              </div>
+            </div>
+
+            {/* Khối xác nhận hoàn cọc 100% */}
+            <div className="p-3.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-emerald-900 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">
+                  Hệ thống đã tự động tạo lệnh HOÀN TRẢ 100% CỌC ({formatVND(item.coc)})
+                </p>
+                <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                  Khoản cọc giữ chân của bạn đang được xử lý hoàn tiền về tài khoản ngân hàng để bạn không phải mất công di chuyển vào ngày hẹn.
+                </p>
+              </div>
+            </div>
+
+            {/* Gợi ý phòng tương tự */}
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Gợi ý cho bạn: Khám phá thêm phòng trọ ưng ý</span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {item.tenChuTro && (
+                  <Link
+                    to={`/search?keyword=${encodeURIComponent(item.tenChuTro)}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold transition-colors shadow-2xs"
+                  >
+                    <Home className="w-3.5 h-3.5" />
+                    <span>Xem các phòng của Chủ trọ {item.tenChuTro}</span>
+                  </Link>
+                )}
+                <Link
+                  to="/search"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors shadow-2xs"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Khám phá khu vực lân cận</span>
+                </Link>
+              </div>
+            </div>
+          </Card>
+        )}
 
       {/* 3. KHỐI TIẾN ĐỘ HOÀN TIỀN (Chỉ hiện khi phiếu HUY, đã nộp cọc và chưa nhận lại cọc) */}
       {shouldShowRefundProgress && (

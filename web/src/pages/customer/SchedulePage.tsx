@@ -6,9 +6,9 @@ import {
   CheckCircle2,
   Clock,
   Coins,
-  Info,
   MapPin,
   Phone,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -380,17 +380,31 @@ export const SchedulePage: React.FC = () => {
             />
           </div>
 
-          <div className="rounded-xl bg-teal-50/70 border border-teal-200/80 p-4 space-y-2 text-xs text-slate-600">
-            <div className="flex items-center gap-2 font-semibold text-blue-900">
-              <Info className="w-4 h-4 text-teal-600 shrink-0" />
-              Cơ chế bảo vệ cọc Swimlane InnFinder
+          <div className="rounded-xl bg-teal-50/70 border border-teal-200/80 p-4 space-y-2.5 text-xs text-slate-600">
+            <div className="flex items-center gap-2 font-bold text-teal-900">
+              <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
+              <span>Quyền lợi & Cam kết giữ lịch xem phòng</span>
             </div>
-            <p className="leading-relaxed text-slate-600">
-              Sau khi Chủ trọ bấm xác nhận lịch hẹn, bạn nộp khoản cọc giữ chân (
-              <strong>{formatVND(depositAmount)}</strong>) cho Hệ thống InnFinder tạm giữ. Khi gặp
-              xem phòng thực tế ngoài đời, <strong>Chủ trọ trực tiếp hoàn trả lại 100% cọc</strong>{' '}
-              cho bạn (tiền mặt hoặc chuyển khoản).
-            </p>
+            <div className="space-y-1.5 text-slate-700 leading-relaxed">
+              <p className="flex items-start gap-1.5">
+                <span className="font-bold text-teal-700 shrink-0">•</span>
+                <span>
+                  <strong>Cam kết khung giờ:</strong> Chủ trọ đã dành riêng khung giờ hẹn này để đón tiếp bạn và không nhận khách nào khác trùng giờ.
+                </span>
+              </p>
+              <p className="flex items-start gap-1.5">
+                <span className="font-bold text-teal-700 shrink-0">•</span>
+                <span>
+                  <strong>Cơ chế phòng mở:</strong> Từ nay đến ngày hẹn của bạn, phòng trọ vẫn tiếp tục đón các khách có lịch xem ở những ngày sớm hơn.
+                </span>
+              </p>
+              <p className="flex items-start gap-1.5">
+                <span className="font-bold text-teal-700 shrink-0">•</span>
+                <span>
+                  <strong>Bảo đảm an toàn cọc 100%:</strong> Nếu phòng được khách xem sớm hơn chốt thuê, InnFinder sẽ thông báo ngay và tự động hoàn 100% cọc giữ chân để bạn không mất công di chuyển.
+                </span>
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
