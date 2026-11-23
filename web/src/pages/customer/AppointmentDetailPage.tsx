@@ -81,8 +81,8 @@ export const AppointmentDetailPage: React.FC = () => {
   const isReviewed = reviewedRoomIds.includes(item.maPhongTro);
 
   const shouldShowRefundProgress =
-    item.trangThai === 'HUY' && isDepositPaid && !item.daNhanLaiCoc && (item.coc ?? 0) > 0;
-  const refundStatus = item.trangThaiHoanCoc || 'CHO_THANH_TOAN';
+    item.trangThai === 'HUY' && isDepositPaid && !item.daNhanLaiCoc && (item.coc ?? 0) > 0 && Boolean(item.trangThaiHoanCoc);
+  const refundStatus = item.trangThaiHoanCoc;
 
   const handleConfirmReceivedDeposit = async () => {
     setIsActionLoading(true);
@@ -108,11 +108,13 @@ export const AppointmentDetailPage: React.FC = () => {
     setShowConfirmRentalModal(false);
 
     if (res.success) {
-      setActionSuccessMessage(
-        res.isCompleted
-          ? 'Cả hai bên đã đồng ý! Chốt thuê phòng thành công.'
-          : 'Đã ghi nhận quyết định Đồng ý thuê của bạn! Đang chờ Chủ trọ xác nhận.',
-      );
+      if (res.trangThai === 'HOAN_THANH') {
+        setActionSuccessMessage('Cả hai bên đã đồng ý! Chốt thuê phòng thành công.');
+      } else if (res.trangThai === 'HUY') {
+        setActionErrorMessage(res.liDoHuy || 'Phòng trọ đã được khách hàng khác chốt thuê trước.');
+      } else {
+        setActionSuccessMessage('Đã ghi nhận quyết định Đồng ý thuê của bạn! Đang chờ Chủ trọ xác nhận.');
+      }
     } else {
       setActionErrorMessage(res.message || 'Gửi quyết định thuê thất bại');
     }
@@ -133,7 +135,7 @@ export const AppointmentDetailPage: React.FC = () => {
     setShowCancelModal(false);
 
     if (res.success) {
-      if ((item.coc || 0) > 0 && !isLateCancel) {
+      if (isDepositPaid && (item.coc || 0) > 0 && !isLateCancel) {
         setShowRefundSuccessModal(true);
       } else {
         setActionSuccessMessage('Đã hủy lịch hẹn thành công.');
@@ -434,15 +436,30 @@ export const AppointmentDetailPage: React.FC = () => {
 
           {isDepositPaid && !item.daNhanLaiCoc && (
             <>
-              <button
-                type="button"
-                onClick={() => setShowConfirmRefundModal(true)}
-                disabled={isActionLoading}
-                className="w-full py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Đã nhận lại cọc từ Chủ trọ</span>
-              </button>
+              {(() => {
+                const isViewingWindowOpen =
+                  !item.ngayHen ||
+                  new Date().getTime() >= new Date(item.ngayHen).getTime() - 2 * 60 * 60 * 1000;
+
+                return (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmRefundModal(true)}
+                      disabled={isActionLoading || !isViewingWindowOpen}
+                      className="w-full py-2.5 px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Đã nhận lại cọc từ Chủ trọ</span>
+                    </button>
+                    {!isViewingWindowOpen && (
+                      <p className="text-[11px] text-slate-500 text-center mt-1">
+                        (Mở trước giờ hẹn 2 tiếng khi bạn gặp Chủ trọ)
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {item.ngayHen &&
                 new Date().getTime() >= new Date(item.ngayHen).getTime() + 30 * 60 * 1000 && (
@@ -702,11 +719,13 @@ export const AppointmentDetailPage: React.FC = () => {
             ? 'Đang hủy...'
             : isLateCancel
               ? 'Chấp nhận mất cọc & Hủy'
-              : 'Xác nhận hủy & Hoàn cọc'
+              : isDepositPaid && (item.coc || 0) > 0
+                ? 'Xác nhận hủy & Hoàn cọc'
+                : 'Xác nhận hủy lịch'
         }
         keepButtonText="Giữ lại lịch"
         depositAmount={item.coc || 0}
-        isRefundEligible={!isLateCancel && (item.coc || 0) > 0}
+        isRefundEligible={!isLateCancel && isDepositPaid && (item.coc || 0) > 0}
       />
 
       {/* MODAL LIÊN HỆ CHỦ TRỌ */}

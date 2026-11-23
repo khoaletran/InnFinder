@@ -152,7 +152,7 @@ export const AppointmentsPage: React.FC = () => {
     setCancelModalVisible(false);
 
     if (res.success) {
-      const coCocHoan = targetAppt && (targetAppt.coc || 0) > 0 && !isLate;
+      const coCocHoan = targetAppt && targetAppt.daNopCoc && (targetAppt.coc || 0) > 0 && !isLate;
       if (coCocHoan) {
         setRefundModalData({
           isOpen: true,
@@ -414,11 +414,13 @@ export const AppointmentsPage: React.FC = () => {
                 ? 'Đang hủy...'
                 : isLateCancel
                   ? 'Chấp nhận mất cọc & Hủy'
-                  : 'Xác nhận hủy'
+                  : selectedAppt?.daNopCoc && (selectedAppt?.coc || 0) > 0
+                    ? 'Xác nhận hủy & Hoàn cọc'
+                    : 'Xác nhận hủy'
             }
             keepButtonText="Giữ lại lịch"
             depositAmount={selectedAppt?.coc || 0}
-            isRefundEligible={!isLateCancel && (selectedAppt?.coc || 0) > 0}
+            isRefundEligible={!isLateCancel && Boolean(selectedAppt?.daNopCoc) && (selectedAppt?.coc || 0) > 0}
           />
         );
       })()}

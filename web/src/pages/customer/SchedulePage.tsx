@@ -120,10 +120,10 @@ export const SchedulePage: React.FC = () => {
     const [hours, minutes] = selectedTime.split(':').map(Number);
     const appointmentDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
 
-    const minValidTime = Date.now() + 30 * 60 * 1000;
+    const minValidTime = Date.now() + 3 * 60 * 60 * 1000;
     if (appointmentDateTime.getTime() < minValidTime) {
       setErrorMessage(
-        'Thời gian hẹn xem phòng phải sau thời điểm hiện tại ít nhất 30 phút. Vui lòng chọn lại!',
+        'Thời gian hẹn xem phòng phải sau thời điểm hiện tại ít nhất 3 giờ để Chủ trọ kịp sắp xếp và duyệt đơn. Vui lòng chọn lại!',
       );
       return;
     }

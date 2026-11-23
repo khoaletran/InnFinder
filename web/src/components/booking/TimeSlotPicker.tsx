@@ -30,13 +30,13 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Ràng buộc: Nếu là ngày hôm nay thì giờ hẹn phải cách hiện tại ít nhất 1 tiếng
+  // Ràng buộc: Lịch xem phòng phải cách thời điểm hiện tại ít nhất 3 tiếng
   const isSlotDisabled = (time: string): boolean => {
     if (!selectedDate) return false;
     const [year, month, day] = selectedDate.split("-").map(Number);
     const [h, m] = time.split(":").map(Number);
     const slotDate = new Date(year, month - 1, day, h, m, 0, 0);
-    return slotDate.getTime() < nowMs + 60 * 60 * 1000;
+    return slotDate.getTime() < nowMs + 3 * 60 * 60 * 1000;
   };
 
   return (
@@ -46,7 +46,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
           Khung giờ xem phổ biến
         </label>
         <span className="text-xs text-slate-400 flex items-center gap-1">
-          <Clock className="w-3 h-3" /> Cách hiện tại tối thiểu 1 tiếng
+          <Clock className="w-3 h-3" /> Cách hiện tại tối thiểu 3 tiếng
         </span>
       </div>
 
