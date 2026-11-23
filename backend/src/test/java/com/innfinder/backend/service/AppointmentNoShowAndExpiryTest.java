@@ -530,4 +530,68 @@ class AppointmentNoShowAndExpiryTest {
         verify(giaoDichRepository, never()).save(any(GiaoDich.class));
         verify(transactionService, never()).taoGiaoDich(any(), anyLong(), anyString(), anyString(), any());
     }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 16: CHỐT THUÊ THÀNH CÔNG -> TỰ ĐỘNG HỦY DÂY CHUYỀN CÁC PHIẾU HẸN SAU
+    // =========================================================================
+    @Test
+    @DisplayName("TH16: Khách A chốt thuê thành công -> Tự động hủy phiếu của Khách B (xem sau) và hoàn cọc 100% cho B")
+    void testXuLyKetQuaLichHen_ChotThueThanhCong_TuDongHuyCacPhieuSauVaHoanCoc() {
+        // Phiếu A (xem sớm hơn và chốt thuê)
+        phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
+        phieu.setDaNhanLaiCoc(true);
+        phieu.setCoc(200_000L);
+        phieu.setPhiThu(20_000L);
+        phieu.setKhachHangDongY(null); // Khách hàng chưa bấm
+        phieu.setChuTroDongY(true);    // Chủ trọ đã đồng ý trước
+
+        // Phiếu B (khách B hẹn xem sau vào ngày mai, đang ở XAC_NHAN, đã nộp cọc nhưng chưa xem)
+        NguoiDung khachHangB = NguoiDung.builder()
+                .maNguoiDung("ND202611220002")
+                .tenDangNhap("khach_hang_b")
+                .build();
+        PhieuDatLich phieuB = PhieuDatLich.builder()
+                .maDatLich("DL20261123002")
+                .khachHang(khachHangB)
+                .phongTro(phongTro)
+                .thoiGianDat(LocalDateTime.now())
+                .ngayHen(LocalDateTime.now().plusDays(3))
+                .trangThai(TrangThaiDatLich.XAC_NHAN)
+                .coc(200_000L)
+                .daNhanLaiCoc(false)
+                .build();
+
+        when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
+        when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(phongTroRepository.findByIdForUpdate(phongTro.getMaPhongTro())).thenReturn(Optional.of(phongTro));
+        when(phongTroRepository.save(any(PhongTro.class))).thenAnswer(i -> i.getArgument(0));
+        when(chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro())).thenReturn(Optional.of(chuTro));
+        when(chuTroRepository.save(any(ChuTro.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Mock tìm thấy phiếu B là phiếu đang hoạt động khác của phòng này
+        when(phieuDatLichRepository.findOtherActiveAppointmentsByRoom(
+                eq(phongTro.getMaPhongTro()), anyList(), eq(phieu.getMaDatLich())))
+                .thenReturn(List.of(phieuB));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHangB.getMaNguoiDung(), phieuB.getMaDatLich())).thenReturn(true);
+
+        // Gọi hàm đưa ra quyết định để kích hoạt xử lý kết quả
+        appointmentService.khachHangDuaRaQuyetDinh(phieu.getMaDatLich(), "khach_hang", new AppointmentDecisionRequest(true, null));
+
+        // 1. Phiếu A và Phòng chuyển sang HOAN_THANH
+        assertEquals(TrangThaiDatLich.HOAN_THANH, phieu.getTrangThai());
+        assertEquals(TrangThaiPhongTro.HOAN_THANH, phongTro.getTrangThai());
+
+        // 2. Phiếu B tự động chuyển HUY với lý do khách xem sớm hơn chốt thuê
+        assertEquals(TrangThaiDatLich.HUY, phieuB.getTrangThai());
+        assertTrue(phieuB.getLiDoHuy().contains("khách hẹn xem sớm hơn chốt thuê thành công"));
+
+        // 3. Tự động sinh lệnh hoàn cọc 100% cho Khách B
+        verify(transactionService).taoGiaoDich(
+                eq(khachHangB),
+                eq(200_000L),
+                eq("HOAN_COC"),
+                contains("Hoàn cọc do phòng đã có khách trước chốt thuê"),
+                eq(TrangThaiGD.CHO_THANH_TOAN)
+        );
+    }
 }

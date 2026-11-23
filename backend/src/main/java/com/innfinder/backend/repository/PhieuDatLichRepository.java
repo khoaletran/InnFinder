@@ -79,4 +79,15 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
             @Param("minBookingTime") LocalDateTime minBookingTime,
             @Param("minViewingTime") LocalDateTime minViewingTime
     );
+
+    /**
+     * 9. Lấy tất cả các lịch hẹn đang hoạt động khác của một phòng trọ để hủy dây chuyền khi phòng đã có khách chốt thuê
+     */
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.trangThai IN :trangThais AND p.maDatLich <> :excludeMaDatLich")
+    List<PhieuDatLich> findOtherActiveAppointmentsByRoom(
+            @Param("maPhongTro") String maPhongTro,
+            @Param("trangThais") List<TrangThaiDatLich> trangThais,
+            @Param("excludeMaDatLich") String excludeMaDatLich
+    );
 }

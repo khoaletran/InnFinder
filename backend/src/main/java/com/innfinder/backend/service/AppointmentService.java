@@ -562,6 +562,41 @@ public class AppointmentService {
             phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
             phieuDatLichRepository.save(phieu);
 
+            // Tự động HỦY DÂY CHUYỀN các lịch hẹn còn lại của phòng này và hoàn 100% cọc
+            List<PhieuDatLich> otherAppointments = phieuDatLichRepository.findOtherActiveAppointmentsByRoom(
+                    phongTroLocked.getMaPhongTro(),
+                    List.of(TrangThaiDatLich.CHO_XAC_NHAN, TrangThaiDatLich.XAC_NHAN),
+                    phieu.getMaDatLich()
+            );
+
+            for (PhieuDatLich other : otherAppointments) {
+                other.setTrangThai(TrangThaiDatLich.HUY);
+                other.setLiDoHuy("Phòng trọ đã được khách hẹn xem sớm hơn chốt thuê thành công");
+                phieuDatLichRepository.save(other);
+
+                if (Boolean.TRUE.equals(other.getDaNhanLaiCoc())) {
+                    if (chuTro != null && other.getCoc() != null && other.getCoc() > 0) {
+                        ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+                        chuTroLocked.setSoDu(chuTroLocked.getSoDu() + other.getCoc());
+                        chuTroRepository.save(chuTroLocked);
+
+                        transactionService.taoGiaoDich(
+                                chuTroLocked.getNguoiDung(),
+                                other.getCoc(),
+                                "HOAN_COC",
+                                "Hoàn 100% cọc thế chân do phòng " + phongTroLocked.getMaPhongTro() + " đã có khách chốt trước",
+                                TrangThaiGD.THANH_CONG
+                        );
+                    }
+                } else {
+                    boolean daNop = other.getKhachHang() != null &&
+                            daNopCocChoLichHen(other.getKhachHang().getMaNguoiDung(), other.getMaDatLich());
+                    if (daNop && other.getCoc() != null && other.getCoc() > 0) {
+                        taoGiaoDichHoanCocChoKhach(other, "Hoàn cọc do phòng đã có khách trước chốt thuê", null);
+                    }
+                }
+            }
+
             // Giải ngân (coc - phiThu) vào ví chủ trọ (Khóa bi quan để chống race condition ghi đè số dư)
             long thucNhanChuTro = Math.max(0L, coc - phiThu);
             if (chuTro != null && thucNhanChuTro > 0) {
