@@ -152,15 +152,16 @@ public class BankingWebhookService {
         // Khóa phiếu với Pessimistic Lock để tuần tự hóa với các luồng hủy/xác nhận
         PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich).orElse(null);
         if (phieu == null) {
-            log.warn("[SePay Webhook] Lịch hẹn không tồn tại trong CSDL: {}", maDatLich);
+            log.warn("[SePay Webhook] Lịch hẹn không tồn tại trong CSDL: {}. Bỏ qua.", maDatLich);
             return Map.of("success", false, "message", "Lịch hẹn không tồn tại: " + maDatLich);
         }
 
-        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
-        Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
-                ? payload.getTransferAmount()
-                : 0L;
-        Long tienCocYeuCau = phieu.getCoc() != null ? phieu.getCoc() : 0L;
+        // Chỉ tiếp nhận cọc khi phiếu ở trạng thái CHO_XAC_NHAN
+        if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
+            log.warn("[SePay Webhook] Phiếu {} ở trạng thái {} (không phải CHO_XAC_NHAN). Bỏ qua, không xử lý.",
+                    maDatLich, phieu.getTrangThai());
+            return Map.of("success", true, "message", "Phiếu không ở trạng thái chờ xác nhận, bỏ qua");
+        }
 
         // Tính hạn chốt duyệt thực tế: min(thoiGianDat + 24h, ngayHen - 2h)
         LocalDateTime thoiGianDat = phieu.getThoiGianDat() != null ? phieu.getThoiGianDat() : phieu.getNgayHen().minusHours(24);
@@ -168,101 +169,33 @@ public class BankingWebhookService {
         LocalDateTime limitHen = phieu.getNgayHen().minusHours(2);
         LocalDateTime hanDuyet = limit24h.isBefore(limitHen) ? limit24h : limitHen;
         boolean quaHan = LocalDateTime.now().isAfter(hanDuyet) || LocalDateTime.now().isEqual(hanDuyet);
+        if (quaHan) {
+            log.warn("[SePay Webhook] Phiếu {} đã quá hạn nộp cọc/duyệt lịch. Bỏ qua, khách hàng tự chịu trách nhiệm.", maDatLich);
+            return Map.of("success", true, "message", "Phiếu đã quá hạn nộp cọc, bỏ qua");
+        }
 
         // Kiểm tra xem lịch hẹn đã có cọc hợp lệ trước đó chưa
         boolean daCoCocHopLe = phieu.getKhachHang() != null &&
                 giaoDichRepository.existsDepositByMaDatLich(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-
-        // =========================================================================
-        // KỊCH BẢN 1: KHÁCH CHUYỂN CỌC THỪA / CHUYỂN LẦN 2 (Đã có cọc hợp lệ trước đó)
-        // =========================================================================
         if (daCoCocHopLe) {
-            log.info("[SePay Webhook] Lịch hẹn {} đã có cọc hợp lệ. Ghi nhận tiền chuyển lần 2/thừa và tạo lệnh hoàn cọc.", maDatLich);
-            GiaoDich gdVao = GiaoDich.builder()
-                    .maGiaoDich(sepayMaGD)
-                    .nguoiDung(phieu.getKhachHang())
-                    .soTien(transferAmount)
-                    .loaiGiaoDich("COC_CHUYEN_THUA")
-                    .noiDung("Tiền chuyển cọc thừa/lần 2 cho lịch " + maDatLich + " (SePay ID: " + payload.getId() + ", Ref: " + refCode + ")")
-                    .ngayGiaoDich(LocalDateTime.now())
-                    .trangThai(TrangThaiGD.THANH_CONG)
-                    .build();
-            giaoDichRepository.save(gdVao);
-
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    transferAmount,
-                    "HOAN_COC",
-                    "Hoàn trả tiền cọc chuyển thừa/lần 2 cho lịch " + maDatLich + " (Cần Admin chuyển khoản lại khách)",
-                    TrangThaiGD.CHO_THANH_TOAN
-            );
-            evictAdminStatisticsCache();
-            return Map.of("success", true, "message", "Ghi nhận tiền chuyển thừa và tạo lệnh hoàn trả");
+            log.info("[SePay Webhook] Lịch hẹn {} đã có cọc hợp lệ trước đó. Bỏ qua không ghi nhận thêm.", maDatLich);
+            return Map.of("success", true, "message", "Lịch hẹn đã có cọc hợp lệ trước đó");
         }
 
-        // =========================================================================
-        // KỊCH BẢN 2: TIỀN ĐẾN MUỘN (Phiếu đã HUY hoặc đã QUÁ HẠN DUYỆT)
-        // =========================================================================
-        if (phieu.getTrangThai() == TrangThaiDatLich.HUY || quaHan) {
-            if (phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN) {
-                phieu.setTrangThai(TrangThaiDatLich.HUY);
-                phieu.setLiDoHuy("Tự động hủy: Tiền cọc chuyển sau khi đã quá hạn duyệt lịch");
-                phieuDatLichRepository.save(phieu);
-            }
-            log.warn("[SePay Webhook] Tiền cọc chuyển vào phiếu đã hủy/quá hạn: {}. Tạo lệnh hoàn tiền theo thực nhận.", maDatLich);
-            GiaoDich gdVao = GiaoDich.builder()
-                    .maGiaoDich(sepayMaGD)
-                    .nguoiDung(phieu.getKhachHang())
-                    .soTien(transferAmount)
-                    .loaiGiaoDich("TIEN_VAO_DON_HUY")
-                    .noiDung("Tiền cọc chuyển vào phiếu đã hủy/quá hạn " + maDatLich + " (SePay ID: " + payload.getId() + ", Ref: " + refCode + ")")
-                    .ngayGiaoDich(LocalDateTime.now())
-                    .trangThai(TrangThaiGD.THANH_CONG)
-                    .build();
-            giaoDichRepository.save(gdVao);
+        Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
+                ? payload.getTransferAmount()
+                : 0L;
+        Long tienCocYeuCau = phieu.getCoc() != null ? phieu.getCoc() : 0L;
 
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    transferAmount,
-                    "HOAN_COC",
-                    "Hoàn tiền cọc nộp muộn cho lịch hẹn đã hủy " + maDatLich + " (Cần Admin chuyển khoản lại khách)",
-                    TrangThaiGD.CHO_THANH_TOAN
-            );
-            evictAdminStatisticsCache();
-            return Map.of("success", true, "message", "Phiếu đã hủy/quá hạn - đã ghi nhận và tạo lệnh hoàn cọc");
-        }
-
-        // =========================================================================
-        // KỊCH BẢN 3: CHUYỂN THIẾU TIỀN CỌC (transferAmount < tienCocYeuCau)
-        // =========================================================================
+        // QUY TẮC: Phải chuyển ĐÚNG VÀ ĐỦ số tiền cọc. Chuyển thiếu -> Không ghi nhận, không đền bù
         if (transferAmount < tienCocYeuCau) {
-            log.warn("[SePay Webhook] Chuyển thiếu tiền cọc lịch {}: Nhận {} đ, cần {} đ. Tạo lệnh hoàn tiền.",
+            log.warn("[SePay Webhook] Chuyển thiếu tiền cọc lịch {}: Nhận {} đ, cần {} đ. Hệ thống không ghi nhận cọc, không đền bù.",
                     maDatLich, transferAmount, tienCocYeuCau);
-            GiaoDich gdVao = GiaoDich.builder()
-                    .maGiaoDich(sepayMaGD)
-                    .nguoiDung(phieu.getKhachHang())
-                    .soTien(transferAmount)
-                    .loaiGiaoDich("COC_THIEU")
-                    .noiDung("Chuyển thiếu tiền cọc lịch " + maDatLich + " (Nhận " + transferAmount + " đ / Cần " + tienCocYeuCau + " đ - SePay ID: " + payload.getId() + ", Ref: " + refCode + ")")
-                    .ngayGiaoDich(LocalDateTime.now())
-                    .trangThai(TrangThaiGD.THANH_CONG)
-                    .build();
-            giaoDichRepository.save(gdVao);
-
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    transferAmount,
-                    "HOAN_COC",
-                    "Hoàn tiền do nộp cọc thiếu cho lịch " + maDatLich + " (Cần Admin chuyển khoản lại khách)",
-                    TrangThaiGD.CHO_THANH_TOAN
-            );
-            evictAdminStatisticsCache();
-            return Map.of("success", true, "message", "Nộp thiếu cọc - đã ghi nhận và tạo lệnh hoàn cọc");
+            return Map.of("success", true, "message", "Chuyển thiếu tiền cọc, hệ thống không ghi nhận");
         }
 
-        // =========================================================================
-        // KỊCH BẢN 4: NỘP CỌC HỢP LỆ CHO LỊCH HẸN (Đủ điều kiện để chủ trọ duyệt)
-        // =========================================================================
+        // Chuyển đúng và đủ tiền -> Ghi nhận cọc hợp lệ để chủ trọ duyệt
+        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
         GiaoDich gdVao = GiaoDich.builder()
                 .maGiaoDich(sepayMaGD)
                 .nguoiDung(phieu.getKhachHang())
@@ -275,28 +208,14 @@ public class BankingWebhookService {
                 .build();
         giaoDichRepository.save(gdVao);
 
-        // Nếu chuyển thừa tiền so với cọc yêu cầu, tự động hoàn phần thừa
-        if (transferAmount > tienCocYeuCau && tienCocYeuCau > 0) {
-            long soTienThua = transferAmount - tienCocYeuCau;
-            transactionService.taoGiaoDich(
-                    phieu.getKhachHang(),
-                    soTienThua,
-                    "HOAN_COC",
-                    "Hoàn phần tiền cọc chuyển thừa cho lịch " + maDatLich + " (Cần Admin chuyển khoản lại khách)",
-                    TrangThaiGD.CHO_THANH_TOAN
-            );
-        }
-
         evictAdminStatisticsCache();
 
-        log.info("[SePay Webhook] ĐỐI SOÁT THÀNH CÔNG: Lịch hẹn {} đã nhận cọc {} đ qua SePay (GD: {})",
-                maDatLich, transferAmount, refCode);
-
+        log.info("[SePay Webhook] ĐỐI SOÁT THÀNH CÔNG: Đã ghi nhận cọc {} đ cho lịch {}", transferAmount, maDatLich);
         return Map.of(
                 "success", true,
                 "maDatLich", maDatLich,
                 "amount", transferAmount,
-                "message", "Đối soát cọc giữ chân thành công"
+                "message", "Nộp cọc giữ chân thành công qua SePay"
         );
     }
 

@@ -394,21 +394,26 @@ class AppointmentNoShowAndExpiryTest {
     }
 
     // =========================================================================
-    // TRƯỜNG HỢP 11: NHẬN LẠI CỌC SỚM HƠN CỬA SỔ 2H BỊ CHẶN
+    // TRƯỜNG HỢP 11: GẶP MẶT SỚM HƠN GIỜ HẸN VẪN CHO PHÉP XÁC NHẬN NHẬN LẠI CỌC
     // =========================================================================
     @Test
-    @DisplayName("TH11: Khách hàng xác nhận nhận cọc khi chưa tới cửa sổ (cách giờ hẹn > 2h) -> Bị chặn với APPOINTMENT_CONFIRM_TOO_EARLY")
-    void testKhachHangXacNhanDaNhanCoc_ThatBai_KhiChuaToiCuaSo2h() {
+    @DisplayName("TH11: Hai bên gặp sớm hơn giờ hẹn -> Khách hàng vẫn bấm xác nhận nhận cọc thành công (daNhanLaiCoc = true)")
+    void testKhachHangXacNhanDaNhanCoc_ThanhCong_KhiGapSomHonGioHen() {
         phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
         phieu.setNgayHen(LocalDateTime.now().plusHours(5)); // Còn 5 tiếng nữa mới đến giờ hẹn
+        phieu.setDaNhanLaiCoc(false);
+        phieu.setCoc(200_000L);
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(true);
+        when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
 
-        AppException ex = assertThrows(AppException.class, () ->
-                appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang"));
+        var response = appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang");
 
-        assertEquals(ErrorCode.APPOINTMENT_CONFIRM_TOO_EARLY, ex.getErrorCode());
+        assertTrue(phieu.getDaNhanLaiCoc());
+        assertTrue(response.getDaNhanLaiCoc());
+        verify(phieuDatLichRepository).save(phieu);
     }
 
     // =========================================================================
@@ -495,42 +500,34 @@ class AppointmentNoShowAndExpiryTest {
     }
 
     // =========================================================================
-    // TRƯỜNG HỢP 15: TIỀN VÀO ĐƠN ĐÃ HỦY QUA WEBHOOK -> TỰ ĐỘNG HOÀN TIỀN
+    // TRƯỜNG HỢP 15: CHUYỂN THIẾU TIỀN HOẶC SAI ĐƠN -> KHÔNG GHI NHẬN CỌC VÀ KHÔNG ĐỀN BÙ
     // =========================================================================
     @Test
-    @DisplayName("TH15: Tiền cọc chuyển vào đơn đã HUY -> Ghi nhận TIEN_VAO_DON_HUY và tự động tạo lệnh HOAN_COC")
-    void testSePayWebhook_TienDenMuon_GhiNhanVaTuDongHoanTien() {
-        phieu.setTrangThai(TrangThaiDatLich.HUY);
+    @DisplayName("TH15: Chuyển thiếu tiền cọc -> Bỏ qua không ghi nhận cọc, không tạo lệnh hoàn tiền tự động (khách tự chịu)")
+    void testSePayWebhook_ChuyenThieuTien_KhongGhiNhanVaKhongDenBu() {
+        phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         phieu.setCoc(200_000L);
 
+        // Khách chuyển thiếu chỉ 100.000đ (cần 200.000đ)
         SePayWebhookPayload payload = SePayWebhookPayload.builder()
                 .id(123456789L)
                 .transferType("in")
-                .transferAmount(200_000L)
+                .transferAmount(100_000L)
                 .content("IFCOC" + phieu.getMaDatLich().replace("DL", ""))
                 .referenceCode("REF123")
                 .build();
 
         when(giaoDichRepository.existsById("SEPAY_123456789")).thenReturn(false);
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
 
         var response = bankingWebhookService.xuLySePayWebhook("dummyAuth", payload);
 
         assertTrue((Boolean) response.get("success"));
-        // 1. Ghi nhận tiền vào đơn hủy
-        verify(giaoDichRepository).save(argThat(gd ->
-                "SEPAY_123456789".equals(gd.getMaGiaoDich()) &&
-                "TIEN_VAO_DON_HUY".equals(gd.getLoaiGiaoDich()) &&
-                gd.getSoTien() == 200_000L
-        ));
+        assertTrue(response.get("message").toString().contains("Chuyển thiếu tiền cọc"));
 
-        // 2. Tự động sinh lệnh hoàn cọc ở CHO_THANH_TOAN
-        verify(transactionService).taoGiaoDich(
-                eq(khachHang),
-                eq(200_000L),
-                eq("HOAN_COC"),
-                contains("Hoàn tiền cọc nộp muộn cho lịch hẹn đã hủy"),
-                eq(TrangThaiGD.CHO_THANH_TOAN)
-        );
+        // Tuyệt đối không lưu giao dịch COC_XEM_PHONG và không tạo lệnh HOAN_COC đền bù
+        verify(giaoDichRepository, never()).save(any(GiaoDich.class));
+        verify(transactionService, never()).taoGiaoDich(any(), anyLong(), anyString(), anyString(), any());
     }
 }

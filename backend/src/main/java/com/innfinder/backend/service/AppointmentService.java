@@ -389,11 +389,6 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
-        // Cửa sổ xem phòng: Chỉ mở từ 2 tiếng trước giờ hẹn trở đi
-        if (phieu.getNgayHen() != null && LocalDateTime.now().isBefore(phieu.getNgayHen().minusHours(2))) {
-            throw new AppException(ErrorCode.APPOINTMENT_CONFIRM_TOO_EARLY);
-        }
-
         if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
         }
