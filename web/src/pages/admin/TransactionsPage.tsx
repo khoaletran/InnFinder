@@ -386,6 +386,12 @@ export const TransactionsPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  disabled={selectedTx.loaiGiaoDich === 'HOAN_COC' && !selectedTx.soTaiKhoan}
+                  title={
+                    selectedTx.loaiGiaoDich === 'HOAN_COC' && !selectedTx.soTaiKhoan
+                      ? 'Khách hàng chưa cập nhật tài khoản ngân hàng nhận tiền'
+                      : undefined
+                  }
                   onClick={() => {
                     const tx = selectedTx;
                     setSelectedTx(null);
@@ -393,7 +399,7 @@ export const TransactionsPage: React.FC = () => {
                     setBankRefCode('');
                     setIsConfirmedTransfer(false);
                   }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Xác nhận đã chuyển tiền</span>
@@ -412,6 +418,20 @@ export const TransactionsPage: React.FC = () => {
               </div>
               {renderStatusBadge(selectedTx.trangThai)}
             </div>
+
+            {/* Cảnh báo nếu là lệnh hoàn cọc nhưng khách chưa liên kết STK ngân hàng */}
+            {selectedTx.trangThai === 'CHO_THANH_TOAN' &&
+              selectedTx.loaiGiaoDich === 'HOAN_COC' &&
+              !selectedTx.soTaiKhoan && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1">
+                  <p className="font-bold text-amber-950">
+                    Khách hàng chưa liên kết tài khoản ngân hàng nhận tiền
+                  </p>
+                  <p className="text-amber-800 leading-relaxed">
+                    Chưa thể tạo mã VietQR và chưa thể xác nhận hoàn tất chuyển khoản. Vui lòng chờ khách hàng bổ sung số tài khoản, hoặc bấm Từ chối kèm lý do để thông báo khách cập nhật STK.
+                  </p>
+                </div>
+              )}
 
             {/* Khối VietQR chuẩn API img.vietqr.io nếu là lệnh hoàn cọc hoặc rút tiền đang chờ xử lý */}
             {selectedTx.trangThai === 'CHO_THANH_TOAN' && selectedTx.soTaiKhoan && (() => {

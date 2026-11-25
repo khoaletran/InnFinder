@@ -55,8 +55,12 @@ export const TransactionsPage: React.FC = () => {
 
     transactions.forEach((tx) => {
       if (tx.trangThai === 'THANH_CONG') {
-        paid += tx.soTien;
         sCount += 1;
+        if (tx.loaiGiaoDich === 'HOAN_COC') {
+          refunded += tx.soTien;
+        } else {
+          paid += tx.soTien;
+        }
       } else if (tx.trangThai === 'CHO_THANH_TOAN') {
         pCount += 1;
       } else if (tx.trangThai === 'HOAN_TIEN') {
@@ -121,7 +125,7 @@ export const TransactionsPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-4 grid grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
         <div className="lg:pr-4">
           <span className="text-xs font-semibold text-slate-600 block">
-            Tổng tiền thành công
+            Tổng tiền đã cọc
           </span>
           <span className="text-lg font-extrabold text-slate-900">{formatVND(totalPaid)}</span>
         </div>

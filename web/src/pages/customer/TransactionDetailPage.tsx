@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { Card, Spinner } from '@heroui/react';
+import { Card } from '@heroui/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -16,9 +16,8 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
+import { LinkBankAccountModal } from '@/components/common/LinkBankAccountModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Modal } from '@/components/common/Modal';
-import { VIETNAM_BANKS } from '@/constants/banks';
 import { transactionService } from '@/services/transaction.service';
 import {
   formatDateTime,
@@ -54,11 +53,6 @@ export const TransactionDetailPage: React.FC = () => {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
 
-  // Form cập nhật lại STK nhận tiền hoàn
-  const [retryBankName, setRetryBankName] = useState('MBBank');
-  const [retryAccountNo, setRetryAccountNo] = useState('');
-  const [retryAccountHolder, setRetryAccountHolder] = useState('');
-
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions', 'my-history'],
     queryFn: transactionService.getMyTransactions,
@@ -75,6 +69,7 @@ export const TransactionDetailPage: React.FC = () => {
       toast.success('Đã cập nhật lại thông tin tài khoản nhận tiền thành công!');
       setShowRetryModal(false);
       void queryClient.invalidateQueries({ queryKey: ['transactions', 'my-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['users', 'bank-accounts'] });
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : 'Lỗi cập nhật tài khoản');
@@ -109,19 +104,6 @@ export const TransactionDetailPage: React.FC = () => {
   const refCode = extractRefCodeFromContent(tx.noiDung);
   const rejectReason = extractRejectReason(tx.noiDung);
 
-  const handleRetrySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!retryAccountNo.trim() || retryAccountNo.trim().length < 6) {
-      toast.error('Vui lòng nhập số tài khoản hợp lệ');
-      return;
-    }
-    retryRefundMutation.mutate({
-      tenNganHang: retryBankName,
-      soTaiKhoan: retryAccountNo.trim(),
-      tenChuTaiKhoan: retryAccountHolder.trim().toUpperCase() || undefined,
-    });
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -152,7 +134,32 @@ export const TransactionDetailPage: React.FC = () => {
       </div>
 
       {/* ĐỀ XUẤT 2: Thẻ thông báo trực quan theo từng trạng thái */}
-      {tx.loaiGiaoDich === 'HOAN_COC' && tx.trangThai === 'CHO_THANH_TOAN' && (
+      {tx.loaiGiaoDich === 'HOAN_COC' && tx.trangThai === 'CHO_THANH_TOAN' && !bankInfo && (
+        <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="text-xs">
+              <h4 className="font-bold text-amber-950 text-sm">
+                Chưa có tài khoản ngân hàng nhận tiền hoàn cọc
+              </h4>
+              <p className="text-amber-800 mt-0.5 leading-relaxed text-[11px]">
+                Lệnh hoàn cọc đã được tạo nhưng tài khoản của bạn chưa liên kết ngân hàng. Vui lòng cập nhật số tài khoản nhận tiền để Ban Quản Trị tiến hành chuyển khoản.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowRetryModal(true)}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs shrink-0 cursor-pointer transition-colors"
+          >
+            Cập nhật STK nhận tiền
+          </button>
+        </div>
+      )}
+
+      {tx.loaiGiaoDich === 'HOAN_COC' && tx.trangThai === 'CHO_THANH_TOAN' && bankInfo && (
         <div className="p-4 bg-sky-50/90 border border-sky-200 rounded-2xl flex items-start sm:items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
             <Clock className="w-5 h-5 animate-pulse" />
@@ -464,76 +471,19 @@ export const TransactionDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL CẬP NHẬT LẠI STK KHI TỪ CHỐI (ĐỀ XUẤT 4) */}
-      <Modal
+      {/* MODAL CẬP NHẬT LẠI STK (Dùng chung LinkBankAccountModal tích hợp Napas) */}
+      <LinkBankAccountModal
         isOpen={showRetryModal}
         onClose={() => setShowRetryModal(false)}
-        title="Cập nhật lại tài khoản nhận tiền"
-        subtitle="Vui lòng kiểm tra kỹ số tài khoản để hệ thống thực hiện chuyển lại tiền hoàn cọc."
-        maxWidth="md"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setShowRetryModal(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              disabled={retryRefundMutation.isPending}
-              onClick={handleRetrySubmit}
-              className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {retryRefundMutation.isPending && <Spinner size="sm" color="current" />}
-              <span>Gửi lại yêu cầu hoàn tiền</span>
-            </button>
-          </>
-        }
-      >
-        <form onSubmit={handleRetrySubmit} className="space-y-3 text-xs">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">Ngân hàng:</label>
-            <select
-              value={retryBankName}
-              onChange={(e) => setRetryBankName(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            >
-              {VIETNAM_BANKS.map((b) => (
-                <option key={b.code} value={b.shortName}>
-                  {b.shortName} - {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">Số tài khoản:</label>
-            <input
-              type="text"
-              value={retryAccountNo}
-              onChange={(e) => setRetryAccountNo(e.target.value.replace(/\s+/g, ''))}
-              placeholder="VD: 0987654321"
-              required
-              className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Tên chủ tài khoản (In hoa không dấu):
-            </label>
-            <input
-              type="text"
-              value={retryAccountHolder}
-              onChange={(e) => setRetryAccountHolder(e.target.value.toUpperCase())}
-              placeholder="VD: NGUYEN VAN A"
-              className="w-full px-3 py-2 uppercase font-medium border border-slate-200 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            />
-          </div>
-        </form>
-      </Modal>
+        isSubmitting={retryRefundMutation.isPending}
+        title="Cập nhật tài khoản nhận hoàn cọc"
+        subtitle="Nhập số tài khoản và bấm Kiểm tra để xác thực Napas tự động"
+        submitLabel="Xác nhận cập nhật STK"
+        defaultBankName="MBBank"
+        onSubmit={async (payload) => {
+          await retryRefundMutation.mutateAsync(payload);
+        }}
+      />
 
       {showSupportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
