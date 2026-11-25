@@ -175,7 +175,7 @@ public class TransactionService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
-        if (gd.getTrangThai() != TrangThaiGD.THAT_BAI) {
+        if (gd.getTrangThai() != TrangThaiGD.THAT_BAI && gd.getTrangThai() != TrangThaiGD.CHO_THANH_TOAN) {
             throw new AppException(ErrorCode.TRANSACTION_ALREADY_PROCESSED);
         }
 

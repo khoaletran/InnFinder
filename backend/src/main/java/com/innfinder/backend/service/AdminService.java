@@ -188,12 +188,12 @@ public class AdminService {
         if (keyword != null && !keyword.trim().isEmpty()) {
             return giaoDichRepository.searchAllTransactionsByUserInfo(keyword.trim())
                     .stream()
-                    .map(AdminTransactionResponseDTO::fromEntity)
+                    .map(this::toAdminTransactionDTO)
                     .toList();
         }
         return giaoDichRepository.findByTrangThaiOrderByNgayGiaoDichDesc(TrangThaiGD.CHO_THANH_TOAN)
                 .stream()
-                .map(AdminTransactionResponseDTO::fromEntity)
+                .map(this::toAdminTransactionDTO)
                 .toList();
     }
 
@@ -201,7 +201,7 @@ public class AdminService {
     public List<AdminTransactionResponseDTO> getAllTransactions() {
         return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
                 .stream()
-                .map(AdminTransactionResponseDTO::fromEntity)
+                .map(this::toAdminTransactionDTO)
                 .toList();
     }
 
@@ -209,7 +209,25 @@ public class AdminService {
     public AdminTransactionResponseDTO getTransactionById(String id) {
         GiaoDich gd = giaoDichRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
-        return AdminTransactionResponseDTO.fromEntity(gd);
+        return toAdminTransactionDTO(gd);
+    }
+
+    private AdminTransactionResponseDTO toAdminTransactionDTO(GiaoDich gd) {
+        AdminTransactionResponseDTO dto = AdminTransactionResponseDTO.fromEntity(gd);
+        if ((dto.getSoTaiKhoan() == null || dto.getSoTaiKhoan().isBlank())
+                && gd.getNguoiDung() != null
+                && ("HOAN_COC".equalsIgnoreCase(gd.getLoaiGiaoDich()) || "RUT_TIEN".equalsIgnoreCase(gd.getLoaiGiaoDich()))) {
+            List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(gd.getNguoiDung().getMaNguoiDung());
+            if (!banks.isEmpty()) {
+                TaiKhoanNganHang primary = banks.get(0);
+                dto.setTenNganHang(primary.getTenNganHang());
+                dto.setSoTaiKhoan(primary.getSoTaiKhoan());
+                if (primary.getTenChuTaiKhoan() != null && !primary.getTenChuTaiKhoan().isBlank()) {
+                    dto.setTenChuTaiKhoan(primary.getTenChuTaiKhoan());
+                }
+            }
+        }
+        return dto;
     }
 
     @Transactional

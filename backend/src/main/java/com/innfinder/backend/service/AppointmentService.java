@@ -407,7 +407,8 @@ public class AppointmentService {
                     PhieuDatLich phieu = entry.getKey();
                     boolean daNop = entry.getValue();
                     boolean coYeuCauCoc = phieu.getCoc() != null && phieu.getCoc() > 0;
-                    if (coYeuCauCoc && phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN) {
+                    if (coYeuCauCoc && (phieu.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN
+                            || phieu.getTrangThai() == TrangThaiDatLich.HUY)) {
                         return daNop;
                     }
                     return true;

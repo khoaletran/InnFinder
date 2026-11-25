@@ -783,4 +783,44 @@ class AppointmentNoShowAndExpiryTest {
         assertEquals(phongTro2.getMaPhongTro(), resp.getMaPhongTro());
         assertEquals(TrangThaiDatLich.CHO_XAC_NHAN, resp.getTrangThai());
     }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 22: CHỦ TRỌ KHÔNG THẤY LỊCH HUY CHƯA TỪNG NỘP CỌC, NHƯNG THẤY LỊCH HUY ĐÃ NỘP CỌC
+    // =========================================================================
+    @Test
+    @DisplayName("TH22: Danh sách lịch của Chủ trọ ẩn phiếu HUY chưa nộp cọc, giữ lại phiếu HUY đã nộp cọc")
+    void testLayLichHenChoChuTro_AnPhieuHuyChuaCoc() {
+        PhieuDatLich phieuHuyChuaCoc = PhieuDatLich.builder()
+                .maDatLich("DL20261125101")
+                .khachHang(khachHang)
+                .phongTro(phongTro)
+                .ngayHen(LocalDateTime.now().plusDays(1))
+                .thoiGianDat(LocalDateTime.now().minusMinutes(20))
+                .trangThai(TrangThaiDatLich.HUY)
+                .coc(200_000L)
+                .liDoHuy("Quá 15 phút chưa nộp cọc")
+                .build();
+
+        PhieuDatLich phieuHuyDaCoc = PhieuDatLich.builder()
+                .maDatLich("DL20261125102")
+                .khachHang(khachHang)
+                .phongTro(phongTro)
+                .ngayHen(LocalDateTime.now().plusDays(2))
+                .thoiGianDat(LocalDateTime.now().minusHours(1))
+                .trangThai(TrangThaiDatLich.HUY)
+                .coc(200_000L)
+                .liDoHuy("Khách hủy hợp lệ")
+                .build();
+
+        when(nguoiDungRepository.findByTenDangNhap("chu_tro")).thenReturn(Optional.of(chuTroUser));
+        when(phieuDatLichRepository.findAppointmentsByLandlordId(chuTroUser.getMaNguoiDung()))
+                .thenReturn(List.of(phieuHuyChuaCoc, phieuHuyDaCoc));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), "DL20261125101")).thenReturn(false);
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), "DL20261125102")).thenReturn(true);
+
+        var result = appointmentService.layLichHenChoChuTro("chu_tro");
+
+        assertEquals(1, result.size());
+        assertEquals("DL20261125102", result.get(0).getMaDatLich());
+    }
 }
