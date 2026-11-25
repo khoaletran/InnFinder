@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { queryClient } from '@/lib/queryClient';
+import { useBookingStore } from '@/store/useBookingStore';
 import type { UserProfileResponse } from '@/types/auth-user.types';
 
 const TOKEN_KEY = 'innfinder_jwt_token';
@@ -27,6 +29,8 @@ export const useAuthStore = create<AuthState>()(
 
       setAuth: (token, user) => {
         localStorage.setItem(TOKEN_KEY, token);
+        useBookingStore.getState().resetBookingStore();
+        queryClient.clear();
         const isAdmin = user.vaiTro === 'QUAN_TRI';
         const isChuTro = !!user.chuTro;
         set({
@@ -50,6 +54,8 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem(TOKEN_KEY);
+        useBookingStore.getState().resetBookingStore();
+        queryClient.clear();
         set({
           token: null,
           user: null,

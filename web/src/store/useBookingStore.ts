@@ -19,6 +19,7 @@ interface BookingState {
   paidAppointmentIds: string[];
 
   setActiveTab: (tab: AppointmentFilterTab) => void;
+  resetBookingStore: () => void;
   fetchAppointments: (silent?: boolean) => Promise<void>;
   payAppointmentDeposit: (maDatLich: string) => Promise<{ success: boolean; message?: string }>;
   markRoomAsReviewed: (roomId: string) => void;
@@ -58,6 +59,20 @@ export const useBookingStore = create<BookingState>()(
 
       setActiveTab: (tab) => set({ activeTab: tab }),
 
+      resetBookingStore: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('innfinder_booking_storage');
+        }
+        set({
+          appointments: [],
+          isLoading: false,
+          error: null,
+          activeTab: 'ALL',
+          reviewedRoomIds: [],
+          paidAppointmentIds: [],
+        });
+      },
+
       fetchAppointments: async (silent = false) => {
         if (!silent) {
           set({ isLoading: true, error: null });
@@ -68,13 +83,10 @@ export const useBookingStore = create<BookingState>()(
           const backendPaidIds = list
             .filter((item) => item.daNopCoc)
             .map((item) => item.maDatLich);
-          const mergedPaid = Array.from(
-            new Set([...get().paidAppointmentIds, ...backendPaidIds]),
-          );
 
           set({
             appointments: list,
-            paidAppointmentIds: mergedPaid,
+            paidAppointmentIds: backendPaidIds,
             isLoading: false,
           });
         } catch (err: unknown) {
