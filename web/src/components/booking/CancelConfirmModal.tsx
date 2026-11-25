@@ -145,10 +145,10 @@ const CancelConfirmModalContent: React.FC<Omit<CancelConfirmModalProps, "isOpen"
 
         {/* Tiêu đề & mô tả */}
         <div className="text-center mb-4">
-          <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+          <h3 className="text-lg font-bold text-slate-900 tracking-tight font-sans">
             {title}
           </h3>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-sm mx-auto">
+          <p className="text-xs text-slate-600 mt-1.5 leading-relaxed max-w-md mx-auto whitespace-pre-line font-sans">
             {description}
           </p>
         </div>

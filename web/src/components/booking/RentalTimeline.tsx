@@ -13,6 +13,7 @@ export interface RentalTimelineProps {
   chuTroDongY?: boolean | null;
   liDoHuy?: string;
   coc?: number;
+  trangThaiHoanCoc?: string;
 }
 
 interface TimelineStep {
@@ -77,6 +78,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
   chuTroDongY,
   liDoHuy,
   coc = 0,
+  trangThaiHoanCoc,
 }) => {
   const steps: TimelineStep[] = [];
 
@@ -195,6 +197,44 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
       subtitle: liDoHuy ? `Lý do: ${liDoHuy}` : 'Lịch hẹn đã kết thúc.',
       state: 'cancelled',
     });
+
+    if (daNopCoc && coc > 0 && !daNhanLaiCoc) {
+      const lowerReason = (liDoHuy || '').toLowerCase();
+      const isForfeited =
+        lowerReason.includes('sát giờ') ||
+        lowerReason.includes('tịch thu cọc') ||
+        lowerReason.includes('khách vắng mặt');
+
+      if (isForfeited) {
+        steps.push({
+          id: 'step-deposit-forfeited',
+          title: 'Không được hoàn cọc',
+          subtitle: `Tiền cọc ${formatVND(coc)} không được hoàn lại và được dùng để bồi thường cho chủ trọ.`,
+          state: 'cancelled',
+        });
+      } else if (trangThaiHoanCoc === 'THANH_CONG') {
+        steps.push({
+          id: 'step-deposit-refund',
+          title: 'Đã hoàn trả tiền cọc',
+          subtitle: `Hệ thống đã hoàn trả đủ ${formatVND(coc)} tiền cọc về tài khoản ngân hàng của bạn.`,
+          state: 'completed',
+        });
+      } else if (trangThaiHoanCoc === 'THAT_BAI') {
+        steps.push({
+          id: 'step-deposit-refund-failed',
+          title: 'Hoàn cọc không thành công',
+          subtitle: `Giao dịch hoàn trả ${formatVND(coc)} bị từ chối hoặc chưa thể thực hiện.`,
+          state: 'cancelled',
+        });
+      } else {
+        steps.push({
+          id: 'step-deposit-refund-pending',
+          title: 'Đang chờ hoàn trả tiền cọc',
+          subtitle: `Tiền cọc ${formatVND(coc)} đủ điều kiện hoàn trả và đang được Ban Quản Trị đối soát.`,
+          state: 'active',
+        });
+      }
+    }
   }
 
   return (

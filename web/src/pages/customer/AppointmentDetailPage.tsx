@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '@heroui/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   AlertCircle,
   ArrowLeft,
@@ -21,7 +23,11 @@ import { CancelConfirmModal, type BankInfoInput } from '@/components/booking/Can
 import { RefundSuccessModal } from '@/components/booking/RefundSuccessModal';
 import { RentalTimeline } from '@/components/booking/RentalTimeline';
 import { EmptyState } from '@/components/common/EmptyState';
+import { LinkBankAccountModal, type LinkBankAccountPayload } from '@/components/common/LinkBankAccountModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { useDepositCountdown } from '@/hooks/useDepositCountdown';
+import { authUserService } from '@/services/authUser.service';
+import { transactionService } from '@/services/transaction.service';
 import { useBookingStore } from '@/store/useBookingStore';
 import { formatDateTime, formatVND } from '@/utils/formatters';
 
@@ -49,15 +55,41 @@ export const AppointmentDetailPage: React.FC = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showRefundSuccessModal, setShowRefundSuccessModal] = useState(false);
   const [showReportLandlordNoShowModal, setShowReportLandlordNoShowModal] = useState(false);
+  const [showLinkBankModal, setShowLinkBankModal] = useState(false);
+  const [isSavingBank, setIsSavingBank] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
 
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['users', 'bank-accounts'],
+    queryFn: authUserService.getMyBankAccounts,
+    enabled: Boolean(targetId),
+  });
+
   const item = appointments.find((a) => a.maDatLich === targetId);
+  const isDepositPaidForCountdown = item
+    ? Boolean(item.daNopCoc) || paidAppointmentIds.includes(item.maDatLich)
+    : false;
+  const hasUnpaidDepositForCountdown = item
+    ? (item.coc ?? 0) > 0 && !isDepositPaidForCountdown
+    : false;
+
+  const depositCountdown = useDepositCountdown({
+    thoiGianDat: item?.thoiGianDat,
+    enabled: Boolean(
+      item && item.trangThai === 'CHO_XAC_NHAN' && hasUnpaidDepositForCountdown,
+    ),
+    onExpire: () => {
+      void fetchAppointments(true);
+    },
+  });
 
   if (isLoading && !item) {
     return <LoadingSpinner fullHeight label="Đang tải chi tiết phiếu đặt lịch..." />;
@@ -267,6 +299,7 @@ export const AppointmentDetailPage: React.FC = () => {
           chuTroDongY={item.chuTroDongY}
           liDoHuy={item.liDoHuy}
           coc={item.coc}
+          trangThaiHoanCoc={item.trangThaiHoanCoc}
         />
       </Card>
 
@@ -286,7 +319,7 @@ export const AppointmentDetailPage: React.FC = () => {
           </div>
           <div className="pt-1 flex items-center justify-end">
             <Link
-              to={`/complaints/create?appointmentId=${item.maDatLich}`}
+              to={`/complaints?appointmentId=${item.maDatLich}&type=noshow`}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <span>Tôi có mặt / Gửi khiếu nại đối soát</span>
@@ -446,16 +479,49 @@ export const AppointmentDetailPage: React.FC = () => {
                   Cập nhật lại tài khoản
                 </Link>
                 <Link
-                  to={`/complaints/create?appointmentId=${item.maDatLich}`}
+                  to={`/complaints?appointmentId=${item.maDatLich}`}
                   className="px-3 py-1.5 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold rounded-lg text-xs"
                 >
                   Gửi khiếu nại
                 </Link>
               </div>
             </div>
+          ) : bankAccounts.length === 0 ? (
+            <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-2.5">
+              <div className="flex items-start gap-2 text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Bạn chưa liên kết tài khoản ngân hàng nhận tiền!</p>
+                  <p className="text-amber-800 mt-0.5 leading-relaxed">
+                    Hệ thống đã tạo lệnh hoàn tiền nhưng chưa có số tài khoản của bạn. Vui lòng cập nhật tài khoản ngân hàng ngay để Ban Quản Trị chuyển khoản hoàn cọc.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkBankModal(true)}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                >
+                  Liên kết &amp; cập nhật STK nhận tiền
+                </button>
+                {item.maGiaoDichHoanCoc && (
+                  <Link
+                    to={`/transactions/${item.maGiaoDichHoanCoc}`}
+                    className="px-3 py-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100/60 font-bold rounded-lg text-xs transition-colors"
+                  >
+                    Xem biên nhận hoàn cọc
+                  </Link>
+                )}
+              </div>
+            </div>
           ) : (
             <p className="text-xs text-slate-600 bg-sky-50/70 p-3 rounded-xl border border-sky-100">
-              Hệ thống đã ghi nhận yêu cầu. Ban Quản Trị đang đối soát và chuyển khoản hoàn tiền cho bạn.
+              Hệ thống đã ghi nhận yêu cầu hoàn tiền về tài khoản{' '}
+              <strong className="text-slate-800">
+                {bankAccounts[0].tenNganHang} - {bankAccounts[0].soTaiKhoan}
+              </strong>
+              . Ban Quản Trị đang đối soát và chuyển khoản hoàn tiền cho bạn.
             </p>
           )}
 
@@ -475,14 +541,36 @@ export const AppointmentDetailPage: React.FC = () => {
 
       {/* 4. CỤM NÚT HÀNH ĐỘNG THEO NGỮ CẢNH (Chỉ hiện khi lịch CÒN HIỆU LỰC) */}
       {item.trangThai === 'CHO_XAC_NHAN' && (
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2.5 pt-1">
           {!isDepositPaid && (item.coc ?? 0) > 0 && (
-            <Link
-              to={`/appointments/deposit/${item.maDatLich}`}
-              className="w-full py-2.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors text-center block shadow-xs"
-            >
-              Nộp tiền cọc giữ chân ({formatVND(item.coc)})
-            </Link>
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900">
+                <div className="flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-bold text-amber-950">Chờ nộp cọc giữ chân (15 phút)</p>
+                    <p className="text-amber-800 mt-0.5">
+                      Lịch xem sẽ tự động hủy nếu không hoàn tất nộp cọc trước khi hết giờ.
+                    </p>
+                  </div>
+                </div>
+                {depositCountdown.formattedTime && (
+                  <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs self-start sm:self-center">
+                    <span className="text-[11px] font-semibold text-amber-700">Còn lại:</span>
+                    <span className="font-mono text-sm font-extrabold text-rose-600">
+                      {depositCountdown.isExpired ? '00:00' : depositCountdown.formattedTime}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Link
+                to={`/appointments/deposit/${item.maDatLich}`}
+                className="w-full py-2.5 px-4 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors text-center block shadow-xs"
+              >
+                Nộp tiền cọc giữ chân ({formatVND(item.coc)})
+              </Link>
+            </>
           )}
           <button
             type="button"
@@ -763,12 +851,12 @@ export const AppointmentDetailPage: React.FC = () => {
         isLoading={isActionLoading}
         onClose={() => setShowCancelModal(false)}
         onConfirmCancel={handleConfirmCancel}
-        title={isLateCancel ? 'Hủy lịch hẹn sát giờ (< 2 tiếng)?' : 'Hủy lịch xem phòng'}
+        title={isLateCancel ? 'Hủy lịch hẹn sát giờ?' : 'Hủy lịch xem phòng'}
         description={
           isLateCancel
-            ? `⚠️ Còn dưới 2 tiếng trước hẹn! Hủy sát giờ sẽ không được hoàn cọc mà tiền cọc (${formatVND(
+            ? `⚠️ Bạn đang hủy lịch trong vòng 2 tiếng trước giờ hẹn. Nếu hủy trong thời gian này, tiền cọc ${formatVND(
                 item.coc || 0,
-              )}) sẽ bồi thường cho Chủ trọ. Bạn có chắc muốn hủy?`
+              )} sẽ không được hoàn lại và sẽ được dùng để bồi thường cho chủ trọ.\nBạn có chắc chắn muốn hủy lịch hẹn này không?`
             : 'Vui lòng chọn lý do hủy lịch hẹn.'
         }
         cancelButtonText={
@@ -874,6 +962,35 @@ export const AppointmentDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal liên kết / cập nhật ngân hàng nhận hoàn cọc dùng chung (tích hợp Napas) */}
+      <LinkBankAccountModal
+        isOpen={showLinkBankModal}
+        onClose={() => setShowLinkBankModal(false)}
+        isSubmitting={isSavingBank}
+        title="Liên kết ngân hàng nhận hoàn cọc"
+        subtitle="Nhập số tài khoản và bấm Kiểm tra để xác thực Napas tự động"
+        submitLabel="Lưu & Cập nhật hoàn tiền"
+        defaultBankName="MBBank"
+        onSubmit={async (payload: LinkBankAccountPayload) => {
+          try {
+            setIsSavingBank(true);
+            if (item.maGiaoDichHoanCoc) {
+              await transactionService.retryRefund(item.maGiaoDichHoanCoc, payload);
+            } else {
+              await authUserService.addBankAccount(payload);
+            }
+            await queryClient.invalidateQueries({ queryKey: ['users', 'bank-accounts'] });
+            await queryClient.invalidateQueries({ queryKey: ['transactions', 'my-history'] });
+            await fetchAppointments(true);
+            toast.success('Đã liên kết ngân hàng và cập nhật thông tin hoàn cọc thành công!');
+            setShowLinkBankModal(false);
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Lỗi cập nhật tài khoản ngân hàng');
+          } finally {
+            setIsSavingBank(false);
+          }
+        }}
+      />
     </div>
   );
 };

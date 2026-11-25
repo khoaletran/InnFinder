@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -69,6 +70,9 @@ const FAQ_ITEMS = [
 
 export const ComplaintsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const prefillAptId = searchParams.get('appointmentId') || '';
+  const prefillType = searchParams.get('type') || '';
 
   const [selectedAptId, setSelectedAptId] = useState('');
   const [targetAccount, setTargetAccount] = useState('');
@@ -100,6 +104,28 @@ export const ComplaintsPage: React.FC = () => {
       }
     },
   });
+
+  useEffect(() => {
+    if (!prefillAptId || myAppointments.length === 0) return;
+    const apt = myAppointments.find((a) => a.maDatLich === prefillAptId);
+    if (!apt) return;
+
+    setSelectedAptId(apt.maDatLich);
+    if (apt.maChuTro) {
+      setTargetAccount(apt.maChuTro);
+    } else if (apt.tenChuTro) {
+      setTargetAccount(apt.tenChuTro);
+    }
+
+    if (prefillType === 'noshow') {
+      setIssueType('Chủ trọ báo sai vắng mặt (No-show) / Tranh chấp cọc');
+      setDescription((prev) =>
+        prev.trim()
+          ? prev
+          : `Tôi đã có mặt đúng giờ hẹn cho phiếu #${apt.maDatLich} nhưng Chủ trọ báo vắng mặt. Đề nghị Ban Quản Trị đối soát và tạm dừng giải ngân tiền cọc.`,
+      );
+    }
+  }, [prefillAptId, prefillType, myAppointments]);
 
   const createMutation = useMutation({
     mutationFn: authUserService.createComplaint,
@@ -245,6 +271,9 @@ export const ComplaintsPage: React.FC = () => {
                     >
                       <option value="Phòng sai thực tế so với bài đăng">
                         Phòng sai thực tế so với bài đăng
+                      </option>
+                      <option value="Chủ trọ báo sai vắng mặt (No-show) / Tranh chấp cọc">
+                        Chủ trọ báo sai vắng mặt (No-show) / Tranh chấp cọc
                       </option>
                       <option value="Chủ trọ không trả lại cọc giữ chân">
                         Chủ trọ không trả lại cọc giữ chân

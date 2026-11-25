@@ -401,12 +401,12 @@ export const AppointmentsPage: React.FC = () => {
             onConfirmCancel={handleConfirmCancel}
             title={
               isLateCancel
-                ? 'Hủy lịch hẹn sát giờ (< 2 tiếng)?'
+                ? 'Hủy lịch hẹn sát giờ?'
                 : 'Hủy lịch xem phòng'
             }
             description={
               isLateCancel
-                ? `⚠️ CẢNH BÁO: Còn dưới 2 tiếng trước giờ hẹn! Theo quy chế sàn, việc hủy sát giờ sẽ không được hoàn cọc mà tiền cọc (${formatVND(selectedAppt?.coc || 0)}) sẽ chuyển bồi thường cho Chủ trọ. Bạn có chắc chắn muốn hủy?`
+                ? `⚠️ Bạn đang hủy lịch trong vòng 2 tiếng trước giờ hẹn. Nếu hủy trong thời gian này, tiền cọc ${formatVND(selectedAppt?.coc || 0)} sẽ không được hoàn lại và sẽ được dùng để bồi thường cho chủ trọ.\nBạn có chắc chắn muốn hủy lịch hẹn này không?`
                 : 'Vui lòng chọn hoặc nhập lý do hủy lịch hẹn. Tiền cọc sẽ được hoàn trả theo quy định.'
             }
             cancelButtonText={

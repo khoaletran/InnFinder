@@ -400,13 +400,26 @@ export const SchedulePage: React.FC = () => {
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5 leading-relaxed">
                   <p className="font-bold text-amber-950">
-                    Minh bạch lịch phòng trong ngày {selectedDate.split('-').reverse().join('/')}:
+                    {bookedTimesOnDate.length === 1 ? (
+                      <>
+                        Phòng đã có lịch hẹn vào lúc{' '}
+                        <span className="font-mono">{bookedTimesOnDate[0]}</span> ngày{' '}
+                        {selectedDate.split('-').reverse().join('/')}
+                      </>
+                    ) : (
+                      <>
+                        Phòng đã có {bookedTimesOnDate.length} lịch hẹn vào lúc{' '}
+                        <span className="font-mono">
+                          {bookedTimesOnDate.slice(0, -1).join(', ')} và{' '}
+                          {bookedTimesOnDate[bookedTimesOnDate.length - 1]}
+                        </span>{' '}
+                        ngày {selectedDate.split('-').reverse().join('/')}
+                      </>
+                    )}
                   </p>
                   <p className="text-amber-800">
-                    Phòng hiện đã có lịch hẹn lúc{' '}
-                    <strong className="font-mono">{bookedTimesOnDate.join(', ')}</strong>. Các khung
-                    giờ trong khoảng đệm 2 giờ xung quanh đã được làm mờ để tránh chồng chéo và đảm
-                    bảo kịp thông báo nếu khách trước chốt thuê.
+                    Các khung giờ gần thời gian này hiện tạm thời không khả dụng để tránh trùng
+                    lịch và đảm bảo phòng được sắp xếp đúng thời gian.
                   </p>
                 </div>
               </div>

@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Calendar,
   Check,
+  Clock,
   CreditCard,
   Phone,
   Star,
@@ -12,6 +13,8 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { useDepositCountdown } from '@/hooks/useDepositCountdown';
+import { useBookingStore } from '@/store/useBookingStore';
 import type { AppointmentResponse } from '@/types/booking.types';
 import { formatPhoneNumber, formatVND } from '@/utils/formatters';
 
@@ -87,6 +90,14 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const canCancel =
     (item.trangThai === 'CHO_XAC_NHAN' || item.trangThai === 'XAC_NHAN') && !item.daNhanLaiCoc;
   const hasUnpaidDeposit = (item.coc ?? 0) > 0 && !item.daNopCoc && !isDepositPaid;
+  const fetchAppointments = useBookingStore((s) => s.fetchAppointments);
+  const countdown = useDepositCountdown({
+    thoiGianDat: item.thoiGianDat,
+    enabled: hasUnpaidDeposit && item.trangThai === 'CHO_XAC_NHAN',
+    onExpire: () => {
+      void fetchAppointments(true);
+    },
+  });
 
   const displayImage =
     item.hinhAnh ||
@@ -119,6 +130,13 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge
                 status={item.trangThai}
+                label={
+                  item.trangThai === 'CHO_XAC_NHAN'
+                    ? hasUnpaidDeposit
+                      ? 'Chờ nộp cọc'
+                      : 'Chờ chủ trọ duyệt'
+                    : undefined
+                }
                 pulse={item.trangThai === 'CHO_XAC_NHAN'}
               />
               <span className="text-xs font-mono font-semibold text-slate-600">
@@ -292,11 +310,21 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           })}
         </div>
 
-        {hasUnpaidDeposit && item.trangThai !== 'HUY' && (
-          <span className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 shrink-0">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-            <span>Cần nộp cọc giữ chân: {formatVND(item.coc)}</span>
-          </span>
+        {hasUnpaidDeposit && item.trangThai === 'CHO_XAC_NHAN' && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Cần nộp cọc giữ chân: {formatVND(item.coc)}</span>
+            </span>
+            {countdown.formattedTime && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono font-bold">
+                <Clock className="w-3 h-3 text-rose-600" />
+                <span>
+                  {countdown.isExpired ? 'Hết hạn (00:00)' : `Còn ${countdown.formattedTime}`}
+                </span>
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
