@@ -1,16 +1,17 @@
 import React, { lazy } from 'react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { ProfileInfoTab } from '@/components/profile/ProfileInfoTab';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { CustomerLayout } from '@/layouts/CustomerLayout';
 import { LandlordLayout } from '@/layouts/LandlordLayout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { useAuthStore } from '@/store/useAuthStore';
 
 // Auth Pages (Thành viên 1)
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
+import type { Location } from 'react-router-dom';
+import { AuthDialog } from '@/components/auth/AuthDialog';
 
 // Admin Console Pages (Thành viên 1)
 import { AdminProfileInfoTab } from '@/components/admin/AdminProfileInfoTab';
@@ -72,21 +73,34 @@ const LegacyReviewRedirect: React.FC = () => {
   return <Navigate to={`/reviews/create/${roomId || ''}`} replace />;
 };
 
+const NonAdminFavoritesRoute: React.FC = () => {
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  if (isAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <FavoritesPage />;
+};
+
 export const AppRoutes: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const mode = location.pathname === '/login' ? 'login' : location.pathname === '/register' ? 'register' : null;
+  const background = (location.state as { authBackground?: Location } | null)?.authBackground;
+
   return (
-    <Routes>
+    <>
+    <Routes location={mode ? background ?? { pathname: '/' } : location}>
+
       {/* 1. CUSTOMER PUBLIC & DISCOVERY ROUTES */}
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/room/:id" element={<RoomDetailPage />} />
-        <Route path="/favorites" element={<FavoritesPage />} />
+        <Route path="/favorites" element={<NonAdminFavoritesRoute />} />
       </Route>
 
       {/* 2. PUBLIC AUTH ROUTES (Thành viên 1) */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
@@ -181,5 +195,10 @@ export const AppRoutes: React.FC = () => {
       {/* Catch-all 404 redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    {mode && <AuthDialog key={mode} mode={mode} onClose={() => {
+      if (background) void navigate(-1);
+      else void navigate('/', { replace: true });
+    }} />}
+    </>
   );
 };

@@ -63,6 +63,23 @@
   --status-info-bg: #F1F5F9;
   --status-info-border: #E2E8F0;
 
+  /* Sonner richColors mapping to semantic tokens */
+  --success-bg: var(--tone-green-soft);
+  --success-border: #DCFCE7;
+  --success-text: var(--tone-green-strong);
+
+  --warning-bg: var(--tone-amber-soft);
+  --warning-border: #FEF3C7;
+  --warning-text: var(--tone-amber-strong);
+
+  --error-bg: var(--tone-red-soft);
+  --error-border: #FECACA;
+  --error-text: var(--tone-red-strong);
+
+  --info-bg: var(--tone-blue-soft);
+  --info-border: #DBEAFE;
+  --info-text: var(--tone-blue-strong);
+
   /* Dark Sidebar (Admin & Landlord, flat) */
   --sidebar-bg: #0F172A;
   --sidebar-border: rgba(255, 255, 255, 0.06);

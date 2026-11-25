@@ -5,25 +5,32 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export const BottomTabBar: React.FC = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
 
-  const tabs = [
-    { label: 'Trang chủ', path: '/', icon: Home, end: true },
-    { label: 'Tìm phòng', path: '/search', icon: Search, end: false },
-    { label: 'Lịch', path: '/appointments', icon: Calendar, end: false },
-    {
-      label: 'Tài khoản',
-      path: isAuthenticated ? '/profile' : '/login',
-      icon: User,
-      end: false,
-    },
-  ];
+  const tabs = isAdmin
+    ? [
+        { label: 'Trang chủ', path: '/', icon: Home, end: true },
+        { label: 'Tìm phòng', path: '/search', icon: Search, end: false },
+        { label: 'Quản trị', path: '/admin/dashboard', icon: User, end: false },
+      ]
+    : [
+        { label: 'Trang chủ', path: '/', icon: Home, end: true },
+        { label: 'Tìm phòng', path: '/search', icon: Search, end: false },
+        { label: 'Lịch', path: '/appointments', icon: Calendar, end: false },
+        {
+          label: 'Tài khoản',
+          path: isAuthenticated ? '/profile' : '/login',
+          icon: User,
+          end: false,
+        },
+      ];
 
   return (
     <nav
       aria-label="Điều hướng di động"
       className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border px-2 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="grid grid-cols-4 h-16">
+      <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-4'} h-16`}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
