@@ -22,7 +22,6 @@ interface AppointmentDetailModalProps {
   appointment: LandlordAppointmentItem | null;
   onApprove?: (id: string) => void;
   onCancel?: (id: string) => void;
-  onConfirmDepositRefunded?: (id: string) => void;
 }
 
 const renderDecisionText = (val: boolean | null | undefined, agree: string, decline: string) => {
@@ -51,7 +50,6 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   appointment,
   onApprove,
   onCancel,
-  onConfirmDepositRefunded,
 }) => {
   if (!appointment) return null;
 
@@ -126,19 +124,6 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                   </button>
                 )}
               </div>
-            )}
-            {appointment.trangThai === 'XAC_NHAN' && !appointment.daNhanLaiCoc && onConfirmDepositRefunded && (
-              <button
-                type="button"
-                onClick={() => {
-                  onConfirmDepositRefunded(appointment.id);
-                  onClose();
-                }}
-                className="px-3 py-1.5 text-xs font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
-                <span>Xác nhận đã trả cọc</span>
-              </button>
             )}
           </div>
           <button
@@ -224,7 +209,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
               </span>
             ) : (
               <span className="font-bold text-amber-700">
-                Chờ đối soát cọc thế chân
+                Chờ khách xác nhận đã nhận lại cọc
               </span>
             )}
           </div>

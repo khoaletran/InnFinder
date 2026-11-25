@@ -4,6 +4,8 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO;
+import com.innfinder.backend.dto.webhook.CassoTransactionItem;
+import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
 import com.innfinder.backend.entity.*;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
@@ -21,10 +23,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -185,10 +189,11 @@ class AppointmentNoShowAndExpiryTest {
     // TRƯỜNG HỢP 3: PHIẾU HỢP LỆ TRONG HẠN THÌ KHÔNG BỊ TỰ ĐỘNG HỦY
     // =========================================================================
     @Test
-    @DisplayName("TH3: Phiếu CHO_XAC_NHAN hợp lệ (chưa quá 24h và cách giờ hẹn > 2h) thì GIỮ NGUYÊN")
+    @DisplayName("TH3: Phiếu CHO_XAC_NHAN hợp lệ (đã nộp cọc, chưa quá 24h và cách giờ hẹn > 2h) thì GIỮ NGUYÊN")
     void testKhongHuy_KhiPhieuHopLe() {
         phieu.setThoiGianDat(LocalDateTime.now().minusHours(2));
         phieu.setNgayHen(LocalDateTime.now().plusHours(10));
+        when(giaoDichRepository.existsDepositByMaDatLich(eq(khachHang.getMaNguoiDung()), eq(phieu.getMaDatLich()))).thenReturn(true);
 
         PhieuDatLich result = appointmentService.kiemTraVaTuDongHuyQuaHan(phieu);
 
@@ -344,21 +349,30 @@ class AppointmentNoShowAndExpiryTest {
     }
 
     // =========================================================================
-    // TRƯỜNG HỢP 9: ĐẶT TRÙNG LỊCH ĐANG HOẠT ĐỘNG BỊ CHẶN
+    // TRƯỜNG HỢP 9: MỖI KHÁCH CHỈ ĐƯỢC GIỮ TỐI ĐA 1 LỊCH ĐANG HOẠT ĐỘNG CHO 1 PHÒNG
     // =========================================================================
     @Test
-    @DisplayName("TH9: Đặt trùng lịch đang hoạt động cùng phòng, cùng giờ -> Bị chặn với DUPLICATE_APPOINTMENT")
+    @DisplayName("TH9: Khách đã có lịch đang hoạt động (XAC_NHAN/CHO_XAC_NHAN) cho phòng -> Đặt tiếp (dù khác giờ) bị chặn với DUPLICATE_APPOINTMENT")
     void testTaoDatLich_ThatBai_KhiDatTrungLichDangHoatDong() {
         AppointmentCreateRequest request = new AppointmentCreateRequest();
         request.setMaPhongTro(phongTro.getMaPhongTro());
-        LocalDateTime ngayHen = LocalDateTime.now().plusDays(2);
-        request.setNgayHen(ngayHen);
+        LocalDateTime ngayHenKhac = LocalDateTime.now().plusDays(3);
+        request.setNgayHen(ngayHenKhac);
+
+        PhieuDatLich existingActive = PhieuDatLich.builder()
+                .maDatLich("DL20261125009")
+                .khachHang(khachHang)
+                .phongTro(phongTro)
+                .ngayHen(LocalDateTime.now().plusDays(1))
+                .thoiGianDat(LocalDateTime.now())
+                .trangThai(TrangThaiDatLich.XAC_NHAN)
+                .build();
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
         when(phongTroRepository.findByIdForUpdate(phongTro.getMaPhongTro())).thenReturn(Optional.of(phongTro));
-        when(phieuDatLichRepository.existsActiveDuplicateAppointment(
-                eq(khachHang.getMaNguoiDung()), eq(phongTro.getMaPhongTro()), eq(ngayHen), any(), any()))
-                .thenReturn(true);
+        when(phieuDatLichRepository.findByKhachHang_MaNguoiDungAndPhongTro_MaPhongTroAndTrangThaiIn(
+                eq(khachHang.getMaNguoiDung()), eq(phongTro.getMaPhongTro()), anyList()))
+                .thenReturn(List.of(existingActive));
 
         AppException ex = assertThrows(AppException.class, () ->
                 appointmentService.taoDatLich("khach_hang", request));
@@ -596,28 +610,177 @@ class AppointmentNoShowAndExpiryTest {
     }
 
     // =========================================================================
-    // TRƯỜNG HỢP 17: CHỦ TRỌ XÁC NHẬN ĐÃ TRẢ CỌC CHO KHÁCH (TÙY CHỌN & IDEMPOTENT)
+    // TRƯỜNG HỢP 17: CASSO WEBHOOK ĐỐI SOÁT CỌC THÀNH CÔNG VỚI ĐỊNH DẠNG CASSO FLOW
     // =========================================================================
     @Test
-    @DisplayName("TH17: Chủ trọ xác nhận đã trả cọc trực tiếp -> Cờ daNhanLaiCoc = true và idempotent")
-    void testChuTroXacNhanDaTraCoc_ThanhCongVaIdempotent() {
-        phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
-        phieu.setDaNhanLaiCoc(false);
+    @DisplayName("TH17: Casso Webhook gửi giao dịch hợp lệ -> Ghi nhận cọc thành công với mã CASSO_<id>")
+    void testCassoWebhook_NopCocThanhCong() {
+        phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         phieu.setCoc(200_000L);
 
-        when(nguoiDungRepository.findByTenDangNhap("chu_tro")).thenReturn(Optional.of(chuTroUser));
+        // Test định dạng Casso Flow (data là một Object đơn lẻ)
+        Map<String, Object> itemMap = Map.of(
+                "id", 888999L,
+                "tid", "FT24TEST999",
+                "description", "IFCOC" + phieu.getMaDatLich().replace("DL", "") + " Nguyen Van A",
+                "amount", 200_000L,
+                "subAccId", "0383838383"
+        );
+
+        CassoWebhookPayload payload = CassoWebhookPayload.builder()
+                .error(0)
+                .messages("Success")
+                .data(itemMap)
+                .build();
+
+        when(giaoDichRepository.existsById("CASSO_888999")).thenReturn(false);
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
+
+        var response = bankingWebhookService.xuLyCassoWebhook(
+                "HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz",
+                payload
+        );
+
+        assertTrue((Boolean) response.get("success"));
+        assertEquals(1, response.get("processed"));
+
+        ArgumentCaptor<GiaoDich> gdCaptor = ArgumentCaptor.forClass(GiaoDich.class);
+        verify(giaoDichRepository).save(gdCaptor.capture());
+        assertEquals("CASSO_888999", gdCaptor.getValue().getMaGiaoDich());
+        assertEquals(200_000L, gdCaptor.getValue().getSoTien());
+        assertEquals("COC_XEM_PHONG", gdCaptor.getValue().getLoaiGiaoDich());
+        assertEquals(TrangThaiGD.THANH_CONG, gdCaptor.getValue().getTrangThai());
+    }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 18: CỜ BẬT/TẮT CỔNG THANH TOÁN (FEATURE TOGGLE ENABLED / DISABLED)
+    // =========================================================================
+    @Test
+    @DisplayName("TH18: Khi cờ enabled = false -> Từ chối xử lý webhook an toàn")
+    void testBankingWebhook_FeatureToggle_TuChoiKhiDisabled() {
+        // 1. Tắt Casso
+        ReflectionTestUtils.setField(bankingWebhookService, "cassoEnabled", false);
+        CassoWebhookPayload cassoPayload = CassoWebhookPayload.builder()
+                .data(List.of(CassoTransactionItem.builder().amount(200_000L).build()))
+                .build();
+        var cassoRes = bankingWebhookService.xuLyCassoWebhook("HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz", cassoPayload);
+        assertFalse((Boolean) cassoRes.get("success"));
+        assertTrue(cassoRes.get("message").toString().contains("vô hiệu hóa"));
+
+        // 2. Tắt SePay
+        ReflectionTestUtils.setField(bankingWebhookService, "sepayEnabled", false);
+        SePayWebhookPayload sepayPayload = SePayWebhookPayload.builder().transferAmount(200_000L).build();
+        var sepayRes = bankingWebhookService.xuLySePayWebhook("auth", sepayPayload);
+        assertFalse((Boolean) sepayRes.get("success"));
+        assertTrue(sepayRes.get("message").toString().contains("vô hiệu hóa"));
+
+        // Phục hồi lại cờ enabled để không ảnh hưởng các test khác
+        ReflectionTestUtils.setField(bankingWebhookService, "cassoEnabled", true);
+        ReflectionTestUtils.setField(bankingWebhookService, "sepayEnabled", true);
+    }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 19: KHÁCH B ĐẶT TRÙNG KHOẢNG ĐỆM 2 GIỜ CỦA KHÁCH A -> BỊ CHẶN
+    // =========================================================================
+    @Test
+    @DisplayName("TH19: Khách B đặt lịch trong vòng 2 giờ quanh lịch đã giữ của Khách A -> Bị chặn với APPOINTMENT_SLOT_CONFLICT")
+    void testTaoDatLich_ThatBai_KhiTrungKhoangDem2GioCuaKhachKhac() {
+        NguoiDung khachHangB = NguoiDung.builder()
+                .maNguoiDung("ND202611220099")
+                .tenDangNhap("khach_hang_b")
+                .build();
+
+        LocalDateTime gioKhachA = LocalDateTime.now().plusDays(2).withHour(9).withMinute(30).withSecond(0).withNano(0);
+        LocalDateTime gioKhachB = gioKhachA.plusHours(1); // 10:30 - nằm trong khoảng đệm 2 giờ
+
+        PhieuDatLich phieuA = PhieuDatLich.builder()
+                .maDatLich("DL20261125001")
+                .khachHang(khachHang)
+                .phongTro(phongTro)
+                .ngayHen(gioKhachA)
+                .thoiGianDat(LocalDateTime.now())
+                .trangThai(TrangThaiDatLich.XAC_NHAN)
+                .coc(200_000L)
+                .build();
+
+        AppointmentCreateRequest requestB = new AppointmentCreateRequest();
+        requestB.setMaPhongTro(phongTro.getMaPhongTro());
+        requestB.setNgayHen(gioKhachB);
+
+        when(nguoiDungRepository.findByTenDangNhap("khach_hang_b")).thenReturn(Optional.of(khachHangB));
+        when(phongTroRepository.findByIdForUpdate(phongTro.getMaPhongTro())).thenReturn(Optional.of(phongTro));
+        when(phieuDatLichRepository.findByKhachHang_MaNguoiDungAndPhongTro_MaPhongTroAndTrangThaiIn(
+                eq(khachHangB.getMaNguoiDung()), eq(phongTro.getMaPhongTro()), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(phieuDatLichRepository.findAppointmentsByRoomAndTimeRange(
+                eq(phongTro.getMaPhongTro()), any(), any(), anyList()))
+                .thenReturn(List.of(phieuA));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                appointmentService.taoDatLich("khach_hang_b", requestB));
+
+        assertEquals(ErrorCode.APPOINTMENT_SLOT_CONFLICT, ex.getErrorCode());
+    }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 20: TỰ ĐỘNG HỦY PHIẾU CHƯA NỘP CỌC SAU 15 PHÚT
+    // =========================================================================
+    @Test
+    @DisplayName("TH20: Phiếu CHO_XAC_NHAN quá 15 phút chưa nộp cọc -> Tự động hủy HUY và hết hiệu lực")
+    void testKiemTraTrangThaiCoc_TuDongHuySau15PhutChuaNopCoc() {
+        phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
+        phieu.setCoc(200_000L);
+        phieu.setThoiGianDat(LocalDateTime.now().minusMinutes(16));
+        phieu.setNgayHen(LocalDateTime.now().plusDays(1));
+
+        when(phieuDatLichRepository.findById(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
         when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
 
-        // Lần 1: Chủ trọ bấm xác nhận đã trả cọc
-        var res1 = appointmentService.chuTroXacNhanDaTraCoc(phieu.getMaDatLich(), "chu_tro");
-        assertTrue(res1.getDaNhanLaiCoc());
-        assertTrue(phieu.getDaNhanLaiCoc());
-        verify(phieuDatLichRepository, times(1)).save(phieu);
+        var status = appointmentService.kiemTraTrangThaiCoc(phieu.getMaDatLich());
 
-        // Lần 2: Bấm lại (idempotent) -> Không ném lỗi và không cần save lại
-        var res2 = appointmentService.chuTroXacNhanDaTraCoc(phieu.getMaDatLich(), "chu_tro");
-        assertTrue(res2.getDaNhanLaiCoc());
-        verify(phieuDatLichRepository, times(1)).save(phieu);
+        assertEquals("HUY", status.getTrangThaiLich());
+        assertFalse(status.isConHieuLuc());
+        assertFalse(status.isDaNopCoc());
+        assertNotNull(status.getHanNopCoc());
+        assertTrue(phieu.getLiDoHuy().contains("15 phút"));
+    }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 21: KHÁCH ĐÃ ĐẶT PHÒNG P1 VẪN ĐẶT ĐƯỢC PHÒNG P2 (VÀ ĐẶT LẠI P1 NẾU ĐÃ HUY)
+    // =========================================================================
+    @Test
+    @DisplayName("TH21: Khách đang có lịch ở Phòng P1 vẫn đặt được Phòng P2 bình thường")
+    void testTaoDatLich_ThanhCong_KhiDatPhongKhac() {
+        PhongTro phongTro2 = PhongTro.builder()
+                .maPhongTro("PT000000000002")
+                .trangThai(TrangThaiPhongTro.DA_DUYET)
+                .chuPhongTro(chuTro)
+                .build();
+
+        AppointmentCreateRequest requestP2 = new AppointmentCreateRequest();
+        requestP2.setMaPhongTro(phongTro2.getMaPhongTro());
+        requestP2.setNgayHen(LocalDateTime.now().plusDays(2).withHour(15).withMinute(0));
+
+        when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
+        when(phongTroRepository.findByIdForUpdate(phongTro2.getMaPhongTro())).thenReturn(Optional.of(phongTro2));
+        // Phòng P2 chưa có lịch nào của khách này (vì khách chỉ mới đặt ở P1)
+        when(phieuDatLichRepository.findByKhachHang_MaNguoiDungAndPhongTro_MaPhongTroAndTrangThaiIn(
+                eq(khachHang.getMaNguoiDung()), eq(phongTro2.getMaPhongTro()), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(phieuDatLichRepository.findAppointmentsByRoomAndTimeRange(
+                eq(phongTro2.getMaPhongTro()), any(), any(), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(phieuDatLichRepository.findMaxMaDatLichByPrefix(anyString())).thenReturn(null);
+        when(phieuDatLichRepository.existsById(anyString())).thenReturn(false);
+        when(giaoDichRepository.existsByCandidateId(anyString())).thenReturn(false);
+        when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
+
+        var resp = appointmentService.taoDatLich("khach_hang", requestP2);
+
+        assertNotNull(resp);
+        assertEquals(phongTro2.getMaPhongTro(), resp.getMaPhongTro());
+        assertEquals(TrangThaiDatLich.CHO_XAC_NHAN, resp.getTrangThai());
     }
 }

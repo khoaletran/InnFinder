@@ -4,10 +4,17 @@ import type {
   AppointmentCreateRequest,
   AppointmentDecisionRequest,
   AppointmentResponse,
+  BookedSlotsResponse,
   DepositStatusResponse,
 } from '@/types/booking.types';
 
 export const appointmentService = {
+  getBookedSlots: async (maPhongTro: string, date: string): Promise<BookedSlotsResponse> => {
+    return axiosClient.get<unknown, BookedSlotsResponse>('/api/appointments/booked-slots', {
+      params: { maPhongTro, date },
+    });
+  },
+
   getMyAppointments: async (): Promise<AppointmentResponse[]> => {
     return axiosClient.get<unknown, AppointmentResponse[]>('/api/appointments/my-appointments');
   },

@@ -111,19 +111,6 @@ export const AppointmentsPage: React.FC = () => {
     },
   });
 
-  const confirmDepositRefundMutation = useMutation({
-    mutationFn: (id: string) => landlordService.confirmDepositRefunded(id),
-    onSuccess: () => {
-      invalidateRelated();
-      toast.success('Đã xác nhận hoàn trả cọc trực tiếp cho khách hàng');
-    },
-    onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : 'Không thể xác nhận hoàn trả cọc',
-      );
-    },
-  });
-
   const decisionMutation = useMutation({
     mutationFn: ({
       id,
@@ -490,25 +477,10 @@ export const AppointmentsPage: React.FC = () => {
                                   <Clock className="w-3 h-3 shrink-0" />
                                   {isNoShowEligible
                                     ? 'Quá giờ hẹn 30 phút - Khách chưa xác nhận'
-                                    : 'Chờ đối soát cọc thế chân tại buổi xem'}
+                                    : 'Chờ khách xác nhận đã nhận lại cọc trực tiếp'}
                                 </span>
                                 <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    disabled={confirmDepositRefundMutation.isPending}
-                                    onClick={() => confirmDepositRefundMutation.mutate(item.id)}
-                                    className="px-2.5 py-1 text-[11px] font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg cursor-pointer transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
-                                    title="Tùy chọn: Nhấn nếu bạn đã hoàn trả cọc tiền mặt hoặc CK ngoài cho khách"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3 text-cyan-600" />
-                                    <span>
-                                      {confirmDepositRefundMutation.isPending && confirmDepositRefundMutation.variables === item.id
-                                        ? 'Đang lưu...'
-                                        : 'Đã trả cọc cho khách'}
-                                    </span>
-                                  </button>
-
-                                  {isNoShowEligible && (
+                                  {isNoShowEligible ? (
                                     <button
                                       type="button"
                                       disabled={noShowMutation.isPending}
@@ -516,8 +488,26 @@ export const AppointmentsPage: React.FC = () => {
                                       className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
                                     >
                                       <AlertCircle className="w-3 h-3 text-rose-600" />
-                                      <span>Báo No-show</span>
+                                      <span>Báo khách vắng mặt (No-show)</span>
                                     </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-400 bg-slate-100 rounded-lg cursor-not-allowed opacity-70"
+                                      >
+                                        Từ chối cho thuê
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2.5 py-1 text-[11px] font-bold text-slate-400 bg-slate-100 rounded-lg cursor-not-allowed opacity-70 flex items-center gap-1"
+                                      >
+                                        <Handshake className="w-3 h-3" />
+                                        <span>Đồng ý cho thuê</span>
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -632,9 +622,6 @@ export const AppointmentsPage: React.FC = () => {
         onCancel={(id) => {
           const app = appointments.find((a) => a.id === id);
           if (app) setSelectedCancel(app);
-        }}
-        onConfirmDepositRefunded={(id) => {
-          confirmDepositRefundMutation.mutate(id);
         }}
       />
 

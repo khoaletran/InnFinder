@@ -90,4 +90,26 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
             @Param("trangThais") List<TrangThaiDatLich> trangThais,
             @Param("excludeMaDatLich") String excludeMaDatLich
     );
+
+    /**
+     * 10. Lấy các lịch hẹn của một phòng trọ trong khoảng thời gian để kiểm tra trùng khung giờ (kèm khoảng đệm)
+     */
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.ngayHen BETWEEN :startTime AND :endTime " +
+           "AND p.trangThai IN :trangThais")
+    List<PhieuDatLich> findAppointmentsByRoomAndTimeRange(
+            @Param("maPhongTro") String maPhongTro,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            @Param("trangThais") List<TrangThaiDatLich> trangThais
+    );
+
+    /**
+     * 11. Lấy các lịch hẹn đang hoạt động của một khách hàng cho một phòng trọ cụ thể
+     */
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungAndPhongTro_MaPhongTroAndTrangThaiIn(
+            String maKhachHang,
+            String maPhongTro,
+            List<TrangThaiDatLich> trangThais
+    );
 }

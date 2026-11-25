@@ -4,6 +4,7 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
+import com.innfinder.backend.dto.appointment.BookedSlotsResponse;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.security.SecurityUtils;
@@ -12,8 +13,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -26,6 +29,15 @@ public class AppointmentController {
 
     private String getCurrentUsername() {
         return SecurityUtils.getCurrentUsername();
+    }
+
+    @GetMapping("/booked-slots")
+    @Operation(summary = "Lấy danh sách các khung giờ đang có khách đặt của một phòng trong ngày")
+    public ApiResponse<BookedSlotsResponse> layKhungGioDaDat(
+            @RequestParam("maPhongTro") String maPhongTro,
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        BookedSlotsResponse res = appointmentService.layKhungGioDaDat(maPhongTro, date);
+        return ApiResponse.ok(res, "Lấy danh sách khung giờ đã đặt thành công");
     }
 
     @PostMapping

@@ -62,5 +62,14 @@ export interface DepositStatusResponse {
   soTienCoc: number;
   trangThaiLich: string;
   hanDuyet?: string;
+  hanNopCoc?: string;
   conHieuLuc?: boolean;
+}
+
+export interface BookedSlotsResponse {
+  maPhongTro: string;
+  date: string;
+  bufferMinutes: number;
+  bookedTimes: string[];
+  bookedDateTimes: string[];
 }

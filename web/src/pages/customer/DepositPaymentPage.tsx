@@ -50,6 +50,8 @@ export const DepositPaymentPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [fallbackDeadlineMs] = useState<number>(() => Date.now() + 15 * 60 * 1000);
 
   const { data: myAppointments = [] } = useQuery({
     queryKey: ['appointments', 'my'],
@@ -80,12 +82,12 @@ export const DepositPaymentPage: React.FC = () => {
     },
   });
 
-  // Khi backend nhận diện đã nộp cọc thành công qua SePay
+  // Khi backend nhận diện đã nộp cọc thành công
   useEffect(() => {
     if (depositStatus?.daNopCoc) {
       fetchAppointments(true);
       setShowSuccessModal(true);
-      toast.success('Hệ thống đã tự động nhận diện tiền cọc qua SePay thành công!');
+      toast.success('Hệ thống đã tự động nhận diện tiền cọc chuyển khoản thành công!');
     }
   }, [depositStatus?.daNopCoc, fetchAppointments]);
 
@@ -93,9 +95,30 @@ export const DepositPaymentPage: React.FC = () => {
   const isCancelled = trangThaiLich === 'HUY';
   const isPaid = depositStatus?.daNopCoc === true || appointmentData?.daNopCoc === true;
   const hanDuyetTime = depositStatus?.hanDuyet ? new Date(depositStatus.hanDuyet).getTime() : null;
+
+  const paymentDeadlineMs = depositStatus?.hanNopCoc
+    ? new Date(depositStatus.hanNopCoc).getTime()
+    : appointmentData?.thoiGianDat
+      ? new Date(appointmentData.thoiGianDat).getTime() + 15 * 60 * 1000
+      : fallbackDeadlineMs;
+
+  const remainingMs = Math.max(0, paymentDeadlineMs - nowMs);
+  const isPaymentTimeout = !isPaid && remainingMs <= 0;
+
   const isExpired =
     depositStatus?.conHieuLuc === false ||
-    (hanDuyetTime !== null && hanDuyetTime <= Date.now());
+    isPaymentTimeout ||
+    (hanDuyetTime !== null && hanDuyetTime <= nowMs);
+
+  useEffect(() => {
+    if (isPaid || isCancelled || isExpired) return;
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isPaid, isCancelled, isExpired]);
+
+  const totalRemainingSec = Math.ceil(remainingMs / 1000);
+  const countdownMinutes = String(Math.floor(totalRemainingSec / 60)).padStart(2, '0');
+  const countdownSeconds = String(totalRemainingSec % 60).padStart(2, '0');
 
   // Chỉ hiển thị QR khi phiếu đang chờ duyệt (CHO_XAC_NHAN), chưa nộp cọc, chưa hủy và còn hạn
   const canShowQr =
@@ -242,10 +265,38 @@ export const DepositPaymentPage: React.FC = () => {
             <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
               <Clock className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
               <div>
-                <p className="font-bold">Lịch hẹn đã quá hạn nộp cọc / duyệt lịch</p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  Lịch hẹn đã quá thời hạn phản hồi quy định (trước giờ hẹn 2 tiếng). Cổng nộp cọc đã đóng.
+                <p className="font-bold">
+                  {isPaymentTimeout
+                    ? 'Đã hết thời hạn 15 phút nộp cọc giữ chân'
+                    : 'Lịch hẹn đã quá hạn nộp cọc / duyệt lịch'}
                 </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {isPaymentTimeout
+                    ? 'Lịch xem đã tự động hủy do quá 15 phút chưa hoàn tất chuyển khoản cọc, nhằm nhường khung giờ cho khách hàng khác. Cổng nộp cọc đã đóng.'
+                    : 'Lịch hẹn đã quá thời hạn phản hồi quy định (trước giờ hẹn 2 tiếng). Cổng nộp cọc đã đóng.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!isPaid && !isCancelled && !isExpired && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                    Giữ chỗ tạm thời trong 15 phút
+                  </p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Nếu bạn không nộp cọc trong vòng 15 phút, lịch xem sẽ hủy tự động để nhường khung giờ này cho khách hàng khác.
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-amber-300 shadow-2xs self-start sm:self-center">
+                <span className="text-[11px] font-semibold text-amber-700">Còn lại:</span>
+                <span className="font-mono text-sm font-extrabold text-rose-600">
+                  {countdownMinutes}:{countdownSeconds}
+                </span>
               </div>
             </div>
           )}
@@ -474,7 +525,7 @@ export const DepositPaymentPage: React.FC = () => {
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-600"></span>
                     </span>
                     <span className="font-semibold text-teal-800 text-xs">
-                      Hệ thống đang tự động lắng nghe và đối soát biến động số dư MBBank qua SePay... Sau khi bạn chuyển khoản, trang sẽ tự động chuyển sang Đặt lịch thành công.
+                      Hệ thống đang tự động lắng nghe và đối soát biến động số dư MBBank... Sau khi bạn chuyển khoản, trang sẽ tự động chuyển sang Đặt lịch thành công.
                     </span>
                   </div>
                 </div>

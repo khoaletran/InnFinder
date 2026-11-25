@@ -1,5 +1,7 @@
 package com.innfinder.backend.service;
 
+import com.innfinder.backend.dto.webhook.CassoTransactionItem;
+import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
 import com.innfinder.backend.entity.GiaoDich;
 import com.innfinder.backend.entity.PhieuDatLich;
@@ -17,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,8 +43,17 @@ public class BankingWebhookService {
     @Autowired(required = false)
     private CacheManager cacheManager;
 
+    @Value("${sepay.enabled:false}")
+    private boolean sepayEnabled = true;
+
     @Value("${sepay.api-key:sepay_innfinder_secret_key_2026}")
     private String sepayApiKey;
+
+    @Value("${casso.enabled:true}")
+    private boolean cassoEnabled = true;
+
+    @Value("${casso.secure-token:HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz}")
+    private String cassoSecureToken = "HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz";
 
     // Pattern 1: IFCOC hoặc DL theo sau là 11 số (Ví dụ: IFCOC20261119001 hoặc DL20261119001)
     private static final Pattern PATTERN_PREFIX = Pattern.compile("(?i)(?:IFCOC|DL)\\s*(\\d{11})");
@@ -58,6 +71,12 @@ public class BankingWebhookService {
     public Map<String, Object> xuLySePayWebhook(String authHeader, SePayWebhookPayload payload) {
         log.info("[SePay Webhook] Nhận request: referenceCode={}, transferType={}, amount={}, content={}",
                 payload.getReferenceCode(), payload.getTransferType(), payload.getTransferAmount(), payload.getContent());
+
+        // Kiểm tra cờ bật/tắt của cổng SePay
+        if (!sepayEnabled) {
+            log.warn("[SePay Webhook] Cổng SePay hiện đang bị tắt (sepay.enabled=false). Bỏ qua request.");
+            return Map.of("success", false, "message", "Cổng webhook SePay hiện đang bị vô hiệu hóa (disabled)");
+        }
 
         // 1. Kiểm tra API Key (nếu SePay có gửi header Authorization)
         if (sepayApiKey != null && !sepayApiKey.isBlank() && authHeader != null) {
@@ -132,34 +151,118 @@ public class BankingWebhookService {
     }
 
     /**
+     * Xử lý webhook từ Casso khi có biến động số dư tài khoản ngân hàng
+     */
+    @Transactional
+    public Map<String, Object> xuLyCassoWebhook(String secureTokenHeader, CassoWebhookPayload payload) {
+        log.info("[Casso Webhook] Nhận request: secure-token={}, error={}, dataCount={}",
+                secureTokenHeader != null ? "***" : "null",
+                payload != null ? payload.getError() : "null",
+                payload != null ? payload.getTransactions().size() : 0);
+
+        // 1. Kiểm tra cờ bật/tắt của Casso
+        if (!cassoEnabled) {
+            log.warn("[Casso Webhook] Cổng Casso hiện đang bị tắt bởi cấu hình (casso.enabled=false). Bỏ qua request.");
+            return Map.of("success", false, "message", "Cổng webhook Casso hiện đang bị vô hiệu hóa (disabled)");
+        }
+
+        // 2. Kiểm tra token bảo mật (secure-token)
+        if (cassoSecureToken != null && !cassoSecureToken.isBlank() && secureTokenHeader != null) {
+            if (!cassoSecureToken.trim().equals(secureTokenHeader.trim())) {
+                log.warn("[Casso Webhook] Header secure-token không khớp: '{}'. Dự kiến: '{}'", secureTokenHeader, cassoSecureToken);
+                return Map.of("success", false, "message", "Mã bảo mật secure-token không hợp lệ");
+            }
+        }
+
+        List<CassoTransactionItem> transactions = payload != null ? payload.getTransactions() : Collections.emptyList();
+        if (transactions.isEmpty()) {
+            log.info("[Casso Webhook] Không có giao dịch nào trong payload data.");
+            return Map.of("success", true, "message", "Không có giao dịch nào cần xử lý");
+        }
+
+        int successCount = 0;
+        int total = transactions.size();
+
+        for (CassoTransactionItem item : transactions) {
+            if (item == null) continue;
+            Long amount = item.getAmount() != null ? item.getAmount() : 0L;
+            String rawContent = item.getDescription();
+
+            // Tiền vào (Nộp cọc xem phòng)
+            if (amount > 0) {
+                String cassoMaGD = item.getId() != null ? "CASSO_" + item.getId() : transactionService.generateMaGiaoDich();
+                String refCode = item.getTid() != null ? item.getTid() : String.valueOf(item.getId());
+
+                Map<String, Object> res = xuLyTienVao(
+                        "Casso",
+                        cassoMaGD,
+                        item.getId() != null ? String.valueOf(item.getId()) : null,
+                        amount,
+                        rawContent,
+                        refCode
+                );
+
+                if (Boolean.TRUE.equals(res.get("success"))) {
+                    successCount++;
+                }
+            }
+        }
+
+        return Map.of(
+                "success", true,
+                "error", 0,
+                "processed", successCount,
+                "total", total,
+                "message", "Đối soát Casso webhook hoàn tất (" + successCount + "/" + total + " thành công)"
+        );
+    }
+
+    /**
      * Xử lý giao dịch tiền vào tài khoản Sàn (Khách hàng nộp cọc giữ chân lịch xem phòng)
      */
     private Map<String, Object> xuLySePayTienVao(SePayWebhookPayload payload, String rawContent) {
         String sepayMaGD = payload.getId() != null ? "SEPAY_" + payload.getId() : transactionService.generateMaGiaoDich();
+        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
+        Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
+                ? payload.getTransferAmount()
+                : 0L;
+        return xuLyTienVao("SePay", sepayMaGD, String.valueOf(payload.getId()), transferAmount, rawContent, refCode);
+    }
 
-        // 1. Kiểm tra chống xử lý lặp lại giao dịch SePay (Idempotency ở cấp DB)
-        if (giaoDichRepository.existsById(sepayMaGD)) {
-            log.info("[SePay Webhook] Giao dịch SePay ID {} đã được xử lý trước đó. Bỏ qua ghi nhận trùng.", payload.getId());
-            return Map.of("success", true, "message", "Giao dịch SePay đã được đối soát trước đó");
+    /**
+     * Hàm đối soát tiền vào cốt lõi dùng chung cho cả SePay và Casso
+     */
+    private Map<String, Object> xuLyTienVao(
+            String providerName,
+            String maGiaoDich,
+            String rawId,
+            Long transferAmount,
+            String rawContent,
+            String refCode) {
+
+        // 1. Kiểm tra chống xử lý lặp lại giao dịch (Idempotency ở cấp DB)
+        if (giaoDichRepository.existsById(maGiaoDich)) {
+            log.info("[{} Webhook] Giao dịch ID {} đã được xử lý trước đó. Bỏ qua ghi nhận trùng.", providerName, maGiaoDich);
+            return Map.of("success", true, "message", "Giao dịch " + providerName + " đã được đối soát trước đó");
         }
 
         String maDatLich = extractMaDatLich(rawContent);
         if (maDatLich == null) {
-            log.warn("[SePay Webhook] Không tìm thấy mã lịch hẹn trong nội dung: '{}'", rawContent);
+            log.warn("[{} Webhook] Không tìm thấy mã lịch hẹn trong nội dung: '{}'", providerName, rawContent);
             return Map.of("success", true, "message", "Không tìm thấy mã lịch hẹn, không thể đối soát");
         }
 
         // Khóa phiếu với Pessimistic Lock để tuần tự hóa với các luồng hủy/xác nhận
         PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich).orElse(null);
         if (phieu == null) {
-            log.warn("[SePay Webhook] Lịch hẹn không tồn tại trong CSDL: {}. Bỏ qua.", maDatLich);
+            log.warn("[{} Webhook] Lịch hẹn không tồn tại trong CSDL: {}. Bỏ qua.", providerName, maDatLich);
             return Map.of("success", false, "message", "Lịch hẹn không tồn tại: " + maDatLich);
         }
 
         // Chỉ tiếp nhận cọc khi phiếu ở trạng thái CHO_XAC_NHAN
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
-            log.warn("[SePay Webhook] Phiếu {} ở trạng thái {} (không phải CHO_XAC_NHAN). Bỏ qua, không xử lý.",
-                    maDatLich, phieu.getTrangThai());
+            log.warn("[{} Webhook] Phiếu {} ở trạng thái {} (không phải CHO_XAC_NHAN). Bỏ qua, không xử lý.",
+                    providerName, maDatLich, phieu.getTrangThai());
             return Map.of("success", true, "message", "Phiếu không ở trạng thái chờ xác nhận, bỏ qua");
         }
 
@@ -168,41 +271,46 @@ public class BankingWebhookService {
         LocalDateTime limit24h = thoiGianDat.plusHours(24);
         LocalDateTime limitHen = phieu.getNgayHen().minusHours(2);
         LocalDateTime hanDuyet = limit24h.isBefore(limitHen) ? limit24h : limitHen;
-        boolean quaHan = LocalDateTime.now().isAfter(hanDuyet) || LocalDateTime.now().isEqual(hanDuyet);
-        if (quaHan) {
-            log.warn("[SePay Webhook] Phiếu {} đã quá hạn nộp cọc/duyệt lịch. Bỏ qua, khách hàng tự chịu trách nhiệm.", maDatLich);
-            return Map.of("success", true, "message", "Phiếu đã quá hạn nộp cọc, bỏ qua");
+        LocalDateTime hanNopCoc = thoiGianDat.plusMinutes(AppointmentService.PAYMENT_TIMEOUT_MINUTES);
+        LocalDateTime now = LocalDateTime.now();
+
+        boolean quaHan15Phut = phieu.getCoc() != null && phieu.getCoc() > 0 && !now.isBefore(hanNopCoc);
+        boolean quaHan = !now.isBefore(hanDuyet);
+        if (quaHan || quaHan15Phut) {
+            log.warn("[{} Webhook] Phiếu {} đã quá hạn nộp cọc ({}). Bỏ qua, không ghi nhận.",
+                    providerName, maDatLich, quaHan15Phut ? "quá 15 phút" : "quá hạn duyệt");
+            return Map.of("success", true, "message", quaHan15Phut
+                    ? "Phiếu đã quá hạn 15 phút nộp cọc, bỏ qua"
+                    : "Phiếu đã quá hạn nộp cọc, bỏ qua");
         }
 
         // Kiểm tra xem lịch hẹn đã có cọc hợp lệ trước đó chưa
         boolean daCoCocHopLe = phieu.getKhachHang() != null &&
                 giaoDichRepository.existsDepositByMaDatLich(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
         if (daCoCocHopLe) {
-            log.info("[SePay Webhook] Lịch hẹn {} đã có cọc hợp lệ trước đó. Bỏ qua không ghi nhận thêm.", maDatLich);
+            log.info("[{} Webhook] Lịch hẹn {} đã có cọc hợp lệ trước đó. Bỏ qua không ghi nhận thêm.", providerName, maDatLich);
             return Map.of("success", true, "message", "Lịch hẹn đã có cọc hợp lệ trước đó");
         }
 
-        Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
-                ? payload.getTransferAmount()
-                : 0L;
+        Long amount = transferAmount != null && transferAmount > 0 ? transferAmount : 0L;
         Long tienCocYeuCau = phieu.getCoc() != null ? phieu.getCoc() : 0L;
 
         // QUY TẮC: Phải chuyển ĐÚNG VÀ ĐỦ số tiền cọc. Chuyển thiếu -> Không ghi nhận, không đền bù
-        if (transferAmount < tienCocYeuCau) {
-            log.warn("[SePay Webhook] Chuyển thiếu tiền cọc lịch {}: Nhận {} đ, cần {} đ. Hệ thống không ghi nhận cọc, không đền bù.",
-                    maDatLich, transferAmount, tienCocYeuCau);
+        if (amount < tienCocYeuCau) {
+            log.warn("[{} Webhook] Chuyển thiếu tiền cọc lịch {}: Nhận {} đ, cần {} đ. Hệ thống không ghi nhận cọc, không đền bù.",
+                    providerName, maDatLich, amount, tienCocYeuCau);
             return Map.of("success", true, "message", "Chuyển thiếu tiền cọc, hệ thống không ghi nhận");
         }
 
         // Chuyển đúng và đủ tiền -> Ghi nhận cọc hợp lệ để chủ trọ duyệt
-        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
+        String displayRef = refCode != null ? refCode : (rawId != null ? rawId : "");
         GiaoDich gdVao = GiaoDich.builder()
-                .maGiaoDich(sepayMaGD)
+                .maGiaoDich(maGiaoDich)
                 .nguoiDung(phieu.getKhachHang())
-                .soTien(transferAmount)
+                .soTien(amount)
                 .loaiGiaoDich("COC_XEM_PHONG")
-                .noiDung("Tự động đối soát SePay cọc xem phòng " + phieu.getPhongTro().getMaPhongTro() +
-                        " (Mã lịch: " + maDatLich + ", SePay ID: " + payload.getId() + ", Ref: " + refCode + ")")
+                .noiDung("Tự động đối soát " + providerName + " cọc xem phòng " + phieu.getPhongTro().getMaPhongTro() +
+                        " (Mã lịch: " + maDatLich + ", ID: " + (rawId != null ? rawId : "") + ", Ref: " + displayRef + ")")
                 .ngayGiaoDich(LocalDateTime.now())
                 .trangThai(TrangThaiGD.THANH_CONG)
                 .build();
@@ -210,12 +318,12 @@ public class BankingWebhookService {
 
         evictAdminStatisticsCache();
 
-        log.info("[SePay Webhook] ĐỐI SOÁT THÀNH CÔNG: Đã ghi nhận cọc {} đ cho lịch {}", transferAmount, maDatLich);
+        log.info("[{} Webhook] ĐỐI SOÁT THÀNH CÔNG: Đã ghi nhận cọc {} đ cho lịch {}", providerName, amount, maDatLich);
         return Map.of(
                 "success", true,
                 "maDatLich", maDatLich,
-                "amount", transferAmount,
-                "message", "Nộp cọc giữ chân thành công qua SePay"
+                "amount", amount,
+                "message", "Nộp cọc giữ chân thành công qua " + providerName
         );
     }
 

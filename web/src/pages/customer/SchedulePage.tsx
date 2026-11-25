@@ -64,6 +64,29 @@ export const SchedulePage: React.FC = () => {
     enabled: !!roomId,
   });
 
+  const { data: bookedSlotsData } = useQuery({
+    queryKey: ['booked-slots', roomId, selectedDate],
+    queryFn: () => appointmentService.getBookedSlots(roomId, selectedDate),
+    enabled: !!roomId && !!selectedDate,
+    refetchInterval: 30_000,
+  });
+
+  const { data: myAppointments = [] } = useQuery({
+    queryKey: ['appointments', 'my'],
+    queryFn: appointmentService.getMyAppointments,
+    enabled: !!user,
+  });
+
+  const existingRoomAppointment = myAppointments.find(
+    (a) =>
+      a.maPhongTro === roomId &&
+      (a.trangThai === 'CHO_XAC_NHAN' || a.trangThai === 'XAC_NHAN'),
+  );
+
+  const bookedDateTimes = bookedSlotsData?.bookedDateTimes ?? [];
+  const bookedTimesOnDate = bookedSlotsData?.bookedTimes ?? [];
+  const bufferMinutes = bookedSlotsData?.bufferMinutes ?? 120;
+
   const displayImage =
     paramImage ||
     roomData?.dsHinhAnh?.find((img) => img.laDaiDien)?.url ||
@@ -126,6 +149,18 @@ export const SchedulePage: React.FC = () => {
     if (appointmentDateTime.getTime() < minValidTime) {
       setErrorMessage(
         'Thời gian hẹn xem phòng phải sau thời điểm hiện tại ít nhất 3 giờ để Chủ trọ kịp sắp xếp và duyệt đơn. Vui lòng chọn lại!',
+      );
+      return;
+    }
+
+    const bufferMs = bufferMinutes * 60 * 1000;
+    const hasConflict = bookedDateTimes.some((rawDt) => {
+      const bookedMs = new Date(rawDt).getTime();
+      return !Number.isNaN(bookedMs) && Math.abs(appointmentDateTime.getTime() - bookedMs) < bufferMs;
+    });
+    if (hasConflict) {
+      setErrorMessage(
+        'Khung giờ bạn chọn đang có khách đặt hoặc nằm trong khoảng đệm 2 giờ quanh lịch khác. Vui lòng chọn khung giờ sáng (khả dụng) khác!',
       );
       return;
     }
@@ -212,6 +247,29 @@ export const SchedulePage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {existingRoomAppointment && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-rose-950">
+                    Bạn đã có lịch hẹn đang hoạt động cho phòng trọ này (#{existingRoomAppointment.maDatLich})
+                  </p>
+                  <p className="text-rose-800 leading-relaxed">
+                    Mỗi khách hàng chỉ được giữ tối đa 1 lịch hẹn đang hoạt động cho mỗi phòng trọ (trừ khi lịch trước đó đã bị hủy). Bạn vẫn có thể đặt lịch cho các phòng trọ khác bình thường.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/appointments/${existingRoomAppointment.maDatLich}`)}
+                className="shrink-0 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors cursor-pointer self-start sm:self-center"
+              >
+                Xem lịch hẹn này
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200/80">
             <img
               src={displayImage}
@@ -337,10 +395,29 @@ export const SchedulePage: React.FC = () => {
               </div>
             </div>
 
+            {bookedTimesOnDate.length > 0 && (
+              <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 leading-relaxed">
+                  <p className="font-bold text-amber-950">
+                    Minh bạch lịch phòng trong ngày {selectedDate.split('-').reverse().join('/')}:
+                  </p>
+                  <p className="text-amber-800">
+                    Phòng hiện đã có lịch hẹn lúc{' '}
+                    <strong className="font-mono">{bookedTimesOnDate.join(', ')}</strong>. Các khung
+                    giờ trong khoảng đệm 2 giờ xung quanh đã được làm mờ để tránh chồng chéo và đảm
+                    bảo kịp thông báo nếu khách trước chốt thuê.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <TimeSlotPicker
               selectedTime={selectedTime}
               onSelectTime={(time) => setSelectedTime(time)}
               selectedDate={selectedDate}
+              bookedDateTimes={bookedDateTimes}
+              bufferMinutes={bufferMinutes}
               isCustomModalOpen={isCustomTimeModalOpen}
               setIsCustomModalOpen={setIsCustomTimeModalOpen}
             />
@@ -417,8 +494,8 @@ export const SchedulePage: React.FC = () => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+              disabled={isSubmitting || Boolean(existingRoomAppointment)}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSubmitting ? (
                 <span>Đang gửi yêu cầu...</span>

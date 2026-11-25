@@ -5,6 +5,8 @@ export interface TimeSlotPickerProps {
   selectedTime: string;
   onSelectTime: (time: string) => void;
   selectedDate: string; // YYYY-MM-DD
+  bookedDateTimes?: string[];
+  bufferMinutes?: number;
   isCustomModalOpen?: boolean;
   setIsCustomModalOpen?: (open: boolean) => void;
 }
@@ -37,6 +39,8 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   selectedTime,
   onSelectTime,
   selectedDate,
+  bookedDateTimes = [],
+  bufferMinutes = 120,
   isCustomModalOpen: externalModalOpen,
   setIsCustomModalOpen: externalSetModalOpen,
 }) => {
@@ -65,22 +69,43 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Kiểm tra thời gian đã chọn có cách hiện tại ít nhất 3 tiếng hay không
-  const checkIsDisabled = (hourStr: string, minuteStr: string): boolean => {
-    if (!selectedDate) return false;
+  const getSlotStatus = (hourStr: string, minuteStr: string) => {
+    if (!selectedDate) {
+      return { tooClose: false, bookedConflict: false, exactBooked: false, disabled: false };
+    }
     const [year, month, day] = selectedDate.split("-").map(Number);
     const h = Number(hourStr);
     const m = Number(minuteStr);
-    const slotDate = new Date(year, month - 1, day, h, m, 0, 0);
-    return slotDate.getTime() < nowMs + 3 * 60 * 60 * 1000;
+    const slotMs = new Date(year, month - 1, day, h, m, 0, 0).getTime();
+
+    const tooClose = slotMs < nowMs + 3 * 60 * 60 * 1000;
+    const bufferMs = bufferMinutes * 60 * 1000;
+
+    let bookedConflict = false;
+    let exactBooked = false;
+    for (const rawDt of bookedDateTimes) {
+      const bookedMs = new Date(rawDt).getTime();
+      if (Number.isNaN(bookedMs)) continue;
+      const diff = Math.abs(slotMs - bookedMs);
+      if (diff < bufferMs) {
+        bookedConflict = true;
+        if (diff < 60_000) exactBooked = true;
+      }
+    }
+
+    return {
+      tooClose,
+      bookedConflict,
+      exactBooked,
+      disabled: tooClose || bookedConflict,
+    };
   };
 
-  const isSlotDisabled = (time: string): boolean => {
-    const [h, m] = time.split(":");
-    return checkIsDisabled(h, m);
-  };
+  const checkIsDisabled = (hourStr: string, minuteStr: string): boolean =>
+    getSlotStatus(hourStr, minuteStr).disabled;
 
-  const isCurrentModalTimeDisabled = checkIsDisabled(tempHour, tempMinute);
+  const currentModalStatus = getSlotStatus(tempHour, tempMinute);
+  const isCurrentModalTimeDisabled = currentModalStatus.disabled;
 
   const handleConfirmCustomTime = () => {
     if (isCurrentModalTimeDisabled) return;
@@ -108,25 +133,42 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
       {/* DANH SÁCH KHUNG GIỜ PHỔ BIẾN */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {TIME_SLOTS.map((time) => {
-          const isSelected = selectedTime === time;
-          const disabled = isSlotDisabled(time);
+          const [h, m] = time.split(":");
+          const status = getSlotStatus(h, m);
+          const isSelected = selectedTime === time && !status.disabled;
 
           return (
             <button
               type="button"
               key={time}
-              disabled={disabled}
+              disabled={status.disabled}
               onClick={() => onSelectTime(time)}
-              className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all border text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed ${
-                disabled
-                  ? "bg-slate-50 border-slate-200 text-slate-300 opacity-60"
+              title={
+                status.bookedConflict
+                  ? status.exactBooked
+                    ? "Khung giờ này đã có khách đặt"
+                    : "Nằm trong khoảng đệm 2 giờ quanh lịch đã đặt"
+                  : status.tooClose
+                    ? "Cách hiện tại dưới 3 tiếng"
+                    : undefined
+              }
+              className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all border text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-not-allowed ${
+                status.disabled
+                  ? "bg-slate-100 border-slate-200 text-slate-400 opacity-60"
                   : isSelected
                     ? "bg-teal-600 border-teal-600 text-white shadow-xs"
                     : "bg-white border-slate-200 text-slate-700 hover:border-teal-400 hover:bg-teal-50/50"
               }`}
             >
-              <Clock className={`w-3 h-3 ${isSelected ? "text-white" : "text-slate-400"}`} />
-              <span className="font-mono">{time}</span>
+              <div className="flex items-center gap-1.5">
+                <Clock className={`w-3 h-3 ${isSelected ? "text-white" : "text-slate-400"}`} />
+                <span className="font-mono">{time}</span>
+              </div>
+              {status.bookedConflict && !status.tooClose && (
+                <span className="text-[10px] font-medium text-slate-400 leading-tight">
+                  {status.exactBooked ? "Đã đặt" : "Đệm 2h"}
+                </span>
+              )}
             </button>
           );
         })}
@@ -195,7 +237,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                 <div className="grid grid-cols-5 gap-1.5">
                   {HOURS_24.map((hour) => {
                     const isSelected = tempHour === hour;
-                    const disabled = checkIsDisabled(hour, "59"); // Nếu đến cuối giờ đó vẫn không đủ 3h thì disable
+                    const disabled = MINUTES.every((m) => checkIsDisabled(hour, m));
 
                     return (
                       <button
@@ -249,12 +291,14 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                 </div>
               </div>
 
-              {/* Cảnh báo nếu giờ chọn sát giờ hiện tại (< 3 tiếng) */}
+              {/* Cảnh báo nếu giờ chọn sát giờ hiện tại (< 3 tiếng) hoặc trùng khoảng đệm 2h */}
               {isCurrentModalTimeDisabled && (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>
-                    Giờ hẹn phải cách thời điểm hiện tại tối thiểu 3 tiếng để Chủ trọ kịp duyệt lịch.
+                    {currentModalStatus.bookedConflict
+                      ? "Khung giờ này đã có khách đặt hoặc nằm trong khoảng đệm 2 giờ quanh lịch hẹn khác."
+                      : "Giờ hẹn phải cách thời điểm hiện tại tối thiểu 3 tiếng để Chủ trọ kịp duyệt lịch."}
                   </span>
                 </div>
               )}

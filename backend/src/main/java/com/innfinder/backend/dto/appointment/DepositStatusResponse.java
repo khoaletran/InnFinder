@@ -17,5 +17,6 @@ public class DepositStatusResponse {
     private Long soTienCoc;
     private String trangThaiLich;
     private LocalDateTime hanDuyet;
+    private LocalDateTime hanNopCoc;
     private boolean conHieuLuc;
 }
