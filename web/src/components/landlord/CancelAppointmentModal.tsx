@@ -85,8 +85,15 @@ const CancelAppointmentModalContent: React.FC<{
           {error && <p className="text-[11px] text-red-500 mt-1 font-medium">{error}</p>}
         </div>
 
-        <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-[11px] text-amber-800">
-          Tiền cọc giữ chân của khách (nếu đã nộp) sẽ được hệ thống hoàn trả 100% về ví của khách hàng.
+        <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-[11px] text-amber-800 space-y-1">
+          <p>
+            Tiền cọc giữ chân của khách (nếu đã nộp) sẽ được hệ thống hoàn trả 100% về cho khách hàng.
+          </p>
+          {appointment.trangThai === 'XAC_NHAN' && (
+            <p className="font-bold text-rose-700">
+              Lưu ý: Hủy lịch sau khi đã xác nhận sẽ bị trừ 5 điểm uy tín của Chủ trọ.
+            </p>
+          )}
         </div>
       </form>
     </Modal>

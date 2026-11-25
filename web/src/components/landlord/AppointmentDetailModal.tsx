@@ -125,6 +125,18 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 )}
               </div>
             )}
+            {appointment.trangThai === 'XAC_NHAN' && !appointment.daNhanLaiCoc && onCancel && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onCancel(appointment.id);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy lịch
+              </button>
+            )}
           </div>
           <button
             type="button"

@@ -479,7 +479,14 @@ export const AppointmentsPage: React.FC = () => {
                                     ? 'Quá giờ hẹn 30 phút - Khách chưa xác nhận'
                                     : 'Chờ khách xác nhận đã nhận lại cọc trực tiếp'}
                                 </span>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedCancel(item)}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-colors"
+                                  >
+                                    Hủy lịch
+                                  </button>
                                   {isNoShowEligible ? (
                                     <button
                                       type="button"

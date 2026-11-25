@@ -276,7 +276,7 @@ export const landlordService = {
   },
 
   cancelAppointment: async (id: string, liDoHuy: string): Promise<boolean> => {
-    await axiosClient.patch<unknown, string>(`/api/landlord/appointments/${id}/reject`, {
+    await axiosClient.patch<unknown, string>(`/api/landlord/appointments/${id}/cancel`, {
       liDoHuy,
     });
     return true;
