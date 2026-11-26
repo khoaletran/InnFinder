@@ -10,7 +10,7 @@ interface PageContainerProps {
 
 const WIDTH_CLASSES: Record<ContainerWidth, string> = {
   full: 'w-full',
-  wide: 'max-w-[1200px] w-full mx-auto px-4 sm:px-6',
+  wide: 'max-w-7xl w-full mx-auto px-4 sm:px-6',
   narrow: 'max-w-[800px] w-full mx-auto px-4 sm:px-6',
 };
 

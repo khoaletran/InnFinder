@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { ExternalLink, Locate, MapPin, Minus, Plus, Radar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import innFinderPin from '@/assets/innfinder-pin.svg';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
 
@@ -23,6 +24,7 @@ export interface RoomMapProps {
   pickedRadiusKm?: number;
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   onClearPickedCoords?: () => void;
+  markerStyle?: 'price' | 'brand';
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -43,6 +45,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   pickedRadiusKm = 15,
   onMapClick,
   onClearPickedCoords,
+  markerStyle = 'price',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -371,7 +374,12 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       });
 
       const marker = L.marker([coords.lat, coords.lng], {
-        icon: customIcon,
+        icon: markerStyle === 'brand' ? L.icon({
+          iconUrl: innFinderPin,
+          iconSize: [44, 44],
+          iconAnchor: [22, 42],
+        }) : customIcon,
+        alt: markerStyle === 'brand' ? 'Vị trí phòng trên bản đồ' : priceText,
         zIndexOffset: isSelected || isHovered ? 600 : 100,
       });
 
@@ -397,6 +405,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     pickedLat,
     pickedLng,
     pickedRadiusKm,
+    markerStyle,
   ]);
 
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách

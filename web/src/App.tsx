@@ -19,7 +19,13 @@ const router = createBrowserRouter([
     element: (
       <>
         <AppRoutes />
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          duration={3000}
+          offset={{ top: '80px', right: '20px' }}
+        />
       </>
     ),
   },

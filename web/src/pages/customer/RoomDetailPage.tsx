@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AlertTriangle,
   Award,
   Calendar,
   CheckCircle2,
@@ -368,6 +367,7 @@ export const RoomDetailPage: React.FC = () => {
                     rooms={[roomMapSummary]}
                     selectedRoom={roomMapSummary}
                     interactivePreview={false}
+                    markerStyle="brand"
                     showRadiusBadge={false}
                   />
                 </div>
@@ -492,13 +492,6 @@ export const RoomDetailPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    InnFinder chỉ bảo chứng cọc giữ chân xem phòng ({formatVND(viewingDeposit)}).
-                    Không chuyển tiền thuê trước khi xem phòng thực tế.
-                  </span>
-                </div>
               </Card.Footer>
             </Card>
           </div>

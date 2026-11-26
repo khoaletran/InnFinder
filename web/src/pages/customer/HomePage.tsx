@@ -9,7 +9,6 @@ import { DepositMechanismSection } from '@/components/room/landing/DepositMechan
 import { FaqSection } from '@/components/room/landing/FaqSection';
 import { FeaturedRoomsSection } from '@/components/room/landing/FeaturedRoomsSection';
 import { HeroSection } from '@/components/room/landing/HeroSection';
-import { TrustMetricsStrip } from '@/components/room/landing/TrustMetricsStrip';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { formatVNDShort } from '@/utils/formatters';
@@ -41,11 +40,9 @@ export const HomePage: React.FC = () => {
     <div className="flex-1 bg-slate-50 flex flex-col">
       {/* 1. Hero Section + Tìm kiếm thường / AI */}
       <HeroSection />
+      <FeaturedRoomsSection />
 
-      {/* 2. Dải cam kết tin cậy */}
-      <TrustMetricsStrip />
-
-      {/* 3. Khu vực phổ biến */}
+      {/* 2. Khu vực phổ biến */}
       <PageContainer width="wide" className="py-10 space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -95,11 +92,12 @@ export const HomePage: React.FC = () => {
         )}
       </PageContainer>
 
-      {/* 4. Phòng mới đăng & Lọc theo Loại phòng */}
-      <FeaturedRoomsSection />
+
 
       {/* 5. Quy trình đặt lịch & Bảo chứng cọc 4 bước */}
-      <DepositMechanismSection />
+      <div id="deposit-mechanism" className="scroll-mt-20">
+        <DepositMechanismSection />
+      </div>
 
       {/* 6. Câu hỏi thường gặp */}
       <FaqSection />

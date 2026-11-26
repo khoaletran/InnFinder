@@ -23,6 +23,7 @@ interface PlatformRevenueChartProps {
   data: RevenuePoint[];
   title?: string;
   subtitle?: string;
+  height?: number;
   isLoading?: boolean;
   isError?: boolean;
   errorMessage?: string;
@@ -33,6 +34,7 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
   data,
   title = 'Biểu đồ Doanh thu Hoa hồng Sàn',
   subtitle = 'Tổng phí dịch vụ trích thu từ các giao dịch đặt lịch đã hoàn tất',
+  height = 260,
   isLoading = false,
   isError = false,
   errorMessage,
@@ -40,18 +42,19 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
 }) => {
   const colors = useChartColors();
   const hasAnyRevenue = data.some((point) => Number(point.giaTri ?? 0) > 0);
+  const compact = height < 220;
 
   return (
-    <Card className="bg-surface rounded-[var(--radius-card)] border border-border p-5 shadow-[var(--shadow-card)] h-full">
-      <Card.Header className="p-0 pb-4">
-        <Card.Title className="text-base font-semibold text-text tracking-[-0.01em]">
+    <Card className={`bg-surface rounded-[var(--radius-card)] border border-border shadow-[var(--shadow-card)] h-full ${compact ? 'p-4' : 'p-5'}`}>
+      <Card.Header className={`p-0 ${compact ? 'pb-2.5' : 'pb-4'}`}>
+        <Card.Title className={`${compact ? 'text-sm' : 'text-base'} font-semibold text-text tracking-[-0.01em]`}>
           {title}
         </Card.Title>
         <Card.Description className="text-xs text-text-muted mt-0.5">
           {subtitle}
         </Card.Description>
       </Card.Header>
-      <Card.Content className="p-0 h-[260px]">
+      <Card.Content className="p-0" style={{ height }}>
         {isLoading ? (
           <div className="h-full w-full rounded-[var(--radius-control)] bg-surface-muted animate-pulse flex flex-col justify-between p-4">
             <div className="h-3 w-1/3 bg-border-strong rounded" />
@@ -84,7 +87,7 @@ export const PlatformRevenueChart: React.FC<PlatformRevenueChartProps> = ({
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={260} minWidth={0}>
+          <ResponsiveContainer width="100%" height={height} minWidth={0}>
             <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
               <XAxis dataKey="thang" tick={{ fontSize: 12, fill: colors.textMuted }} />

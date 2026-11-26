@@ -165,9 +165,9 @@ export const AdminLayout: React.FC = () => {
       {/* Main Content Pane */}
       <div className={`flex-1 min-w-0 flex flex-col min-h-screen ${isResponsive ? 'md:ml-64' : 'ml-64'}`}>
         {/* Top Header Bar */}
-        <header className={`h-16 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isResponsive ? 'gap-2 px-4 md:px-8' : 'px-8'}`}>
+        <header className={`h-14 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isResponsive ? 'gap-2 px-4 md:px-6' : 'px-6'}`}>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-tone-teal-soft text-tone-teal-base flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-tone-teal-soft text-tone-teal-base flex items-center justify-center shrink-0">
               <HeaderIcon className="w-4 h-4" />
             </div>
             <span className="text-sm font-semibold text-text leading-tight tracking-[-0.01em]">
@@ -177,14 +177,11 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <AdminNotificationBell />
-            <div className={`text-xs text-text-muted font-medium ${isResponsive ? 'hidden sm:block' : ''}`}>
-              Xin chào, <strong className="font-semibold text-text">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
-            </div>
           </div>
         </header>
 
         {/* Content Body */}
-        <main className={`relative flex-1 ${isResponsive ? 'overflow-x-clip p-4 sm:p-6 lg:p-8' : 'p-6 lg:p-8'}`}>
+        <main className={`relative flex-1 ${isResponsive ? 'overflow-x-clip p-4 sm:p-5' : 'p-5 lg:p-6'}`}>
           <Outlet />
           <RouteLoadingOverlay />
         </main>

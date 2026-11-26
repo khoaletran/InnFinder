@@ -190,7 +190,7 @@ export const MapJourneyLoader: React.FC<MapJourneyLoaderProps> = ({
       role="status"
       aria-live="polite"
       aria-label={`${message} ${currentPercent}%`}
-      className={`flex flex-col items-center justify-center select-none ${
+      className={`flex min-w-0 max-w-full flex-col items-center justify-center select-none ${
         compact ? 'py-8 px-4' : 'py-10 px-6'
       }`}
     >

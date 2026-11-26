@@ -1,11 +1,12 @@
 import React from 'react';
 import { Card } from '@heroui/react';
-import { ArrowRight, Heart, MapPin, Users } from 'lucide-react';
+import { ArrowRight, Calendar, Heart, MapPin, ShieldCheck, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { formatVNDShort } from '@/utils/formatters';
+import { formatRelativeTime, formatVNDShort } from '@/utils/formatters';
 
 interface RoomCardProps {
   room: RoomSummaryResponse;
@@ -17,6 +18,7 @@ interface RoomCardProps {
   onHoverChange?: (roomId: string | null) => void;
   onRemoveFavorite?: (roomId: string) => void;
   showRemoveFavoriteButton?: boolean;
+  homeCompact?: boolean;
 }
 
 export const RoomCard: React.FC<RoomCardProps> = ({
@@ -29,6 +31,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onHoverChange,
   onRemoveFavorite,
   showRemoveFavoriteButton = false,
+  homeCompact = false,
 }) => {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -54,8 +57,15 @@ export const RoomCard: React.FC<RoomCardProps> = ({
     e.stopPropagation();
     if (showRemoveFavoriteButton && onRemoveFavorite) {
       onRemoveFavorite(room.maPhongTro);
+      toast.success('Đã bỏ lưu phòng khỏi danh sách yêu thích');
     } else {
-      void toggleFavorite(room, isAuthenticated);
+      void toggleFavorite(room, isAuthenticated).then((added) => {
+        toast.success(
+          added
+            ? 'Đã lưu vào danh sách phòng yêu thích'
+            : 'Đã bỏ lưu phòng khỏi danh sách yêu thích',
+        );
+      });
     }
   };
 
@@ -155,6 +165,30 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           </div>
         </Card.Content>
       </Card>
+    );
+  }
+
+  if (homeCompact) {
+    const details = '/room/' + room.maPhongTro;
+    const booking = '/appointments/schedule/' + room.maPhongTro;
+    return (
+      <article className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+        <div className="relative aspect-square bg-slate-100">
+          <Link to={details} className="block h-full"><img src={primaryImage} alt={roomTitle} loading="lazy" className="h-full w-full object-cover" /></Link>
+          <button type="button" onClick={handleFavoriteClick} aria-label={favorited ? 'Bỏ yêu thích' : 'Yêu thích'} aria-pressed={favorited} className="absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-white text-slate-700">
+            <Heart aria-hidden="true" className={favorited ? 'size-4 fill-red-600 text-red-600' : 'size-4'} />
+          </button>
+          {(room.thoiGianDang || !!room.hinhAnh?.length) && <span className="absolute bottom-2 left-2 rounded bg-slate-950/80 px-1.5 py-0.5 text-xs text-white">{[room.thoiGianDang && formatRelativeTime(room.thoiGianDang), room.hinhAnh?.length && room.hinhAnh.length + ' ảnh'].filter(Boolean).join(' · ')}</span>}
+        </div>
+        <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+          <Link to={details} className="line-clamp-2 min-h-10 text-sm font-semibold text-slate-900 hover:text-teal-800">{roomTitle}</Link>
+          <p className="text-sm font-bold text-orange-800">{formatPrice(room.giaThue)}</p>
+          <p className="truncate text-xs text-slate-600" title={room.diaChi}>{room.dienTich} m² · {room.tenLoaiPhong || 'Phòng trọ'} · {room.diaChi}</p>
+          <span className="flex items-center gap-1 text-xs font-semibold text-teal-800"><ShieldCheck aria-hidden="true" className="size-3.5" /> Đã kiểm duyệt</span>
+          {typeof room.diemUyTinChuTro === 'number' && <span className="text-xs text-slate-700">Uy tín {room.diemUyTinChuTro}/100</span>}
+          <Link to={isAuthenticated ? booking : '/login?returnUrl=' + encodeURIComponent(booking)} className="mt-auto flex min-h-8 items-center justify-center gap-1 rounded-lg bg-teal-50 px-1 text-center text-xs font-semibold text-teal-800 hover:bg-teal-100"><Calendar aria-hidden="true" className="size-3.5" /> Đặt lịch xem</Link>
+        </div>
+      </article>
     );
   }
 

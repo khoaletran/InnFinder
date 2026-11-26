@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -290,15 +290,15 @@ export const TransactionsPage: React.FC = () => {
           {/* DESKTOP TABLE VIEW (md+) */}
           <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table aria-label="Lịch sử giao dịch" className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <th className="py-3.5 px-4">Mã giao dịch</th>
-                    <th className="py-3.5 px-4">Phòng &amp; Lịch liên quan</th>
-                    <th className="py-3.5 px-4">Số tiền</th>
-                    <th className="py-3.5 px-4">Thời gian</th>
-                    <th className="py-3.5 px-4">Trạng thái</th>
-                    <th className="py-3.5 px-4 text-right">Chi tiết</th>
+                    <th scope="col" className="py-3.5 px-4">Mã giao dịch</th>
+                    <th scope="col" className="py-3.5 px-4">Phòng &amp; Lịch liên quan</th>
+                    <th scope="col" className="py-3.5 px-4">Số tiền</th>
+                    <th scope="col" className="py-3.5 px-4">Thời gian</th>
+                    <th scope="col" className="py-3.5 px-4">Trạng thái</th>
+                    <th scope="col" className="py-3.5 px-4 text-right">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">

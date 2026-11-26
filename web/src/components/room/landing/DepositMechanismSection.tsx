@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarCheck, CheckSquare, Eye, Search, Wallet } from 'lucide-react';
+import { CalendarCheck, CheckSquare, Eye, Search } from 'lucide-react';
 import { PageContainer } from '@/components/common/PageContainer';
 
 const STEPS = [
@@ -42,10 +42,6 @@ export const DepositMechanismSection: React.FC = () => (
         })}
       </ol>
 
-      <div className="flex items-center gap-3 rounded-xl bg-teal-50 px-4 py-3 text-sm leading-relaxed text-teal-900">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-teal-200/70 bg-white text-teal-700"><Wallet className="h-5 w-5" aria-hidden="true" /></span>
-        <p>Chủ trọ trả <strong className="font-semibold">100% cọc giữ chân</strong> trực tiếp tại buổi xem. <span className="text-teal-800">Khoản này khác cọc hợp đồng thuê.</span></p>
-      </div>
     </PageContainer>
   </section>
 );
