@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ExternalLink, Locate, Minus, Plus, Radar } from 'lucide-react';
+import { ExternalLink, Locate, MapPin, Minus, Plus, Radar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
@@ -19,6 +19,10 @@ export interface RoomMapProps {
   locateTrigger?: number;
   interactivePreview?: boolean;
   showRadiusBadge?: boolean;
+  pickedCoords?: { lat: number; lng: number } | null;
+  pickedRadiusKm?: number;
+  onMapClick?: (coords: { lat: number; lng: number }) => void;
+  onClearPickedCoords?: () => void;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -35,17 +39,30 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   locateTrigger = 0,
   interactivePreview = true,
   showRadiusBadge,
+  pickedCoords = null,
+  pickedRadiusKm = 15,
+  onMapClick,
+  onClearPickedCoords,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const circleLayerRef = useRef<L.Circle | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const pickedCircleRef = useRef<L.Circle | null>(null);
+  const pickedMarkerRef = useRef<L.Marker | null>(null);
+  const onMapClickRef = useRef(onMapClick);
   const hasPannedToInitialRef = useRef(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
+
   const userLat = userCoords?.lat;
   const userLng = userCoords?.lng;
+  const pickedLat = pickedCoords?.lat;
+  const pickedLng = pickedCoords?.lng;
 
   const initialCoordsRef = useRef<[number, number]>([
     userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
@@ -64,15 +81,19 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       zoomControl: false,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['0', '1', '2', '3'],
+      attribution: '&copy; Google Maps',
+      maxZoom: 20,
     }).addTo(map);
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
+
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
 
     // Đảm bảo Leaflet tính toán chuẩn tỷ lệ khung hình 1:1 ngay khi render
     const resizeTimer = setTimeout(() => {
@@ -93,6 +114,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       mapInstanceRef.current = null;
       userMarkerRef.current = null;
       circleLayerRef.current = null;
+      pickedMarkerRef.current = null;
+      pickedCircleRef.current = null;
       markersLayerRef.current = null;
     };
   }, []);
@@ -165,7 +188,15 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   // 4. Render CHẤM TRÒN XANH vị trí hiện tại của khách hàng (Chuẩn Teal & Pulse animation)
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || userLat === undefined || userLng === undefined) return;
+    if (!map) return;
+
+    if (userLat === undefined || userLng === undefined) {
+      if (userMarkerRef.current) {
+        map.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      return;
+    }
 
     const userIcon = L.divIcon({
       className: 'user-location-marker',
@@ -202,7 +233,15 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   // 5. Render VÒNG TRÒN XANH quét bán kính phòng trọ (Đảm bảo luôn là hình tròn trọn vẹn trong khung hình)
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || userLat === undefined || userLng === undefined) return;
+    if (!map) return;
+
+    if (userLat === undefined || userLng === undefined) {
+      if (circleLayerRef.current) {
+        map.removeLayer(circleLayerRef.current);
+        circleLayerRef.current = null;
+      }
+      return;
+    }
 
     const effectiveRadius = (radiusKm && radiusKm > 0 ? radiusKm : 2) * 1000;
 
@@ -221,6 +260,71 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     }
   }, [userLat, userLng, radiusKm]);
 
+  // 5b. Render điểm chọn thêm trên bản đồ + vòng tròn quét 15 km bổ sung
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (pickedLat === undefined || pickedLng === undefined) {
+      if (pickedMarkerRef.current) {
+        map.removeLayer(pickedMarkerRef.current);
+        pickedMarkerRef.current = null;
+      }
+      if (pickedCircleRef.current) {
+        map.removeLayer(pickedCircleRef.current);
+        pickedCircleRef.current = null;
+      }
+      return;
+    }
+
+    const pickedIcon = L.divIcon({
+      className: 'user-location-marker',
+      html: `
+        <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; pointer-events: auto;">
+          <div style="position: absolute; inset: -8px; background: rgba(37, 99, 235, 0.25); border-radius: 9999px;"></div>
+          <div style="position: absolute; inset: 2px; background: #2563eb; border: 3px solid #ffffff; border-radius: 9999px; box-shadow: 0 0 12px rgba(37, 99, 235, 0.55), 0 3px 8px rgba(0,0,0,0.3);"></div>
+          <div style="position: absolute; width: 6px; height: 6px; background: #ffffff; border-radius: 9999px;"></div>
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+
+    if (pickedMarkerRef.current) {
+      pickedMarkerRef.current.setLatLng([pickedLat, pickedLng]);
+      pickedMarkerRef.current.setIcon(pickedIcon);
+      pickedMarkerRef.current.setTooltipContent(`Điểm quét thêm (${pickedRadiusKm} km)`);
+    } else {
+      pickedMarkerRef.current = L.marker([pickedLat, pickedLng], {
+        icon: pickedIcon,
+        zIndexOffset: 950,
+        title: `Điểm quét thêm (${pickedRadiusKm} km)`,
+      }).addTo(map);
+
+      pickedMarkerRef.current.bindTooltip(`Điểm quét thêm (${pickedRadiusKm} km)`, {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -12],
+        className: 'user-location-tooltip',
+      });
+    }
+
+    const effectivePickedRadius = pickedRadiusKm * 1000;
+    if (pickedCircleRef.current) {
+      pickedCircleRef.current.setLatLng([pickedLat, pickedLng]);
+      pickedCircleRef.current.setRadius(effectivePickedRadius);
+    } else {
+      pickedCircleRef.current = L.circle([pickedLat, pickedLng], {
+        radius: effectivePickedRadius,
+        color: '#2563eb',
+        fillColor: '#2563eb',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '6, 8',
+      }).addTo(map);
+    }
+  }, [pickedLat, pickedLng, pickedRadiusKm]);
+
   // 6. Cập nhật các marker giá phòng trên bản đồ
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -229,14 +333,28 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
     markersLayer.clearLayers();
 
+    const hasAnyScanZone =
+      (userLat !== undefined && userLng !== undefined && radiusKm > 0) ||
+      (pickedLat !== undefined && pickedLng !== undefined && pickedRadiusKm > 0);
+
     rooms.forEach((room) => {
       const coords = getValidCoords(room);
       if (!coords) return;
 
-      // Chỉ hiển thị các phòng nằm trong phạm vi vòng tròn quét (chưa quét tới thì không hiện)
-      if (userLat !== undefined && userLng !== undefined && radiusKm && radiusKm > 0) {
-        const distMeters = L.latLng(userLat, userLng).distanceTo(L.latLng(coords.lat, coords.lng));
-        if (distMeters > radiusKm * 1000) return;
+      // Chỉ hiển thị các phòng nằm trong phạm vi vòng tròn quét (vị trí hiện tại hoặc điểm vừa nhấn)
+      if (hasAnyScanZone) {
+        const roomLatLng = L.latLng(coords.lat, coords.lng);
+        const inUserZone =
+          userLat !== undefined &&
+          userLng !== undefined &&
+          radiusKm > 0 &&
+          L.latLng(userLat, userLng).distanceTo(roomLatLng) <= radiusKm * 1000;
+        const inPickedZone =
+          pickedLat !== undefined &&
+          pickedLng !== undefined &&
+          pickedRadiusKm > 0 &&
+          L.latLng(pickedLat, pickedLng).distanceTo(roomLatLng) <= pickedRadiusKm * 1000;
+        if (!inUserZone && !inPickedZone) return;
       }
 
       const isSelected = selectedRoom?.maPhongTro === room.maPhongTro;
@@ -267,7 +385,19 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
       markersLayer.addLayer(marker);
     });
-  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom, userLat, userLng, radiusKm]);
+  }, [
+    rooms,
+    selectedRoom,
+    hoveredRoomId,
+    onSelectRoom,
+    onHoverRoom,
+    userLat,
+    userLng,
+    radiusKm,
+    pickedLat,
+    pickedLng,
+    pickedRadiusKm,
+  ]);
 
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
@@ -294,18 +424,42 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     <div className="relative w-full h-full min-h-[300px]">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Badge bán kính quét tự động thay đổi theo độ mở rộng của bản đồ */}
-      {shouldShowRadiusBadge && (
-        <div className="absolute top-3 left-3 z-10 pointer-events-none">
-          <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
-            <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
-            <span>
-              Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
-            </span>
-            <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-              Tự động lọt lòng bản đồ
-            </span>
-          </div>
+      {/* Badge bán kính quét tự động & điểm quét thêm trên bản đồ */}
+      {(shouldShowRadiusBadge || pickedCoords) && (
+        <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-1.5 pointer-events-none">
+          {shouldShowRadiusBadge && (
+            <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
+              <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+              <span>
+                Bán kính quét:{' '}
+                <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
+              </span>
+              <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+                Tự động lọt lòng bản đồ
+              </span>
+            </div>
+          )}
+
+          {pickedCoords && (
+            <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-blue-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
+              <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>
+                Điểm quét thêm:{' '}
+                <strong className="text-blue-700 font-extrabold">{pickedRadiusKm} km</strong>
+              </span>
+              {onClearPickedCoords && (
+                <button
+                  type="button"
+                  onClick={onClearPickedCoords}
+                  title="Xóa điểm quét thêm"
+                  aria-label="Xóa điểm quét thêm"
+                  className="ml-0.5 p-0.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

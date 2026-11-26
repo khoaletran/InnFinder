@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -25,6 +25,8 @@ import type { RoomSummaryResponse } from '@/types/room.types';
 import { getValidCoords } from '@/utils/formatters';
 
 type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'radius' | null;
+
+const PICKED_SCAN_RADIUS_KM = 15;
 
 interface NumericBracketOption {
   label: string;
@@ -136,6 +138,8 @@ export const SearchPage: React.FC = () => {
 
   // Bán kính quét động (km) tự động thay đổi theo mức độ mở rộng / thu nhỏ của bản đồ
   const [dynamicRadiusKm, setDynamicRadiusKm] = useState<number>(5);
+  // Địa điểm người dùng nhấn chọn trực tiếp trên bản đồ để quét thêm 15 km
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Vị trí GPS thật khi người dùng bấm định vị hoặc cấp quyền
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(
@@ -346,38 +350,68 @@ export const SearchPage: React.FC = () => {
     return options;
   }, [catalogRooms, activeCenterCoords]);
 
-  // Tính khoảng cách từng phòng so với chấm tròn vị trí hiện tại
+  // Tính khoảng cách từng phòng so với vị trí hiện tại và điểm vừa nhấn trên bản đồ
   const roomsWithDistance = useMemo(() => {
     return rooms.map((room) => {
-      let distanceInKm: number | null = null;
-      if (activeCenterCoords) {
-        const coords = getValidCoords(room);
-        if (coords) {
-          distanceInKm = getDistanceInKm(
-            activeCenterCoords.lat,
-            activeCenterCoords.lng,
-            coords.lat,
-            coords.lng,
-          );
-        }
-      }
-      return { room, distanceInKm };
+      const coords = getValidCoords(room);
+      const distanceFromUserKm =
+        activeCenterCoords && coords
+          ? getDistanceInKm(
+              activeCenterCoords.lat,
+              activeCenterCoords.lng,
+              coords.lat,
+              coords.lng,
+            )
+          : null;
+      const distanceFromPickedKm =
+        pickedCoords && coords
+          ? getDistanceInKm(pickedCoords.lat, pickedCoords.lng, coords.lat, coords.lng)
+          : null;
+      return { room, distanceFromUserKm, distanceFromPickedKm };
     });
-  }, [rooms, activeCenterCoords]);
+  }, [rooms, activeCenterCoords, pickedCoords]);
 
   // Bán kính hiệu lực: Nếu người dùng cố định trong modal thì lấy giá trị đó, ngược lại lấy bán kính động theo bản đồ
   const effectiveRadius = filterStore.radiusKm ?? dynamicRadiusKm;
   // Natural-language searches may name a different city; only restrict by GPS when explicitly requested.
   const useRadiusFilter = !hasTextQuery || filterStore.radiusKm !== undefined;
+  const hasUserScanZone = useRadiusFilter && Boolean(activeCenterCoords);
+  const hasPickedScanZone = Boolean(pickedCoords);
 
-  // Lọc CHỈ lấy các phòng nằm trong phạm vi vòng tròn quét hiện tại (chưa quét tới thì không hiện)
+  // Lọc các phòng nằm trong phạm vi vòng tròn quét (vị trí hiện tại HOẶC điểm chọn thêm 15 km)
   const filteredRooms = useMemo(() => {
-    if (!useRadiusFilter || !activeCenterCoords) return roomsWithDistance;
-    return roomsWithDistance.filter((item) => {
-      if (item.distanceInKm === null) return false;
-      return item.distanceInKm <= effectiveRadius;
-    });
-  }, [roomsWithDistance, effectiveRadius, activeCenterCoords, useRadiusFilter]);
+    const results: Array<{ room: RoomSummaryResponse; distanceInKm: number | null }> = [];
+    for (const item of roomsWithDistance) {
+      if (!hasUserScanZone && !hasPickedScanZone) {
+        results.push({ room: item.room, distanceInKm: item.distanceFromUserKm });
+        continue;
+      }
+
+      const matchingDistances: number[] = [];
+      if (
+        hasUserScanZone &&
+        item.distanceFromUserKm !== null &&
+        item.distanceFromUserKm <= effectiveRadius
+      ) {
+        matchingDistances.push(item.distanceFromUserKm);
+      }
+      if (
+        hasPickedScanZone &&
+        item.distanceFromPickedKm !== null &&
+        item.distanceFromPickedKm <= PICKED_SCAN_RADIUS_KM
+      ) {
+        matchingDistances.push(item.distanceFromPickedKm);
+      }
+
+      if (matchingDistances.length > 0) {
+        results.push({
+          room: item.room,
+          distanceInKm: Math.min(...matchingDistances),
+        });
+      }
+    }
+    return results;
+  }, [roomsWithDistance, effectiveRadius, hasUserScanZone, hasPickedScanZone]);
 
   const scannedRooms = useMemo(() => filteredRooms.map((item) => item.room), [filteredRooms]);
 
@@ -387,6 +421,17 @@ export const SearchPage: React.FC = () => {
     }
     return null;
   }, [scannedRooms, selectedRoom]);
+
+  const handleMapClick = useCallback((coords: { lat: number; lng: number }) => {
+    setPickedCoords(coords);
+    setSelectedRoom(null);
+    setCurrentPage(0);
+  }, []);
+
+  const handleClearPickedCoords = useCallback(() => {
+    setPickedCoords(null);
+    setCurrentPage(0);
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,6 +482,7 @@ export const SearchPage: React.FC = () => {
     filterStore.resetFilter();
     setManualKeyword('');
     setSearchInputDraft('');
+    setPickedCoords(null);
     setSearchParams({});
     setCurrentPage(0);
     setActivePopover(null);
@@ -953,6 +999,10 @@ export const SearchPage: React.FC = () => {
             onLocateUser={handleLocateUser}
             isLocating={isLocating}
             locateTrigger={locateTrigger}
+            pickedCoords={pickedCoords}
+            pickedRadiusKm={PICKED_SCAN_RADIUS_KM}
+            onMapClick={handleMapClick}
+            onClearPickedCoords={handleClearPickedCoords}
           />
         </div>
         </div>

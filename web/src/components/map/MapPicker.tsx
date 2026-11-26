@@ -52,8 +52,10 @@ export const MapPicker: React.FC<MapPickerProps> = ({
       const initialLng = lng || 106.7145;
 
       const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        subdomains: ['0', '1', '2', '3'],
+        attribution: '&copy; Google Maps',
+        maxZoom: 20,
       }).addTo(map);
 
       const customIcon = createInnFinderMarkerIcon();
