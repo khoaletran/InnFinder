@@ -2,6 +2,7 @@ package com.innfinder.backend.controller;
 
 import com.innfinder.backend.dto.request.CategoryUpdateRequest;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
+import com.innfinder.backend.dto.request.CreateAdminRequest;
 import com.innfinder.backend.dto.request.RejectLandlordRequestDTO;
 import com.innfinder.backend.dto.request.RejectRoomRequestDTO;
 import com.innfinder.backend.dto.request.UpdateDepositFeeRequest;
@@ -9,12 +10,14 @@ import com.innfinder.backend.dto.response.*;
 import com.innfinder.backend.dto.room.AmenityResponse;
 import com.innfinder.backend.dto.room.CategoryResponse;
 import com.innfinder.backend.security.SecurityUtils;
+import com.innfinder.backend.service.AdminInsightService;
 import com.innfinder.backend.service.AdminService;
 import com.innfinder.backend.service.ComplaintService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,7 +34,15 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminInsightService adminInsightService;
     private final ComplaintService complaintService;
+
+    @GetMapping("/rooms")
+    @Operation(summary = "Lấy danh sách toàn bộ bài đăng phòng trọ theo tất cả trạng thái")
+    public ResponseEntity<ApiResponse<List<RoomResponseDTO>>> getAllRooms() {
+        List<RoomResponseDTO> result = adminService.getAllRooms();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách toàn bộ phòng trọ thành công"));
+    }
 
     @GetMapping("/rooms/pending")
     @Operation(summary = "Lấy danh sách các bài đăng phòng trọ đang chờ kiểm duyệt")
@@ -82,6 +93,14 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok(result, msg));
     }
 
+    @PostMapping("/admins")
+    @Operation(summary = "Tạo tài khoản Quản trị viên mới (yêu cầu xác thực lại mật khẩu Admin hiện tại)")
+    public ResponseEntity<ApiResponse<UserResponseDTO>> createAdmin(@Valid @RequestBody CreateAdminRequest request) {
+        UserResponseDTO result = adminService.createAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(result, "Tạo tài khoản Quản trị viên mới thành công"));
+    }
+
     @PostMapping("/users/{id}/reset-password")
     @Operation(summary = "Admin đặt lại mật khẩu cho tài khoản người dùng")
     public ResponseEntity<ApiResponse<String>> resetUserPassword(
@@ -111,15 +130,35 @@ public class AdminController {
     }
 
     @GetMapping("/statistics")
-    @Operation(summary = "Thống kê tổng quan số liệu hệ thống & Ngân khố trung tâm")
-    public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics() {
-        AdminStatisticsResponseDTO result = adminService.getStatistics();
+    @Operation(summary = "Thống kê tổng quan số liệu hệ thống & Ngân khố trung tâm (hỗ trợ lọc theo ngày/tháng/năm)")
+    public ResponseEntity<ApiResponse<AdminStatisticsResponseDTO>> getStatistics(
+            @RequestParam(required = false) Integer day,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        AdminStatisticsResponseDTO result = adminService.getStatistics(day, month, year);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thống kê số liệu thành công"));
+    }
+
+    @PostMapping("/statistics/insights")
+    @Operation(summary = "Phân tích biến động biểu đồ doanh thu bằng AI & đề xuất quyết định cho Admin")
+    public ResponseEntity<ApiResponse<AdminRevenueInsightResponseDTO>> generateRevenueInsights(
+            @RequestParam(required = false) Integer day,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        AdminRevenueInsightResponseDTO result = adminInsightService.generateInsights(day, month, year);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Phân tích doanh thu và đề xuất quyết định thành công"));
     }
 
     // ==========================================
     // QUẢN LÝ GIAO DỊCH & DUYỆT RÚT TIỀN (NGÂN KHỐ)
     // ==========================================
+
+    @GetMapping("/appointments")
+    @Operation(summary = "Admin giám sát toàn bộ phiếu đặt lịch xem phòng trên sàn")
+    public ResponseEntity<ApiResponse<List<AdminAppointmentResponseDTO>>> getAllAppointments() {
+        List<AdminAppointmentResponseDTO> result = adminService.getAllAppointments();
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách lịch xem phòng thành công"));
+    }
 
     @GetMapping("/transactions")
     @Operation(summary = "Quản lý giao dịch: mặc định chỉ hiển thị giao dịch chờ xử lý, tra cứu toàn bộ giao dịch khi tìm theo thông tin người dùng")
@@ -137,13 +176,11 @@ public class AdminController {
     }
 
     @PatchMapping("/transactions/{id}/approve")
-    @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền hoặc hoàn cọc (kèm mã tham chiếu ngân hàng)")
-    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(
-            @PathVariable String id,
-            @RequestBody(required = false) Map<String, String> body) {
+    @Operation(summary = "Admin duyệt chuyển tiền cho yêu cầu rút tiền hoặc hoàn cọc")
+    public ResponseEntity<ApiResponse<AdminTransactionResponseDTO>> approveTransaction(@PathVariable String id,
+            @Valid @RequestBody(required = false) com.innfinder.backend.dto.request.BankTransferConfirmationRequest request) {
         String adminUsername = SecurityUtils.getCurrentUsername();
-        String maThamChieu = body != null ? body.get("maThamChieu") : null;
-        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername, maThamChieu);
+        AdminTransactionResponseDTO result = adminService.approveTransaction(id, adminUsername, request == null ? null : request.getMaThamChieuNganHang());
         return ResponseEntity.ok(ApiResponse.ok(result, "Duyệt yêu cầu chuyển tiền thành công"));
     }
 

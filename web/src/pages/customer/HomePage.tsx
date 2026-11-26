@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -9,72 +9,20 @@ import { DepositMechanismSection } from '@/components/room/landing/DepositMechan
 import { FaqSection } from '@/components/room/landing/FaqSection';
 import { FeaturedRoomsSection } from '@/components/room/landing/FeaturedRoomsSection';
 import { HeroSection } from '@/components/room/landing/HeroSection';
-import { TrustMetricsStrip } from '@/components/room/landing/TrustMetricsStrip';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { formatVNDShort } from '@/utils/formatters';
-
-const POPULAR_AREAS = [
-  {
-    id: 'binh-thanh',
-    name: 'Bình Thạnh',
-    keyword: 'Bình Thạnh',
-    defaultCount: 128,
-    defaultMinPrice: '2,5tr',
-    imageUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=600',
-  },
-  {
-    id: 'quan-10',
-    name: 'Quận 10',
-    keyword: 'Quận 10',
-    defaultCount: 94,
-    defaultMinPrice: '3,0tr',
-    imageUrl: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600',
-  },
-  {
-    id: 'thu-duc',
-    name: 'TP. Thủ Đức',
-    keyword: 'Thủ Đức',
-    defaultCount: 156,
-    defaultMinPrice: '2,2tr',
-    imageUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600',
-  },
-  {
-    id: 'go-vap',
-    name: 'Gò Vấp',
-    keyword: 'Gò Vấp',
-    defaultCount: 112,
-    defaultMinPrice: '2,3tr',
-    imageUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
-  },
-  {
-    id: 'quan-5',
-    name: 'Quận 5',
-    keyword: 'Quận 5',
-    defaultCount: 68,
-    defaultMinPrice: '3,2tr',
-    imageUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600',
-  },
-  {
-    id: 'quan-1',
-    name: 'Quận 1',
-    keyword: 'Quận 1',
-    defaultCount: 54,
-    defaultMinPrice: '4,5tr',
-    imageUrl: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600',
-  },
-];
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isChuTro } = useAuthStore();
 
-  const { data: roomsPage } = useQuery({
-    queryKey: ['rooms', 'home-area-stats'],
-    queryFn: () => roomService.searchRooms({ page: 0, size: 16 }),
+  const { data: popularAreas = [], isLoading: areasLoading, isError: areasError, refetch: refetchAreas } = useQuery({
+    queryKey: ['rooms', 'popular-areas'],
+    queryFn: roomService.getPopularAreas,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
   });
-
-  const allRooms = useMemo(() => roomsPage?.content || [], [roomsPage?.content]);
 
   const handleLandlordAction = () => {
     if (isAuthenticated && isChuTro) {
@@ -92,11 +40,9 @@ export const HomePage: React.FC = () => {
     <div className="flex-1 bg-slate-50 flex flex-col">
       {/* 1. Hero Section + Tìm kiếm thường / AI */}
       <HeroSection />
+      <FeaturedRoomsSection />
 
-      {/* 2. Dải cam kết tin cậy */}
-      <TrustMetricsStrip />
-
-      {/* 3. Khu vực phổ biến */}
+      {/* 2. Khu vực phổ biến */}
       <PageContainer width="wide" className="py-10 space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -104,7 +50,7 @@ export const HomePage: React.FC = () => {
               Khu vực phổ biến
             </h2>
             <p className="text-sm text-slate-600 mt-1">
-              Chọn nhanh khu vực tập trung nhiều phòng trống và tiện đi lại
+              Khám phá khu vực có nhiều phòng đang được đăng cho thuê
             </p>
           </div>
           <Link
@@ -116,39 +62,42 @@ export const HomePage: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {POPULAR_AREAS.map((area) => {
-            const matched = allRooms.filter((r) =>
-              r.diaChi?.toLowerCase().includes(area.keyword.toLowerCase()),
-            );
-            const minPrice = matched.reduce(
-              (min, r) => (r.giaThue > 0 && r.giaThue < min ? r.giaThue : min),
-              Infinity,
-            );
-            const roomCountText =
-              matched.length > 0 && minPrice < Infinity
-                ? `${matched.length} phòng · từ ${formatVNDShort(minPrice)}`
-                : `${area.defaultCount} phòng · từ ${area.defaultMinPrice}`;
-
-            return (
+        {areasLoading ? (
+          <div aria-label="Đang tải khu vực phổ biến" aria-busy="true" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="h-44 sm:h-52 rounded-2xl bg-slate-200 animate-pulse" />
+            ))}
+          </div>
+        ) : areasError ? (
+          <div role="alert" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+            <p>Chưa tải được khu vực phổ biến.</p>
+            <button type="button" onClick={() => void refetchAreas()} className="mt-2 font-semibold text-teal-700 hover:underline cursor-pointer">Thử lại</button>
+          </div>
+        ) : popularAreas.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+            Chưa có khu vực đủ thông tin để hiển thị. Bạn có thể xem các phòng đang đăng trên bản đồ.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {popularAreas.map((area) => (
               <PopularAreaCard
-                key={area.id}
-                id={area.id}
+                key={area.keyword}
                 name={area.name}
-                roomCountText={roomCountText}
+                roomCountText={area.roomCount + ' phòng' + (area.minPrice !== null ? ' · từ ' + formatVNDShort(area.minPrice) : '')}
                 keyword={area.keyword}
                 imageUrl={area.imageUrl}
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </PageContainer>
 
-      {/* 4. Phòng mới đăng & Lọc theo Loại phòng */}
-      <FeaturedRoomsSection />
+
 
       {/* 5. Quy trình đặt lịch & Bảo chứng cọc 4 bước */}
-      <DepositMechanismSection />
+      <div id="deposit-mechanism" className="scroll-mt-20">
+        <DepositMechanismSection />
+      </div>
 
       {/* 6. Câu hỏi thường gặp */}
       <FaqSection />

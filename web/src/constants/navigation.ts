@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   Layers,
   MessageSquare,
-  PlusCircle,
   Receipt,
   Search,
   Star,
@@ -49,7 +48,6 @@ export const CUSTOMER_NAV_ITEMS: NavItemConfig[] = [
 export const LANDLORD_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Tổng quan Chủ trọ', path: '/landlord/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Quản lý phòng trọ', path: '/landlord/rooms', icon: Building2 },
-  { label: 'Đăng phòng mới', path: '/landlord/rooms/create', icon: PlusCircle },
   { label: 'Lịch hẹn xem phòng', path: '/landlord/appointments', icon: CalendarCheck },
   { label: 'Ví & Rút tiền', path: '/landlord/wallet', icon: Wallet },
   { label: 'Đánh giá & Khiếu nại', path: '/landlord/reviews', icon: MessageSquare },

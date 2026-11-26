@@ -47,15 +47,16 @@ cloudinary:
 # Cấu hình Google Gemini AI Embedding
 gemini:
   api-key: ${GEMINI_API_KEY:}
-  chat-model: ${GEMINI_CHAT_MODEL:gemini-3.5-flash-lite}
+  chat-model: ${GEMINI_CHAT_MODEL:gemini-3.8-flash}
+  fallback-chat-model: ${GEMINI_FALLBACK_CHAT_MODEL:gemini-3.5-flash-lite}
   index-delay-ms: ${GEMINI_INDEX_DELAY_MS:60000}
-  request-timeout-seconds: ${GEMINI_REQUEST_TIMEOUT_SECONDS:40}
+  request-timeout-seconds: ${GEMINI_REQUEST_TIMEOUT_SECONDS:18}
   embedding-timeout-seconds: ${GEMINI_EMBEDDING_TIMEOUT_SECONDS:8}
 
 # Cấu hình Tra cứu & Cổng đối soát Webhook Casso
 casso:
   enabled: ${CASSO_ENABLED:true}
-  secure-token: ${CASSO_SECURE_TOKEN:HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz}
+  secure-token: ${CASSO_SECURE_TOKEN:}
   app-id: ${CASSO_APP_ID:trial-app_3c1e7aa6dabfbc3b9e51517e}
   app-secret: ${CASSO_APP_SECRET:sec_JNc1O6gF313FJOiG6IfejyTcVkc7G3xI}
 

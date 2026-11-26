@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, LogOut, Shield, ShieldCheck } from 'lucide-react';
+import { ArrowLeftRight, LogOut, Shield } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
@@ -22,15 +22,12 @@ export const LandlordSidebar: React.FC = () => {
         <Link to="/" className="flex flex-col">
           <InnFinderLogo variant="horizontal" size="sm" />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-600 pl-10 -mt-1">
-            Chủ Trọ Portal
+            Kênh Chủ trọ
           </span>
         </Link>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 pb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Menu Quản Lý
-        </div>
         {LANDLORD_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
@@ -72,36 +69,38 @@ export const LandlordSidebar: React.FC = () => {
             className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
           >
             <Shield className="w-3.5 h-3.5 text-teal-400" />
-            Vào Admin Console
+            Trang Quản trị
           </Link>
         )}
 
-        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-          <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center overflow-hidden shrink-0 text-xs">
-            {user?.hinhDaiDien || user?.avatarUrl ? (
-              <img
-                src={user.hinhDaiDien || user.avatarUrl}
-                alt={user.hoVaTen || user.tenDangNhap}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              (user?.hoVaTen || user?.tenDangNhap || 'CT').charAt(0).toUpperCase()
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-900 truncate">
-              {user?.hoVaTen || user?.tenDangNhap || 'Chủ trọ'}
-            </p>
-            <div className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
-              <ShieldCheck className="w-3 h-3" />
-              <span>Đã xác thực CCCD</span>
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+          <Link
+            to="/landlord/profile"
+            title="Xem hồ sơ cá nhân"
+            className="flex items-center gap-3 flex-1 min-w-0 group hover:opacity-85 transition-opacity"
+          >
+            <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold flex items-center justify-center overflow-hidden shrink-0 text-xs">
+              {user?.hinhDaiDien || user?.avatarUrl ? (
+                <img
+                  src={user.hinhDaiDien || user.avatarUrl}
+                  alt={user.hoVaTen || user.tenDangNhap}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                (user?.hoVaTen || user?.tenDangNhap || 'CT').charAt(0).toUpperCase()
+              )}
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors truncate">
+                {user?.hoVaTen || user?.tenDangNhap || 'Chủ trọ'}
+              </p>
+            </div>
+          </Link>
           <button
             type="button"
             title="Đăng xuất"
             onClick={handleLogout}
-            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer shrink-0"
           >
             <LogOut className="w-4 h-4" />
           </button>

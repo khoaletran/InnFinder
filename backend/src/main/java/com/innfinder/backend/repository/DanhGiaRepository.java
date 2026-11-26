@@ -10,4 +10,6 @@ public interface DanhGiaRepository extends JpaRepository<DanhGia, String> {
     List<DanhGia> findByPhongTro_MaPhongTroOrderByNgayDanhGiaDesc(String maPhongTro);
     Optional<DanhGia> findByPhongTro_MaPhongTroAndNguoiDung_MaNguoiDung(String maPhongTro, String maNguoiDung);
     List<DanhGia> findByPhongTro_ChuPhongTro_MaChuTroOrderByNgayDanhGiaDesc(String maChuTro);
+    List<DanhGia> findTop20ByPhongTro_ChuPhongTro_MaChuTroOrderByNgayDanhGiaDesc(String id);
+
 }

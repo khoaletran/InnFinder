@@ -35,6 +35,7 @@ public class RoomDetailResponse {
     private LocalDateTime thoiGianDang;
     private TrangThaiPhongTro trangThai;
     private String diaChi;
+    private boolean tamAn;
     private String kinhDo;
     private String viDo;
     private Long coc;
@@ -95,6 +96,7 @@ public class RoomDetailResponse {
                 .thoiGianDang(entity.getThoiGianDang())
                 .trangThai(entity.getTrangThai())
                 .diaChi(entity.getDiaChi())
+                .tamAn(entity.isTamAn())
                 .kinhDo(entity.getKinhDo())
                 .viDo(entity.getViDo())
                 .coc(entity.getCocPhong()) //ban dau de getCoc(), co the bug

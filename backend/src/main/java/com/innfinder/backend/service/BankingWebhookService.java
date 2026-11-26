@@ -52,8 +52,8 @@ public class BankingWebhookService {
     @Value("${casso.enabled:true}")
     private boolean cassoEnabled = true;
 
-    @Value("${casso.secure-token:HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz}")
-    private String cassoSecureToken = "HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz";
+    @Value("${casso.secure-token:}")
+    private String cassoSecureToken;
 
     // Pattern 1: IFCOC hoặc DL theo sau là 11 số (Ví dụ: IFCOC20261119001 hoặc DL20261119001)
     private static final Pattern PATTERN_PREFIX = Pattern.compile("(?i)(?:IFCOC|DL)\\s*(\\d{11})");
@@ -132,6 +132,7 @@ public class BankingWebhookService {
         gd.setTrangThai(TrangThaiGD.THANH_CONG);
         String timeNow = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
+        gd.setMaThamChieuNganHang(refCode);
         String oldNote = gd.getNoiDung() != null ? gd.getNoiDung() : "";
         gd.setNoiDung(oldNote + " [ĐÃ TỰ ĐỘNG ĐỐI SOÁT SEPAY TIỀN RA lúc " + timeNow + " - Mã SePay: " + refCode + "]");
         giaoDichRepository.save(gd);
@@ -167,11 +168,10 @@ public class BankingWebhookService {
         }
 
         // 2. Kiểm tra token bảo mật (secure-token)
-        if (cassoSecureToken != null && !cassoSecureToken.isBlank() && secureTokenHeader != null) {
-            if (!cassoSecureToken.trim().equals(secureTokenHeader.trim())) {
-                log.warn("[Casso Webhook] Header secure-token không khớp: '{}'. Dự kiến: '{}'", secureTokenHeader, cassoSecureToken);
-                return Map.of("success", false, "message", "Mã bảo mật secure-token không hợp lệ");
-            }
+        if (cassoSecureToken == null || cassoSecureToken.isBlank() || secureTokenHeader == null
+                || !cassoSecureToken.trim().equals(secureTokenHeader.trim())) {
+            log.warn("[Casso Webhook] Mã bảo mật secure-token không hợp lệ hoặc chưa cấu hình");
+            return Map.of("success", false, "message", "Mã bảo mật secure-token không hợp lệ");
         }
 
         List<CassoTransactionItem> transactions = payload != null ? payload.getTransactions() : Collections.emptyList();
@@ -306,6 +306,9 @@ public class BankingWebhookService {
         String displayRef = refCode != null ? refCode : (rawId != null ? rawId : "");
         GiaoDich gdVao = GiaoDich.builder()
                 .maGiaoDich(maGiaoDich)
+                .phieuDatLich(phieu)
+                .cocGoc(phieu.getCoc())
+                .maThamChieuNganHang(displayRef.isBlank() ? null : displayRef)
                 .nguoiDung(phieu.getKhachHang())
                 .soTien(amount)
                 .loaiGiaoDich("COC_XEM_PHONG")
@@ -375,4 +378,3 @@ public class BankingWebhookService {
         return null;
     }
 }
-

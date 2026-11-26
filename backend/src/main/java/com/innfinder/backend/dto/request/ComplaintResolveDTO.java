@@ -21,4 +21,8 @@ public class ComplaintResolveDTO {
 
     @JsonAlias({"ketLuan"})
     private String ketQua;
+
+    private Boolean hoanCoc;
+
+    private String maDatLichHoanCoc;
 }

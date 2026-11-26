@@ -29,10 +29,18 @@ public class PhongTroSpecification {
             List<Predicate> predicates = new ArrayList<>();
             // 1. RÀNG BUỘC BẮT BUỘC: Chỉ lấy phòng ĐÃ DUYỆT cho khách vãng lai
             predicates.add(cb.equal(root.get("trangThai"), TrangThaiPhongTro.DA_DUYET));
+            predicates.add(cb.isFalse(root.get("tamAn")));
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }
             // 2. Lọc theo từ khóa (keyword) không phân biệt hoa thường trong Địa chỉ, Mô tả bài đăng và Loại phòng
+            if (filter.getArea() != null && !filter.getArea().isBlank()) {
+                String suffix = filter.getArea().trim().toLowerCase(java.util.Locale.ROOT);
+                int components = suffix.split(",", -1).length;
+                var addressSuffix = cb.function("substring_index", String.class,
+                        cb.trim(root.get("diaChi")), cb.literal(","), cb.literal(-components));
+                predicates.add(cb.equal(cb.lower(cb.trim(addressSuffix)), suffix));
+            }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
                 String searchPattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
 

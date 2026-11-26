@@ -1,20 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card } from '@heroui/react';
 import {
   Users,
   Building2,
-  AlertTriangle,
   Wallet,
-  RefreshCw,
-  TrendingUp,
   ArrowRight,
-  DollarSign,
-  ShieldCheck,
+  Check,
+  ChevronRight,
+  AlertTriangle,
+  CircleDollarSign,
 } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
+import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { MoneyText } from '@/components/common/MoneyText';
 import { formatVND } from '@/utils/formatters';
 
 export const DashboardPage: React.FC = () => {
@@ -22,6 +23,8 @@ export const DashboardPage: React.FC = () => {
     data: stats,
     isLoading: isLoadingStats,
     isFetching: isFetchingStats,
+    isError: isErrorStats,
+    error: errorStats,
     refetch: refetchStats,
   } = useQuery({
     queryKey: ['admin', 'dashboard-stats'],
@@ -32,6 +35,8 @@ export const DashboardPage: React.FC = () => {
     data: treasury,
     isLoading: isLoadingTreasury,
     isFetching: isFetchingTreasury,
+    isError: isErrorTreasury,
+    error: errorTreasury,
     refetch: refetchTreasury,
   } = useQuery({
     queryKey: ['admin', 'treasury-stats'],
@@ -45,288 +50,181 @@ export const DashboardPage: React.FC = () => {
 
   if (isLoadingStats || isLoadingTreasury) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
-        <Spinner size="lg" />
-        <span className="text-xs font-medium">
-          Đang tải số liệu tổng quan & ngân khố sàn...
-        </span>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-6 w-56 bg-slate-200 rounded-lg" />
+            <div className="h-3.5 w-80 bg-slate-200/80 rounded" />
+          </div>
+          <div className="h-9 w-28 bg-slate-200 rounded-xl" />
+        </div>
+        <div className="h-14 bg-slate-200/70 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="h-28 bg-white rounded-2xl border border-slate-200 p-5" />
+          ))}
+        </div>
+        <div className="h-44 bg-surface rounded-[var(--radius-card)] border border-border" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 h-80 bg-surface rounded-[var(--radius-card)] border border-border" />
+          <div className="lg:col-span-8 h-80 bg-surface rounded-[var(--radius-card)] border border-border" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isErrorStats || isErrorTreasury) {
+    const errMsg =
+      (errorStats instanceof Error && errorStats.message) ||
+      (errorTreasury instanceof Error && errorTreasury.message) ||
+      'Không thể tải số liệu tổng quan và ngân khố sàn.';
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h1 className="text-[1.75rem] font-bold text-text tracking-[-0.02em]">
+            Tổng quan vận hành sàn
+          </h1>
+          <AdminRefreshButton onClick={handleRefresh} isRefreshing={isFetchingStats || isFetchingTreasury} />
+        </div>
+        <AdminErrorState
+          title="Không thể tải dữ liệu bảng điều khiển"
+          message={errMsg}
+          onRetry={handleRefresh}
+        />
       </div>
     );
   }
 
   const isRefreshing = isFetchingStats || isFetchingTreasury;
+  const pending = [
+    { label: 'Tin đăng chờ duyệt', count: stats?.hangDoi.tinMoi ?? 0, to: '/admin/posts' },
+    { label: 'Hồ sơ CCCD chờ duyệt', count: stats?.hangDoi.xacMinhChuTro ?? 0, to: '/admin/users?tab=landlord-requests' },
+    { label: 'Khiếu nại chờ duyệt', count: stats?.hangDoi.baoCaoViPham ?? 0, to: '/admin/complaints' },
+    { label: 'Lệnh rút chờ duyệt', count: treasury?.soLenhRutChoDuyet ?? 0, to: '/admin/transactions?type=withdrawal' },
+  ].filter(({ count }) => count > 0);
 
   return (
-    <div className="space-y-6">
-      {/* Page Title & Refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Tổng quan vận hành sàn</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Dữ liệu đối soát hoa hồng môi giới (`phiThu`), hàng đợi kiểm duyệt và ngân khố trung tâm theo thời gian thực
-          </p>
-        </div>
+    <div className="@container space-y-3.5">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold tracking-[-0.02em] text-text">
+          Tổng quan vận hành sàn
+        </h1>
+        <AdminRefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} label="Làm mới số liệu" />
+      </header>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs disabled:opacity-60 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Làm mới số liệu
-          </button>
-        </div>
-      </div>
-
-      {/* Platform Revenue Governance Banner */}
-      <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 flex items-start gap-2.5 text-xs text-blue-900">
-        <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          <strong>Quy chuẩn Doanh thu Sàn:</strong> Doanh thu của hệ thống chỉ được tính từ tổng phí hoa hồng{' '}
-          <code className="px-1 py-0.5 rounded bg-blue-100 text-blue-800 font-mono text-[11px]">
-            SUM(phiThu)
-          </code>{' '}
-          của các phiếu đặt lịch đã hoàn tất (<code className="font-mono text-[11px]">HOAN_THANH</code>), tuyệt đối không tính từ tổng dòng tiền sổ cái <code className="font-mono text-[11px]">GiaoDich</code>.
-        </p>
-      </div>
-
-      {/* 4 Core KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <Card.Content className="p-0 flex flex-row items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500">Tổng người dùng</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {(stats?.nguoiDung.total ?? 0).toLocaleString('vi-VN')}
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold mt-1">
-                <TrendingUp className="w-3 h-3" />
-                <span>Tài khoản hệ thống</span>
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6" />
-            </div>
-          </Card.Content>
-        </Card>
-
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <Card.Content className="p-0 flex flex-row items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500">Tin đăng phòng trọ</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                {(stats?.soTinDang.total ?? 0).toLocaleString('vi-VN')}
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold mt-1">
-                <TrendingUp className="w-3 h-3" />
-                <span>Tổng tin trên sàn</span>
-              </div>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6" />
-            </div>
-          </Card.Content>
-        </Card>
-
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <Card.Content className="p-0 flex flex-row items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500">Doanh thu hoa hồng sàn</span>
-              <div className="text-2xl font-black text-blue-600 mt-1">
-                {stats?.doanhThu.total || '0 ₫'}
-              </div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                SUM(phiThu) từ lịch HOAN_THANH
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <DollarSign className="w-6 h-6" />
-            </div>
-          </Card.Content>
-        </Card>
-
-        <Card className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <Card.Content className="p-0 flex flex-row items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500">Khiếu nại chờ duyệt</span>
-              <div
-                className={`text-2xl font-black mt-1 ${
-                  stats?.khieuNai.isAlert ? 'text-rose-600' : 'text-slate-900'
-                }`}
-              >
-                {stats?.khieuNai.total ?? 0}
-              </div>
-              <div className="mt-1">
-                {stats?.khieuNai.isAlert ? (
-                  <Chip size="sm" variant="soft" color="danger" className="font-bold">
-                    Cần xử lý ngay
-                  </Chip>
-                ) : (
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    Tất cả đã giải quyết
-                  </span>
-                )}
-              </div>
-            </div>
-            <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                stats?.khieuNai.isAlert
-                  ? 'bg-rose-50 text-rose-600 animate-pulse'
-                  : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-          </Card.Content>
-        </Card>
-      </div>
-
-      {/* CENTRAL TREASURY LEDGER */}
-      <Card className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 rounded-3xl p-6 lg:p-8 text-white shadow-xl border-none relative overflow-hidden">
-        <Card.Header className="p-0 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-wider">
-              <Wallet className="w-4 h-4" />
-              Sổ cái ngân khố trung tâm sàn InnFinder (Đối soát dòng tiền, không phải doanh thu)
-            </div>
-            <Card.Title className="text-xl font-black text-white mt-1">
-              Tổng quỹ hệ thống đang luân chuyển:{' '}
-              <span className="text-emerald-400">{formatVND(treasury?.tongQuyHeThong)}</span>
-            </Card.Title>
-          </div>
-          <Link
-            to="/admin/transactions"
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white flex items-center gap-1.5 self-start sm:self-auto transition-all"
-          >
-            Quản lý dòng tiền
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </Card.Header>
-
-        <Card.Content className="p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Quỹ cọc giữ chân tạm giữ</span>
-            <div className="text-lg font-bold text-amber-300">
-              {formatVND(treasury?.quyTamGiuCoc)}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">Đang chờ khách đi xem phòng thực tế</p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Tổng số dư ví các Chủ trọ</span>
-            <div className="text-lg font-bold text-emerald-300">
-              {formatVND(treasury?.tongSoDuViChuTro)}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">Khả dụng cho các chủ trọ rút về</p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Quỹ yêu cầu rút tiền</span>
-            <div className="text-lg font-bold text-blue-300">
-              {formatVND(treasury?.quyChoRut)}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Đang đợi Admin phê duyệt chuyển khoản
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="text-[11px] text-slate-300 block mb-1">Lệnh rút tiền chờ duyệt</span>
-            <div className="text-lg font-bold text-rose-300">
-              {treasury?.soLenhRutChoDuyet ?? 0} lệnh
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">Cần đối soát tài khoản ngân hàng</p>
-          </div>
-        </Card.Content>
-      </Card>
-
-      {/* Action Queue & PlatformRevenueChart Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <Card.Header className="p-0 pb-4 flex flex-row items-center justify-between">
-              <Card.Title className="text-sm font-bold text-slate-900">
-                Hàng đợi hành động cần xử lý
+      <div className="grid gap-3.5 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className="min-w-0 rounded-xl border border-border border-t-[3px] border-t-tone-teal-base bg-surface p-4 shadow-[var(--shadow-card)]">
+          <Card.Header className="flex flex-wrap items-start justify-between gap-3 p-0">
+            <div className="min-w-0">
+              <Card.Title className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.04em] text-text-muted">
+                <span className="grid size-7 place-items-center rounded-lg bg-tone-teal-soft text-tone-teal-base"><Wallet aria-hidden="true" className="size-3.5" /></span>
+                Ngân khố hệ thống
               </Card.Title>
-              <Chip size="sm" variant="soft" color="warning" className="font-bold">
-                Ưu tiên
-              </Chip>
-            </Card.Header>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="text-xs font-medium text-text-muted">Tổng tiền trong ngân khố</span>
+                <MoneyText
+                  amount={treasury?.tongQuyThucTe}
+                  className="text-2xl sm:text-[1.75rem] leading-[1.1] font-bold tracking-[-0.02em] text-text"
+                  unitClassName="ml-1 text-sm font-medium text-text-muted"
+                />
+              </div>
+            </div>
+            <Link
+              to="/admin/transactions"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-tone-teal-base px-3 text-xs font-semibold text-white transition-colors hover:bg-tone-teal-strong"
+            >
+              Quản lý dòng tiền <ArrowRight aria-hidden="true" className="size-3.5" />
+            </Link>
+          </Card.Header>
 
-            <Card.Content className="p-0 space-y-3">
-              <Link
-                to="/admin/posts"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                    PT
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">Tin đăng phòng mới</h4>
-                    <p className="text-[11px] text-slate-500">Chờ kiểm duyệt hình ảnh & giá</p>
-                  </div>
+          <Card.Content className="p-0">
+            <div className="mt-2.5 flex flex-wrap gap-x-6 gap-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="flex items-center gap-1.5 text-xs text-text-muted"><span className="size-2 rounded-full bg-tone-blue-dot" />Quỹ giữ hộ</span>
+                <MoneyText amount={treasury?.tongQuyHeThong} className="text-base font-semibold text-text" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="flex items-center gap-1.5 text-xs text-text-muted"><span className="size-2 rounded-full bg-tone-teal-dot" />Doanh thu hoa hồng</span>
+                <MoneyText amount={treasury?.tongDoanhThu} className="text-base font-semibold text-tone-teal-base" />
+              </div>
+            </div>
+            <dl className="mt-2.5 grid gap-y-2 border-t border-border pt-2.5 @md:grid-cols-3 @md:divide-x @md:divide-border">
+              {[
+                { label: 'Cọc tạm giữ', amount: treasury?.quyTamGiuCoc, dotClass: 'bg-tone-amber-dot', highlight: false },
+                { label: 'Số dư ví chủ trọ', amount: treasury?.tongSoDuViChuTro, dotClass: 'bg-tone-blue-dot', highlight: false },
+                { label: 'Tiền chờ chi trả', amount: treasury?.quyChoRut, dotClass: (treasury?.quyChoRut ?? 0) > 0 ? 'bg-tone-amber-dot' : 'bg-tone-slate-dot', highlight: (treasury?.quyChoRut ?? 0) > 0 },
+              ].map(({ label, amount, dotClass, highlight }, index) => (
+                <div key={label} className={index === 0 ? '@md:pr-3' : '@md:px-3'}>
+                  <dt className="flex items-center gap-1.5 text-xs text-text-muted"><span className={`size-2 rounded-full ${dotClass}`} />{label}</dt>
+                  <dd className="mt-0.5"><MoneyText amount={amount} className={`text-sm font-semibold ${highlight ? 'text-tone-amber-strong' : 'text-text'}`} /></dd>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-600 text-white">
-                  {stats?.hangDoi.tinMoi ?? 0}
-                </span>
-              </Link>
-
-              <Link
-                to="/admin/users"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                    CT
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">Xác minh CCCD Chủ trọ</h4>
-                    <p className="text-[11px] text-slate-500">Chờ duyệt hồ sơ & số tài khoản</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-600 text-white">
-                  {stats?.hangDoi.xacMinhChuTro ?? 0}
-                </span>
-              </Link>
-
-              <Link
-                to="/admin/complaints"
-                className="p-3.5 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">
-                    KN
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">Báo cáo khiếu nại</h4>
-                    <p className="text-[11px] text-slate-500">Tranh chấp cọc & vi phạm nội quy</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white">
-                  {stats?.hangDoi.baoCaoViPham ?? 0}
-                </span>
-              </Link>
-            </Card.Content>
-          </div>
-
-          <Card.Footer className="p-0 mt-6 pt-4 border-t border-slate-100 justify-center">
-            <span className="text-[11px] text-slate-400">
-              Kiểm duyệt kịp thời giúp duy trì uy tín hệ thống
-            </span>
-          </Card.Footer>
+              ))}
+            </dl>
+          </Card.Content>
         </Card>
 
-        <div className="lg:col-span-8">
-          <PlatformRevenueChart
-            data={stats?.tangTruongGiaoDich || []}
-            title="Tăng trưởng Doanh thu Hoa hồng Sàn (phiThu)"
-            subtitle="Tính độc quyền từ SUM(phiThu) của các PhieuDatLich đạt trạng thái HOAN_THANH (không lấy từ bảng GiaoDich)"
-          />
-        </div>
+        <Card className="min-w-0 rounded-xl border border-border bg-surface p-4">
+          <Card.Header className="p-0">
+            <Card.Title className="text-sm font-semibold text-text">Việc cần xử lý</Card.Title>
+          </Card.Header>
+          <Card.Content className="mt-2 p-0">
+            {pending.length > 0 ? (
+              <ul className="divide-y divide-border">
+                {pending.map(({ label, count, to }) => (
+                  <li key={to}>
+                    <Link
+                      to={to}
+                      className="flex min-h-9 items-center gap-2 rounded-lg px-2 py-1 text-[13px] font-semibold text-text hover:bg-bg"
+                    >
+                      <span className={`size-2 shrink-0 rounded-full ${to === '/admin/complaints' ? 'bg-tone-red-dot' : 'bg-tone-amber-dot'}`} />
+                      <span className="flex-1 truncate">{label}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${to === '/admin/complaints' ? 'bg-tone-red-soft text-tone-red-strong' : 'bg-tone-amber-soft text-tone-amber-strong'}`}>{count}</span>
+                      <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-text-muted" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="flex min-h-24 flex-col items-center justify-center text-center">
+                <span className="grid size-9 place-items-center rounded-full bg-tone-green-soft text-tone-green-base"><Check aria-hidden="true" className="size-4" /></span>
+                <p className="mt-1.5 text-sm font-semibold text-text">Mọi việc đã được xử lý</p>
+                <p className="text-xs text-text-muted">Hiện không có yêu cầu nào đang chờ.</p>
+              </div>
+            )}
+          </Card.Content>
+        </Card>
       </div>
+
+      <dl className="grid gap-3.5 @sm:grid-cols-2 @4xl:grid-cols-4">
+        {[
+          { label: 'Tổng người dùng', value: (stats?.nguoiDung.total ?? 0).toLocaleString('vi-VN'), Icon: Users, iconClass: 'bg-tone-blue-soft text-tone-blue-base', valueClass: 'text-text', borderClass: '' },
+          { label: 'Tin đăng phòng trọ', value: (stats?.soTinDang.total ?? 0).toLocaleString('vi-VN'), Icon: Building2, iconClass: 'bg-tone-teal-soft text-tone-teal-base', valueClass: 'text-text', borderClass: '' },
+          { label: 'Doanh thu hoa hồng', value: formatVND(treasury?.tongDoanhThu), Icon: CircleDollarSign, iconClass: 'bg-tone-green-soft text-tone-green-base', valueClass: 'text-tone-green-strong', borderClass: '' },
+          { label: 'Khiếu nại chờ duyệt', value: String(stats?.khieuNai.total ?? 0), Icon: AlertTriangle, iconClass: (stats?.khieuNai.total ?? 0) > 0 ? 'bg-tone-red-soft text-tone-red-base' : 'bg-tone-slate-soft text-tone-slate-base', valueClass: (stats?.khieuNai.total ?? 0) > 0 ? 'text-tone-red-strong' : 'text-text', borderClass: (stats?.khieuNai.total ?? 0) > 0 ? 'border-l-[3px] border-l-tone-red-base' : '' },
+        ].map(({ label, value, Icon, iconClass, valueClass, borderClass }) => (
+          <div key={label} className={`relative rounded-xl border border-border bg-surface p-3.5 pr-13 transition-all hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${borderClass}`}>
+            <dt className="text-xs font-medium text-text-muted flex items-center gap-1.5">
+              <span>{label}</span>
+              {label === 'Khiếu nại chờ duyệt' && (stats?.khieuNai.total ?? 0) > 0 && (
+                <span className="rounded bg-tone-red-soft px-1.5 py-0.5 text-[10px] font-semibold text-tone-red-strong">Cần xử lý</span>
+              )}
+            </dt>
+            <dd className={`mt-1 text-xl sm:text-2xl leading-[1.1] font-bold tabular-nums ${valueClass}`}>
+              {value}
+            </dd>
+            <span className={`absolute right-3.5 top-3.5 grid size-8 place-items-center rounded-lg ${iconClass}`}>
+              <Icon aria-hidden="true" className="size-4" />
+            </span>
+          </div>
+        ))}
+      </dl>
+
+      <PlatformRevenueChart
+        data={stats?.tangTruongGiaoDich ?? []}
+        title="Tăng trưởng doanh thu hoa hồng sàn"
+        subtitle="Hoa hồng theo tháng từ các giao dịch thuê phòng đã hoàn tất"
+        height={185}
+      />
     </div>
   );
 };

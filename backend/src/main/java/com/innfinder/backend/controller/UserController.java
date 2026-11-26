@@ -58,6 +58,12 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.addBankAccount(request), "Thêm tài khoản ngân hàng thành công"));
     }
 
+    @PatchMapping("/bank-accounts/{id}/default")
+    public ResponseEntity<ApiResponse<Void>> setDefaultBankAccount(@PathVariable Long id) {
+        userService.setDefaultBankAccount(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Đã đặt ngân hàng mặc định"));
+    }
+
     @DeleteMapping("/bank-accounts/{id}")
     @Operation(summary = "Hủy liên kết tài khoản ngân hàng")
     public ResponseEntity<ApiResponse<Void>> deleteBankAccount(@PathVariable("id") Long id) {

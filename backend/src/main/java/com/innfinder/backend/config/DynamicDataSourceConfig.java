@@ -17,6 +17,10 @@ import org.springframework.context.annotation.Primary;
 import javax.sql.DataSource;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
 
 /**
  * Cấu hình DataSource động thông minh (Smart Dynamic Failover):
@@ -63,12 +67,7 @@ public class DynamicDataSourceConfig {
                 log.info("==================================================================");
                 log.info("[InnFinder DB] 🐳 ĐANG CHẠY CHẾ ĐỘ MARIADB DOCKER LOCAL (localhost:3307)");
                 log.info("==================================================================");
-                return buildHikariDataSource(
-                        localUrl,
-                        localUsername,
-                        localPassword,
-                        "InnFinder-LocalDocker-Pool"
-                );
+                return buildLocalDataSource();
             }
             log.warn("[InnFinder DB] ⚠️ Chế độ LOCAL nhưng localhost:3307 chưa mở (Docker chưa chạy). Đang thử fallback sang Cloud DB...");
         }
@@ -92,6 +91,7 @@ public class DynamicDataSourceConfig {
                     log.info("[InnFinder DB] Host: {}:{}", cloudHost, cloudPort);
                     log.info("[InnFinder DB] Trạng thái: Toàn bộ hệ thống đang dùng chung dữ liệu trên Đám mây.");
                     log.info("==================================================================");
+                    ensureRequiredSchemaColumns(conn);
                     return cloudDs;
                 }
             } catch (Exception e) {
@@ -104,12 +104,49 @@ public class DynamicDataSourceConfig {
         log.info("[InnFinder DB] 🐳 TỰ ĐỘNG CHUYỂN SANG MARIADB DOCKER LOCAL (localhost:3307)!");
         log.info("[InnFinder DB] Trạng thái: Hoạt động ở chế độ Offline nội bộ.");
         log.info("==================================================================");
-        return buildHikariDataSource(
+        return buildLocalDataSource();
+    }
+
+    private DataSource buildLocalDataSource() {
+        HikariDataSource localDs = buildHikariDataSource(
                 localUrl,
                 localUsername,
                 localPassword,
                 "InnFinder-LocalDocker-Pool"
         );
+        try (var conn = localDs.getConnection()) {
+            ensureRequiredSchemaColumns(conn);
+        } catch (Exception e) {
+            log.warn("[InnFinder DB] Bỏ qua đồng bộ cột trước khi khởi tạo schema local: {}", e.getMessage());
+        }
+        return localDs;
+    }
+
+    private void ensureRequiredSchemaColumns(Connection conn) {
+        List<String> ddlStatements = List.of(
+                "ALTER TABLE tai_khoan_ngan_hang ADD COLUMN ten_chu_tai_khoan VARCHAR(100) NULL",
+                "ALTER TABLE tai_khoan_ngan_hang ADD COLUMN mac_dinh BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE giao_dich ADD COLUMN ma_dat_lich VARCHAR(50) NULL",
+                "ALTER TABLE giao_dich ADD COLUMN ma_tham_chieu_ngan_hang VARCHAR(100) NULL",
+                "ALTER TABLE giao_dich ADD COLUMN ngan_hang_nhan VARCHAR(100) NULL",
+                "ALTER TABLE giao_dich ADD COLUMN tai_khoan_nhan VARCHAR(50) NULL",
+                "ALTER TABLE giao_dich ADD COLUMN ten_nguoi_nhan VARCHAR(100) NULL",
+                "ALTER TABLE giao_dich ADD COLUMN coc_goc BIGINT NULL",
+                "ALTER TABLE giao_dich ADD COLUMN phi_hoa_hong BIGINT NULL",
+                "ALTER TABLE giao_dich ADD CONSTRAINT fk_giao_dich_dat_lich FOREIGN KEY (ma_dat_lich) REFERENCES phieu_dat_lich(ma_dat_lich)",
+                "ALTER TABLE phong_tro ADD COLUMN tam_an BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE phieu_dat_lich ADD COLUMN thoi_gian_dat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "ALTER TABLE phieu_khieu_nai ADD COLUMN ket_qua TEXT DEFAULT NULL"
+        );
+
+        for (String sql : ddlStatements) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                log.info("[InnFinder DB] Đã bổ sung schema tương thích: {}", sql);
+            } catch (SQLException ignored) {
+                // Cột/ràng buộc đã tồn tại hoặc bảng chưa được Flyway khởi tạo.
+            }
+        }
     }
 
     private boolean checkCloudReachability(String host, int port, int timeoutMs) {

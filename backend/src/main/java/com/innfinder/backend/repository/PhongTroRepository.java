@@ -25,11 +25,16 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 @Repository
 public interface PhongTroRepository extends JpaRepository<PhongTro, String>, JpaSpecificationExecutor<PhongTro> {
+    @EntityGraph(attributePaths = {"hinhAnh"})
+    @Query("SELECT p FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false ORDER BY p.maPhongTro")
+    List<PhongTro> findPublicRoomsForAreaStats();
+
     @Override
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     Page<PhongTro> findAll(Specification<PhongTro> spec, Pageable pageable);
@@ -45,9 +50,21 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     List<PhongTro> findByMaPhongTroIn(List<String> maPhongTroList);
 
+    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    List<PhongTro> findAllByOrderByThoiGianDangDesc();
+
     long countByTrangThai(TrangThaiPhongTro trangThai);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PhongTro p WHERE p.maPhongTro = :maPhongTro")
     Optional<PhongTro> findByIdForUpdate(@Param("maPhongTro") String maPhongTro);
+
+    List<PhongTro> findTop20ByChuPhongTro_MaChuTroOrderByThoiGianDangDesc(String id);
+
+    @Query(value = "SELECT trang_thai FROM phong_tro WHERE ma_phong_tro = :id FOR UPDATE", nativeQuery = true)
+    String findStatusForUpdate(@Param("id") String id);
+
+    @EntityGraph(attributePaths = {"loaiPhong"})
+    @Query("SELECT p FROM PhongTro p")
+    List<PhongTro> findAllWithLoaiPhong();
 }

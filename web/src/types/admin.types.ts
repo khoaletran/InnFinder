@@ -21,8 +21,65 @@ export interface AdminDashboardStats {
   tangTruongGiaoDich: Array<{ thang: string; giaTri: number }>;
 }
 
+export interface AdminRevenuePoint {
+  nhan: string;
+  doanhThu: number;
+  soLichHoanThanh: number;
+}
+
+export interface AdminRoomTypeStat {
+  tenLoaiPhong: string;
+  soLuong: number;
+}
+
+export interface AdminStatisticsFilter {
+  day?: number | null;
+  month?: number | null;
+  year?: number | null;
+}
+
+export interface AdminStatisticsResponse {
+  tongSoPhong: number;
+  soPhongChoDuyet: number;
+  soPhongDaDuyet: number;
+  soPhongHoanThanh: number;
+  soPhongHuy: number;
+  tongNguoiDung: number;
+  soKhachHang: number;
+  soChuTro: number;
+  soChuTroChoDuyet: number;
+  tongDoanhThu: number;
+  soLichHoanThanh: number;
+  tongQuyHeThong: number;
+  tongQuyThucTe: number;
+  quyTamGiuCoc: number;
+  tongSoDuViChuTro: number;
+  quyChoRut: number;
+  soLenhRutChoDuyet: number;
+  bieuDoDoanhThu: AdminRevenuePoint[];
+  coCauLoaiPhong: AdminRoomTypeStat[];
+  cacNamCoDuLieu: number[];
+}
+
+export interface AdminRecommendedAction {
+  tieuDe: string;
+  moTa: string;
+  mucDoUuTien: 'CAO' | 'TRUNG_BINH' | 'THEO_DOI';
+  duongDan?: string;
+}
+
+export interface AdminRevenueInsightResponse {
+  nguonPhanTich: 'AI' | 'RULE_BASED';
+  tongQuan: string;
+  danhGiaDoanhThu: string;
+  danhGiaNganKho: string;
+  danhGiaLoaiPhong: string;
+  deXuatQuyetDinh: AdminRecommendedAction[];
+}
+
 export interface AdminTreasuryStats {
   tongQuyHeThong: number;
+  tongQuyThucTe: number;
   quyTamGiuCoc: number;
   tongSoDuViChuTro: number;
   quyChoRut: number;
@@ -33,7 +90,7 @@ export interface AdminTreasuryStats {
 export interface AdminUserItem {
   maNguoiDung: string;
   tenDangNhap: string;
-  hoVaTen: string;
+  hoVaTen?: string;
   email: string;
   sdt: string;
   cccd?: string;
@@ -78,6 +135,18 @@ export interface AdminPostItem {
   phiHoaHong?: number;
 }
 
+export interface AdminComplaintRelatedAppointment {
+  maDatLich: string;
+  maPhongTro?: string;
+  tenPhongTro: string;
+  ngayHen: string;
+  tienCoc: number;
+  trangThai: TrangThaiDatLich;
+  daNopCoc: boolean;
+  daNhanLaiCoc: boolean;
+  duDieuKienHoanCoc: boolean;
+}
+
 export interface AdminComplaintItem {
   maKhieuNai: string;
   nguoiKhieuNai: string;
@@ -96,6 +165,7 @@ export interface AdminComplaintItem {
     diaChi: string;
   };
   ghiChuXuLy?: string;
+  lichHenLienQuan?: AdminComplaintRelatedAppointment[];
 }
 
 export interface AdminLandlordRequestItem {

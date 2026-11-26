@@ -67,7 +67,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/pay-deposit")
-    @Operation(summary = "Khách hàng nộp tiền cọc giữ chân sau khi Chủ trọ đã xác nhận lịch hẹn")
+    @Operation(summary = "Kiểm tra tiền cọc đã được ngân hàng xác nhận")
     public ApiResponse<String> nopTienCoc(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
         appointmentService.nopTienCoc(maDatLich, username);

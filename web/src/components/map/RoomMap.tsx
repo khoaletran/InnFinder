@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ExternalLink, Locate, Radar } from 'lucide-react';
+import { ExternalLink, Locate, Minus, Plus, Radar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import innFinderPin from '@/assets/innfinder-pin.svg';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
 
@@ -18,6 +19,8 @@ export interface RoomMapProps {
   isLocating?: boolean;
   locateTrigger?: number;
   interactivePreview?: boolean;
+  showRadiusBadge?: boolean;
+  markerStyle?: 'price' | 'brand';
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -33,6 +36,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   isLocating = false,
   locateTrigger = 0,
   interactivePreview = true,
+  showRadiusBadge,
+  markerStyle = 'price',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -49,6 +54,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
     userCoords?.lng || (rooms[0] ? getValidCoords(rooms[0])?.lng : null) || 105.8542,
   ]);
+  const initialZoomRef = useRef<number>(rooms.length === 1 && !userCoords ? 16 : 14);
+  const shouldShowRadiusBadge = showRadiusBadge ?? (Boolean(userCoords) || Boolean(onRadiusChange));
 
   // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
   useEffect(() => {
@@ -56,7 +63,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
     const map = L.map(mapContainerRef.current, {
       center: initialCoordsRef.current,
-      zoom: 14,
+      zoom: initialZoomRef.current,
       zoomControl: false,
     });
 
@@ -65,8 +72,6 @@ export const RoomMap: React.FC<RoomMapProps> = ({
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map);
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
@@ -251,7 +256,12 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       });
 
       const marker = L.marker([coords.lat, coords.lng], {
-        icon: customIcon,
+        icon: markerStyle === 'brand' ? L.icon({
+          iconUrl: innFinderPin,
+          iconSize: [44, 44],
+          iconAnchor: [22, 42],
+        }) : customIcon,
+        alt: markerStyle === 'brand' ? 'Vị trí phòng trên bản đồ' : priceText,
         zIndexOffset: isSelected || isHovered ? 600 : 100,
       });
 
@@ -265,7 +275,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
       markersLayer.addLayer(marker);
     });
-  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom, userLat, userLng, radiusKm]);
+  }, [rooms, selectedRoom, hoveredRoomId, onSelectRoom, onHoverRoom, userLat, userLng, radiusKm, markerStyle]);
 
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
@@ -293,21 +303,23 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Badge bán kính quét tự động thay đổi theo độ mở rộng của bản đồ */}
-      <div className="absolute top-3 left-3 z-10 pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
-          <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
-          <span>
-            Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
-          </span>
-          <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-            Tự động lọt lòng bản đồ
-          </span>
+      {shouldShowRadiusBadge && (
+        <div className="absolute top-3 left-3 z-10 pointer-events-none">
+          <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 text-xs font-semibold text-slate-800">
+            <Radar className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+            <span>
+              Bán kính quét: <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
+            </span>
+            <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+              Tự động lọt lòng bản đồ
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Nút định vị GPS của người dùng */}
-      {onLocateUser && (
-        <div className="absolute top-3 right-3 z-10">
+      {/* Nhóm nút định vị GPS & phóng to / thu nhỏ bản đồ ở góc trên phải */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+        {onLocateUser && (
           <button
             type="button"
             onClick={() => {
@@ -322,12 +334,34 @@ export const RoomMap: React.FC<RoomMapProps> = ({
             }}
             disabled={isLocating}
             title="Định vị vị trí hiện tại của tôi"
+            aria-label="Định vị vị trí hiện tại của tôi"
             className="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-200/90 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Locate className={`w-5 h-5 ${isLocating ? 'animate-spin text-teal-600' : ''}`} />
           </button>
+        )}
+
+        <div className="w-10 rounded-xl bg-white shadow-lg border border-slate-200/90 overflow-hidden divide-y divide-slate-200/80 flex flex-col">
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomIn()}
+            title="Phóng to"
+            aria-label="Phóng to"
+            className="w-10 h-9 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-colors active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => mapInstanceRef.current?.zoomOut()}
+            title="Thu nhỏ"
+            aria-label="Thu nhỏ"
+            className="w-10 h-9 flex items-center justify-center text-slate-700 hover:text-teal-600 hover:bg-slate-50 transition-colors active:scale-95 cursor-pointer"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Thẻ xem trước thông tin phòng trọ đang chọn */}
       {interactivePreview && selectedRoom && (

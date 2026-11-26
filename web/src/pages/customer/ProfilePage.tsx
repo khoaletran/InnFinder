@@ -1,117 +1,92 @@
-﻿import React, { useEffect, useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
+﻿import React, { Suspense, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@heroui/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertCircle,
   ArrowRight,
   Building,
   Camera,
-  CheckCircle2,
+  Check,
+  ChevronRight,
+  Copy,
   CreditCard,
   KeyRound,
   Loader2,
-  Mail,
-  Phone,
-  Plus,
-  Search,
   ShieldCheck,
-  Trash2,
   User,
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { useSearchParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
-import { BankSelect } from '@/components/common/BankSelect';
-import { LinkBankAccountModal } from '@/components/common/LinkBankAccountModal';
-import { EmptyState } from '@/components/common/EmptyState';
-import { PageContainer, PageHeader } from '@/components/common/PageContainer';
-import { SkeletonList } from '@/components/common/SkeletonList';
+import { PageContainer } from '@/components/common/PageContainer';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { VIETNAM_BANKS, getBankByShortName } from '@/constants/banks';
+import { AvatarCropModal } from '@/components/profile/AvatarCropModal';
+import { ProfileErrorBoundary } from '@/components/profile/ProfileErrorBoundary';
+import { UpgradeLandlordModal } from '@/components/profile/UpgradeLandlordModal';
+import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { authUserService } from '@/services/authUser.service';
-import { bankService } from '@/services/bank.service';
 import { uploadService } from '@/services/upload.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { formatDate } from '@/utils/formatters';
-import {
-  changePasswordSchema,
-  profileUpdateSchema,
-  upgradeLandlordSchema,
-} from '@/utils/validators';
+import { validateAvatarFile } from '@/utils/security';
 
-function getBankLogo(bankName?: string): string | null {
-  if (!bankName) return null;
-  const normalized = bankName.trim().toLowerCase();
-  const found = VIETNAM_BANKS.find(
-    (b) =>
-      b.shortName.toLowerCase() === normalized ||
-      b.code.toLowerCase() === normalized ||
-      normalized.includes(b.shortName.toLowerCase()) ||
-      b.fullName.toLowerCase().includes(normalized),
-  );
-  return found?.logoUrl || null;
-}
-
-type ProfileTab = 'info' | 'bank' | 'security';
+const ProfileTabSkeleton: React.FC = () => (
+  <div
+    aria-busy="true"
+    aria-label="Đang tải nội dung mục hồ sơ"
+    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5 animate-pulse"
+  >
+    <div className="space-y-2 pb-4 border-b border-slate-100">
+      <div className="h-5 w-48 bg-slate-200 rounded" />
+      <div className="h-3.5 w-72 bg-slate-100 rounded" />
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="h-11 bg-slate-100 rounded-xl" />
+      <div className="h-11 bg-slate-100 rounded-xl" />
+      <div className="h-11 bg-slate-100 rounded-xl" />
+      <div className="h-11 bg-slate-100 rounded-xl" />
+    </div>
+  </div>
+);
 
 export const ProfilePage: React.FC = () => {
   const { user, setUser } = useAuthStore();
-  const queryClient = useQueryClient();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const metaConfig = useMemo(() => {
+    if (location.pathname.startsWith('/profile/bank')) {
+      return {
+        title: 'Ngân hàng – Hồ sơ cá nhân | InnFinder',
+        description: 'Quản lý tài khoản ngân hàng liên kết trên InnFinder.',
+        noIndex: true,
+        canonicalPath: '/profile/bank',
+      };
+    }
+    if (location.pathname.startsWith('/profile/security')) {
+      return {
+        title: 'Bảo mật – Hồ sơ cá nhân | InnFinder',
+        description: 'Cập nhật mật khẩu và bảo mật tài khoản InnFinder.',
+        noIndex: true,
+        canonicalPath: '/profile/security',
+      };
+    }
+    return {
+      title: 'Hồ sơ cá nhân | InnFinder',
+      description: 'Quản lý thông tin tài khoản, ngân hàng nhận tiền và bảo mật trên InnFinder.',
+      noIndex: true,
+      canonicalPath: '/profile',
+    };
+  }, [location.pathname]);
+
+  useDocumentMeta(metaConfig);
 
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<ProfileTab>(
-    tabParam === 'bank' || tabParam === 'security' ? tabParam : 'info'
-  );
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'bank' || tab === 'security' || tab === 'info') {
-      setActiveTab(tab as ProfileTab);
-    }
-  }, [searchParams]);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [showBankModal, setShowBankModal] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  const [hoVaTenDraft, setHoVaTen] = useState<string | null>(null);
-  const [emailDraft, setEmail] = useState<string | null>(null);
-  const [sdtDraft, setSdt] = useState<string | null>(null);
-
-  const hoVaTen = hoVaTenDraft ?? user?.hoVaTen ?? '';
-  const email = emailDraft ?? user?.email ?? '';
-  const sdt = sdtDraft ?? user?.sdt ?? '';
-
-  const isUpgradeModalOpen =
-    showUpgradeModal || (searchParams.get('tab') === 'upgrade' && !user?.chuTro);
-
-  const closeUpgradeModal = () => {
-    setShowUpgradeModal(false);
-    if (searchParams.get('tab') === 'upgrade') {
-      setSearchParams({}, { replace: true });
-    }
-  };
-
-  const [upgradeCccd, setUpgradeCccd] = useState('');
-  const [upgradeFrontUrl, setUpgradeFrontUrl] = useState('');
-  const [upgradeBackUrl, setUpgradeBackUrl] = useState('');
-  const [upgradeBank, setUpgradeBank] = useState('Vietcombank');
-  const [upgradeAccNum, setUpgradeAccNum] = useState('');
-  const [upgradeAccHolder, setUpgradeAccHolder] = useState('');
-  const [isCheckingUpgradeBank, setIsCheckingUpgradeBank] = useState(false);
-  const [isUpgradeBankVerified, setIsUpgradeBankVerified] = useState(false);
-
-  const {
-    data: bankAccounts = [],
-    isLoading: isLoadingBanks,
-    error: banksError,
-    refetch: refetchBanks,
-  } = useQuery({
-    queryKey: ['users', 'bank-accounts'],
-    queryFn: authUserService.getMyBankAccounts,
-  });
 
   const { data: landlordRequest } = useQuery({
     queryKey: ['users', 'my-landlord-request'],
@@ -119,79 +94,49 @@ export const ProfilePage: React.FC = () => {
     enabled: !user?.chuTro,
   });
 
-  const {
-    register: registerPwd,
-    handleSubmit: handleSubmitPwd,
-    reset: resetPwd,
-    formState: { errors: pwdErrors, isSubmitting: isSubmittingPwd },
-  } = useForm({
-    resolver: zodResolver(changePasswordSchema),
-  });
+  if (tabParam === 'bank') {
+    return <Navigate to="/profile/bank" replace />;
+  }
+  if (tabParam === 'security') {
+    return <Navigate to="/profile/security" replace />;
+  }
 
-  const updateProfileMutation = useMutation({
-    mutationFn: authUserService.updateProfile,
-    onSuccess: (updated) => {
-      setUser(updated);
-      setHoVaTen(null);
-      setEmail(null);
-      setSdt(null);
-      toast.success('Đã lưu thông tin hồ sơ thành công!');
-    },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi cập nhật thông tin');
-    },
-  });
+  const isUpgradeModalOpen =
+    showUpgradeModal || (tabParam === 'upgrade' && !user?.chuTro);
 
-  const addBankMutation = useMutation({
-    mutationFn: authUserService.addBankAccount,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'bank-accounts'] });
-      toast.success('Liên kết tài khoản ngân hàng thành công!');
-      setShowBankModal(false);
-    },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi liên kết ngân hàng');
-    },
-  });
+  const closeUpgradeModal = () => {
+    setShowUpgradeModal(false);
+    if (tabParam === 'upgrade') {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
-  const deleteBankMutation = useMutation({
-    mutationFn: authUserService.deleteBankAccount,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'bank-accounts'] });
-      toast.success('Đã hủy liên kết ngân hàng');
-    },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Không thể xóa ngân hàng');
-    },
-  });
-
-  const upgradeMutation = useMutation({
-    mutationFn: authUserService.upgradeToLandlord,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', 'my-landlord-request'] });
-      toast.success('Đã gửi hồ sơ đăng ký Chủ trọ! Quản trị viên sẽ kiểm duyệt trong 24h.');
-      closeUpgradeModal();
-    },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi gửi yêu cầu nâng cấp');
-    },
-  });
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
+    const validationError = await validateAvatarFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setCropFile(file);
+  };
+
+  const handleConfirmAvatarCrop = async (croppedFile: File) => {
     try {
       setIsUploadingAvatar(true);
-      const url = await uploadService.uploadImage(file, 'avatars');
+      const url = await uploadService.uploadImage(croppedFile, 'avatars');
       const updated = await authUserService.updateProfile({
         hoVaTen: user?.hoVaTen,
         hinhDaiDien: url,
         avatarUrl: url,
-        email: user?.email || email,
-        sdt: user?.sdt || sdt,
+        email: user?.email || '',
+        sdt: user?.sdt || '',
       });
       setUser(updated);
+      setCropFile(null);
       toast.success('Cập nhật ảnh đại diện thành công!');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Lỗi cập nhật ảnh đại diện');
@@ -200,447 +145,182 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsed = profileUpdateSchema.safeParse({
-      hoVaTen: hoVaTen.trim(),
-      email: email.trim(),
-      sdt: sdt.trim(),
-    });
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message || 'Thông tin hồ sơ không hợp lệ');
-      return;
-    }
-    updateProfileMutation.mutate({
-      ...parsed.data,
-      hinhDaiDien: user?.hinhDaiDien,
-    });
-  };
-
-  const onSubmitChangePassword = async (data: {
-    matKhauCu: string;
-    matKhauMoi: string;
-    xacNhanMatKhauMoi: string;
-  }) => {
+  const handleCopyUserId = async () => {
+    if (!user?.maNguoiDung) return;
     try {
-      await authUserService.changePassword(data);
-      toast.success('Đổi mật khẩu thành công!');
-      resetPwd();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Đổi mật khẩu thất bại');
+      await navigator.clipboard.writeText(user.maNguoiDung);
+      setCopiedId(true);
+      toast.success('Đã sao chép mã định danh!');
+      window.setTimeout(() => setCopiedId(false), 2000);
+    } catch {
+      toast.error('Không thể sao chép vào bộ nhớ tạm');
     }
   };
 
-  const handleLookupUpgradeBank = async () => {
-    if (!upgradeAccNum || upgradeAccNum.length < 6) {
-      toast.error('Vui lòng nhập số tài khoản từ 6 đến 20 số');
-      return;
-    }
-    const selectedBank = getBankByShortName(upgradeBank);
-    if (!selectedBank?.bin) {
-      toast.error('Không tìm thấy mã định danh cho ngân hàng đã chọn');
-      return;
-    }
-    try {
-      setIsCheckingUpgradeBank(true);
-      const res = await bankService.lookupAccount({
-        bin: selectedBank.bin,
-        soTaiKhoan: upgradeAccNum.trim(),
-      });
-      if (res.hopLe) {
-        setUpgradeAccHolder(res.tenChuTaiKhoan);
-        setIsUpgradeBankVerified(true);
-        toast.success(`Xác thực Napas thành công: ${res.tenChuTaiKhoan}`);
-      } else {
-        setIsUpgradeBankVerified(false);
-        toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
-      }
-    } catch (err: unknown) {
-      setIsUpgradeBankVerified(false);
-      toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
-    } finally {
-      setIsCheckingUpgradeBank(false);
-    }
-  };
-
-  const handleUpgradeToLandlord = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    let finalAccHolder = upgradeAccHolder.trim().toUpperCase();
-    if (!isUpgradeBankVerified || !finalAccHolder) {
-      const selectedBank = getBankByShortName(upgradeBank);
-      if (!selectedBank?.bin) {
-        toast.error('Không tìm thấy thông tin ngân hàng');
-        return;
-      }
-      try {
-        setIsCheckingUpgradeBank(true);
-        const res = await bankService.lookupAccount({
-          bin: selectedBank.bin,
-          soTaiKhoan: upgradeAccNum.trim(),
-        });
-        if (!res.hopLe) {
-          toast.error(res.thongBao || 'Số tài khoản không tồn tại tại ngân hàng đã chọn');
-          return;
-        }
-        finalAccHolder = res.tenChuTaiKhoan;
-        setUpgradeAccHolder(res.tenChuTaiKhoan);
-        setIsUpgradeBankVerified(true);
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : 'Lỗi tra cứu tài khoản');
-        return;
-      } finally {
-        setIsCheckingUpgradeBank(false);
-      }
-    }
-
-    const parsed = upgradeLandlordSchema.safeParse({
-      cccd: upgradeCccd.trim(),
-      anhCccdTruoc: upgradeFrontUrl,
-      anhCccdSau: upgradeBackUrl,
-      tenNganHang: upgradeBank.trim(),
-      soTaiKhoan: upgradeAccNum.trim(),
-      tenChuTaiKhoan: finalAccHolder,
-    });
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message || 'Hồ sơ nâng cấp chưa hợp lệ');
-      return;
-    }
-    upgradeMutation.mutate(parsed.data);
-  };
-
+  const displayName = user?.hoVaTen || user?.tenDangNhap || 'Thành viên';
+  const avatarSrc = user?.hinhDaiDien || user?.avatarUrl;
   const requestStatus = landlordRequest?.trangThai as string | undefined;
+
+  const navTabs = [
+    { to: '/profile', label: 'Thông tin', icon: User, end: true },
+    { to: '/profile/bank', label: 'Ngân hàng', icon: CreditCard, end: false },
+    { to: '/profile/security', label: 'Bảo mật', icon: KeyRound, end: false },
+  ];
 
   return (
     <PageContainer width="narrow" className="space-y-6">
-      <PageHeader
-        title="Hồ sơ cá nhân"
-        subtitle="Quản lý thông tin tài khoản, ngân hàng nhận tiền và bảo mật"
-      />
+      {/* Breadcrumb */}
+      <nav aria-label="Đường dẫn" className="text-xs text-slate-600">
+        <ol className="flex flex-wrap items-center gap-1.5">
+          <li>
+            <Link
+              to="/"
+              className="hover:text-teal-700 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded px-1 py-0.5"
+            >
+              Trang chủ
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          </li>
+          <li>
+            <span className="text-slate-500">Tài khoản</span>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          </li>
+          <li aria-current="page" className="font-semibold text-slate-900">
+            Hồ sơ cá nhân
+          </li>
+        </ol>
+      </nav>
 
-      {/* Tabs: Thông tin | Ngân hàng | Bảo mật */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto no-scrollbar">
-        {[
-          { key: 'info' as const, label: 'Thông tin', icon: User },
-          { key: 'bank' as const, label: 'Ngân hàng', icon: CreditCard },
-          { key: 'security' as const, label: 'Bảo mật', icon: KeyRound },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.key;
-          return (
+      {/* Single H1 */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Hồ sơ cá nhân
+        </h1>
+        <p className="text-sm text-slate-600 mt-1">
+          Quản lý thông tin tài khoản, ngân hàng nhận tiền và bảo mật
+        </p>
+      </div>
+
+      {/* Profile Header Card */}
+      <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+          <div className="relative shrink-0">
+            <div className="w-24 h-24 rounded-full bg-teal-100 border-2 border-white shadow-xs text-teal-800 font-bold flex items-center justify-center text-2xl overflow-hidden">
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={`Ảnh đại diện của ${displayName}`}
+                  width={96}
+                  height={96}
+                  className="w-24 h-24 object-cover"
+                />
+              ) : (
+                <span aria-hidden="true">{displayName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+
             <button
-              key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold transition-colors cursor-pointer shrink-0 ${
-                active
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-              }`}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              aria-label="Đổi ảnh đại diện"
+              className="absolute -bottom-1 -right-1 min-h-[44px] min-w-[44px] p-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full shadow-sm cursor-pointer transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-600 disabled:opacity-60"
+            >
+              {isUploadingAvatar ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => void handleSelectAvatarFile(e)}
+              disabled={isUploadingAvatar}
+              className="hidden"
+            />
+          </div>
+
+          <div className="flex-1 text-center sm:text-left space-y-2 min-w-0">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <h2 className="text-lg font-bold text-slate-900 truncate">{displayName}</h2>
+              {user?.chuTro ? (
+                <StatusBadge label="Chủ trọ đã xác thực" tone="success" />
+              ) : (
+                <StatusBadge
+                  label={user?.vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : 'Khách thuê'}
+                  tone="info"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-slate-600">
+              <span>Mã định danh:</span>
+              <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200/80 pl-2.5 pr-1 py-0.5 rounded-lg">
+                <span className="font-mono font-semibold text-slate-800">{user?.maNguoiDung}</span>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyUserId()}
+                  aria-label="Sao chép mã định danh"
+                  className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md text-slate-600 hover:text-teal-700 hover:bg-white transition-colors cursor-pointer"
+                >
+                  {copiedId ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </span>
+              <span aria-hidden="true" className="text-slate-300">
+                •
+              </span>
+              <span>Ngày tham gia: {formatDate(user?.thoiGianMoTaiKhoan)}</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* URL-backed Navigation Tabs */}
+      <nav
+        aria-label="Danh mục hồ sơ"
+        className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto no-scrollbar"
+      >
+        {navTabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <NavLink
+              key={tab.to}
+              to={tab.to}
+              end={tab.end}
+              className={({ isActive }) =>
+                `inline-flex items-center gap-2 min-h-[44px] px-4 rounded-xl text-sm font-semibold transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                  isActive
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                }`
+              }
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
-            </button>
+            </NavLink>
           );
         })}
-      </div>
+      </nav>
 
-      {/* TAB 1: THÔNG TIN */}
-      {activeTab === 'info' && (
-        <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 pb-6 border-b border-slate-100">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-teal-100 border-2 border-white shadow-xs text-teal-800 font-bold flex items-center justify-center text-2xl overflow-hidden">
-                {user?.hinhDaiDien || user?.avatarUrl ? (
-                  <img
-                    src={user.hinhDaiDien || user.avatarUrl}
-                    alt={user.hoVaTen || 'Avatar'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  (user?.hoVaTen || user?.tenDangNhap || 'U').charAt(0).toUpperCase()
-                )}
-              </div>
-              <label className="absolute bottom-0 right-0 p-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full shadow-xs cursor-pointer transition-colors">
-                {isUploadingAvatar ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  disabled={isUploadingAvatar}
-                  className="hidden"
-                />
-              </label>
-            </div>
+      {/* Active Tab Content (Lazy-loaded Bank & Security tabs with Skeleton + ErrorBoundary) */}
+      <ProfileErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={<ProfileTabSkeleton />}>
+          <Outlet />
+        </Suspense>
+      </ProfileErrorBoundary>
 
-            <div className="flex-1 text-center sm:text-left space-y-1.5">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h2 className="text-lg font-bold text-slate-900">
-                  {user?.hoVaTen || user?.tenDangNhap}
-                </h2>
-                {user?.chuTro ? (
-                  <StatusBadge label="Chủ trọ đã xác thực" tone="success" />
-                ) : (
-                  <StatusBadge
-                    label={user?.vaiTro === 'QUAN_TRI' ? 'Quản trị viên' : 'Khách thuê'}
-                    tone="info"
-                  />
-                )}
-              </div>
-
-              <p className="text-xs text-slate-600">
-                Mã định danh:{' '}
-                <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-800">
-                  {user?.maNguoiDung}
-                </code>
-                <span className="mx-2">·</span>
-                Ngày tham gia: {formatDate(user?.thoiGianMoTaiKhoan)}
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSaveProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Họ và tên
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={hoVaTen}
-                  onChange={(e) => setHoVaTen(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Số điện thoại
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="tel"
-                  value={sdt}
-                  onChange={(e) => setSdt(e.target.value)}
-                  maxLength={12}
-                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Căn cước công dân (CCCD)
-              </label>
-              <div className="relative">
-                <CreditCard className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  disabled
-                  value={user?.cccd || 'Chưa cập nhật'}
-                  className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-600"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-2 flex justify-end pt-2">
-              <AppButton
-                type="submit"
-                variant="primary"
-                size="md"
-                isLoading={updateProfileMutation.isPending}
-              >
-                Lưu thay đổi
-              </AppButton>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* TAB 2: NGÂN HÀNG */}
-      {activeTab === 'bank' && (
-        <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Tài khoản ngân hàng liên kết</h2>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Dùng để nhận hoàn tiền hoặc rút số dư ví về tài khoản cá nhân
-              </p>
-            </div>
-            <AppButton variant="primary" size="md" onClick={() => setShowBankModal(true)}>
-              <Plus className="w-4 h-4" />
-              <span>Thêm tài khoản</span>
-            </AppButton>
-          </div>
-
-          {banksError ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                <span>Không thể tải danh sách tài khoản ngân hàng</span>
-              </div>
-              <AppButton variant="secondary" size="sm" onClick={() => void refetchBanks()}>
-                Thử lại
-              </AppButton>
-            </div>
-          ) : isLoadingBanks ? (
-            <SkeletonList variant="rows" count={2} />
-          ) : bankAccounts.length > 0 ? (
-            <div className="space-y-3">
-              {bankAccounts.map((b, idx) => {
-                const logoUrl = getBankLogo(b.tenNganHang);
-                return (
-                  <div
-                    key={b.id || idx}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-4 hover:border-slate-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                        {logoUrl ? (
-                          <img
-                            src={logoUrl}
-                            alt={b.tenNganHang}
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-lg bg-teal-50 flex items-center justify-center">
-                            <span className="text-xs font-bold text-teal-800">
-                              {(b.tenNganHang || 'NH').substring(0, 3).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-slate-900">{b.tenNganHang}</h3>
-                        <p className="text-sm text-slate-700 font-mono tracking-wider">
-                          {b.soTaiKhoan}
-                        </p>
-                        {b.tenChuTaiKhoan && (
-                          <p className="text-xs text-slate-600 uppercase">{b.tenChuTaiKhoan}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge label="Đã liên kết" tone="success" />
-                      {b.id && (
-                        <button
-                          type="button"
-                          onClick={() => deleteBankMutation.mutate(b.id!)}
-                          className="p-2 text-slate-500 hover:text-red-700 rounded-xl hover:bg-red-50 cursor-pointer"
-                          title="Hủy liên kết"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              title="Chưa liên kết tài khoản ngân hàng"
-              description="Thêm tài khoản ngân hàng chính chủ để nhận hoàn cọc hoặc rút tiền nhanh chóng."
-              icon={<CreditCard className="w-6 h-6" />}
-              action={
-                <AppButton variant="primary" size="md" onClick={() => setShowBankModal(true)}>
-                  Liên kết ngân hàng ngay
-                </AppButton>
-              }
-            />
-          )}
-        </Card>
-      )}
-
-      {/* TAB 3: BẢO MẬT */}
-      {activeTab === 'security' && (
-        <Card className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Đổi mật khẩu</h2>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Mật khẩu mới cần tối thiểu 8 ký tự để bảo vệ tài khoản của bạn
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmitPwd(onSubmitChangePassword)} className="space-y-4 max-w-md">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mật khẩu hiện tại
-              </label>
-              <input
-                type="password"
-                placeholder="Nhập mật khẩu hiện tại"
-                {...registerPwd('matKhauCu')}
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-              />
-              {pwdErrors.matKhauCu && (
-                <p className="text-xs text-red-700 mt-1">{pwdErrors.matKhauCu.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mật khẩu mới
-              </label>
-              <input
-                type="password"
-                placeholder="Tối thiểu 8 ký tự"
-                {...registerPwd('matKhauMoi')}
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-              />
-              {pwdErrors.matKhauMoi && (
-                <p className="text-xs text-red-700 mt-1">{pwdErrors.matKhauMoi.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Xác nhận mật khẩu mới
-              </label>
-              <input
-                type="password"
-                placeholder="Nhập lại mật khẩu mới"
-                {...registerPwd('xacNhanMatKhauMoi')}
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-teal-600"
-              />
-              {pwdErrors.xacNhanMatKhauMoi && (
-                <p className="text-xs text-red-700 mt-1">
-                  {pwdErrors.xacNhanMatKhauMoi.message}
-                </p>
-              )}
-            </div>
-
-            <div className="pt-2">
-              <AppButton type="submit" variant="primary" size="md" isLoading={isSubmittingPwd}>
-                Cập nhật mật khẩu
-              </AppButton>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* BANNER MỜI GỌI NÂNG CẤP CHỦ TRỌ Ở CUỐI TRANG */}
-      {!user?.chuTro && (
+      {/* Landlord Portal CTA Card */}
+      {!user?.chuTro ? (
         <div className="bg-teal-50 rounded-2xl border border-teal-200 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
@@ -648,9 +328,9 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900">
                   Bạn có phòng trọ cần cho thuê?
-                </h3>
+                </h2>
                 {requestStatus === 'CHO_DUYET' && (
                   <StatusBadge label="Hồ sơ đang chờ duyệt" tone="warning" />
                 )}
@@ -669,193 +349,45 @@ export const ProfilePage: React.FC = () => {
               variant="primary"
               size="md"
               onClick={() => setShowUpgradeModal(true)}
-              className="shrink-0"
+              className="shrink-0 min-h-[44px]"
             >
               <span>Nâng cấp lên Chủ trọ</span>
               <ArrowRight className="w-4 h-4" />
             </AppButton>
           )}
         </div>
-      )}
-
-      {user?.chuTro && (
-        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 flex items-center gap-3 text-sm text-emerald-900">
-          <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
-          <span>
-            Tài khoản của bạn đã kích hoạt vai trò <strong>Chủ trọ</strong>. Bạn có thể chuyển sang Cổng Chủ trọ từ menu avatar ở thanh điều hướng trên cùng.
-          </span>
-        </div>
-      )}
-
-      {/* MODAL THÊM NGÂN HÀNG (Dùng chung LinkBankAccountModal tích hợp Napas) */}
-      <LinkBankAccountModal
-        isOpen={showBankModal}
-        onClose={() => setShowBankModal(false)}
-        isSubmitting={addBankMutation.isPending}
-        defaultBankName="Vietcombank"
-        onSubmit={async (payload) => {
-          await addBankMutation.mutateAsync(payload);
-        }}
-      />
-
-      {/* MODAL NÂNG CẤP CHỦ TRỌ */}
-      {isUpgradeModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+      ) : (
+        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm text-emerald-950">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Đăng ký nâng cấp vai trò Chủ trọ
-              </h3>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Cung cấp CCCD 12 số, ảnh 2 mặt và tài khoản ngân hàng nhận thanh toán
+              <h2 className="font-bold text-emerald-950">Tài khoản Chủ trọ đã kích hoạt</h2>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Quản lý bài đăng phòng trọ, lịch hẹn xem phòng và rút tiền ví tại Cổng Chủ trọ.
               </p>
             </div>
-
-            <form onSubmit={handleUpgradeToLandlord} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Số CCCD (12 chữ số) *
-                </label>
-                <input
-                  type="text"
-                  maxLength={12}
-                  placeholder="VD: 079203001234"
-                  value={upgradeCccd}
-                  onChange={(e) => setUpgradeCccd(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ảnh mặt trước CCCD *
-                  </label>
-                  <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer bg-slate-50 text-center p-2 hover:border-teal-500 transition-colors">
-                    {upgradeFrontUrl ? (
-                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> Đã tải lên
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-600">Tải ảnh mặt trước</span>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          const url = await uploadService.uploadImage(f, 'cccd');
-                          setUpgradeFrontUrl(url);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Ảnh mặt sau CCCD *
-                  </label>
-                  <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer bg-slate-50 text-center p-2 hover:border-teal-500 transition-colors">
-                    {upgradeBackUrl ? (
-                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> Đã tải lên
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-600">Tải ảnh mặt sau</span>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          const url = await uploadService.uploadImage(f, 'cccd');
-                          setUpgradeBackUrl(url);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <BankSelect
-                label="Ngân hàng nhận thanh toán"
-                required
-                value={upgradeBank}
-                onChange={(shortName) => {
-                  setUpgradeBank(shortName);
-                  setIsUpgradeBankVerified(false);
-                }}
-              />
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Số tài khoản (6–20 số) *
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    maxLength={20}
-                    placeholder="Số tài khoản"
-                    value={upgradeAccNum}
-                    onChange={(e) => {
-                      setUpgradeAccNum(e.target.value.replace(/\D/g, ''));
-                      setIsUpgradeBankVerified(false);
-                    }}
-                    className="flex-1 h-10 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600"
-                  />
-                  <AppButton
-                    type="button"
-                    variant="secondary"
-                    size="md"
-                    onClick={handleLookupUpgradeBank}
-                    disabled={isCheckingUpgradeBank || upgradeAccNum.length < 6}
-                    isLoading={isCheckingUpgradeBank}
-                  >
-                    <Search className="w-3.5 h-3.5 mr-1" />
-                    Kiểm tra
-                  </AppButton>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Chủ tài khoản (Hệ thống tự điền) *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Tên chủ tài khoản sẽ tự động hiển thị"
-                  value={upgradeAccHolder}
-                  readOnly={isUpgradeBankVerified}
-                  onChange={(e) => setUpgradeAccHolder(e.target.value)}
-                  className={`w-full h-10 px-3 rounded-xl border border-slate-200 text-sm uppercase font-semibold text-slate-900 focus:outline-none focus:border-teal-600 ${
-                    isUpgradeBankVerified ? 'bg-slate-100 text-slate-700 cursor-not-allowed' : ''
-                  }`}
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <AppButton variant="secondary" size="md" fullWidth onClick={closeUpgradeModal}>
-                  Hủy
-                </AppButton>
-                <AppButton
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  fullWidth
-                  isLoading={upgradeMutation.isPending}
-                >
-                  Nộp hồ sơ
-                </AppButton>
-              </div>
-            </form>
           </div>
+
+          <Link
+            to="/landlord/dashboard"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          >
+            <span>Chuyển sang Cổng Chủ trọ</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       )}
+
+      <AvatarCropModal
+        file={cropFile}
+        isUploading={isUploadingAvatar}
+        onClose={() => setCropFile(null)}
+        onConfirm={(croppedFile) => void handleConfirmAvatarCrop(croppedFile)}
+      />
+
+      <UpgradeLandlordModal isOpen={isUpgradeModalOpen} onClose={closeUpgradeModal} />
     </PageContainer>
   );
 };

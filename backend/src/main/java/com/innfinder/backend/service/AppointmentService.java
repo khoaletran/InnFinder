@@ -105,7 +105,7 @@ public class AppointmentService {
         PhongTro phongTro = phongTroRepository.findByIdForUpdate(request.getMaPhongTro())
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
 
-        if (phongTro.getTrangThai() != TrangThaiPhongTro.DA_DUYET) {
+        if (phongTro.getTrangThai() != TrangThaiPhongTro.DA_DUYET || phongTro.isTamAn()) {
             throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
@@ -199,21 +199,9 @@ public class AppointmentService {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
 
-        // 3. Tránh nộp cọc trùng lặp
-        boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
-        if (daNop) {
-            return;
-        }
-
-        // 4. Ghi nhận giao dịch cọc giữ chân vào sổ cái GiaoDich
-        if (phieu.getCoc() > 0) {
-            transactionService.taoGiaoDich(
-                    khachHang,
-                    phieu.getCoc(),
-                    "COC_XEM_PHONG",
-                    "Tạm giữ cọc xem phòng " + phieu.getPhongTro().getMaPhongTro() + " (Mã lịch: " + maDatLich + ")",
-                    TrangThaiGD.THANH_CONG
-            );
+        // Chỉ webhook ngân hàng được ghi nhận tiền cọc vào sổ cái.
+        if (phieu.getCoc() > 0 && !daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich)) {
+            throw new AppException(ErrorCode.DEPOSIT_NOT_PAID_YET);
         }
     }
 
@@ -424,7 +412,7 @@ public class AppointmentService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public boolean xacNhanLichHen(String maDatLich, String username) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
@@ -471,7 +459,7 @@ public class AppointmentService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public void tuChoiLichHen(String maDatLich, String username, AppointmentCancelRequest request) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
@@ -572,7 +560,7 @@ public class AppointmentService {
     @Transactional
     @CacheEvict(value = "admin_statistics", allEntries = true)
     public AppointmentResponse chuTroDuaRaQuyetDinh(String maDatLich, String username, AppointmentDecisionRequest request) {
-        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, true);
+        PhieuDatLich phieu = getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username);
 
         if (phieu.getTrangThai() != TrangThaiDatLich.XAC_NHAN) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
@@ -628,13 +616,13 @@ public class AppointmentService {
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + coc);
                 chuTroRepository.save(chuTroLocked);
 
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         coc,
                         "HOAN_COC",
                         "Hoàn 100% cọc thế chân xem phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
                                 " (Không thuê sau khi xem thực tế)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
             return;
@@ -660,13 +648,13 @@ public class AppointmentService {
                     chuTroLocked.setSoDu(chuTroLocked.getSoDu() + coc);
                     chuTroRepository.save(chuTroLocked);
 
-                    transactionService.taoGiaoDich(
+                    transactionService.taoGiaoDichLichHen(
                             chuTroLocked.getNguoiDung(),
                             coc,
                             "HOAN_COC",
                             "Hoàn 100% cọc thế chân do phòng " + (phongTro != null ? phongTro.getMaPhongTro() : "") +
                                     " đã được khách khác chốt trước",
-                            TrangThaiGD.THANH_CONG
+                            TrangThaiGD.THANH_CONG, phieu
                     );
                 }
                 return;
@@ -697,12 +685,12 @@ public class AppointmentService {
                         chuTroLocked.setSoDu(chuTroLocked.getSoDu() + other.getCoc());
                         chuTroRepository.save(chuTroLocked);
 
-                        transactionService.taoGiaoDich(
+                        transactionService.taoGiaoDichLichHen(
                                 chuTroLocked.getNguoiDung(),
                                 other.getCoc(),
                                 "HOAN_COC",
                                 "Hoàn 100% cọc thế chân do phòng " + phongTroLocked.getMaPhongTro() + " đã có khách chốt trước",
-                                TrangThaiGD.THANH_CONG
+                                TrangThaiGD.THANH_CONG, other
                         );
                     }
                 } else {
@@ -721,13 +709,13 @@ public class AppointmentService {
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + thucNhanChuTro);
                 chuTroRepository.save(chuTroLocked);
 
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         thucNhanChuTro,
                         "CONG_TIEN_COC",
                         "Tiền cọc thuê phòng " + phongTroLocked.getMaPhongTro() +
                                 " (Đã trừ hoa hồng sàn " + phiThu + " VNĐ)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
             return;
@@ -797,12 +785,12 @@ public class AppointmentService {
                 ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
                 chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
                 chuTroRepository.save(chuTroLocked);
-                transactionService.taoGiaoDich(
+                transactionService.taoGiaoDichLichHen(
                         chuTroLocked.getNguoiDung(),
                         phieu.getCoc(),
                         "HOAN_COC",
                         "Hoàn cọc thế chân xem phòng " + phieu.getPhongTro().getMaPhongTro() + " (Lịch bị hủy sau khi xem)",
-                        TrangThaiGD.THANH_CONG
+                        TrangThaiGD.THANH_CONG, phieu
                 );
             }
             return;
@@ -848,12 +836,12 @@ public class AppointmentService {
                     chuTroLocked.setSoDu(chuTroLocked.getSoDu() + phieu.getCoc());
                     chuTroRepository.save(chuTroLocked);
 
-                    transactionService.taoGiaoDich(
+                    transactionService.taoGiaoDichLichHen(
                             chuTroLocked.getNguoiDung(),
                             phieu.getCoc(),
                             "BOI_THUONG_HUY_SAT_GIO",
                             "Bồi thường tiền cọc do khách hủy sát giờ lịch " + maDatLich,
-                            TrangThaiGD.THANH_CONG
+                            TrangThaiGD.THANH_CONG, phieu
                     );
                 }
             }
@@ -882,7 +870,7 @@ public class AppointmentService {
      * Hàm phụ trợ tạo giao dịch hoàn cọc cho khách hàng để Admin đối soát duyệt
      * Tiếp nhận thông tin tài khoản ngân hàng từ request (nếu có) hoặc từ bảng TaiKhoanNganHang
      */
-    private void taoGiaoDichHoanCocChoKhach(PhieuDatLich phieu, String lyDo, AppointmentCancelRequest request) {
+    void taoGiaoDichHoanCocChoKhach(PhieuDatLich phieu, String lyDo, AppointmentCancelRequest request) {
         String bankNote = "";
         String tenNganHang = null;
         String soTaiKhoan = null;
@@ -906,6 +894,7 @@ public class AppointmentService {
                                 .tenNganHang(tenNganHang)
                                 .soTaiKhoan(soTaiKhoan)
                                 .tenChuTaiKhoan(tenChuTaiKhoan)
+                                .macDinh(existing.isEmpty())
                                 .build();
                         taiKhoanNganHangRepository.save(newBank);
                     }
@@ -915,7 +904,8 @@ public class AppointmentService {
             // Lấy từ danh mục ngân hàng đã liên kết
             List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(phieu.getKhachHang().getMaNguoiDung());
             if (!banks.isEmpty()) {
-                TaiKhoanNganHang primaryBank = banks.get(0);
+                TaiKhoanNganHang primaryBank = banks.stream()
+                        .filter(TaiKhoanNganHang::isMacDinh).findFirst().orElse(banks.get(0));
                 tenNganHang = primaryBank.getTenNganHang();
                 soTaiKhoan = primaryBank.getSoTaiKhoan();
                 tenChuTaiKhoan = primaryBank.getTenChuTaiKhoan();
@@ -927,12 +917,12 @@ public class AppointmentService {
                     + (tenChuTaiKhoan != null && !tenChuTaiKhoan.isBlank() ? " (" + tenChuTaiKhoan + ")" : "");
         }
 
-        transactionService.taoGiaoDich(
+        transactionService.taoGiaoDichLichHen(
                 phieu.getKhachHang(),
                 phieu.getCoc(),
                 "HOAN_COC",
                 lyDo + " lịch " + phieu.getMaDatLich() + bankNote,
-                TrangThaiGD.CHO_THANH_TOAN
+                TrangThaiGD.CHO_THANH_TOAN, phieu
         );
     }
 
@@ -966,12 +956,12 @@ public class AppointmentService {
         if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0 && phieu.getPhongTro().getChuPhongTro() != null) {
             ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
             // Đóng băng tiền cọc: Tạo giao dịch CHO_THANH_TOAN chờ 24h đối soát / Admin duyệt
-            transactionService.taoGiaoDich(
+            transactionService.taoGiaoDichLichHen(
                     chuTro.getNguoiDung(),
                     phieu.getCoc(),
                     "BOI_THUONG_NO_SHOW",
                     "Bồi thường tiền cọc (chờ đối soát 24h) do khách vắng mặt (No-show) lịch " + maDatLich,
-                    TrangThaiGD.CHO_THANH_TOAN
+                    TrangThaiGD.CHO_THANH_TOAN, phieu
             );
         }
     }
@@ -985,7 +975,7 @@ public class AppointmentService {
     public void khachBaoCaoNoShow(String maDatLich, String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLich)
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (!phieu.getKhachHang().getMaNguoiDung().equals(khachHang.getMaNguoiDung())) {
@@ -1028,15 +1018,9 @@ public class AppointmentService {
      * Hàm phụ trợ kiểm tra lịch tồn tại và người gọi có đúng là chủ sở hữu phòng trọ
      */
     private PhieuDatLich getPhieuDatLichVaKiemTraQuyenChuTro(String maDatLich, String username) {
-        return getPhieuDatLichVaKiemTraQuyenChuTro(maDatLich, username, false);
-    }
-
-    private PhieuDatLich getPhieuDatLichVaKiemTraQuyenChuTro(String maDatLich, String username, boolean forUpdate) {
         NguoiDung chuTro = getNguoiDungByUsername(username);
 
-        PhieuDatLich phieu = (forUpdate
-                ? phieuDatLichRepository.findByIdForUpdate(maDatLich)
-                : phieuDatLichRepository.findById(maDatLich))
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         if (phieu.getPhongTro().getChuPhongTro() == null ||

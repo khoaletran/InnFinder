@@ -1,95 +1,135 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "leaflet/dist/leaflet.css";
+@import "./styles/tokens.css";
+@import "./styles/ledger-table.css";
 
-@layer theme {
-  :root {
-    --accent: #0D9488;
-    --accent-foreground: #FFFFFF;
-    --focus: #0D9488;
-    --brand-primary: #0D9488;
-    --brand-primary-hover: #0F766E;
-    --surface-card: #FFFFFF;
-    --border-subtle: #E2E8F0;
-    --radius-card: 16px;
-  }
+@theme {
+  --color-tone-teal-soft: var(--tone-teal-soft);
+  --color-tone-teal-base: var(--tone-teal-base);
+  --color-tone-teal-strong: var(--tone-teal-strong);
+  --color-tone-teal-dot: var(--tone-teal-dot);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-green-base: var(--tone-green-base);
+  --color-tone-green-strong: var(--tone-green-strong);
+  --color-tone-green-dot: var(--tone-green-dot);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-amber-base: var(--tone-amber-base);
+  --color-tone-amber-strong: var(--tone-amber-strong);
+  --color-tone-amber-dot: var(--tone-amber-dot);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-blue-base: var(--tone-blue-base);
+  --color-tone-blue-strong: var(--tone-blue-strong);
+  --color-tone-blue-dot: var(--tone-blue-dot);
+  --color-tone-red-soft: var(--tone-red-soft);
+  --color-tone-red-base: var(--tone-red-base);
+  --color-tone-red-strong: var(--tone-red-strong);
+  --color-tone-red-dot: var(--tone-red-dot);
+  --color-tone-slate-soft: var(--tone-slate-soft);
+  --color-tone-slate-base: var(--tone-slate-base);
+  --color-tone-slate-strong: var(--tone-slate-strong);
+  --color-tone-slate-dot: var(--tone-slate-dot);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+
+  --color-success-text: var(--status-success-text);
+  --color-success-bg: var(--status-success-bg);
+  --color-success-border: var(--status-success-border);
+  --color-warning-text: var(--status-warning-text);
+  --color-warning-bg: var(--status-warning-bg);
+  --color-warning-border: var(--status-warning-border);
+  --color-danger-text: var(--status-danger-text);
+  --color-danger-bg: var(--status-danger-bg);
+  --color-danger-border: var(--status-danger-border);
+  --color-info-text: var(--status-info-text);
+  --color-info-bg: var(--status-info-bg);
+  --color-info-border: var(--status-info-border);
+
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-text-hover: var(--sidebar-text-hover);
+  --color-sidebar-active-text: var(--sidebar-active-text);
 }
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased text-sm;
+    background-color: var(--bg);
+    color: var(--text);
+    @apply antialiased text-sm;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
-/* Marker giá tiền tùy chỉnh trên bản đồ */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Marker giá tiền tinh giản trên bản đồ */
 .custom-price-marker {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: white;
-  color: #0f172a;
-  font-weight: 800;
+  background-color: var(--surface);
+  color: var(--text);
+  font-weight: 600;
   font-size: 12px;
   padding: 5px 10px;
   border-radius: 9999px;
-  border: 1.5px solid #0d9488;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease;
   transform: translate(-50%, -50%);
 }
 
 .custom-price-marker:hover,
 .custom-price-marker.hovered,
 .custom-price-marker.active {
-  background-color: #0d9488;
-  color: white;
-  border-color: #0f766e;
-  transform: translate(-50%, -50%) scale(1.14);
-  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.38);
+  background-color: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  transform: translate(-50%, -50%) scale(1.06);
+  box-shadow: var(--shadow-card-hover);
   z-index: 1000 !important;
 }
 
-/* Marker vị trí hiện tại của khách hàng (chấm tròn xanh với hiệu ứng xung sóng) */
 .user-location-marker {
   background: transparent !important;
   border: none !important;
 }
 
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.9;
-  }
-  70% {
-    transform: scale(2);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-}
-
-.user-pulse-ring {
-  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-}
-
 .user-location-tooltip {
-  background-color: #0f172a !important;
-  color: #ffffff !important;
+  background-color: var(--text) !important;
+  color: var(--surface) !important;
   font-size: 11px !important;
-  font-weight: 700 !important;
-  border-radius: 8px !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-control) !important;
   padding: 4px 8px !important;
   border: none !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--shadow-card-hover) !important;
 }
 
 .user-location-tooltip::before {
-  border-top-color: #0f172a !important;
+  border-top-color: var(--text) !important;
 }
 
 /* Ẩn scrollbar ngang */
@@ -110,9 +150,35 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--border-strong);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--text-subtle);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

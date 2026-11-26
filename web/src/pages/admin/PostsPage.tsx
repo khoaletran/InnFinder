@@ -1,46 +1,48 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
-import { CheckCircle2, XCircle, Eye, MapPin } from 'lucide-react';
+import { Card, Spinner } from '@heroui/react';
+import { CheckCircle2, Clock, XCircle, Eye, MapPin, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
+import { StatusTabBar } from '@/components/common/StatusTabBar';
+import {
+  AdminErrorState,
+  AdminRefreshButton,
+  AdminTableSkeleton,
+} from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
 import type { AdminPostItem } from '@/types/admin.types';
 import type { TrangThaiPhongTro } from '@/types/room.types';
 
-const STATUS_FILTER_OPTIONS: Array<{ key: 'ALL' | TrangThaiPhongTro; label: string }> = [
-  { key: 'ALL', label: 'Tất cả trạng thái' },
-  { key: 'CHO_DUYET', label: 'Chờ duyệt' },
-  { key: 'DA_DUYET', label: 'Đã duyệt' },
-  { key: 'HOAN_THANH', label: 'Đã thuê' },
-  { key: 'HUY', label: 'Đã hủy / Từ chối' },
-];
-
 export const PostsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'ALL'>('PENDING');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | TrangThaiPhongTro>('ALL');
+  const [statusFilter, setStatusFilter] = useState<TrangThaiPhongTro>('CHO_DUYET');
   const [previewRoom, setPreviewRoom] = useState<AdminPostItem | null>(null);
 
   const [rejectingRoomId, setRejectingRoomId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const { data: pendingRooms = [], isLoading: isLoadingPending } = useQuery({
-    queryKey: ['admin', 'rooms', 'pending'],
-    queryFn: () => adminService.getPendingRooms(),
-  });
-
-  const { data: allRooms = [], isLoading: isLoadingAll } = useQuery({
+  const {
+    data: allRooms = [],
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin', 'rooms', 'all'],
     queryFn: () => adminService.getAllRooms(),
-    enabled: activeTab === 'ALL',
   });
+
+  const handleRefresh = () => {
+    void refetch();
+  };
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => adminService.approveRoom(id),
     onSuccess: () => {
-      toast.success('Phê duyệt bài đăng thành công! Phòng đã chuyển sang trạng thái DA_DUYET.');
+      toast.success('Phê duyệt bài đăng thành công! Phòng đã được hiển thị công khai.');
       setPreviewRoom(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'rooms'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
@@ -54,7 +56,7 @@ export const PostsPage: React.FC = () => {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       adminService.rejectRoom(id, reason),
     onSuccess: () => {
-      toast.success('Đã từ chối bài đăng (trạng thái HUY) và gửi thông báo tới Chủ trọ');
+      toast.success('Đã từ chối bài đăng và gửi thông báo tới Chủ trọ');
       setRejectingRoomId(null);
       setRejectReason('');
       setPreviewRoom(null);
@@ -78,209 +80,212 @@ export const PostsPage: React.FC = () => {
     switch (status) {
       case 'CHO_DUYET':
         return (
-          <Chip size="sm" variant="soft" color="warning" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap bg-warning-bg text-warning-text">
             Chờ duyệt
-          </Chip>
+          </span>
         );
       case 'DA_DUYET':
         return (
-          <Chip size="sm" variant="soft" color="success" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap bg-success-bg text-success-text">
             Đã duyệt
-          </Chip>
+          </span>
         );
       case 'HOAN_THANH':
         return (
-          <Chip size="sm" variant="soft" color="accent" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap bg-accent-soft text-accent">
             Đã thuê
-          </Chip>
+          </span>
         );
       case 'HUY':
         return (
-          <Chip size="sm" variant="soft" color="danger" className="font-bold">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap bg-danger-bg text-danger-text">
             Đã hủy / Từ chối
-          </Chip>
+          </span>
         );
     }
   };
 
-  const isLoading = activeTab === 'PENDING' ? isLoadingPending : isLoadingAll;
-  const baseList = activeTab === 'PENDING' ? pendingRooms : allRooms;
-  const currentList =
-    activeTab === 'ALL' && statusFilter !== 'ALL'
-      ? baseList.filter((r) => r.trangThai === statusFilter)
-      : baseList;
+  const statusCounts = useMemo(() => {
+    const counts: Record<TrangThaiPhongTro, number> = {
+      CHO_DUYET: 0,
+      DA_DUYET: 0,
+      HOAN_THANH: 0,
+      HUY: 0,
+    };
+    for (const room of allRooms) {
+      if (room.trangThai && room.trangThai in counts) {
+        counts[room.trangThai]++;
+      }
+    }
+    return counts;
+  }, [allRooms]);
+
+  const currentList = allRooms.filter((r) => r.trangThai === statusFilter);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Kiểm duyệt Bài đăng Phòng trọ
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Xác minh hình ảnh, mức giá thuê, tiền cọc hợp đồng và vị trí GPS theo 4 trạng thái chuẩn (`CHO_DUYET`, `DA_DUYET`, `HOAN_THANH`, `HUY`)
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
+          Kiểm duyệt Bài đăng Phòng trọ
+        </h1>
 
-        <div className="flex rounded-xl bg-slate-200/80 p-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('PENDING')}
-            className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
-              activeTab === 'PENDING'
-                ? 'bg-white text-blue-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Chờ duyệt ({pendingRooms.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ALL')}
-            className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
-              activeTab === 'ALL'
-                ? 'bg-white text-blue-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Tất cả tin đăng
-          </button>
-        </div>
+        <AdminRefreshButton onClick={handleRefresh} isRefreshing={isFetching} />
       </div>
 
-      {activeTab === 'ALL' && (
-        <div className="flex flex-wrap gap-2">
-          {STATUS_FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => setStatusFilter(opt.key)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                statusFilter === opt.key
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Status Tab Bar (giống mẫu tab Lịch xem phòng) */}
+      <StatusTabBar
+        ariaLabel="Lọc bài đăng theo trạng thái"
+        activeKey={statusFilter}
+        onChange={setStatusFilter}
+        tabs={[
+          { key: 'CHO_DUYET', label: 'Chờ duyệt', count: statusCounts.CHO_DUYET, icon: Clock },
+          {
+            key: 'DA_DUYET',
+            label: 'Đã duyệt',
+            count: statusCounts.DA_DUYET,
+            icon: CheckCircle2,
+          },
+          {
+            key: 'HOAN_THANH',
+            label: 'Đã thuê',
+            count: statusCounts.HOAN_THANH,
+            icon: ShieldCheck,
+          },
+          {
+            key: 'HUY',
+            label: 'Đã hủy / Từ chối',
+            count: statusCounts.HUY,
+            icon: XCircle,
+          },
+        ]}
+      />
 
       {/* Main Table Card */}
-      <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
-        <Card.Content className="p-0 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Mã & Phòng trọ</th>
-                <th className="py-3 px-4">Giá thuê / Tháng</th>
-                <th className="py-3 px-4">Địa chỉ</th>
-                <th className="py-3 px-4">Chủ trọ</th>
-                <th className="py-3 px-4">Trạng thái</th>
-                <th className="py-3 px-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
+      {isError ? (
+        <AdminErrorState
+          title="Không thể tải danh sách bài đăng phòng trọ"
+          message={error instanceof Error ? error.message : undefined}
+          onRetry={handleRefresh}
+        />
+      ) : (
+        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
+          <Card.Content className="p-0 overflow-x-auto">
+            <table aria-label="Kiểm duyệt phòng" className="w-full text-left text-xs">
+              <thead className="bg-surface-subtle border-b border-border text-[11px] font-medium text-text-muted uppercase tracking-wider">
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <Spinner size="md" className="mx-auto mb-2" />
-                    <div className="mt-2">Đang tải danh sách bài đăng...</div>
-                  </td>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Mã & Phòng trọ</th>
+                  <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Giá thuê / Tháng</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Địa chỉ</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Chủ trọ</th>
+                  <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Thao tác</th>
                 </tr>
-              ) : currentList.length > 0 ? (
-                currentList.map((room) => {
-                  const coverImg =
-                    room.hinhAnh?.[0] ||
-                    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500';
-                  return (
-                    <tr key={room.maPhongTro} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={coverImg}
-                            alt=""
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                          />
-                          <div>
-                            <div className="font-bold text-slate-900 max-w-xs truncate">
-                              {room.tieuDe || `Phòng #${room.maPhongTro}`}
-                            </div>
-                            <code className="text-[10px] text-blue-600 font-mono">
-                              {room.maPhongTro}
-                            </code>
-                            <div className="text-[10px] text-slate-400">
-                              {room.dienTich} m² • {room.soNguoi} người
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {isLoading ? (
+                  <AdminTableSkeleton rows={6} cols={5} />
+                ) : currentList.length > 0 ? (
+                  currentList.map((room) => {
+                    const coverImg =
+                      room.hinhAnh?.[0] ||
+                      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500';
+                    const displayTitle = room.tieuDe || `Phòng #${room.maPhongTro}`;
+                    return (
+                      <tr key={room.maPhongTro} className="hover:bg-surface-subtle transition-colors">
+                        <td className="py-3 px-4 min-w-[260px]">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={coverImg}
+                              alt=""
+                              className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div
+                                title={displayTitle}
+                                className="font-semibold text-text max-w-xs truncate"
+                              >
+                                {displayTitle}
+                              </div>
+                              <code className="text-[11px] text-accent font-mono">
+                                {room.maPhongTro}
+                              </code>
+                              <div className="text-[11px] text-text-muted whitespace-nowrap">
+                                {room.dienTich} m² • {room.soNguoi} người
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-blue-600">{formatVND(room.giaThue)}</div>
-                        <div className="text-[10px] text-slate-400">
-                          Cọc HĐ: {formatVND(room.cocPhong)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate">{room.diaChi}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-800">
-                          {room.tenChuTro || 'Chủ trọ'}
-                        </div>
-                        <div className="text-[10px] text-slate-400">{room.sdtChuTro}</div>
-                      </td>
-                      <td className="py-3 px-4">{renderRoomStatusChip(room.trangThai)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewRoom(room)}
-                            title="Xem chi tiết kiểm duyệt"
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {room.trangThai === 'CHO_DUYET' && (
-                            <>
-                              <button
-                                type="button"
-                                disabled={approveMutation.isPending}
-                                onClick={() => approveMutation.mutate(room.maPhongTro)}
-                                title="Phê duyệt bài đăng"
-                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRejectingRoomId(room.maPhongTro);
-                                  setRejectReason('');
-                                }}
-                                title="Từ chối duyệt"
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    Không có bài đăng nào trong danh sách này.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card.Content>
-      </Card>
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap tabular-nums">
+                          <div className="font-semibold text-text">{formatVND(room.giaThue)}</div>
+                          <div className="text-[11px] text-text-muted whitespace-nowrap">
+                            Cọc HĐ: {formatVND(room.cocPhong)}
+                          </div>
+                        </td>
+                        <td
+                          title={room.diaChi}
+                          className="py-3 px-4 text-text-secondary max-w-[240px] truncate"
+                        >
+                          {room.diaChi}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-text whitespace-nowrap">
+                            {room.tenChuTro || 'Chủ trọ'}
+                          </div>
+                          <div className="text-[11px] text-text-muted whitespace-nowrap">
+                            {room.sdtChuTro}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap w-px">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewRoom(room)}
+                              title="Xem chi tiết kiểm duyệt"
+                              className="p-1.5 text-text-muted hover:text-accent hover:bg-accent-soft rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {room.trangThai === 'CHO_DUYET' && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={approveMutation.isPending}
+                                  onClick={() => approveMutation.mutate(room.maPhongTro)}
+                                  title="Phê duyệt bài đăng"
+                                  className="p-1.5 text-success-text hover:bg-success-bg rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingRoomId(room.maPhongTro);
+                                    setRejectReason('');
+                                  }}
+                                  title="Từ chối duyệt"
+                                  className="p-1.5 text-danger-text hover:bg-danger-bg rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-text-muted">
+                      Không có bài đăng nào trong danh sách này.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* MODAL CHI TIẾT DUYỆT BÀI ĐĂNG */}
       <Modal
@@ -298,7 +303,7 @@ export const PostsPage: React.FC = () => {
                   setRejectingRoomId(previewRoom.maPhongTro);
                   setRejectReason('');
                 }}
-                className="px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-danger-border bg-surface text-danger-text hover:bg-danger-bg text-xs font-medium cursor-pointer transition-colors"
               >
                 Từ chối duyệt bài
               </button>
@@ -306,7 +311,7 @@ export const PostsPage: React.FC = () => {
                 type="button"
                 disabled={approveMutation.isPending}
                 onClick={() => approveMutation.mutate(previewRoom.maPhongTro)}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 {approveMutation.isPending && <Spinner size="sm" color="current" />}
                 Phê duyệt hiển thị
@@ -316,7 +321,7 @@ export const PostsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setPreviewRoom(null)}
-              className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-text-secondary text-xs font-medium cursor-pointer transition-colors"
             >
               Đóng
             </button>
@@ -327,14 +332,14 @@ export const PostsPage: React.FC = () => {
           <div className="space-y-4">
             {/* Photo Gallery */}
             <div>
-              <span className="block text-xs font-bold text-slate-700 mb-2">
+              <span className="block text-xs font-medium text-text-secondary mb-2">
                 Hình ảnh chụp thực tế ({previewRoom.hinhAnh?.length || 0} ảnh)
               </span>
               <div className="grid grid-cols-3 gap-2">
                 {previewRoom.hinhAnh?.map((img, i) => (
                   <div
                     key={i}
-                    className="h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-50"
+                    className="h-24 rounded-lg border border-border overflow-hidden bg-surface-subtle"
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
                   </div>
@@ -344,34 +349,34 @@ export const PostsPage: React.FC = () => {
 
             {/* Meta Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Giá thuê</span>
-                <span className="font-bold text-blue-600">
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Giá thuê</span>
+                <span className="font-semibold text-accent tabular-nums">
                   {formatVND(previewRoom.giaThue)} / tháng
                 </span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Cọc hợp đồng</span>
-                <span className="font-bold text-slate-800">{formatVND(previewRoom.cocPhong)}</span>
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Cọc hợp đồng</span>
+                <span className="font-semibold text-text tabular-nums">{formatVND(previewRoom.cocPhong)}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Diện tích</span>
-                <span className="font-bold text-slate-800">{previewRoom.dienTich} m²</span>
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Diện tích</span>
+                <span className="font-semibold text-text tabular-nums">{previewRoom.dienTich} m²</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-[10px] text-slate-400 block">Số người ở</span>
-                <span className="font-bold text-slate-800">{previewRoom.soNguoi} người</span>
+              <div className="p-3 bg-surface-subtle border border-border rounded-lg">
+                <span className="text-[11px] text-text-muted block">Số người ở</span>
+                <span className="font-semibold text-text tabular-nums">{previewRoom.soNguoi} người</span>
               </div>
             </div>
 
             {/* Address & GPS */}
-            <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
-              <div className="flex items-center gap-2 text-slate-700">
-                <MapPin className="w-4 h-4 text-red-500 shrink-0" />
+            <div className="p-3 bg-surface-subtle border border-border rounded-lg text-xs space-y-1">
+              <div className="flex items-center gap-2 text-text-secondary">
+                <MapPin className="w-4 h-4 text-accent shrink-0" />
                 <span>{previewRoom.diaChi}</span>
               </div>
               {previewRoom.kinhDo && previewRoom.viDo && (
-                <div className="text-[11px] text-slate-400 font-mono">
+                <div className="text-[11px] text-text-muted font-mono">
                   Tọa độ GPS: ({previewRoom.kinhDo}, {previewRoom.viDo})
                 </div>
               )}
@@ -379,23 +384,23 @@ export const PostsPage: React.FC = () => {
 
             {/* Description */}
             <div>
-              <span className="block text-xs font-bold text-slate-700 mb-1">
+              <span className="block text-xs font-medium text-text-secondary mb-1">
                 Mô tả chi tiết phòng trọ
               </span>
-              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl">
+              <p className="text-xs text-text-secondary leading-relaxed bg-surface-subtle border border-border p-3 rounded-lg">
                 {previewRoom.moTa || 'Chưa có mô tả chi tiết'}
               </p>
             </div>
 
             {/* Landlord Info */}
-            <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl flex items-center justify-between text-xs">
+            <div className="p-3 bg-surface-subtle border border-border rounded-lg flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
+                <div className="w-8 h-8 rounded-full bg-surface-muted text-text-secondary font-semibold flex items-center justify-center text-xs">
                   CT
                 </div>
                 <div>
-                  <span className="font-bold text-slate-900">{previewRoom.tenChuTro}</span>
-                  <div className="text-slate-500 text-[11px]">{previewRoom.sdtChuTro}</div>
+                  <span className="font-medium text-text">{previewRoom.tenChuTro}</span>
+                  <div className="text-text-muted text-[11px]">{previewRoom.sdtChuTro}</div>
                 </div>
               </div>
               {renderRoomStatusChip(previewRoom.trangThai)}
@@ -409,14 +414,14 @@ export const PostsPage: React.FC = () => {
         isOpen={!!rejectingRoomId}
         onClose={() => setRejectingRoomId(null)}
         title="Từ chối bài đăng phòng trọ"
-        subtitle="Bài đăng sẽ chuyển sang trạng thái HUY và gửi thông báo tới Chủ trọ."
+        subtitle="Bài đăng sẽ chuyển sang trạng thái đã từ chối và gửi thông báo tới Chủ trọ."
         maxWidth="sm"
         footer={
           <>
             <button
               type="button"
               onClick={() => setRejectingRoomId(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
             >
               Hủy
             </button>
@@ -424,7 +429,7 @@ export const PostsPage: React.FC = () => {
               type="button"
               disabled={rejectMutation.isPending}
               onClick={handleConfirmReject}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-danger-text hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-opacity"
             >
               {rejectMutation.isPending && <Spinner size="sm" color="current" />}
               Xác nhận từ chối
@@ -437,7 +442,7 @@ export const PostsPage: React.FC = () => {
           placeholder="VD: Giá thuê không nhất quán, hình ảnh chụp bị mờ, địa chỉ không rõ ràng..."
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
-          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500"
+          className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-danger-text"
         />
       </Modal>
     </div>

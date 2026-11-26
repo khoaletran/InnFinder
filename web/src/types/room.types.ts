@@ -4,6 +4,14 @@ export type { ReviewResponseDTO };
 
 export type TrangThaiPhongTro = 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
 
+export interface PopularAreaResponse {
+  name: string;
+  keyword: string;
+  roomCount: number;
+  minPrice: number | null;
+  imageUrl: string | null;
+}
+
 export interface CategoryResponse {
   maLpt?: string;
   maLoaiPhong?: string;
@@ -82,6 +90,7 @@ export interface RoomDetailResponse {
 
 export interface RoomFilterRequest {
   keyword?: string;
+  area?: string;
   minGia?: number;
   maxGia?: number;
   minDienTich?: number;

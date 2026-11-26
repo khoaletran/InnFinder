@@ -10,7 +10,7 @@ interface PageContainerProps {
 
 const WIDTH_CLASSES: Record<ContainerWidth, string> = {
   full: 'w-full',
-  wide: 'max-w-[1200px] w-full mx-auto px-4 sm:px-6',
+  wide: 'max-w-7xl w-full mx-auto px-4 sm:px-6',
   narrow: 'max-w-[800px] w-full mx-auto px-4 sm:px-6',
 };
 
@@ -40,10 +40,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${className}`.trim()}
     >
       <div className="min-w-0">
-        <h1 className="text-[28px] leading-[1.25] font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl leading-[1.25] font-semibold text-text tracking-[-0.01em]">
           {title}
         </h1>
-        {subtitle && <p className="text-sm text-slate-600 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-text-muted mt-1">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0 flex items-center gap-2">{action}</div>}
     </div>

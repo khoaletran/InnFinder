@@ -12,10 +12,17 @@ import java.util.Optional;
 
 public interface NguoiDungRepository extends JpaRepository<NguoiDung, String> {
     Optional<NguoiDung> findByTenDangNhap(String tenDangNhap);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT n FROM NguoiDung n WHERE n.maNguoiDung = :id")
+    Optional<NguoiDung> findByIdForUpdate(@Param("id") String id);
     Boolean existsByTenDangNhap(String tenDangNhap);
     Boolean existsByEmail(String email);
     long countByVaiTro(VaiTro vaiTro);
+    long countByVaiTroAndTrangThaiKhoaFalse(VaiTro vaiTro);
     long countByChuTro(Boolean chuTro);
+
+    Page<NguoiDung> findAllByOrderByThoiGianMoTaiKhoanDesc(Pageable pageable);
 
     @Query("SELECT MAX(n.maNguoiDung) FROM NguoiDung n WHERE n.maNguoiDung LIKE CONCAT(:prefix, '%')")
     String findMaxMaNguoiDungByPrefix(@Param("prefix") String prefix);

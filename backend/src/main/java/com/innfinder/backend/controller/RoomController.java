@@ -9,6 +9,7 @@ package com.innfinder.backend.controller;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.dto.room.RoomDetailResponse;
 import com.innfinder.backend.dto.room.RoomFilterRequest;
+import com.innfinder.backend.dto.room.PopularAreaResponse;
 import com.innfinder.backend.dto.room.RoomSummaryResponse;
 import com.innfinder.backend.service.ChatService;
 import jakarta.validation.constraints.Max;
@@ -33,6 +34,11 @@ public class RoomController {
 
     private final RoomService roomService;
     private final ChatService chatService;
+
+    @GetMapping("/popular-areas")
+    public ApiResponse<List<PopularAreaResponse>> getPopularAreas() {
+        return ApiResponse.ok(roomService.getPopularAreas(), "Lấy khu vực phổ biến thành công");
+    }
 
     @Operation(summary = "Tìm kiếm phòng trọ bằng AI (Vector Embedding)", description = "Tìm kiếm ngữ nghĩa bằng ngôn ngữ tự nhiên sử dụng vector embeddings")
     @GetMapping("/ai-search")

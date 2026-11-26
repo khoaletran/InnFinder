@@ -14,24 +14,24 @@ const TONE_CLASSES: Record<
   { container: string; dot: string }
 > = {
   success: {
-    container: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    dot: 'bg-emerald-600',
+    container: 'bg-success-bg text-success-text',
+    dot: 'bg-success-text',
   },
   warning: {
-    container: 'bg-amber-50 text-amber-800 border-amber-200',
-    dot: 'bg-amber-500',
+    container: 'bg-warning-bg text-warning-text',
+    dot: 'bg-warning-text',
   },
   danger: {
-    container: 'bg-rose-50 text-rose-800 border-rose-200',
-    dot: 'bg-rose-600',
+    container: 'bg-danger-bg text-danger-text',
+    dot: 'bg-danger-text',
   },
   info: {
-    container: 'bg-sky-50 text-sky-800 border-sky-200',
-    dot: 'bg-sky-600',
+    container: 'bg-info-bg text-info-text',
+    dot: 'bg-info-text',
   },
   neutral: {
-    container: 'bg-slate-100 text-slate-700 border-slate-200',
-    dot: 'bg-slate-500',
+    container: 'bg-surface-muted text-text-secondary',
+    dot: 'bg-text-muted',
   },
 };
 
@@ -63,7 +63,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   type,
   label,
   tone,
-  pulse = false,
   className = '',
 }) => {
   const mapped =
@@ -87,11 +86,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${styles.container} ${className}`.trim()}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[var(--radius-badge)] text-xs font-medium whitespace-nowrap ${styles.container} ${className}`.trim()}
     >
-      <span
-        className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${pulse ? 'animate-pulse' : ''}`}
-      />
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot}`} />
       <span>{resolvedLabel}</span>
     </span>
   );

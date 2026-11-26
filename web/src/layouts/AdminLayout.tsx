@@ -1,14 +1,41 @@
 import React from 'react';
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Chip } from '@heroui/react';
-import { LogOut, Search, Home, UserCircle } from 'lucide-react';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
+import { LogOut, Home, UserCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
+import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
+import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { ADMIN_NAV_ITEMS } from '@/constants/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adminService } from '@/services/admin.service';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { data: dashboard } = useQuery({
+    queryKey: ['admin', 'dashboard-stats'],
+    queryFn: () => adminService.getDashboardStats(),
+  });
+  const { data: treasury } = useQuery({
+    queryKey: ['admin', 'treasury-stats'],
+    queryFn: () => adminService.getTreasuryStats(),
+  });
+  const pendingByPath: Record<string, number> = {
+    '/admin/users': dashboard?.hangDoi.xacMinhChuTro ?? 0,
+    '/admin/posts': dashboard?.hangDoi.tinMoi ?? 0,
+    '/admin/transactions': treasury?.soLenhRutChoDuyet ?? 0,
+    '/admin/complaints': dashboard?.hangDoi.baoCaoViPham ?? 0,
+  };
+
+  const isResponsive = ['/admin/dashboard', '/admin/transactions', '/admin/users', '/admin/posts', '/admin/reviews', '/admin/complaints', '/admin/categories'].includes(location.pathname);
+  const isProfileRoute = location.pathname.startsWith('/admin/profile');
+  const currentNav =
+    ADMIN_NAV_ITEMS.find((item) =>
+      item.end ? location.pathname === item.path : location.pathname.startsWith(item.path),
+    ) || ADMIN_NAV_ITEMS[0];
+  const HeaderIcon = isProfileRoute ? UserCircle : currentNav.icon;
+  const headerTitle = isProfileRoute ? 'Hồ sơ Quản trị viên' : currentNav.label;
 
   const handleLogout = () => {
     logout();
@@ -16,30 +43,27 @@ export const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex text-slate-800">
+    <div className={`admin-shell min-h-screen bg-bg flex text-text ${isResponsive ? 'flex-col md:flex-row' : ''}`}>
       {/* Admin Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 fixed inset-y-0 left-0 z-30 shadow-xl">
+      <aside className={`bg-sidebar-bg text-[var(--sidebar-text)] flex flex-col justify-between shrink-0 z-30 border-r border-[var(--sidebar-border)] ${isResponsive ? 'w-full md:fixed md:inset-y-0 md:left-0 md:w-64' : 'fixed inset-y-0 left-0 w-64'}`}>
         <div>
           {/* Brand Header */}
-          <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between">
+          <div className="h-16 px-6 border-b border-[var(--sidebar-border)] flex items-center justify-between">
             <Link to="/admin/dashboard" className="flex items-center gap-2.5">
               <InnFinderLogo variant="pin" size="sm" />
               <div>
                 <span className="font-bold text-base text-white tracking-wide block leading-none">
                   InnFinder
                 </span>
-                <span className="text-[10px] tracking-wider text-teal-400 font-semibold uppercase">
-                  ADMIN CONSOLE
+                <span className="text-[11px] tracking-[0.08em] text-[var(--sidebar-label)] font-semibold uppercase">
+                  Quản trị
                 </span>
               </div>
             </Link>
           </div>
 
           {/* Centralized Navigation Links from @/constants/navigation */}
-          <nav className="p-3 space-y-1">
-            <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Quản trị vận hành
-            </div>
+          <nav className={`p-3 ${isResponsive ? 'flex gap-1 overflow-x-auto whitespace-nowrap md:block md:space-y-1' : 'space-y-1'}`}>
             {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -48,15 +72,27 @@ export const AdminLayout: React.FC = () => {
                   to={item.path}
                   end={item.end}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                    `relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[13px] transition-colors ${
                       isActive
-                        ? 'bg-teal-600 text-white font-semibold shadow-md shadow-teal-600/20'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        ? 'bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] font-semibold'
+                        : 'text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-text-hover)] font-normal'
                     }`
                   }
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--sidebar-active-indicator)] rounded-r-full" />
+                      )}
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[var(--sidebar-active-icon)]' : ''}`} />
+                      <span>{item.label}</span>
+                      {(pendingByPath[item.path] ?? 0) > 0 && (
+                        <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${item.path === '/admin/complaints' ? 'bg-tone-red-soft text-tone-red-strong' : 'bg-tone-amber-soft text-tone-amber-strong'}`}>
+                          {pendingByPath[item.path]}
+                        </span>
+                      )}
+                    </>
+                  )}
                 </NavLink>
               );
             })}
@@ -64,27 +100,37 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         {/* Bottom Section: Portal Switchers & Admin User Info */}
-        <div className="p-4 border-t border-slate-800 space-y-2.5">
+        <div className="p-4 border-t border-[var(--sidebar-border)] space-y-2.5">
           <div className="grid grid-cols-2 gap-2">
             <Link
               to="/"
-              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium transition-colors"
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-[var(--sidebar-hover-bg)] hover:bg-[var(--sidebar-active-bg)] text-[var(--sidebar-text)] hover:text-[var(--sidebar-text-hover)] text-[11px] font-medium transition-colors"
             >
-              <Home className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <Home className="w-3.5 h-3.5 text-[var(--sidebar-active-icon)] shrink-0" />
               <span>Trang chủ</span>
             </Link>
-            <Link
-              to="/profile"
-              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-medium transition-colors"
+            <NavLink
+              to="/admin/profile"
+              className={({ isActive }) =>
+                `flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)]'
+                    : 'bg-[var(--sidebar-hover-bg)] hover:bg-[var(--sidebar-active-bg)] text-[var(--sidebar-text)] hover:text-[var(--sidebar-text-hover)]'
+                }`
+              }
             >
-              <UserCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Cổng cá nhân</span>
-            </Link>
+              <UserCircle className="w-3.5 h-3.5 text-[var(--sidebar-active-icon)] shrink-0" />
+              <span>Hồ sơ Admin</span>
+            </NavLink>
           </div>
 
           <div className="flex items-center justify-between pt-1.5">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-400 font-bold flex items-center justify-center shrink-0 text-xs overflow-hidden">
+            <Link
+              to="/admin/profile"
+              title="Xem hồ sơ Quản trị viên"
+              className="flex items-center gap-2.5 overflow-hidden rounded-lg p-1 -ml-1 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[var(--sidebar-active-bg)] border border-[var(--sidebar-border)] text-[var(--sidebar-active-text)] font-semibold flex items-center justify-center shrink-0 text-xs overflow-hidden">
                 {user?.hinhDaiDien || user?.avatarUrl ? (
                   <img
                     src={user.hinhDaiDien || user.avatarUrl}
@@ -96,19 +142,19 @@ export const AdminLayout: React.FC = () => {
                 )}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-white truncate">
+                <p className="text-xs font-medium text-[var(--sidebar-active-text)] truncate">
                   {user?.hoVaTen || user?.tenDangNhap || 'Quản trị viên'}
                 </p>
-                <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold rounded bg-teal-500/20 text-teal-400 border border-teal-400/30 uppercase">
-                  QUAN_TRI
+                <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-[var(--sidebar-role-bg)] text-[var(--sidebar-role-text)]">
+                  Quản trị viên
                 </span>
               </div>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
               title="Đăng xuất khỏi Admin"
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-[var(--sidebar-text)] hover:text-red-400 hover:bg-[var(--sidebar-hover-bg)] rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -117,35 +163,27 @@ export const AdminLayout: React.FC = () => {
       </aside>
 
       {/* Main Content Pane */}
-      <div className="flex-1 ml-64 flex flex-col min-h-screen">
+      <div className={`flex-1 min-w-0 flex flex-col min-h-screen ${isResponsive ? 'md:ml-64' : 'ml-64'}`}>
         {/* Top Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Tìm nhanh người dùng, bài đăng, mã cọc..."
-                className="w-72 sm:w-80 pl-9 pr-4 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-              />
+        <header className={`h-14 bg-surface border-b border-border flex items-center justify-between sticky top-0 z-20 ${isResponsive ? 'gap-2 px-4 md:px-6' : 'px-6'}`}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-tone-teal-soft text-tone-teal-base flex items-center justify-center shrink-0">
+              <HeaderIcon className="w-4 h-4" />
             </div>
+            <span className="text-sm font-semibold text-text leading-tight tracking-[-0.01em]">
+              {headerTitle}
+            </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Chip size="sm" variant="soft" color="success" className="font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5 inline-block" />
-              Hệ thống ổn định
-            </Chip>
-            <div className="h-5 w-px bg-slate-200" />
-            <div className="text-xs text-slate-600 font-medium">
-              Xin chào, <strong className="text-slate-900">{user?.hoVaTen || user?.tenDangNhap || 'Admin'}</strong>
-            </div>
+          <div className="flex items-center gap-3">
+            <AdminNotificationBell />
           </div>
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-6 lg:p-8">
+        <main className={`relative flex-1 ${isResponsive ? 'overflow-x-clip p-4 sm:p-5' : 'p-5 lg:p-6'}`}>
           <Outlet />
+          <RouteLoadingOverlay />
         </main>
       </div>
     </div>

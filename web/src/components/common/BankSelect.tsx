@@ -74,8 +74,8 @@ export const BankSelect: React.FC<BankSelectProps> = ({
   return (
     <div className="relative w-full" ref={dropdownRef}>
       {label && (
-        <label className="block text-xs font-semibold text-slate-700 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label className="block text-[13px] font-medium text-text-secondary mb-1.5">
+          {label} {required && <span className="text-danger-text">*</span>}
         </label>
       )}
 
@@ -83,18 +83,18 @@ export const BankSelect: React.FC<BankSelectProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full px-3 py-2.5 rounded-xl border bg-white flex items-center justify-between text-left transition-all cursor-pointer ${
+        className={`w-full h-10 px-3 rounded-[var(--radius-control)] border bg-surface flex items-center justify-between text-left transition-colors duration-150 cursor-pointer ${
           error
-            ? 'border-red-300 ring-2 ring-red-100'
+            ? 'border-danger-border ring-[3px] ring-danger-bg'
             : isOpen
-              ? 'border-teal-500 ring-2 ring-teal-100 shadow-xs'
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-accent ring-[3px] ring-[var(--focus-ring)]'
+              : 'border-border hover:border-border-strong'
         }`}
       >
         <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
           {selectedBank ? (
             <>
-              <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-6 h-6 rounded-[var(--radius-badge)] bg-surface-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
                 {!imgErrors[selectedBank.code] && selectedBank.logoUrl ? (
                   <img
                     src={selectedBank.logoUrl}
@@ -103,21 +103,21 @@ export const BankSelect: React.FC<BankSelectProps> = ({
                     className="w-full h-full object-contain p-0.5"
                   />
                 ) : (
-                  <Landmark className="w-3.5 h-3.5 text-teal-600" />
+                  <Landmark className="w-3.5 h-3.5 text-accent" />
                 )}
               </div>
               <div className="truncate">
-                <span className="text-xs font-bold text-slate-900 mr-2">
+                <span className="text-xs font-semibold text-text mr-2">
                   {selectedBank.shortName}
                 </span>
-                <span className="text-[11px] text-slate-500 hidden sm:inline truncate">
+                <span className="text-xs text-text-muted hidden sm:inline truncate">
                   ({selectedBank.fullName})
                 </span>
               </div>
             </>
           ) : (
-            <span className="text-xs text-slate-400 flex items-center gap-2">
-              <Landmark className="w-4 h-4 text-slate-400" />
+            <span className="text-xs text-text-subtle flex items-center gap-2">
+              <Landmark className="w-4 h-4 text-text-subtle" />
               {placeholder}
             </span>
           )}

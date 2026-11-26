@@ -44,12 +44,12 @@ const VIOLATION_LEVELS = [
   {
     step: '2',
     level: 'Mức độ Trung bình',
-    desc: 'Trừ điểm uy tín chủ trọ và tạm ẩn bài đăng vi phạm trong 7 ngày.',
+    desc: 'Trừ 10 điểm uy tín của chủ trọ và ghi nhận cảnh báo vi phạm.',
   },
   {
     step: '3',
     level: 'Mức độ Nặng',
-    desc: 'Khóa tài khoản vĩnh viễn, thu hồi cọc giữ chân và hỗ trợ hoàn trả người bị hại.',
+    desc: 'Khóa tài khoản vĩnh viễn và gỡ toàn bộ bài đăng đang hiển thị.',
   },
 ];
 
@@ -245,17 +245,17 @@ export const ComplaintsPage: React.FC = () => {
                       placeholder="VD: ND171120260001 hoặc chutro_khai"
                       value={targetAccount}
                       onChange={(e) => setTargetAccount(e.target.value)}
-                      readOnly={Boolean(targetAccount)}
+                      readOnly={Boolean(selectedAptId)}
                       required
                       className={`w-full h-10 px-3 rounded-xl border border-slate-200 text-sm transition-colors ${
-                        targetAccount
+                        selectedAptId
                           ? 'bg-slate-100 text-slate-700 cursor-not-allowed select-none'
                           : 'text-slate-900 bg-white focus:outline-none focus:border-teal-600'
                       }`}
                     />
-                    {targetAccount && (
+                    {selectedAptId && (
                       <span className="text-[11px] text-slate-500 mt-1 block">
-                        Thông tin người dùng được cố định, không được sửa.
+                        Đã tự động điền chủ trọ theo lịch hẹn đã chọn.
                       </span>
                     )}
                   </div>
@@ -390,7 +390,7 @@ export const ComplaintsPage: React.FC = () => {
                         <p className="text-sm text-slate-700">
                           Đối tượng bị phản ánh:{' '}
                           <strong className="text-slate-900">
-                            {item.tenDoiTuong || item.doiTuongKhieuNai}
+                            {item.tenDoiTuongKhieuNai || item.tenDoiTuong || item.doiTuongKhieuNai}
                           </strong>
                         </p>
 

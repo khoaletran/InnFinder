@@ -1,23 +1,31 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
-import { Star, Trash2, RefreshCw, MessageSquare } from 'lucide-react';
+import { Card, Spinner } from '@heroui/react';
+import { Star, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { EmptyState } from '@/components/common/EmptyState';
+import { SkeletonList } from '@/components/common/SkeletonList';
+import { StatusTabBar } from '@/components/common/StatusTabBar';
+import { StatusBadge } from '@/components/common/TableParts';
+import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
 import { formatDateTime } from '@/utils/formatters';
 import type { AdminReviewItem } from '@/types/admin.types';
 
+type StarTabKey = '5' | '4' | '3' | '2' | '1';
+
 export const ReviewsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [ratingFilter, setRatingFilter] = useState<number | 'ALL'>('ALL');
+  const [ratingFilter, setRatingFilter] = useState<StarTabKey>('5');
   const [deletingReview, setDeletingReview] = useState<AdminReviewItem | null>(null);
 
   const {
     data: reviews = [],
     isLoading,
     isFetching,
+    isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['admin', 'reviews'],
@@ -36,135 +44,125 @@ export const ReviewsPage: React.FC = () => {
     },
   });
 
-  const filteredReviews = reviews.filter((r) =>
-    ratingFilter === 'ALL' ? true : r.diem === ratingFilter,
-  );
+  const starCounts = useMemo(() => {
+    const counts: Record<StarTabKey, number> = {
+      '5': 0,
+      '4': 0,
+      '3': 0,
+      '2': 0,
+      '1': 0,
+    };
+    for (const r of reviews) {
+      const k = String(r.diem) as StarTabKey;
+      if (k in counts) {
+        counts[k]++;
+      }
+    }
+    return counts;
+  }, [reviews]);
+
+  const filteredReviews = reviews.filter((r) => r.diem === Number(ratingFilter));
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1280px] space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Kiểm duyệt Đánh giá & Nhận xét
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Quản lý phản hồi thực tế (`DanhGia` từ 1 đến 5 sao) của khách thuê sau khi xem phòng, ngăn chặn spam hoặc bôi nhọ
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
+          Kiểm duyệt Đánh giá & Nhận xét
+        </h1>
 
-        <button
-          type="button"
+        <AdminRefreshButton
           onClick={() => void refetch()}
-          disabled={isFetching}
-          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isFetching ? 'animate-spin' : ''}`} />
-          Làm mới đánh giá
-        </button>
+          isRefreshing={isFetching}
+          label="Làm mới đánh giá"
+        />
       </div>
 
       {/* Star Rating Filter */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setRatingFilter('ALL')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-            ratingFilter === 'ALL'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          Tất cả ({reviews.length})
-        </button>
-        {[5, 4, 3, 2, 1].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => setRatingFilter(star)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-              ratingFilter === star
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <span>{star} sao</span>
-            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-          </button>
-        ))}
-      </div>
+      <StatusTabBar
+        ariaLabel="Lọc đánh giá theo số sao"
+        activeKey={ratingFilter}
+        onChange={setRatingFilter}
+        tabs={(['5', '4', '3', '2', '1'] as const).map((star) => ({
+          key: star,
+          label: `${star} sao`,
+          count: starCounts[star],
+          icon: Star,
+        }))}
+      />
 
       {/* Main Content */}
       {isLoading ? (
-        <Card className="p-12 bg-white rounded-2xl border border-slate-200 text-center">
-          <Card.Content className="p-0 flex flex-col items-center gap-3">
-            <Spinner size="lg" />
-            <span className="text-xs text-slate-500">
-              Đang tổng hợp danh sách đánh giá từ các phòng trọ trên sàn...
-            </span>
-          </Card.Content>
-        </Card>
+        <SkeletonList variant="rows" count={4} />
+      ) : isError ? (
+        <AdminErrorState
+          title="Không thể tải danh sách đánh giá"
+          message={error instanceof Error ? error.message : undefined}
+          onRetry={() => void refetch()}
+        />
       ) : filteredReviews.length > 0 ? (
-        <Card className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-0">
-          <Card.Header className="p-4 border-b border-slate-100 flex flex-row items-center justify-between">
-            <Card.Title className="text-xs font-bold text-slate-800">
+        <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
+          <Card.Header className="p-4 border-b border-border flex flex-row items-center justify-between">
+            <Card.Title className="text-sm font-semibold text-text">
               Danh sách đánh giá ({filteredReviews.length})
             </Card.Title>
           </Card.Header>
 
-          <Card.Content className="p-0 divide-y divide-slate-100">
+          <Card.Content className="p-0 divide-y divide-border/70">
             {filteredReviews.map((rev) => {
               const isHidden = rev.trangThai === 'AN';
               return (
-                <div key={rev.maDanhGia} className="p-5 hover:bg-slate-50/50 transition-colors">
+                <div key={rev.maDanhGia} className="px-5 py-4 hover:bg-surface-subtle transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                     <div>
-                      <span className="font-bold text-slate-900 text-xs">{rev.nguoiDanhGia}</span>
-                      <span className="text-slate-400 text-xs mx-2">•</span>
-                      <span className="text-slate-600 text-xs font-semibold">
+                      <span className="font-semibold text-text text-sm">{rev.nguoiDanhGia}</span>
+                      <span className="text-text-subtle text-xs mx-2">•</span>
+                      <span className="text-text-secondary text-xs font-medium">
                         {rev.tenPhongTro}
                       </span>
-                      <code className="ml-2 text-[10px] font-mono text-blue-600">
+                      <code className="ml-2 text-xs font-mono text-text-muted">
                         #{rev.phongTroId}
                       </code>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center text-amber-500">
+                      <div className="flex items-center">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
                             className={`w-3.5 h-3.5 ${
-                              i < rev.diem ? 'fill-amber-400 text-amber-400' : 'text-slate-200'
+                              i < rev.diem ? 'fill-current text-warning-text' : 'text-border'
                             }`}
                           />
                         ))}
                       </div>
-                      <Chip
-                        size="sm"
-                        variant="soft"
-                        color={isHidden ? 'default' : 'success'}
-                        className="font-bold"
+                      <StatusBadge
+                        dotClass={isHidden ? 'bg-tone-slate-dot' : 'bg-tone-green-dot'}
+                        className={
+                          isHidden
+                            ? 'bg-surface-muted text-text-muted'
+                            : 'bg-success-bg text-success-text'
+                        }
                       >
                         {isHidden ? 'Tạm ẩn' : 'Hiển thị'}
-                      </Chip>
+                      </StatusBadge>
                     </div>
                   </div>
 
                   <p
-                    className={`text-xs leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3 ${
-                      isHidden ? 'text-slate-400 italic' : 'text-slate-700'
+                    className={`mb-3 text-[13px] leading-relaxed ${
+                      isHidden ? 'text-text-muted italic' : 'text-text-secondary'
                     }`}
                   >
                     "{rev.noiDung || 'Khách thuê đánh giá sao không kèm nhận xét'}"
                   </p>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
                     <span>Thời gian gửi: {formatDateTime(rev.thoiGian)}</span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setDeletingReview(rev)}
-                        className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-danger-bg hover:opacity-90 text-danger-text font-medium flex items-center gap-1 cursor-pointer transition-opacity"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         Xóa vĩnh viễn
@@ -184,7 +182,7 @@ export const ReviewsPage: React.FC = () => {
         />
       )}
 
-      {/* MODAL XÁC NHẬN XÓA ĐÁNH GIÁ (Thay thế window.confirm) */}
+      {/* MODAL XÁC NHẬN XÓA ĐÁNH GIÁ */}
       <Modal
         isOpen={!!deletingReview}
         onClose={() => setDeletingReview(null)}
@@ -200,7 +198,7 @@ export const ReviewsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeletingReview(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text-secondary cursor-pointer transition-colors"
             >
               Hủy
             </button>
@@ -208,7 +206,7 @@ export const ReviewsPage: React.FC = () => {
               type="button"
               disabled={deleteReviewMutation.isPending}
               onClick={() => deletingReview && deleteReviewMutation.mutate(deletingReview.maDanhGia)}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-danger-text hover:opacity-90 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-opacity"
             >
               {deleteReviewMutation.isPending && <Spinner size="sm" color="current" />}
               Xóa vĩnh viễn
@@ -217,12 +215,12 @@ export const ReviewsPage: React.FC = () => {
         }
       >
         {deletingReview && (
-          <div className="space-y-2 text-xs text-slate-600">
+          <div className="space-y-2 text-xs text-text-secondary">
             <p>
               Bạn có chắc chắn muốn xóa đánh giá của{' '}
-              <strong className="text-slate-900">{deletingReview.nguoiDanhGia}</strong> khỏi hệ thống không? Thao tác này không thể hoàn tác.
+              <strong className="font-semibold text-text">{deletingReview.nguoiDanhGia}</strong> khỏi hệ thống không? Thao tác này không thể hoàn tác.
             </p>
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 italic">
+            <div className="p-2.5 rounded-lg bg-surface-subtle border border-border text-text-secondary italic">
               "{deletingReview.noiDung}"
             </div>
           </div>

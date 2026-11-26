@@ -12,4 +12,11 @@ public class BankAccountResponse {
     private String soTaiKhoan;
     private String tenNganHang;
     private String tenChuTaiKhoan;
+    private boolean macDinh;
+
+    public static BankAccountResponse fromEntity(com.innfinder.backend.entity.TaiKhoanNganHang bank) {
+        return BankAccountResponse.builder().id(bank.getId()).soTaiKhoan(bank.getSoTaiKhoan())
+                .tenNganHang(bank.getTenNganHang()).tenChuTaiKhoan(bank.getTenChuTaiKhoan())
+                .macDinh(bank.isMacDinh()).build();
+    }
 }

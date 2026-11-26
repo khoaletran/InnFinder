@@ -10,6 +10,7 @@ import com.innfinder.backend.repository.TaiKhoanNganHangRepository;
 import com.innfinder.backend.dto.response.LandlordRequestResponseDTO;
 import com.innfinder.backend.entity.YeuCauChuTro;
 import com.innfinder.backend.entity.enums.TrangThaiYeuCauChuTro;
+import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.repository.YeuCauChuTroRepository;
 import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,12 @@ public class UserService {
         }
         return nguoiDungRepository.findByTenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void requireCustomerRole(NguoiDung user) {
+        if (user.getVaiTro() == VaiTro.QUAN_TRI) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
     }
 
     // 1. Lấy thông tin cá nhân
@@ -93,61 +100,72 @@ public class UserService {
         return "Đổi mật khẩu thành công!";
     }
 
-    // 4. Lấy danh sách tài khoản ngân hàng
+    @Transactional(readOnly = true)
     public List<BankAccountResponse> getMyBankAccounts() {
         NguoiDung user = getCurrentUser();
-        return taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung()).stream()
-                .map(tk -> BankAccountResponse.builder()
-                        .id(tk.getId())
-                        .soTaiKhoan(tk.getSoTaiKhoan())
-                        .tenNganHang(tk.getTenNganHang())
-                        .tenChuTaiKhoan(tk.getTenChuTaiKhoan())
-                        .build())
-                .toList();
+        requireCustomerRole(user);
+        return taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
+                .stream().map(BankAccountResponse::fromEntity).toList();
     }
 
-    // 4.1. Thêm mới tài khoản ngân hàng liên kết
+    private NguoiDung lockBankOwner() {
+        NguoiDung user = getCurrentUser();
+        requireCustomerRole(user);
+        return nguoiDungRepository.findByIdForUpdate(user.getMaNguoiDung())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    }
+
     @Transactional
     public BankAccountResponse addBankAccount(CreateBankAccountRequest request) {
-        NguoiDung user = getCurrentUser();
-        boolean exists = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung())
-                .stream()
-                .anyMatch(tk -> tk.getSoTaiKhoan().equals(request.getSoTaiKhoan()));
-        if (exists) {
+        NguoiDung user = lockBankOwner();
+        List<TaiKhoanNganHang> accounts = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung());
+        if (accounts.stream().anyMatch(tk -> tk.getSoTaiKhoan().equals(request.getSoTaiKhoan())
+                && tk.getTenNganHang().equalsIgnoreCase(request.getTenNganHang().trim()))) {
             throw new AppException(ErrorCode.BANK_ACCOUNT_EXISTED);
         }
-
-        TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
-                .nguoiDung(user)
-                .soTaiKhoan(request.getSoTaiKhoan())
-                .tenNganHang(request.getTenNganHang())
-                .tenChuTaiKhoan(request.getTenChuTaiKhoan())
-                .build();
-        TaiKhoanNganHang saved = taiKhoanNganHangRepository.save(tk);
-        return BankAccountResponse.builder()
-                .id(saved.getId())
-                .soTaiKhoan(saved.getSoTaiKhoan())
-                .tenNganHang(saved.getTenNganHang())
-                .tenChuTaiKhoan(saved.getTenChuTaiKhoan())
-                .build();
+        TaiKhoanNganHang bank = TaiKhoanNganHang.builder().nguoiDung(user)
+                .soTaiKhoan(request.getSoTaiKhoan()).tenNganHang(request.getTenNganHang().trim())
+                .tenChuTaiKhoan(request.getTenChuTaiKhoan() == null ? null : request.getTenChuTaiKhoan().trim())
+                .macDinh(accounts.stream().noneMatch(TaiKhoanNganHang::isMacDinh)).build();
+        return BankAccountResponse.fromEntity(taiKhoanNganHangRepository.save(bank));
     }
 
-    // 4.2. Hủy liên kết tài khoản ngân hàng
-    @Transactional
-    public void deleteBankAccount(Long id) {
-        NguoiDung user = getCurrentUser();
-        TaiKhoanNganHang tk = taiKhoanNganHangRepository.findById(id)
+    private TaiKhoanNganHang ownedBank(Long id, NguoiDung user) {
+        TaiKhoanNganHang bank = taiKhoanNganHangRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.BANK_ACCOUNT_NOT_FOUND));
-        if (!tk.getNguoiDung().getMaNguoiDung().equals(user.getMaNguoiDung())) {
+        if (!bank.getNguoiDung().getMaNguoiDung().equals(user.getMaNguoiDung())) {
             throw new AppException(ErrorCode.BANK_ACCOUNT_NOT_OWNED);
         }
-        taiKhoanNganHangRepository.delete(tk);
+        return bank;
+    }
+
+    @Transactional
+    public void setDefaultBankAccount(Long id) {
+        NguoiDung user = lockBankOwner();
+        ownedBank(id, user);
+        List<TaiKhoanNganHang> accounts = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung());
+        accounts.forEach(bank -> bank.setMacDinh(bank.getId().equals(id)));
+        taiKhoanNganHangRepository.saveAll(accounts);
+    }
+
+    @Transactional
+    public void deleteBankAccount(Long id) {
+        NguoiDung user = lockBankOwner();
+        TaiKhoanNganHang bank = ownedBank(id, user);
+        taiKhoanNganHangRepository.delete(bank);
+        if (bank.isMacDinh()) {
+            taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung()).stream()
+                    .filter(other -> !other.getId().equals(id))
+                    .min(java.util.Comparator.comparing(TaiKhoanNganHang::getId))
+                    .ifPresent(other -> { other.setMacDinh(true); taiKhoanNganHangRepository.save(other); });
+        }
     }
 
     // 5. Khách hàng nộp hồ sơ xin nâng cấp lên Chủ trọ
     @Transactional
     public String requestUpgradeToLandlord(LandlordUpgradeRequest request) {
         NguoiDung user = getCurrentUser();
+        requireCustomerRole(user);
 
         if (Boolean.TRUE.equals(user.getChuTro())) {
             throw new AppException(ErrorCode.ALREADY_A_LANDLORD);
@@ -181,6 +199,7 @@ public class UserService {
     // 6. Lấy hồ sơ đăng ký Chủ trọ gần nhất của người dùng
     public LandlordRequestResponseDTO getMyLandlordRequest() {
         NguoiDung user = getCurrentUser();
+        requireCustomerRole(user);
         return yeuCauChuTroRepository.findTopByNguoiDung_MaNguoiDungOrderByNgayGuiDesc(user.getMaNguoiDung())
                 .map(LandlordRequestResponseDTO::fromEntity)
                 .orElse(null);

@@ -3,7 +3,7 @@ import type { InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api.types';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export const BASE_URL = import.meta.env.VITE_API_URL || 'https://extrude-chug-shorthand.ngrok-free.dev';
+export const BASE_URL = "http://localhost:8080";
 const TOKEN_KEY = 'innfinder_jwt_token';
 
 export const tokenStorage = {
@@ -55,7 +55,9 @@ axiosClient.interceptors.response.use(
       useAuthStore.getState().logout();
     }
     let errorMessage = 'Lỗi kết nối máy chủ, vui lòng thử lại sau.';
-    if (error.response?.data?.message) {
+    if (error.response?.status === 429) {
+      errorMessage = 'Bạn thao tác quá nhiều lần, vui lòng thử lại sau';
+    } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
       errorMessage = 'Yêu cầu quá thời gian chờ. Vui lòng thử lại sau.';

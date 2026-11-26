@@ -157,12 +157,13 @@ class AppointmentNoShowAndExpiryTest {
         assertTrue(result.getLiDoHuy().contains("quá hạn phản hồi"));
 
         // Xác nhận đã tạo lệnh hoàn cọc 100% với trạng thái CHO_THANH_TOAN
-        verify(transactionService).taoGiaoDich(
+        verify(transactionService).taoGiaoDichLichHen(
                 eq(khachHang),
                 eq(200_000L),
                 eq("HOAN_COC"),
                 contains("Tự động hoàn cọc do quá hạn phản hồi"),
-                eq(TrangThaiGD.CHO_THANH_TOAN)
+                eq(TrangThaiGD.CHO_THANH_TOAN),
+                any(PhieuDatLich.class)
         );
     }
 
@@ -199,7 +200,7 @@ class AppointmentNoShowAndExpiryTest {
 
         assertEquals(TrangThaiDatLich.CHO_XAC_NHAN, result.getTrangThai());
         verify(phieuDatLichRepository, never()).save(any());
-        verify(transactionService, never()).taoGiaoDich(any(), any(), any(), any(), any());
+        verify(transactionService, never()).taoGiaoDichLichHen(any(), any(), any(), any(), any(), any());
     }
 
     // =========================================================================
@@ -213,7 +214,7 @@ class AppointmentNoShowAndExpiryTest {
         phieu.setNgayHen(LocalDateTime.now().minusMinutes(10));
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
-        when(phieuDatLichRepository.findById(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
 
         AppException ex = assertThrows(AppException.class, () ->
                 appointmentService.khachBaoCaoNoShow(phieu.getMaDatLich(), "khach_hang")
@@ -234,7 +235,7 @@ class AppointmentNoShowAndExpiryTest {
         chuTro.setDiemUyTin(100);
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
-        when(phieuDatLichRepository.findById(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
         when(giaoDichRepository.existsDepositByMaDatLich(eq(khachHang.getMaNguoiDung()), eq(phieu.getMaDatLich()))).thenReturn(true);
 
@@ -250,12 +251,13 @@ class AppointmentNoShowAndExpiryTest {
         assertEquals(90, chuTroCaptor.getValue().getDiemUyTin());
 
         // 3. Lệnh hoàn cọc 100% được lập cho khách
-        verify(transactionService).taoGiaoDich(
+        verify(transactionService).taoGiaoDichLichHen(
                 eq(khachHang),
                 eq(200_000L),
                 eq("HOAN_COC"),
                 contains("Hoàn cọc do chủ trọ vắng mặt"),
-                eq(TrangThaiGD.CHO_THANH_TOAN)
+                eq(TrangThaiGD.CHO_THANH_TOAN),
+                any(PhieuDatLich.class)
         );
     }
 
@@ -270,7 +272,7 @@ class AppointmentNoShowAndExpiryTest {
         chuTro.setSoDu(100_000L); // Số dư ban đầu
 
         when(nguoiDungRepository.findByTenDangNhap("chu_tro")).thenReturn(Optional.of(chuTroUser));
-        when(phieuDatLichRepository.findById(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
         when(giaoDichRepository.existsDepositByMaDatLich(eq(khachHang.getMaNguoiDung()), eq(phieu.getMaDatLich()))).thenReturn(true);
 
@@ -285,12 +287,13 @@ class AppointmentNoShowAndExpiryTest {
         assertEquals(100_000L, chuTro.getSoDu());
 
         // 3. Tiền cọc được tạo giao dịch đóng băng CHO_THANH_TOAN
-        verify(transactionService).taoGiaoDich(
+        verify(transactionService).taoGiaoDichLichHen(
                 eq(chuTroUser),
                 eq(200_000L),
                 eq("BOI_THUONG_NO_SHOW"),
                 contains("Bồi thường tiền cọc (chờ đối soát 24h)"),
-                eq(TrangThaiGD.CHO_THANH_TOAN)
+                eq(TrangThaiGD.CHO_THANH_TOAN),
+                any(PhieuDatLich.class)
         );
     }
 
@@ -316,9 +319,8 @@ class AppointmentNoShowAndExpiryTest {
         when(chuTroRepository.findByIdForUpdate(chuTroUser.getMaNguoiDung())).thenReturn(Optional.of(chuTro));
         when(chuTroRepository.save(any(ChuTro.class))).thenAnswer(i -> i.getArgument(0));
 
-        // Mock tổng quỹ hệ thống đủ tiền chi
-        lenient().when(giaoDichRepository.sumSoTienByLoaiAndTrangThai(anyString(), any(TrangThaiGD.class))).thenReturn(0L);
-        lenient().when(giaoDichRepository.sumSoTienByLoaiAndTrangThai(eq("COC_XEM_PHONG"), eq(TrangThaiGD.THANH_CONG))).thenReturn(10_000_000L);
+        // Lệnh bồi thường đang chờ xử lý vẫn là cọc giữ tại sàn.
+        when(giaoDichRepository.findAll()).thenReturn(List.of(gd));
         lenient().when(chuTroRepository.sumTotalSoDu()).thenReturn(100_000L);
 
         adminService.approveTransaction(gd.getMaGiaoDich(), "admin_user", "FT123456");
@@ -401,8 +403,9 @@ class AppointmentNoShowAndExpiryTest {
         assertFalse(result, "Hàm duyệt lịch phải trả về false khi quá hạn");
         assertEquals(TrangThaiDatLich.HUY, phieu.getTrangThai());
         assertTrue(phieu.getLiDoHuy().contains("quá hạn"));
-        verify(transactionService).taoGiaoDich(
-                eq(khachHang), eq(200_000L), eq("HOAN_COC"), contains("quá hạn"), eq(TrangThaiGD.CHO_THANH_TOAN)
+        verify(transactionService).taoGiaoDichLichHen(
+                eq(khachHang), eq(200_000L), eq("HOAN_COC"), contains("quá hạn"), eq(TrangThaiGD.CHO_THANH_TOAN),
+                any(PhieuDatLich.class)
         );
         verify(phieuDatLichRepository).save(phieu);
     }
@@ -482,12 +485,13 @@ class AppointmentNoShowAndExpiryTest {
 
         // 2. Không thu phí hoa hồng sàn, hoàn đủ 100% cọc (200.000đ) cho Chủ trọ bù khoản đã ứng trả khách
         assertEquals(200_000L, chuTro.getSoDu());
-        verify(transactionService).taoGiaoDich(
+        verify(transactionService).taoGiaoDichLichHen(
                 eq(chuTroUser),
                 eq(200_000L),
                 eq("HOAN_COC"),
                 contains("khách khác chốt trước"),
-                eq(TrangThaiGD.THANH_CONG)
+                eq(TrangThaiGD.THANH_CONG),
+                any(PhieuDatLich.class)
         );
     }
 
@@ -542,7 +546,7 @@ class AppointmentNoShowAndExpiryTest {
 
         // Tuyệt đối không lưu giao dịch COC_XEM_PHONG và không tạo lệnh HOAN_COC đền bù
         verify(giaoDichRepository, never()).save(any(GiaoDich.class));
-        verify(transactionService, never()).taoGiaoDich(any(), anyLong(), anyString(), anyString(), any());
+        verify(transactionService, never()).taoGiaoDichLichHen(any(), anyLong(), anyString(), anyString(), any(), any());
     }
 
     // =========================================================================
@@ -600,13 +604,26 @@ class AppointmentNoShowAndExpiryTest {
         assertTrue(phieuB.getLiDoHuy().contains("khách hẹn xem sớm hơn chốt thuê thành công"));
 
         // 3. Tự động sinh lệnh hoàn cọc 100% cho Khách B
-        verify(transactionService).taoGiaoDich(
+        verify(transactionService).taoGiaoDichLichHen(
                 eq(khachHangB),
                 eq(200_000L),
                 eq("HOAN_COC"),
                 contains("Hoàn cọc do phòng đã có khách trước chốt thuê"),
-                eq(TrangThaiGD.CHO_THANH_TOAN)
+                eq(TrangThaiGD.CHO_THANH_TOAN),
+                any(PhieuDatLich.class)
         );
+    }
+
+    @Test
+    void paymentConfirmationCannotCreateDepositWithoutBankPayment() {
+        when(nguoiDungRepository.findByTenDangNhap(khachHang.getTenDangNhap())).thenReturn(Optional.of(khachHang));
+        when(phieuDatLichRepository.findById(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
+
+        AppException error = assertThrows(AppException.class,
+                () -> appointmentService.nopTienCoc(phieu.getMaDatLich(), khachHang.getTenDangNhap()));
+
+        assertEquals(ErrorCode.DEPOSIT_NOT_PAID_YET, error.getErrorCode());
+        verifyNoInteractions(transactionService);
     }
 
     // =========================================================================
@@ -615,6 +632,7 @@ class AppointmentNoShowAndExpiryTest {
     @Test
     @DisplayName("TH17: Casso Webhook gửi giao dịch hợp lệ -> Ghi nhận cọc thành công với mã CASSO_<id>")
     void testCassoWebhook_NopCocThanhCong() {
+        ReflectionTestUtils.setField(bankingWebhookService, "cassoSecureToken", "test-casso-token");
         phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         phieu.setCoc(200_000L);
 
@@ -638,7 +656,7 @@ class AppointmentNoShowAndExpiryTest {
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
 
         var response = bankingWebhookService.xuLyCassoWebhook(
-                "HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz",
+                "test-casso-token",
                 payload
         );
 
@@ -664,7 +682,7 @@ class AppointmentNoShowAndExpiryTest {
         CassoWebhookPayload cassoPayload = CassoWebhookPayload.builder()
                 .data(List.of(CassoTransactionItem.builder().amount(200_000L).build()))
                 .build();
-        var cassoRes = bankingWebhookService.xuLyCassoWebhook("HhNcBfnTrWljV7K7eAPSP74txzRco1R0I7OZmrk2YTLpmozdrKHa5rXLTsTUJesz", cassoPayload);
+        var cassoRes = bankingWebhookService.xuLyCassoWebhook("test-casso-token", cassoPayload);
         assertFalse((Boolean) cassoRes.get("success"));
         assertTrue(cassoRes.get("message").toString().contains("vô hiệu hóa"));
 

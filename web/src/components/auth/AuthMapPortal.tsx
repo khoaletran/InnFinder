@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { tokenStorage } from '@/api/axiosClient';
 import { authUserService } from '@/services/authUser.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getSafeReturnUrl } from '@/utils/security';
 import { loginSchema, registerSchema } from '@/utils/validators';
 import type { LoginRequest } from '@/types/auth-user.types';
 import { InnFinderPinIcon } from '@/components/common/InnFinderLogo';
@@ -245,10 +246,16 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({ initialMode = 'log
       setAuth(res.token, profile);
 
       toast.success(`Chào mừng trở lại, ${profile.hoVaTen || profile.tenDangNhap}!`);
-      const rawFrom = (location.state as LocationRedirectState | null)?.from?.pathname;
+      const queryReturnUrl = new URLSearchParams(location.search).get('returnUrl');
+      const stateFrom = (location.state as LocationRedirectState | null)?.from?.pathname;
+      const rawFrom = getSafeReturnUrl(queryReturnUrl) ?? getSafeReturnUrl(stateFrom);
 
       if (profile.vaiTro === 'QUAN_TRI') {
-        navigate('/admin/dashboard', { replace: true });
+        const safeAdminTarget =
+          rawFrom && !rawFrom.startsWith('/login') && !rawFrom.startsWith('/register')
+            ? rawFrom
+            : '/admin/dashboard';
+        navigate(safeAdminTarget, { replace: true });
       } else if (profile.chuTro) {
         const safeFrom =
           rawFrom && !rawFrom.startsWith('/admin') ? rawFrom : '/landlord/dashboard';

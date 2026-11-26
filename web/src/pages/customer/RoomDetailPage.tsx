@@ -1,25 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AlertTriangle,
   Award,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
   Heart,
   Images,
   MapPin,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RoomMap } from '@/components/map/RoomMap';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
-import { formatDate, formatVND, formatVNDShort } from '@/utils/formatters';
+import type { RoomSummaryResponse } from '@/types/room.types';
+import { formatDate, formatVND, formatVNDShort, getValidCoords } from '@/utils/formatters';
 
 export const RoomDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +30,11 @@ export const RoomDetailPage: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
   const { isFavorite, toggleFavorite } = useFavoriteStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [carouselState, setCarouselState] = useState<{ roomId?: string; index: number }>({
+    roomId: id,
+    index: 0,
+  });
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
 
   const { data: room, isLoading } = useQuery({
     queryKey: ['rooms', 'detail', id],
@@ -40,60 +48,115 @@ export const RoomDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
+  const images: string[] = useMemo(() => {
+    if (!room) return [];
+    if (room.dsHinhAnh && room.dsHinhAnh.length > 0) {
+      const urls = room.dsHinhAnh.map((img) => img.url).filter(Boolean);
+      if (urls.length > 0) return urls;
+    }
+    if (room.hinhAnh && room.hinhAnh.length > 0) {
+      const urls = room.hinhAnh.map((img) => img.duongDan).filter(Boolean);
+      if (urls.length > 0) return urls;
+    }
+    return ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200'];
+  }, [room]);
+
+  const currentIndex = carouselState.roomId === id ? carouselState.index : 0;
+  const safeImageIndex = images.length > 0 ? currentIndex % images.length : 0;
+
+  const setImageIndex = (updater: number | ((prev: number) => number)) => {
+    setCarouselState((prev) => {
+      const base = prev.roomId === id ? prev.index : 0;
+      const next = typeof updater === 'function' ? updater(base) : updater;
+      return { roomId: id, index: next };
+    });
+  };
+
+  useEffect(() => {
+    if (images.length <= 1 || lightboxOpen || isCarouselPaused) return;
+    const timer = window.setInterval(() => {
+      setCarouselState((prev) => {
+        const base = prev.roomId === id ? prev.index : 0;
+        return { roomId: id, index: (base + 1) % images.length };
+      });
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [id, images.length, lightboxOpen, isCarouselPaused]);
+
   if (isLoading) {
     return (
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
-        <LoadingSpinner fullHeight label="Đang tải thông tin chi tiết phòng trọ..." />
+      <div className="flex-1 bg-white flex flex-col">
+        <AppBreadcrumb
+          items={[
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Tìm kiếm phòng', to: '/search' },
+            { label: 'Đang tải...' },
+          ]}
+        />
+        <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+          <LoadingSpinner fullHeight label="Đang tải thông tin chi tiết phòng trọ..." />
+        </div>
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div className="flex-1 max-w-lg mx-auto flex flex-col items-center justify-center p-6 text-center py-20">
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy phòng trọ</h2>
-        <p className="text-sm text-slate-500 mb-6">
-          Phòng này có thể đã được cho thuê hoàn tất hoặc tạm ẩn khỏi hệ thống.
-        </p>
-        <Link
-          to="/search"
-          className="px-6 py-2.5 bg-teal-600 text-white rounded-full font-semibold text-sm shadow-md"
-        >
-          Quay lại tìm kiếm
-        </Link>
+      <div className="flex-1 bg-white flex flex-col">
+        <AppBreadcrumb
+          items={[
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Tìm kiếm phòng', to: '/search' },
+            { label: 'Chi tiết phòng' },
+          ]}
+        />
+        <div className="flex-1 max-w-lg mx-auto flex flex-col items-center justify-center p-6 text-center py-20">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy phòng trọ</h2>
+          <p className="text-sm text-slate-500 mb-6">
+            Phòng này có thể đã được cho thuê hoàn tất hoặc tạm ẩn khỏi hệ thống.
+          </p>
+          <Link
+            to="/search"
+            className="px-6 py-2.5 bg-teal-600 text-white rounded-full font-semibold text-sm shadow-md"
+          >
+            Quay lại tìm kiếm
+          </Link>
+        </div>
       </div>
     );
   }
 
   const favorited = isFavorite(room.maPhongTro);
 
-  const images: string[] =
-    room.dsHinhAnh && room.dsHinhAnh.length > 0
-      ? room.dsHinhAnh.map((img) => img.url)
-      : room.hinhAnh && room.hinhAnh.length > 0
-        ? room.hinhAnh.map((img) => img.duongDan)
-        : [
-            'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',
-            'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-            'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800',
-          ];
-
   const amenitiesList: string[] =
-    room.dsTienIch && room.dsTienIch.length > 0
-      ? room.dsTienIch.map((a) => (typeof a === 'string' ? a : a.tenTienIch))
-      : ['Máy lạnh', 'Wi-Fi tốc độ cao', 'Giữ xe an ninh', 'Camera 24/7'];
+    room.dsTienIch
+      ?.map((a) => (typeof a === 'string' ? a : a.tenTienIch))
+      .filter(Boolean) ?? [];
+
+  const roomTypeLabel =
+    room.loaiPhong?.tenLoaiPhongTro || room.loaiPhong?.tenLoaiPhong || 'Phòng trọ';
 
   const roomTitle =
     room.tieuDe ||
     room.tenPhong ||
-    `${room.loaiPhong?.tenLoaiPhongTro || room.loaiPhong?.tenLoaiPhong || 'Phòng trọ'} - ${
-      room.diaChi.split(',')[0] || ''
-    }`;
+    `${roomTypeLabel} - ${room.diaChi.split(',')[0] || ''}`;
 
   // Tách bạch rõ tiền cọc hợp đồng (cocPhong) và cọc giữ chân lịch xem (soTienCoc) theo AGENTS.md Mục 2.2 & 2.3
   const contractDeposit = room.cocPhong ?? room.coc ?? room.giaThue;
   const viewingDeposit = room.loaiPhong?.soTienCoc ?? 200_000;
   const landlordScore = room.chuTro?.diemUyTin ?? 100;
+
+  const roomCoords = getValidCoords(room);
+  const roomMapSummary: RoomSummaryResponse = {
+    maPhongTro: room.maPhongTro,
+    diaChi: room.diaChi,
+    giaThue: room.giaThue,
+    dienTich: room.dienTich,
+    soNguoi: room.soNguoi,
+    kinhDo: room.kinhDo,
+    viDo: room.viDo,
+    tieuDe: roomTitle,
+  };
 
   const handleBookViewing = () => {
     if (!isAuthenticated) {
@@ -122,84 +185,105 @@ export const RoomDetailPage: React.FC = () => {
     toast.success(added ? 'Đã lưu vào danh sách phòng yêu thích' : 'Đã bỏ lưu phòng yêu thích');
   };
 
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setImageIndex((prev) => (prev + 1) % images.length);
+  };
+
   return (
     <div className="flex-1 bg-white flex flex-col">
+      <AppBreadcrumb
+        items={[
+          { label: 'Trang chủ', to: '/' },
+          { label: 'Tìm kiếm phòng', to: '/search' },
+          { label: roomTitle },
+        ]}
+      />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        <nav className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-5">
-          <Link to="/" className="hover:text-teal-700 transition-colors">
-            Trang chủ
-          </Link>
-          <span>/</span>
-          <Link to="/search" className="hover:text-teal-700 transition-colors">
-            Tìm kiếm phòng
-          </Link>
-          <span>/</span>
-          <span className="text-slate-900 font-semibold truncate max-w-xs sm:max-w-md">
-            {roomTitle}
-          </span>
-        </nav>
+        {/* Carousel 1 ảnh lớn, tự chuyển mỗi 5s, có nút điều hướng và badge tổng số ảnh góc phải */}
+        <div
+          onClick={() => setLightboxOpen(true)}
+          onMouseEnter={() => setIsCarouselPaused(true)}
+          onMouseLeave={() => setIsCarouselPaused(false)}
+          className="relative h-[360px] sm:h-[460px] rounded-3xl overflow-hidden bg-slate-100 mb-8 group cursor-pointer"
+        >
+          <img
+            src={images[safeImageIndex]}
+            alt={`${roomTitle} - ảnh ${safeImageIndex + 1}`}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.01]"
+          />
 
-        {/* Thư viện ảnh thực tế */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-8 h-[380px] sm:h-[440px] rounded-3xl overflow-hidden relative">
-          <div
-            onClick={() => setLightboxOpen(true)}
-            className="md:col-span-8 h-full bg-slate-100 cursor-pointer overflow-hidden group"
+          {images.length > 1 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+          )}
+
+          {/* Badge tổng số ảnh góc phải */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxOpen(true);
+            }}
+            className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-900/75 hover:bg-slate-900/90 backdrop-blur-xs px-3.5 py-1.5 text-xs font-bold text-white shadow-md transition-colors cursor-pointer"
           >
-            <img
-              src={images[0]}
-              alt={roomTitle}
-              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
-            />
-          </div>
+            <Images className="w-3.5 h-3.5 text-teal-300" />
+            <span>
+              {images.length > 1 ? `${safeImageIndex + 1} / ${images.length} ảnh` : `${images.length} ảnh`}
+            </span>
+          </button>
 
-          <div className="hidden md:flex md:col-span-4 flex-col gap-3 h-full">
-            <div
-              onClick={() => setLightboxOpen(true)}
-              className="flex-1 bg-slate-100 cursor-pointer overflow-hidden group rounded-tr-2xl"
-            >
-              <img
-                src={images[1] || images[0]}
-                alt="Không gian phòng"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-            </div>
-            <div
-              onClick={() => setLightboxOpen(true)}
-              className="flex-1 bg-slate-100 cursor-pointer overflow-hidden group relative rounded-br-2xl"
-            >
-              <img
-                src={images[2] || images[0]}
-                alt="Chi tiết phòng"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
+          {/* Nút chuyển ảnh trái / phải */}
+          {images.length > 1 && (
+            <>
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxOpen(true);
-                }}
-                className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-xs text-slate-900 px-3.5 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 hover:bg-white transition-all cursor-pointer"
+                aria-label="Ảnh trước"
+                onClick={handlePrevImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
-                <Images className="w-4 h-4 text-teal-600" />
-                <span>Xem tất cả {images.length} ảnh</span>
+                <ChevronLeft className="w-5 h-5" />
               </button>
-            </div>
-          </div>
+              <button
+                type="button"
+                aria-label="Ảnh tiếp theo"
+                onClick={handleNextImage}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
+              {/* Chấm chỉ báo vị trí ảnh */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+                {images.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Xem ảnh ${idx + 1}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImageIndex(idx);
+                    }}
+                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                      idx === safeImageIndex
+                        ? 'w-6 bg-white shadow-sm'
+                        : 'w-2 bg-white/60 hover:bg-white/90'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* CỘT TRÁI (8/12) */}
           <div className="lg:col-span-8 space-y-8">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold border border-teal-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Đã kiểm duyệt
-                </span>
-                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-                  Mã phòng: {room.maPhongTro}
-                </span>
-              </div>
-
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
                 {roomTitle}
               </h1>
@@ -210,56 +294,44 @@ export const RoomDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Thông số chính bao gồm Giá thuê & Cọc hợp đồng (cocPhong) */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
+            {/* Thông số chính (3 cột gọn gàng, không trùng giá/cọc ở card phải) */}
+            <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div className="text-center p-2">
-                <div className="text-base font-extrabold text-teal-700">
-                  {formatVNDShort(room.giaThue, '')}
-                </div>
-                <div className="text-[11px] font-medium text-slate-400 mt-0.5">giá thuê / tháng</div>
-              </div>
-
-              <div className="text-center p-2 border-l border-slate-200">
-                <div className="text-base font-extrabold text-slate-800">
-                  {formatVNDShort(contractDeposit, '')}
-                </div>
-                <div className="text-[11px] font-medium text-slate-400 mt-0.5">cọc hợp đồng</div>
-              </div>
-
-              <div className="text-center p-2 border-l border-slate-200">
                 <div className="text-base font-extrabold text-slate-800">{room.dienTich} m²</div>
-                <div className="text-[11px] font-medium text-slate-400 mt-0.5">diện tích</div>
+                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Diện tích</div>
               </div>
 
               <div className="text-center p-2 border-l border-slate-200">
-                <div className="text-base font-extrabold text-slate-800 truncate">
-                  {room.loaiPhong?.tenLoaiPhongTro || room.loaiPhong?.tenLoaiPhong || 'Phòng trọ'}
-                </div>
-                <div className="text-[11px] font-medium text-slate-400 mt-0.5">loại phòng</div>
+                <div className="text-base font-extrabold text-slate-800">{roomTypeLabel}</div>
+                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Loại phòng</div>
               </div>
 
               <div className="text-center p-2 border-l border-slate-200">
                 <div className="text-base font-extrabold text-slate-800">
                   {room.soNguoi || 2} người
                 </div>
-                <div className="text-[11px] font-medium text-slate-400 mt-0.5">sức chứa tối đa</div>
+                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Sức chứa</div>
               </div>
             </div>
 
             {/* Tiện ích */}
             <div className="pt-4 border-t border-slate-100">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Tiện ích trang bị</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {amenitiesList.map((amenity, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2.5 text-xs sm:text-sm font-medium text-slate-700"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>{amenity}</span>
-                  </div>
-                ))}
-              </div>
+              {amenitiesList.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {amenitiesList.map((amenity, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2.5 text-xs sm:text-sm font-medium text-slate-700"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>{amenity}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Chưa cập nhật tiện ích</p>
+              )}
             </div>
 
             {/* Mô tả & Nội quy */}
@@ -273,30 +345,43 @@ export const RoomDetailPage: React.FC = () => {
 
             {/* Vị trí trên bản đồ (Theo Mục 2.2 Bước 5) */}
             <div className="pt-4 border-t border-slate-100 space-y-3">
-              <h2 className="text-lg font-bold text-slate-900">Vị trí trên bản đồ</h2>
-              <div className="h-72 rounded-2xl overflow-hidden border border-slate-200">
-                <RoomMap
-                  rooms={[
-                    {
-                      maPhongTro: room.maPhongTro,
-                      diaChi: room.diaChi,
-                      giaThue: room.giaThue,
-                      dienTich: room.dienTich,
-                      soNguoi: room.soNguoi,
-                      kinhDo: room.kinhDo,
-                      viDo: room.viDo,
-                      tieuDe: roomTitle,
-                    },
-                  ]}
-                  interactivePreview={false}
-                />
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold text-slate-900">Vị trí trên bản đồ</h2>
+                {roomCoords && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${roomCoords.lat},${roomCoords.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800"
+                  >
+                    <span>Mở Google Maps</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
+
+              {roomCoords ? (
+                <div className="h-72 rounded-2xl overflow-hidden border border-slate-200">
+                  <RoomMap
+                    key={room.maPhongTro}
+                    rooms={[roomMapSummary]}
+                    selectedRoom={roomMapSummary}
+                    interactivePreview={false}
+                    markerStyle="brand"
+                    showRadiusBadge={false}
+                  />
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+                  Phòng này chưa cập nhật tọa độ bản đồ.
+                </div>
+              )}
             </div>
 
             {/* Đánh giá từ khách đã xem */}
             <div className="pt-4 border-t border-slate-100 space-y-4">
               <h2 className="text-lg font-bold text-slate-900">
-                Đánh giá thực tế từ khách đã xem ({reviews.length})
+                Đánh giá từ khách đã xem ({reviews.length})
               </h2>
               {reviews.length > 0 ? (
                 <div className="space-y-3">
@@ -340,19 +425,21 @@ export const RoomDetailPage: React.FC = () => {
                   {formatVNDShort(room.giaThue)}
                 </Card.Title>
                 <Card.Description className="text-xs text-slate-500 font-medium">
-                  Cọc giữ chân xem phòng: <strong className="text-teal-700">{formatVND(viewingDeposit)}</strong> (Hoàn 100% trực tiếp khi gặp xem phòng)
+                  Cọc xem phòng:{' '}
+                  <strong className="text-teal-700">{formatVND(viewingDeposit)}</strong> (Hoàn 100%
+                  khi gặp xem)
                 </Card.Description>
               </Card.Header>
 
               <Card.Content className="p-0 space-y-3">
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
                   <div className="flex justify-between text-slate-600">
-                    <span>Tiền cọc hợp đồng (ngoài sàn):</span>
+                    <span>Cọc hợp đồng:</span>
                     <strong className="text-slate-900">{formatVND(contractDeposit)}</strong>
                   </div>
                   <div className="flex justify-between text-slate-600">
-                    <span>Phí khách thuê trên sàn:</span>
-                    <strong className="text-emerald-600">0 ₫ (Miễn phí 100%)</strong>
+                    <span>Phí dịch vụ khách thuê:</span>
+                    <strong className="text-emerald-600">Miễn phí (0 ₫)</strong>
                   </div>
                 </div>
 
@@ -400,17 +487,11 @@ export const RoomDetailPage: React.FC = () => {
                     </div>
                     <div className="text-xs text-teal-700 font-semibold flex items-center gap-1">
                       <Award className="w-3.5 h-3.5" />
-                      Điểm uy tín: {landlordScore} điểm
+                      Uy tín {landlordScore} điểm
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    Sàn InnFinder chỉ bảo chứng khoản cọc giữ chân lịch xem ({formatVND(viewingDeposit)}). Tuyệt đối không chuyển khoản tiền thuê hay cọc hợp đồng trước khi xem phòng thực tế.
-                  </span>
-                </div>
               </Card.Footer>
             </Card>
           </div>

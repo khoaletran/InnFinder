@@ -1,0 +1,42 @@
+.ledger-results { container-type: inline-size; }
+.ledger-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+.ledger-table thead th {
+  overflow: hidden;
+  background: var(--table-header);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ledger-table tbody td { padding-block: 14px; }
+.data-cell-label { display: none; }
+.ledger-table :is(th, td) { padding-inline: 10px; }
+.ledger-table :is(th, td):last-child { padding-inline: 5px; }
+.ledger-table tbody tr { height: 66px; }
+.ledger-table td { border-bottom: 1px solid var(--border); }
+.ledger-table tr:last-child td { border-bottom: 0; }
+@container (width < 1000px) {
+  .ledger-table { display: block; }
+  .ledger-table tbody { padding: 12px; }
+  .ledger-table colgroup { display: none; }
+  .ledger-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ledger-table tbody { display: grid; gap: 12px; }
+  .ledger-table tbody tr { display: block; height: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 8px 12px; }
+  .ledger-table tbody td { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 8px; text-align: left; padding: 6px 0; border-bottom: none; }
+  .ledger-table tbody td[colspan] { display: block; padding: 14px 0; text-align: center; }
+  .ledger-table tbody tr:has(td[colspan]) { border: 0; }
+  .ledger-table td:last-child { display: block; padding-inline: 0; }
+  .ledger-table td:last-child .data-cell-label { display: none; }
+  .ledger-table .data-cell-label { display: block; font-size: 12px; color: var(--text-muted); }
+  .ledger-table .data-cell-value { min-width: 0; }
+}

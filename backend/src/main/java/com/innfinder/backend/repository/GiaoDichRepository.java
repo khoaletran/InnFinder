@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface GiaoDichRepository extends JpaRepository<GiaoDich, String> {
+public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<GiaoDich> {
     @Query("SELECT MAX(g.maGiaoDich) FROM GiaoDich g WHERE g.maGiaoDich LIKE CONCAT(:prefix, '%')")
     String findMaxMaGiaoDichByPrefix(@Param("prefix") String prefix);
 
@@ -109,4 +109,12 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM GiaoDich g WHERE g.maGiaoDich = :maGiaoDich")
     Optional<GiaoDich> findByIdForUpdate(@Param("maGiaoDich") String maGiaoDich);
+    @Query("SELECT COALESCE(SUM(g.soTien), 0L) FROM GiaoDich g WHERE g.nguoiDung.maNguoiDung = :userId " +
+           "AND g.loaiGiaoDich IN ('CONG_TIEN_COC', 'HOAN_COC', 'HOAN_TIEN_RUT') " +
+           "AND g.trangThai IN (com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG, " +
+           "com.innfinder.backend.entity.enums.TrangThaiGD.HOAN_TIEN)")
+    Long sumWalletCredits(@Param("userId") String userId);
+
+    List<GiaoDich> findTop20ByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String id);
+
 }

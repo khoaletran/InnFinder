@@ -9,7 +9,7 @@ export interface ResolvedRoomInfo {
 export const formatVND = (
   amount: number | string | undefined | null,
   showUnit: boolean = true,
-  unit: string = '₫',
+  unit: string = 'đ',
 ): string => {
   if (amount === undefined || amount === null || amount === '') {
     return showUnit ? `0 ${unit}` : '0';
@@ -120,7 +120,7 @@ export const resolveRoomInfo = (noiDung?: string): ResolvedRoomInfo | null => {
   return {
     code,
     title: `Phòng trọ mã #${code}`,
-    address: 'Đối soát tự động qua sổ cái InnFinder',
+    address: 'Giao dịch InnFinder',
   };
 };
 
@@ -142,7 +142,7 @@ export const formatTransactionType = (
       return { label: 'Phí hoa hồng môi giới sàn', method: 'Hệ thống InnFinder' };
     case 'RUT_TIEN':
     case 'YEU_CAU_RUT_TIEN':
-      return { label: 'Rút tiền về tài khoản ngân hàng', method: 'Chuyển khoản NAPAS' };
+      return { label: 'Rút tiền về tài khoản ngân hàng', method: 'Chuyển khoản ngân hàng' };
     default:
       return { label: loaiGiaoDich || 'Giao dịch hệ thống', method: 'Ví InnFinder' };
   }
@@ -153,35 +153,35 @@ export const getTransactionStatusBadge = (status: TrangThaiGD) => {
     case 'THANH_CONG':
       return {
         label: 'Thành công',
-        bgClass: 'bg-emerald-50',
-        textClass: 'text-emerald-700',
-        borderClass: 'border-emerald-200',
-        dotClass: 'bg-emerald-500',
+        bgClass: 'bg-success-bg',
+        textClass: 'text-success-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-success-text',
       };
     case 'CHO_THANH_TOAN':
       return {
         label: 'Chờ thanh toán',
-        bgClass: 'bg-amber-50',
-        textClass: 'text-amber-700',
-        borderClass: 'border-amber-200',
-        dotClass: 'bg-amber-500',
+        bgClass: 'bg-warning-bg',
+        textClass: 'text-warning-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-warning-text',
       };
     case 'HOAN_TIEN':
       return {
         label: 'Hoàn tiền',
-        bgClass: 'bg-sky-50',
-        textClass: 'text-sky-700',
-        borderClass: 'border-sky-200',
-        dotClass: 'bg-sky-500',
+        bgClass: 'bg-info-bg',
+        textClass: 'text-info-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-info-text',
       };
     case 'THAT_BAI':
     default:
       return {
         label: 'Thất bại',
-        bgClass: 'bg-rose-50',
-        textClass: 'text-rose-600',
-        borderClass: 'border-rose-200',
-        dotClass: 'bg-rose-500',
+        bgClass: 'bg-danger-bg',
+        textClass: 'text-danger-text',
+        borderClass: 'border-transparent',
+        dotClass: 'bg-danger-text',
       };
   }
 };

@@ -1,26 +1,30 @@
-import React from 'react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import React, { lazy } from 'react';
+import { Navigate, Route, Routes, useParams, useLocation, useNavigate } from 'react-router-dom';
+import { ProfileInfoTab } from '@/components/profile/ProfileInfoTab';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { CustomerLayout } from '@/layouts/CustomerLayout';
 import { LandlordLayout } from '@/layouts/LandlordLayout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { useAuthStore } from '@/store/useAuthStore';
 
 // Auth Pages (Thành viên 1)
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
+import type { Location } from 'react-router-dom';
+import { AuthDialog } from '@/components/auth/AuthDialog';
 
 // Admin Console Pages (Thành viên 1)
+import { AdminProfileInfoTab } from '@/components/admin/AdminProfileInfoTab';
+import { AdminProfilePage } from '@/pages/admin/AdminProfilePage';
 import { CategoriesPage } from '@/pages/admin/CategoriesPage';
 import { ComplaintsAdminPage } from '@/pages/admin/ComplaintsAdminPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { PostsPage } from '@/pages/admin/PostsPage';
 import { ReviewsPage } from '@/pages/admin/ReviewsPage';
+import { ViewingsPage } from '@/pages/admin/ViewingsPage';
 import { StatisticsPage } from '@/pages/admin/StatisticsPage';
 import { TransactionsPage } from '@/pages/admin/TransactionsPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
-import { ViewingsPage } from '@/pages/admin/ViewingsPage';
 
 // Customer Discovery & Details Pages (Thành viên 2)
 import { FavoritesPage } from '@/pages/customer/FavoritesPage';
@@ -47,9 +51,13 @@ import { WalletPage as CustomerWalletPage } from '@/pages/customer/WalletPage';
 import { AppointmentsPage as LandlordAppointmentsPage } from '@/pages/landlord/AppointmentsPage';
 import { CreateRoomPage } from '@/pages/landlord/CreateRoomPage';
 import { DashboardPage as LandlordDashboardPage } from '@/pages/landlord/DashboardPage';
+import { ProfilePage as LandlordProfilePage } from '@/pages/landlord/ProfilePage';
 import { ReviewsComplaintsPage } from '@/pages/landlord/ReviewsComplaintsPage';
 import { RoomsPage } from '@/pages/landlord/RoomsPage';
 import { WalletPage as LandlordWalletPage } from '@/pages/landlord/WalletPage';
+
+const ProfileBankTab = lazy(() => import('@/components/profile/ProfileBankTab'));
+const ProfileSecurityTab = lazy(() => import('@/components/profile/ProfileSecurityTab'));
 
 const LegacyDepositRedirect: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -66,33 +74,50 @@ const LegacyReviewRedirect: React.FC = () => {
   return <Navigate to={`/reviews/create/${roomId || ''}`} replace />;
 };
 
+const NonAdminFavoritesRoute: React.FC = () => {
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  if (isAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <FavoritesPage />;
+};
+
 export const AppRoutes: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const mode = location.pathname === '/login' ? 'login' : location.pathname === '/register' ? 'register' : null;
+  const background = (location.state as { authBackground?: Location } | null)?.authBackground;
+
   return (
-    <Routes>
+    <>
+    <Routes location={mode ? background ?? { pathname: '/' } : location}>
+
       {/* 1. CUSTOMER PUBLIC & DISCOVERY ROUTES */}
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/room/:id" element={<RoomDetailPage />} />
-        <Route path="/favorites" element={<FavoritesPage />} />
+        <Route path="/favorites" element={<NonAdminFavoritesRoute />} />
       </Route>
 
       {/* 2. PUBLIC AUTH ROUTES (Thành viên 1) */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
       <Route
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['KHACH_HANG']}>
             <CustomerLayout />
           </ProtectedRoute>
         }
       >
         {/* Thành viên 1: Hồ sơ, Thông báo, Khiếu nại */}
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile" element={<ProfilePage />}>
+          <Route index element={<ProfileInfoTab />} />
+          <Route path="bank" element={<ProfileBankTab />} />
+          <Route path="security" element={<ProfileSecurityTab />} />
+        </Route>
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/complaints" element={<ComplaintsPage />} />
 
@@ -142,6 +167,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="appointments" element={<LandlordAppointmentsPage />} />
         <Route path="wallet" element={<LandlordWalletPage />} />
         <Route path="reviews" element={<ReviewsComplaintsPage />} />
+        <Route path="profile" element={<LandlordProfilePage />} />
       </Route>
 
       {/* 5. ADMIN CONSOLE ROUTES (Thành viên 1) */}
@@ -163,10 +189,19 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsAdminPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
+        <Route path="profile" element={<AdminProfilePage />}>
+          <Route index element={<AdminProfileInfoTab />} />
+          <Route path="security" element={<ProfileSecurityTab />} />
+        </Route>
       </Route>
 
       {/* Catch-all 404 redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    {mode && <AuthDialog key={mode} mode={mode} onClose={() => {
+      if (background) void navigate(-1);
+      else void navigate('/', { replace: true });
+    }} />}
+    </>
   );
 };

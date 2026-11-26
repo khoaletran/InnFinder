@@ -344,7 +344,7 @@ export const TransactionDetailPage: React.FC = () => {
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Bảo chứng bởi InnFinder Escrow Engine</span>
               </span>
-              <span>Sổ cái dòng tiền GiaoDich</span>
+              <span>Sổ cái giao dịch</span>
             </div>
           </Card>
         </div>
