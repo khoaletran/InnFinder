@@ -1,10 +1,5 @@
 package com.innfinder.backend.service;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.innfinder.backend.dto.webhook.CassoTransactionItem;
 import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
@@ -22,15 +17,9 @@ import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -50,7 +39,6 @@ public class BankingWebhookService {
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final GiaoDichRepository giaoDichRepository;
     private final TransactionService transactionService;
-    private final ObjectMapper objectMapper;
 
     @Autowired(required = false)
     private CacheManager cacheManager;
@@ -66,8 +54,6 @@ public class BankingWebhookService {
 
     @Value("${casso.secure-token:}")
     private String cassoSecureToken;
-
-    private static final Pattern CASSO_SIGNATURE = Pattern.compile("t=([0-9]{1,19}),\\s*v1=([0-9a-fA-F]{128})");
 
     // Pattern 1: IFCOC hoặc DL theo sau là 11 số (Ví dụ: IFCOC20261119001 hoặc DL20261119001)
     private static final Pattern PATTERN_PREFIX = Pattern.compile("(?i)(?:IFCOC|DL)\\s*(\\d{11})");
@@ -169,33 +155,26 @@ public class BankingWebhookService {
      * Xử lý webhook từ Casso khi có biến động số dư tài khoản ngân hàng
      */
     @Transactional
-    public Map<String, Object> xuLyCassoWebhook(String secureTokenHeader, String signature, byte[] body) {
+    public Map<String, Object> xuLyCassoWebhook(String secureTokenHeader, CassoWebhookPayload payload) {
+        log.info("[Casso Webhook] Nhận request: secure-token={}, error={}, dataCount={}",
+                secureTokenHeader != null ? "***" : "null",
+                payload != null ? payload.getError() : "null",
+                payload != null ? payload.getTransactions().size() : 0);
+
+        // 1. Kiểm tra cờ bật/tắt của Casso
         if (!cassoEnabled) {
-            log.warn("[Casso Webhook] Cổng Casso đang tắt");
+            log.warn("[Casso Webhook] Cổng Casso hiện đang bị tắt bởi cấu hình (casso.enabled=false). Bỏ qua request.");
             return Map.of("success", false, "message", "Cổng webhook Casso hiện đang bị vô hiệu hóa (disabled)");
         }
 
-        List<CassoTransactionItem> transactions;
-        try {
-            Map<String, Object> envelope = objectMapper.readerFor(new TypeReference<Map<String, Object>>() {})
-                    .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-                    .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                    .readValue(body);
-            if (envelope == null) {
-                return Map.of("success", false, "message", "Payload Casso không hợp lệ");
-            }
-
-            if (!xacThucCasso(secureTokenHeader, signature, envelope)) {
-                log.warn("[Casso Webhook] Xác thực webhook thất bại");
-                return Map.of("success", false, "message", "Xác thực webhook Casso thất bại");
-            }
-
-            transactions = objectMapper.convertValue(envelope, CassoWebhookPayload.class).getTransactions();
-        } catch (IOException | IllegalArgumentException e) {
-            log.warn("[Casso Webhook] Payload không hợp lệ");
-            return Map.of("success", false, "message", "Payload Casso không hợp lệ");
+        // 2. Kiểm tra token bảo mật (secure-token)
+        if (cassoSecureToken == null || cassoSecureToken.isBlank() || secureTokenHeader == null
+                || !cassoSecureToken.trim().equals(secureTokenHeader.trim())) {
+            log.warn("[Casso Webhook] Mã bảo mật secure-token không hợp lệ hoặc chưa cấu hình");
+            return Map.of("success", false, "message", "Mã bảo mật secure-token không hợp lệ");
         }
 
+        List<CassoTransactionItem> transactions = payload != null ? payload.getTransactions() : Collections.emptyList();
         if (transactions.isEmpty()) {
             log.info("[Casso Webhook] Không có giao dịch nào trong payload data.");
             return Map.of("success", true, "message", "Không có giao dịch nào cần xử lý");
@@ -236,35 +215,6 @@ public class BankingWebhookService {
                 "total", total,
                 "message", "Đối soát Casso webhook hoàn tất (" + successCount + "/" + total + " thành công)"
         );
-    }
-
-    private boolean xacThucCasso(String secureTokenHeader, String signature, Map<String, Object> envelope)
-            throws IOException {
-        if (cassoSecureToken == null || cassoSecureToken.isBlank()) {
-            return false;
-        }
-        byte[] key = cassoSecureToken.trim().getBytes(StandardCharsets.UTF_8);
-        if (signature == null) {
-            return secureTokenHeader != null
-                    && MessageDigest.isEqual(key, secureTokenHeader.trim().getBytes(StandardCharsets.UTF_8));
-        }
-
-        Matcher header = CASSO_SIGNATURE.matcher(signature.trim());
-        if (!header.matches()) {
-            return false;
-        }
-
-        // Casso V2 ký timestamp và toàn bộ JSON với các khóa được sắp xếp.
-        String sortedJson = objectMapper.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
-                .writeValueAsString(envelope);
-        byte[] signedMessage = (header.group(1) + "." + sortedJson).getBytes(StandardCharsets.UTF_8);
-        try {
-            Mac hmac = Mac.getInstance("HmacSHA512");
-            hmac.init(new SecretKeySpec(key, "HmacSHA512"));
-            return MessageDigest.isEqual(hmac.doFinal(signedMessage), HexFormat.of().parseHex(header.group(2)));
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Không thể khởi tạo xác thực Casso V2", e);
-        }
     }
 
     /**

@@ -6,6 +6,7 @@ import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO;
+import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
 import com.innfinder.backend.entity.*;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
@@ -18,8 +19,6 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -29,7 +28,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -103,8 +101,7 @@ class AppointmentNoShowAndExpiryTest {
         bankingWebhookService = new BankingWebhookService(
                 phieuDatLichRepository,
                 giaoDichRepository,
-                transactionService,
-                new ObjectMapper()
+                transactionService
         );
 
         khachHang = NguoiDung.builder()
@@ -636,18 +633,14 @@ class AppointmentNoShowAndExpiryTest {
     // =========================================================================
     // TRƯỜNG HỢP 17: CASSO WEBHOOK ĐỐI SOÁT CỌC THÀNH CÔNG VỚI ĐỊNH DẠNG CASSO FLOW
     // =========================================================================
-    private static final String CASSO_V2_BODY = """
-            {"data":{"id":888999,"reference":"FT24TEST999","description":"IFCOC20261123001 nộp cọc",
-            "amount":200000,"accountNumber":"0383838383"},"error":0}
+    private static final String CASSO_BODY = """
+            {"error":0,"data":[{"id":888999,"tid":"FT24TEST999","description":"IFCOC20261123001",
+            "amount":200000,"subAccId":"0383838383"}]}
             """;
-    private static final String CASSO_V2_SIGNATURE = "t=1734924830020,v1="
-            + "3a6b91487feca0fb22bb4f31c3f898ae3a3cc6e89705e60c83cb3853523148704d"
-            + "079eb404ad5022fb6def1958f2d106f032cf66effa71e31d1d80e8ca043601";
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    @DisplayName("Casso Webhook hợp lệ ghi nhận cọc và mã tham chiếu")
-    void testCassoWebhook_NopCocThanhCong(boolean v2) throws Exception {
+    @Test
+    @DisplayName("Casso gửi đúng secure-token thì ghi nhận cọc")
+    void testCassoWebhook_NopCocThanhCong() throws Exception {
         ReflectionTestUtils.setField(bankingWebhookService, "cassoSecureToken", "test-casso-token");
         phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         phieu.setCoc(200_000L);
@@ -656,18 +649,13 @@ class AppointmentNoShowAndExpiryTest {
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
 
-        String body = v2 ? CASSO_V2_BODY : """
-                {"error":0,"data":[{"id":888999,"tid":"FT24TEST999","description":"IFCOC20261123001",
-                "amount":200000,"subAccId":"0383838383"}]}
-                """;
         WebhookController controller = new WebhookController(bankingWebhookService);
         ReflectionTestUtils.setField(controller, "cassoEnabled", true);
         byte[] responseBody = MockMvcBuilders.standaloneSetup(controller).build()
                 .perform(post("/api/webhooks/casso")
-                        .header(v2 ? "X-Casso-Signature" : "secure-token",
-                                v2 ? CASSO_V2_SIGNATURE : "test-casso-token")
+                        .header("secure-token", "test-casso-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body.getBytes(StandardCharsets.UTF_8)))
+                        .content(CASSO_BODY))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsByteArray();
         var response = new ObjectMapper().readTree(responseBody);
@@ -684,13 +672,22 @@ class AppointmentNoShowAndExpiryTest {
     }
 
     @Test
-    void cassoRejectsTamperedV2AndMissingCredentialsBeforeReconciliation() {
+    void cassoRequiresCorrectSecureTokenBeforeReconciliation() throws Exception {
         ReflectionTestUtils.setField(bankingWebhookService, "cassoSecureToken", "test-casso-token");
-        byte[] tampered = CASSO_V2_BODY.replace("200000", "200001").getBytes(StandardCharsets.UTF_8);
+        WebhookController controller = new WebhookController(bankingWebhookService);
+        ReflectionTestUtils.setField(controller, "cassoEnabled", true);
+        var mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
-        assertEquals(false, bankingWebhookService.xuLyCassoWebhook("test-casso-token", CASSO_V2_SIGNATURE, tampered)
-                .get("success"));
-        assertEquals(false, bankingWebhookService.xuLyCassoWebhook(null, null, tampered).get("success"));
+        for (String token : new String[] {null, "wrong-token"}) {
+            var request = post("/api/webhooks/casso").contentType(MediaType.APPLICATION_JSON).content(CASSO_BODY);
+            if (token != null) {
+                request.header("secure-token", token);
+            }
+            byte[] response = mvc.perform(request)
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertFalse(new ObjectMapper().readTree(response).path("success").asBoolean());
+        }
         verifyNoInteractions(phieuDatLichRepository, giaoDichRepository);
     }
 
@@ -702,7 +699,7 @@ class AppointmentNoShowAndExpiryTest {
     void testBankingWebhook_FeatureToggle_TuChoiKhiDisabled() {
         // 1. Tắt Casso
         ReflectionTestUtils.setField(bankingWebhookService, "cassoEnabled", false);
-        var cassoRes = bankingWebhookService.xuLyCassoWebhook(null, null, new byte[0]);
+        var cassoRes = bankingWebhookService.xuLyCassoWebhook(null, CassoWebhookPayload.builder().build());
         assertFalse((Boolean) cassoRes.get("success"));
         assertTrue(cassoRes.get("message").toString().contains("vô hiệu hóa"));
 

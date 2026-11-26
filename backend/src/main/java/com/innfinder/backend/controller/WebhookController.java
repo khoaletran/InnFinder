@@ -1,5 +1,6 @@
 package com.innfinder.backend.controller;
 
+import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
 import com.innfinder.backend.service.BankingWebhookService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,14 +44,13 @@ public class WebhookController {
     @Operation(summary = "Tiếp nhận webhook biến động số dư tự động từ Casso")
     public ResponseEntity<Map<String, Object>> handleCassoWebhook(
             @RequestHeader(value = "secure-token", required = false) String secureToken,
-            @RequestHeader(value = "X-Casso-Signature", required = false) String signature,
-            @RequestBody byte[] body
+            @RequestBody CassoWebhookPayload payload
     ) {
         if (!cassoEnabled) {
             // Trả 204 No Content (không body) để đối tác không retry liên tục khi cổng đang tắt
             return ResponseEntity.noContent().build();
         }
-        Map<String, Object> result = bankingWebhookService.xuLyCassoWebhook(secureToken, signature, body);
+        Map<String, Object> result = bankingWebhookService.xuLyCassoWebhook(secureToken, payload);
         return ResponseEntity.ok(result);
     }
 }

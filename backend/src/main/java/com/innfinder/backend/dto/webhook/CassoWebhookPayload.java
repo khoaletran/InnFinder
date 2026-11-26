@@ -76,8 +76,7 @@ public class CassoWebhookPayload {
         }
 
         String description = map.get("description") != null ? map.get("description").toString() : null;
-        Object reference = map.get("reference") != null ? map.get("reference") : map.get("tid");
-        String tid = reference != null ? reference.toString() : null;
+        String tid = map.get("tid") != null ? map.get("tid").toString() : null;
         String when = map.get("when") != null ? map.get("when").toString() : null;
 
         String subAccId = null;
