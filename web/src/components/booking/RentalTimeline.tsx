@@ -13,6 +13,7 @@ export interface RentalTimelineProps {
   chuTroDongY?: boolean | null;
   liDoHuy?: string;
   coc?: number;
+  trangThaiHoanCoc?: string;
 }
 
 interface TimelineStep {
@@ -21,22 +22,21 @@ interface TimelineStep {
   subtitle: string;
   time?: string;
   state: 'completed' | 'active' | 'pending' | 'cancelled';
-  constraintBadge?: string;
   showDualDecision?: boolean;
 }
 
 const formatShortDateTime = (isoDate?: string): string => {
-  if (!isoDate) return '--/--';
+  if (!isoDate) return '';
   try {
     const d = new Date(isoDate);
-    if (isNaN(d.getTime())) return isoDate;
+    if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     return `${day}/${month} · ${hours}:${minutes}`;
   } catch {
-    return isoDate;
+    return '';
   }
 };
 
@@ -71,7 +71,6 @@ const renderPartyDecisionBadge = (
 
 export const RentalTimeline: React.FC<RentalTimelineProps> = ({
   status,
-  ngayHen,
   thoiGianDat,
   daNopCoc,
   daNhanLaiCoc,
@@ -79,268 +78,163 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
   chuTroDongY,
   liDoHuy,
   coc = 0,
+  trangThaiHoanCoc,
 }) => {
   const steps: TimelineStep[] = [];
-  const createdTime = formatShortDateTime(thoiGianDat || ngayHen);
-  const appointmentTime = formatShortDateTime(ngayHen);
 
-  const effectiveKhachHangDongY =
-    status === 'HOAN_THANH' && (khachHangDongY === null || khachHangDongY === undefined)
-      ? true
-      : khachHangDongY;
-  const effectiveChuTroDongY =
-    status === 'HOAN_THANH' && (chuTroDongY === null || chuTroDongY === undefined)
-      ? true
-      : chuTroDongY;
+  // 1. Bước 1: Gửi yêu cầu đặt lịch (Luôn có)
+  steps.push({
+    id: 'step-created',
+    title: 'Gửi yêu cầu đặt lịch xem phòng',
+    subtitle: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch hẹn.',
+    time: formatShortDateTime(thoiGianDat),
+    state: 'completed',
+  });
 
-  const hasAnyDecisionAfterViewing =
-    Boolean(daNhanLaiCoc) ||
-    khachHangDongY !== null && khachHangDongY !== undefined ||
-    chuTroDongY !== null && chuTroDongY !== undefined;
-
-  if (status === 'HUY') {
-    steps.push({
-      id: 'step-1',
-      title: 'Bước 1: Gửi yêu cầu đặt lịch xem phòng',
-      subtitle: 'Hệ thống đã tiếp nhận phiếu hẹn và gửi thông báo đến Chủ trọ.',
-      time: createdTime,
-      state: 'completed',
-    });
-
-    if (daNopCoc || hasAnyDecisionAfterViewing) {
-      steps.push({
-        id: 'step-2',
-        title: 'Bước 2: Chủ trọ xác nhận lịch hẹn',
-        subtitle: 'Chủ trọ đã duyệt khung giờ dẫn xem phòng.',
-        time: appointmentTime,
-        state: 'completed',
-      });
-    }
-
+  // 2. Bước 2: Nộp cọc giữ chân (Nếu lịch có yêu cầu cọc)
+  if (coc > 0) {
     if (daNopCoc) {
       steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống đã tạm giữ ${formatVND(coc)} tiền cọc giữ chân lịch xem.`,
-        time: 'Đã nộp cọc',
+        id: 'step-deposit',
+        title: 'Nộp tiền cọc giữ chân',
+        subtitle: `Đã nộp ${formatVND(coc)} tiền cọc giữ chân vào hệ thống.`,
         state: 'completed',
       });
-    }
-
-    if (daNhanLaiCoc) {
+    } else if (status === 'CHO_XAC_NHAN' || status === 'XAC_NHAN') {
       steps.push({
-        id: 'step-4',
-        title: 'Bước 4: Xem thực tế & Đã nhận lại 100% cọc trực tiếp',
-        subtitle: `Chủ trọ đã hoàn trả trực tiếp ${formatVND(coc)} cho khách hàng tại buổi gặp.`,
-        time: 'Đã nhận lại cọc',
-        state: 'completed',
-        constraintBadge: 'Thế chân cọc',
-      });
-    }
-
-    if (hasAnyDecisionAfterViewing) {
-      steps.push({
-        id: 'step-5',
-        title: 'Bước 5: Quyết định độc lập của Khách hàng & Chủ trọ (Không chốt thuê)',
-        subtitle: liDoHuy
-          ? `Giao dịch kết thúc không thuê (${liDoHuy}). Hệ thống hoàn trả đủ 100% cọc (${formatVND(coc)}) vào ví Chủ trọ, phí hoa hồng sàn = 0 ₫.`
-          : `Ít nhất một bên xác nhận không thuê. Hệ thống hoàn trả đủ 100% cọc (${formatVND(coc)}) vào ví Chủ trọ, phí hoa hồng sàn = 0 ₫.`,
-        time: 'Đã hủy thuê',
-        state: 'cancelled',
-        constraintBadge: 'Sàn thu 0 ₫',
-        showDualDecision: true,
-      });
-    } else {
-      steps.push({
-        id: 'step-cancel',
-        title: 'Lịch hẹn đã bị hủy',
-        subtitle: liDoHuy
-          ? `Lý do hủy: ${liDoHuy}`
-          : 'Lịch hẹn đã bị hủy trước khi hoàn tất xem phòng.',
-        time: 'Đã dừng xử lý',
-        state: 'cancelled',
-      });
-    }
-  } else if (status === 'HOAN_THANH') {
-    steps.push({
-      id: 'step-1',
-      title: 'Bước 1: Gửi yêu cầu đặt lịch xem phòng',
-      subtitle: 'Hệ thống đã tiếp nhận yêu cầu và chuyển thông tin đến Chủ trọ.',
-      time: createdTime,
-      state: 'completed',
-    });
-    steps.push({
-      id: 'step-2',
-      title: 'Bước 2: Chủ trọ xác nhận lịch xem',
-      subtitle: 'Chủ trọ đã duyệt khung giờ hẹn xem phòng thực tế.',
-      time: appointmentTime,
-      state: 'completed',
-    });
-    steps.push({
-      id: 'step-3',
-      title: 'Bước 3: Nộp cọc giữ chân lịch xem',
-      subtitle: `Khách hàng đã nộp ${formatVND(coc)} cọc giữ chân vào Hệ thống InnFinder.`,
-      time: 'Đã tạm giữ',
-      state: 'completed',
-    });
-    steps.push({
-      id: 'step-4',
-      title: 'Bước 4: Dẫn xem thực tế & Nhận lại 100% cọc trực tiếp',
-      subtitle: `Chủ trọ đã trả trực tiếp ${formatVND(coc)} cho khách tại buổi xem; quyền nhận cọc tại sàn chuyển sang Chủ trọ.`,
-      time: 'Đã xác nhận',
-      state: 'completed',
-      constraintBadge: 'Đã nhận lại cọc',
-    });
-    steps.push({
-      id: 'step-5',
-      title: 'Bước 5: Cả 2 bên độc lập xác nhận thuê thành công',
-      subtitle:
-        'Cả Khách hàng và Chủ trọ đều xác nhận đồng ý thuê. Hệ thống trích phí hoa hồng sàn và chuyển phần cọc thế chân còn lại vào ví Chủ trọ.',
-      time: 'Hoàn thành',
-      state: 'completed',
-      constraintBadge: 'Cả 2 bên đồng ý',
-      showDualDecision: true,
-    });
-  } else if (status === 'XAC_NHAN') {
-    steps.push({
-      id: 'step-1',
-      title: 'Bước 1: Gửi yêu cầu đặt lịch xem phòng',
-      subtitle: 'Hệ thống đã tiếp nhận phiếu hẹn và gửi đến Chủ trọ.',
-      time: createdTime,
-      state: 'completed',
-    });
-    steps.push({
-      id: 'step-2',
-      title: 'Bước 2: Chủ trọ đã xác nhận lịch xem',
-      subtitle: 'Chủ trọ đồng ý lịch hẹn và sẵn sàng dẫn xem phòng.',
-      time: appointmentTime,
-      state: 'completed',
-    });
-
-    if (!daNopCoc) {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Nộp tiền cọc giữ chân lịch xem',
-        subtitle: `Vui lòng nộp khoản cọc ${formatVND(coc)} cho Hệ thống để giữ lịch xem thực tế.`,
-        time: 'Đang chờ nộp cọc',
+        id: 'step-deposit-pending',
+        title: 'Nộp tiền cọc giữ chân',
+        subtitle: `Vui lòng nộp ${formatVND(coc)} tiền cọc để giữ lịch hẹn.`,
         state: 'active',
-        constraintBadge: 'Bắt buộc trước khi xem',
-      });
-      steps.push({
-        id: 'step-4',
-        title: 'Bước 4: Gặp xem thực tế & Nhận lại 100% cọc trực tiếp',
-        subtitle: 'Chủ trọ hoàn trả trực tiếp 100% tiền cọc tại buổi gặp xem phòng.',
-        time: 'Chưa diễn ra',
-        state: 'pending',
-      });
-      steps.push({
-        id: 'step-5',
-        title: 'Bước 5: Hai bên xác nhận quyết định độc lập',
-        subtitle: 'Khách hàng và Chủ trọ độc lập chọn Đồng ý thuê hoặc Không thuê.',
-        time: 'Chưa mở khóa',
-        state: 'pending',
-        showDualDecision: true,
-      });
-    } else if (!daNhanLaiCoc) {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Đã nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống đang tạm giữ ${formatVND(coc)} tiền cọc giữ chân lịch xem.`,
-        time: 'Đã nộp cọc',
-        state: 'completed',
-      });
-      steps.push({
-        id: 'step-4',
-        title: 'Bước 4: Dẫn xem thực tế & Hoàn trả cọc trực tiếp',
-        subtitle: `Tại buổi xem phòng, Chủ trọ trực tiếp trả lại 100% cọc (${formatVND(coc)}) cho Khách hàng. Khách bấm "Đã nhận lại cọc từ Chủ trọ" để mở khóa bước quyết định cho cả 2 bên.`,
-        time: 'Đang diễn ra',
-        state: 'active',
-        constraintBadge: 'Cần xác nhận đã nhận lại cọc',
-      });
-      steps.push({
-        id: 'step-5',
-        title: 'Bước 5: Quyết định độc lập của Khách hàng & Chủ trọ (Đang khóa)',
-        subtitle:
-          'Chỉ mở khóa sau khi Khách hàng xác nhận đã nhận lại 100% tiền cọc trực tiếp từ Chủ trọ.',
-        time: 'Chờ mở khóa',
-        state: 'pending',
-        constraintBadge: 'Đang khóa',
-        showDualDecision: true,
-      });
-    } else {
-      steps.push({
-        id: 'step-3',
-        title: 'Bước 3: Đã nộp cọc giữ chân cho Hệ thống',
-        subtitle: `Hệ thống tạm giữ ${formatVND(coc)} tiền cọc lịch xem.`,
-        time: 'Đã nộp cọc',
-        state: 'completed',
-      });
-      steps.push({
-        id: 'step-4',
-        title: 'Bước 4: Đã xem phòng & Đã nhận lại 100% cọc trực tiếp',
-        subtitle: `Khách hàng đã xác nhận nhận lại đủ ${formatVND(coc)} từ Chủ trọ ngoài đời thực (quyền cọc thế chân chuyển sang Chủ trọ).`,
-        time: 'Đã xong',
-        state: 'completed',
-        constraintBadge: 'Đã mở khóa quyết định',
-      });
-
-      const waitingWho =
-        (effectiveKhachHangDongY === null || effectiveKhachHangDongY === undefined) &&
-        (effectiveChuTroDongY === null || effectiveChuTroDongY === undefined)
-          ? 'Chờ cả 2 bên quyết định'
-          : effectiveKhachHangDongY === null || effectiveKhachHangDongY === undefined
-            ? 'Chờ Khách hàng quyết định'
-            : 'Chờ Chủ trọ quyết định';
-
-      steps.push({
-        id: 'step-5',
-        title: 'Bước 5: Quyết định thuê độc lập (Khách hàng & Chủ trọ)',
-        subtitle:
-          'Cả 2 bên cùng chọn Đồng ý ➔ Chốt thuê thành công. Nếu có bên chọn Không đồng ý ➔ Hủy lịch & hoàn 100% cọc thế chân về ví Chủ trọ.',
-        time: 'Hiện tại',
-        state: 'active',
-        constraintBadge: waitingWho,
-        showDualDecision: true,
       });
     }
-  } else {
+  }
+
+  // 3. Bước 3: Chủ trọ xác nhận lịch xem
+  // CHỈ hiển thị khi có căn cứ THẬT SỰ là chủ trọ đã từng xác nhận
+  const hasLandlordConfirmed =
+    status === 'XAC_NHAN' ||
+    status === 'HOAN_THANH' ||
+    Boolean(daNhanLaiCoc) ||
+    khachHangDongY != null ||
+    chuTroDongY != null ||
+    (Boolean(liDoHuy) &&
+      (liDoHuy!.includes('sau khi xác nhận') ||
+        liDoHuy!.includes('> 2h') ||
+        liDoHuy!.includes('sát giờ') ||
+        liDoHuy!.includes('sau khi xem') ||
+        liDoHuy!.includes('No-show') ||
+        liDoHuy!.includes('vắng mặt')));
+
+  if (hasLandlordConfirmed) {
     steps.push({
-      id: 'step-1',
-      title: 'Bước 1: Yêu cầu đặt lịch đã được gửi',
-      subtitle: 'Hệ thống đã chuyển đầy đủ thông tin phiếu hẹn đến Chủ trọ.',
-      time: createdTime,
+      id: 'step-landlord-confirmed',
+      title: 'Chủ trọ đã xác nhận lịch hẹn',
+      subtitle: 'Chủ trọ đồng ý khung giờ hẹn dẫn xem phòng thực tế.',
       state: 'completed',
     });
+  } else if (status === 'CHO_XAC_NHAN') {
     steps.push({
-      id: 'step-2',
-      title: 'Bước 2: Chờ Chủ trọ xác nhận lịch xem',
-      subtitle: 'Chủ trọ kiểm tra lịch trống và bấm Xác nhận lịch xem.',
-      time: 'Đang chờ duyệt',
+      id: 'step-landlord-pending',
+      title: 'Chờ Chủ trọ xác nhận lịch',
+      subtitle: 'Chủ trọ đang kiểm tra phòng trống để duyệt lịch hẹn.',
       state: 'active',
-      constraintBadge: 'Chờ Chủ trọ',
     });
+  }
+
+  // 4. Bước 4: Đã nhận lại cọc trực tiếp tại buổi xem (Chỉ khi daNhanLaiCoc = true)
+  if (daNhanLaiCoc) {
     steps.push({
-      id: 'step-3',
-      title: 'Bước 3: Nộp cọc giữ chân lịch xem',
-      subtitle: `Đặt cọc giữ chân ${formatVND(coc)} qua Hệ thống InnFinder.`,
-      time: daNopCoc ? 'Đã nộp cọc' : 'Chờ thực hiện',
-      state: daNopCoc ? 'completed' : 'pending',
+      id: 'step-received-deposit',
+      title: 'Đã nhận lại 100% cọc trực tiếp',
+      subtitle: `Khách hàng đã nhận lại đủ ${formatVND(coc)} từ Chủ trọ tại buổi gặp.`,
+      state: 'completed',
     });
+  } else if (status === 'XAC_NHAN' && daNopCoc) {
     steps.push({
-      id: 'step-4',
-      title: 'Bước 4: Gặp xem thực tế & Nhận lại 100% cọc trực tiếp',
-      subtitle: 'Gặp xem phòng đúng hẹn và nhận lại 100% cọc trực tiếp từ Chủ trọ.',
-      time: 'Chưa diễn ra',
-      state: 'pending',
+      id: 'step-viewing-active',
+      title: 'Gặp xem phòng & Nhận lại cọc',
+      subtitle: `Tại buổi xem, Chủ trọ hoàn trả trực tiếp ${formatVND(coc)} tiền cọc cho bạn.`,
+      state: 'active',
     });
+  }
+
+  // 5. Bước 5: Quyết định thuê phòng (Chỉ khi có dữ liệu quyết định hoặc đang chờ quyết định)
+  const hasDecisionData =
+    (khachHangDongY !== null && khachHangDongY !== undefined) ||
+    (chuTroDongY !== null && chuTroDongY !== undefined);
+
+  if (hasDecisionData) {
     steps.push({
-      id: 'step-5',
-      title: 'Bước 5: Hai bên xác nhận quyết định độc lập',
-      subtitle: 'Khách hàng và Chủ trọ độc lập xác nhận thuê hoặc không thuê trên ứng dụng.',
-      time: 'Chưa diễn ra',
-      state: 'pending',
+      id: 'step-decision',
+      title: 'Quyết định thuê phòng',
+      subtitle: 'Xác nhận lựa chọn của hai bên:',
+      state: status === 'HOAN_THANH' ? 'completed' : status === 'HUY' ? 'cancelled' : 'active',
       showDualDecision: true,
     });
+  } else if (status === 'XAC_NHAN' && daNhanLaiCoc) {
+    steps.push({
+      id: 'step-decision-waiting',
+      title: 'Quyết định thuê phòng',
+      subtitle: 'Vui lòng đưa ra quyết định thuê hoặc không thuê phòng.',
+      state: 'active',
+      showDualDecision: true,
+    });
+  }
+
+  // 6. Bước Kết thúc (Hoàn thành hoặc Hủy)
+  if (status === 'HOAN_THANH') {
+    steps.push({
+      id: 'step-completed',
+      title: 'Thuê phòng thành công',
+      subtitle: 'Hai bên đã thống nhất thuê phòng.',
+      state: 'completed',
+    });
+  } else if (status === 'HUY') {
+    steps.push({
+      id: 'step-cancelled',
+      title: 'Lịch hẹn đã bị hủy',
+      subtitle: liDoHuy ? `Lý do: ${liDoHuy}` : 'Lịch hẹn đã kết thúc.',
+      state: 'cancelled',
+    });
+
+    if (daNopCoc && coc > 0 && !daNhanLaiCoc) {
+      const lowerReason = (liDoHuy || '').toLowerCase();
+      const isForfeited =
+        lowerReason.includes('sát giờ') ||
+        lowerReason.includes('tịch thu cọc') ||
+        lowerReason.includes('khách vắng mặt');
+
+      if (isForfeited) {
+        steps.push({
+          id: 'step-deposit-forfeited',
+          title: 'Không được hoàn cọc',
+          subtitle: `Tiền cọc ${formatVND(coc)} không được hoàn lại và được dùng để bồi thường cho chủ trọ.`,
+          state: 'cancelled',
+        });
+      } else if (trangThaiHoanCoc === 'THANH_CONG') {
+        steps.push({
+          id: 'step-deposit-refund',
+          title: 'Đã hoàn trả tiền cọc',
+          subtitle: `Hệ thống đã hoàn trả đủ ${formatVND(coc)} tiền cọc về tài khoản ngân hàng của bạn.`,
+          state: 'completed',
+        });
+      } else if (trangThaiHoanCoc === 'THAT_BAI') {
+        steps.push({
+          id: 'step-deposit-refund-failed',
+          title: 'Hoàn cọc không thành công',
+          subtitle: `Giao dịch hoàn trả ${formatVND(coc)} bị từ chối hoặc chưa thể thực hiện.`,
+          state: 'cancelled',
+        });
+      } else {
+        steps.push({
+          id: 'step-deposit-refund-pending',
+          title: 'Đang chờ hoàn trả tiền cọc',
+          subtitle: `Tiền cọc ${formatVND(coc)} đủ điều kiện hoàn trả và đang được Ban Quản Trị đối soát.`,
+          state: 'active',
+        });
+      }
+    }
   }
 
   return (
@@ -369,7 +263,7 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
                 </div>
               )}
               {step.state === 'active' && (
-                <div className="w-8 h-8 rounded-full border-2 border-[#0D9488] bg-teal-50 text-[#0D9488] flex items-center justify-center shadow-xs animate-pulse">
+                <div className="w-8 h-8 rounded-full border-2 border-teal-600 bg-teal-50 text-teal-600 flex items-center justify-center shadow-xs animate-pulse">
                   <Clock className="w-4 h-4 stroke-[2.2]" />
                 </div>
               )}
@@ -387,45 +281,20 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
 
             <div className={`flex-1 min-w-0 ${isLast ? 'pb-2' : 'pb-6'}`}>
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4
-                    className={`text-sm font-bold ${
-                      step.state === 'cancelled'
-                        ? 'text-rose-600'
-                        : step.state === 'pending'
-                          ? 'text-slate-400'
-                          : 'text-slate-900'
-                    }`}
-                  >
-                    {step.title}
-                  </h4>
-                  {step.constraintBadge && (
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                        step.state === 'completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : step.state === 'active'
-                            ? 'bg-teal-100 text-teal-800'
-                            : step.state === 'cancelled'
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {step.constraintBadge}
-                    </span>
-                  )}
-                </div>
+                <h4
+                  className={`text-sm font-bold ${
+                    step.state === 'cancelled'
+                      ? 'text-rose-600'
+                      : step.state === 'pending'
+                        ? 'text-slate-400'
+                        : 'text-slate-900'
+                  }`}
+                >
+                  {step.title}
+                </h4>
 
                 {step.time && (
-                  <span
-                    className={`text-xs font-medium whitespace-nowrap ${
-                      step.state === 'active'
-                        ? 'text-[#0D9488] font-semibold'
-                        : step.state === 'cancelled'
-                          ? 'text-rose-500'
-                          : 'text-slate-400'
-                    }`}
-                  >
+                  <span className="text-xs font-medium text-slate-400 whitespace-nowrap">
                     {step.time}
                   </span>
                 )}
@@ -445,25 +314,25 @@ export const RentalTimeline: React.FC<RentalTimelineProps> = ({
 
               {step.showDualDecision && (
                 <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <div className="flex items-center justify-between gap-2 px-2 py-1 bg-white rounded-lg border border-slate-100">
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white rounded-lg border border-slate-100">
                     <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-teal-600" />
                       Khách hàng:
                     </span>
                     {renderPartyDecisionBadge(
-                      effectiveKhachHangDongY,
+                      khachHangDongY,
                       'Đồng ý thuê',
                       'Không thuê',
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 px-2 py-1 bg-white rounded-lg border border-slate-100">
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white rounded-lg border border-slate-100">
                     <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
                       <Home className="w-3.5 h-3.5 text-teal-600" />
                       Chủ trọ:
                     </span>
                     {renderPartyDecisionBadge(
-                      effectiveChuTroDongY,
+                      chuTroDongY,
                       'Đồng ý cho thuê',
                       'Từ chối cho thuê',
                     )}

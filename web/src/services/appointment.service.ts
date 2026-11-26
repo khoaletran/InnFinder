@@ -4,11 +4,25 @@ import type {
   AppointmentCreateRequest,
   AppointmentDecisionRequest,
   AppointmentResponse,
+  BookedSlotsResponse,
+  DepositStatusResponse,
 } from '@/types/booking.types';
 
 export const appointmentService = {
+  getBookedSlots: async (maPhongTro: string, date: string): Promise<BookedSlotsResponse> => {
+    return axiosClient.get<unknown, BookedSlotsResponse>('/api/appointments/booked-slots', {
+      params: { maPhongTro, date },
+    });
+  },
+
   getMyAppointments: async (): Promise<AppointmentResponse[]> => {
     return axiosClient.get<unknown, AppointmentResponse[]>('/api/appointments/my-appointments');
+  },
+
+  getDepositStatus: async (maDatLich: string): Promise<DepositStatusResponse> => {
+    return axiosClient.get<unknown, DepositStatusResponse>(
+      `/api/appointments/${maDatLich}/deposit-status`,
+    );
   },
 
   createAppointment: async (request: AppointmentCreateRequest): Promise<AppointmentResponse> => {
@@ -37,9 +51,22 @@ export const appointmentService = {
     );
   },
 
-  cancelAppointment: async (maDatLich: string, liDoHuy: string): Promise<string> => {
-    const body: AppointmentCancelRequest = { liDoHuy };
+  cancelAppointment: async (
+    maDatLich: string,
+    liDoHuy: string,
+    bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string }
+  ): Promise<string> => {
+    const body: AppointmentCancelRequest = {
+      liDoHuy,
+      tenNganHang: bankInfo?.tenNganHang,
+      soTaiKhoan: bankInfo?.soTaiKhoan,
+      tenChuTaiKhoan: bankInfo?.tenChuTaiKhoan,
+    };
     return axiosClient.patch<unknown, string>(`/api/appointments/${maDatLich}/cancel`, body);
+  },
+
+  reportLandlordNoShow: async (maDatLich: string): Promise<string> => {
+    return axiosClient.post<unknown, string>(`/api/appointments/${maDatLich}/report-landlord-noshow`);
   },
 };
 

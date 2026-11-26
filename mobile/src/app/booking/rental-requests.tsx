@@ -128,7 +128,11 @@ export default function RentalRequestsScreen() {
           </View>
 
           {/* Hàng 4: Thanh tiến trình Stepper */}
-          <RentalProgressBar status={item.trangThai} />
+          <RentalProgressBar
+            status={item.trangThai}
+            daNopCoc={Boolean(item.daNopCoc)}
+            daNhanLaiCoc={Boolean(item.daNhanLaiCoc)}
+          />
         </Card>
       </TouchableOpacity>
     );

@@ -11,10 +11,14 @@ interface RawAppointment {
   tieuDePhong?: string;
   diaChiPhong?: string;
   ngayHen?: string;
+  thoiGianDat?: string;
   thoiGianTao?: string;
   trangThai?: string;
   tienCoc?: number;
   coc?: number;
+  daNopCoc?: boolean;
+  daNhanLaiCoc?: boolean;
+  trangThaiHoanCoc?: string;
   liDoHuy?: string;
 }
 
@@ -44,20 +48,33 @@ function mapAppointmentsToNotifications(
     const code = apt.maDatLich || '';
     if (!code) continue;
     const roomLabel = apt.tieuDePhong || apt.diaChiPhong || `Phòng #${apt.maPhongTro || ''}`;
-    const createdAt = apt.thoiGianTao || apt.ngayHen || new Date().toISOString();
+    const createdAt = apt.thoiGianDat || apt.thoiGianTao || apt.ngayHen || new Date().toISOString();
     const status = apt.trangThai || 'CHO_XAC_NHAN';
+    const coc = Number(apt.tienCoc ?? apt.coc ?? 0);
     const id = `apt-${code}-${status}`;
 
     if (status === 'CHO_XAC_NHAN') {
-      items.push({
-        id,
-        title: 'Lịch hẹn xem phòng đang chờ xác nhận',
-        content: `Phiếu hẹn #${code} (${roomLabel}) đang chờ chủ trọ xác nhận thời gian gặp mặt.`,
-        type: 'APPOINTMENT',
-        createdAt,
-        read: readSet.has(id),
-        linkUrl: `/appointments/${code}`,
-      });
+      if (coc > 0 && apt.daNopCoc === false) {
+        items.push({
+          id,
+          title: 'Chờ nộp tiền cọc giữ chân',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đang chờ bạn nộp ${formatVND(coc)} tiền cọc giữ chân trong vòng 15 phút.`,
+          type: 'TRANSACTION',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      } else {
+        items.push({
+          id,
+          title: 'Lịch hẹn xem phòng đang chờ xác nhận',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đang chờ chủ trọ xác nhận thời gian gặp mặt.`,
+          type: 'APPOINTMENT',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      }
     } else if (status === 'XAC_NHAN') {
       items.push({
         id,
@@ -69,7 +86,6 @@ function mapAppointmentsToNotifications(
         linkUrl: `/appointments/${code}`,
       });
     } else if (status === 'HOAN_THANH') {
-      const coc = Number(apt.tienCoc ?? apt.coc ?? 0);
       items.push({
         id,
         title: 'Giao dịch thuê phòng hoàn tất',
@@ -80,15 +96,64 @@ function mapAppointmentsToNotifications(
         linkUrl: `/appointments/${code}`,
       });
     } else if (status === 'HUY') {
-      items.push({
-        id,
-        title: 'Lịch xem phòng đã hủy & hoàn cọc',
-        content: `Phiếu hẹn #${code} (${roomLabel}) đã chuyển sang trạng thái hủy.${apt.liDoHuy ? ` Lý do: ${apt.liDoHuy}` : ''}`,
-        type: 'TRANSACTION',
-        createdAt,
-        read: readSet.has(id),
-        linkUrl: `/appointments/${code}`,
-      });
+      const reason = apt.liDoHuy || '';
+      const lowerReason = reason.toLowerCase();
+      const isForfeited =
+        lowerReason.includes('sát giờ') ||
+        lowerReason.includes('tịch thu cọc') ||
+        lowerReason.includes('khách vắng mặt');
+
+      if (!apt.daNopCoc || coc <= 0) {
+        items.push({
+          id,
+          title: 'Lịch xem phòng đã hủy',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đã bị hủy.${reason ? ` Lý do: ${reason}` : ''}`,
+          type: 'APPOINTMENT',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      } else if (apt.daNhanLaiCoc) {
+        items.push({
+          id,
+          title: 'Lịch xem phòng đã kết thúc (không thuê)',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đã kết thúc sau khi bạn xác nhận đã nhận lại đủ ${formatVND(coc)} tiền cọc trực tiếp từ chủ trọ.`,
+          type: 'APPOINTMENT',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      } else if (isForfeited) {
+        items.push({
+          id,
+          title: 'Lịch xem phòng đã hủy (không hoàn cọc)',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đã hủy. Tiền cọc ${formatVND(coc)} không được hoàn lại và được dùng để bồi thường cho chủ trọ.${reason ? ` Lý do: ${reason}` : ''}`,
+          type: 'TRANSACTION',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      } else if (apt.trangThaiHoanCoc === 'THANH_CONG') {
+        items.push({
+          id,
+          title: 'Lịch xem phòng đã hủy — Đã hoàn cọc',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đã hủy và hệ thống đã hoàn trả ${formatVND(coc)} về tài khoản ngân hàng của bạn.${reason ? ` Lý do: ${reason}` : ''}`,
+          type: 'TRANSACTION',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      } else {
+        items.push({
+          id,
+          title: 'Lịch xem phòng đã hủy — Đang chờ hoàn cọc',
+          content: `Phiếu hẹn #${code} (${roomLabel}) đã hủy. Hệ thống đang đối soát hoàn trả ${formatVND(coc)} về tài khoản ngân hàng của bạn.${reason ? ` Lý do: ${reason}` : ''}`,
+          type: 'TRANSACTION',
+          createdAt,
+          read: readSet.has(id),
+          linkUrl: `/appointments/${code}`,
+        });
+      }
     }
   }
 

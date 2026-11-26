@@ -24,6 +24,7 @@ public class AdminTransactionResponseDTO {
     private TrangThaiGD trangThai;
     private String tenNganHang;
     private String soTaiKhoan;
+    private String tenChuTaiKhoan;
     private Long tienCoc;
     private Long phiDichVu;
     private Long thucNhan;
@@ -41,20 +42,50 @@ public class AdminTransactionResponseDTO {
             sdt = gd.getNguoiDung().getSdt();
         }
 
-        // Tách số tài khoản & tên ngân hàng từ nội dung nếu có (đối với rút tiền)
+        // Tách số tài khoản, tên ngân hàng & chủ tài khoản từ nội dung
         String tenNganHang = null;
         String soTaiKhoan = null;
-        if (gd.getNoiDung() != null && gd.getNoiDung().contains("Rút tiền về tài khoản")) {
-            try {
-                // Định dạng: "Rút tiền về tài khoản MBBank (0123456789) - Ghi chú: ..."
-                int start = gd.getNoiDung().indexOf("Rút tiền về tài khoản ") + "Rút tiền về tài khoản ".length();
-                int openParen = gd.getNoiDung().indexOf("(", start);
-                int closeParen = gd.getNoiDung().indexOf(")", openParen);
-                if (openParen > start && closeParen > openParen) {
-                    tenNganHang = gd.getNoiDung().substring(start, openParen).trim();
-                    soTaiKhoan = gd.getNoiDung().substring(openParen + 1, closeParen).trim();
-                }
-            } catch (Exception ignored) {}
+        String tenChuTaiKhoan = hoVaTen;
+
+        if (gd.getNoiDung() != null) {
+            String nd = gd.getNoiDung();
+            if (nd.contains("Rút tiền về tài khoản")) {
+                try {
+                    // Định dạng: "Rút tiền về tài khoản MBBank (0123456789) - Ghi chú: ..."
+                    int start = nd.indexOf("Rút tiền về tài khoản ") + "Rút tiền về tài khoản ".length();
+                    int openParen = nd.indexOf("(", start);
+                    int closeParen = nd.indexOf(")", openParen);
+                    if (openParen > start && closeParen > openParen) {
+                        tenNganHang = nd.substring(start, openParen).trim();
+                        soTaiKhoan = nd.substring(openParen + 1, closeParen).trim();
+                    }
+                } catch (Exception ignored) {}
+            } else if (nd.contains(" về TK ")) {
+                try {
+                    // Định dạng: "... về TK MBBank - 0939080305 (DO MINH QUAN)" hoặc "... về TK MBBank - 0939080305"
+                    int start = nd.indexOf(" về TK ") + " về TK ".length();
+                    String tkPart = nd.substring(start).trim();
+                    if (tkPart.contains(" [ĐÃ DUYỆT")) {
+                        tkPart = tkPart.substring(0, tkPart.indexOf(" [ĐÃ DUYỆT")).trim();
+                    }
+                    if (tkPart.contains(" [TỪ CHỐI")) {
+                        tkPart = tkPart.substring(0, tkPart.indexOf(" [TỪ CHỐI")).trim();
+                    }
+                    if (tkPart.contains(" - ")) {
+                        String[] parts = tkPart.split(" - ", 2);
+                        tenNganHang = parts[0].trim();
+                        String rest = parts[1].trim();
+                        int openP = rest.indexOf("(");
+                        int closeP = rest.indexOf(")");
+                        if (openP > 0 && closeP > openP) {
+                            soTaiKhoan = rest.substring(0, openP).trim();
+                            tenChuTaiKhoan = rest.substring(openP + 1, closeP).trim();
+                        } else {
+                            soTaiKhoan = rest;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
         }
 
         long soTien = gd.getSoTien() != null ? gd.getSoTien() : 0L;
@@ -72,6 +103,7 @@ public class AdminTransactionResponseDTO {
                 .trangThai(gd.getTrangThai())
                 .tenNganHang(tenNganHang)
                 .soTaiKhoan(soTaiKhoan)
+                .tenChuTaiKhoan(tenChuTaiKhoan)
                 .tienCoc(soTien)
                 .phiDichVu(0L)
                 .thucNhan(soTien)

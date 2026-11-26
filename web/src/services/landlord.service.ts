@@ -238,6 +238,11 @@ export const landlordService = {
     return true;
   },
 
+  reportNoShow: async (id: string): Promise<boolean> => {
+    await axiosClient.patch<unknown, string>(`/api/landlord/appointments/${id}/no-show`);
+    return true;
+  },
+
   submitDecision: async (
     id: string,
     dongY: boolean,

@@ -3,7 +3,8 @@ package com.innfinder.backend.service;
 import com.innfinder.backend.dto.appointment.*;
 import com.innfinder.backend.entity.*;
 import com.innfinder.backend.entity.enums.*;
-import com.innfinder.backend.exception.*;
+import com.innfinder.backend.exception.AppException;
+import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.*;
 import org.junit.jupiter.api.*;
 import java.time.LocalDateTime;
@@ -19,7 +20,7 @@ class LandlordAppointmentTests {
     private final ChuTroRepository owners = mock(ChuTroRepository.class);
     private final TransactionService ledger = mock(TransactionService.class);
     private final GiaoDichRepository transactions = mock(GiaoDichRepository.class);
-    private final AppointmentService service = new AppointmentService(appointments, users, rooms, owners, ledger, transactions);
+    private final AppointmentService service = new AppointmentService(appointments, users, rooms, owners, ledger, transactions, mock(TaiKhoanNganHangRepository.class));
     private PhongTro room;
     private PhieuDatLich appointment;
     private ChuTro owner;
@@ -35,7 +36,6 @@ class LandlordAppointmentTests {
         when(appointments.findByIdForUpdate("booking")).thenReturn(Optional.of(appointment));
         when(rooms.findByIdForUpdate("room")).thenReturn(Optional.of(room));
         when(owners.findByIdForUpdate("owner")).thenReturn(Optional.of(owner));
-        when(rooms.findStatusForUpdate("room")).thenAnswer(call -> room.getTrangThai().name());
     }
     @Test void rejectionRefundsOnceAndReplayCannotPayAgain() {
         service.chuTroDuaRaQuyetDinh("booking", "owner", AppointmentDecisionRequest.builder().dongY(false).liDoTuChoi("Không phù hợp").build());
@@ -50,13 +50,14 @@ class LandlordAppointmentTests {
         assertEquals(TrangThaiPhongTro.HOAN_THANH, room.getTrangThai());
         assertEquals(200000L, owner.getSoDu());
     }
-    @Test void cannotCompleteSecondBookingForAlreadyRentedRoom() {
+    @Test void secondBookingForRentedRoomIsCancelledAndSettled() {
         appointment.setKhachHangDongY(true);
         room.setTrangThai(TrangThaiPhongTro.HOAN_THANH);
-        assertEquals(ErrorCode.ROOM_UNAVAILABLE, assertThrows(AppException.class,
-                () -> service.chuTroDuaRaQuyetDinh("booking", "owner", AppointmentDecisionRequest.builder().dongY(true).build())).getErrorCode());
-        verifyNoInteractions(ledger);
-        assertEquals(0L, owner.getSoDu());
+        service.chuTroDuaRaQuyetDinh("booking", "owner", AppointmentDecisionRequest.builder().dongY(true).build());
+        assertEquals(TrangThaiDatLich.HUY, appointment.getTrangThai());
+        assertEquals(TrangThaiPhongTro.HOAN_THANH, room.getTrangThai());
+        assertEquals(200000L, owner.getSoDu());
+        verify(ledger, times(1)).taoGiaoDichLichHen(any(), eq(200000L), eq("HOAN_COC"), anyString(), any(), same(appointment));
     }
     @Test void bothAgreePaysOnlyNetDepositAndCompletesRoom() {
         appointment.setKhachHangDongY(true);

@@ -60,7 +60,7 @@ class ComplaintServiceTest {
     private GiaoDichRepository giaoDichRepository;
 
     @Mock
-    private TransactionService transactionService;
+    private AppointmentService appointmentService;
 
     @InjectMocks
     private ComplaintService complaintService;
@@ -272,7 +272,7 @@ class ComplaintServiceTest {
 
         when(phieuKhieuNaiRepository.findById("KN004")).thenReturn(Optional.of(kn));
         when(nguoiDungRepository.findByTenDangNhap("admin")).thenReturn(Optional.of(adminUser));
-        when(phieuDatLichRepository.findById("DL001")).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.findByIdForUpdate("DL001")).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich("ND010120260001", "DL001")).thenReturn(true);
         when(phieuKhieuNaiRepository.save(any(PhieuKhieuNai.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -289,13 +289,7 @@ class ComplaintServiceTest {
         assertEquals(TrangThaiDatLich.HUY, phieu.getTrangThai());
         assertTrue(phieu.getLiDoHuy().contains("KN004"));
         verify(phieuDatLichRepository).save(phieu);
-        verify(transactionService).taoGiaoDich(
-                eq(customer),
-                eq(200_000L),
-                eq("HOAN_COC"),
-                contains("DL001"),
-                eq(TrangThaiGD.HOAN_TIEN)
-        );
+        verify(appointmentService).taoGiaoDichHoanCocChoKhach(eq(phieu), contains("KN004"), isNull());
     }
 
     @Test
@@ -323,7 +317,7 @@ class ComplaintServiceTest {
 
         when(phieuKhieuNaiRepository.findById("KN005")).thenReturn(Optional.of(kn));
         when(nguoiDungRepository.findByTenDangNhap("admin")).thenReturn(Optional.of(adminUser));
-        when(phieuDatLichRepository.findById("DL002")).thenReturn(Optional.of(phieu));
+        when(phieuDatLichRepository.findByIdForUpdate("DL002")).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich("ND010120260001", "DL002")).thenReturn(true);
 
         ComplaintResolveDTO req = ComplaintResolveDTO.builder()
@@ -336,6 +330,6 @@ class ComplaintServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> complaintService.resolveComplaint("KN005", req));
         assertEquals(ErrorCode.INVALID_APPOINTMENT_STATUS, ex.getErrorCode());
-        verify(transactionService, never()).taoGiaoDich(any(), any(), any(), any(), any());
+        verifyNoInteractions(appointmentService);
     }
 }

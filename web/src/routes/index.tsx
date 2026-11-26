@@ -21,6 +21,7 @@ import { ComplaintsAdminPage } from '@/pages/admin/ComplaintsAdminPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
 import { PostsPage } from '@/pages/admin/PostsPage';
 import { ReviewsPage } from '@/pages/admin/ReviewsPage';
+import { ViewingsPage } from '@/pages/admin/ViewingsPage';
 import { StatisticsPage } from '@/pages/admin/StatisticsPage';
 import { TransactionsPage } from '@/pages/admin/TransactionsPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
@@ -126,6 +127,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/appointments" element={<AppointmentsPage />} />
         <Route path="/appointments/schedule" element={<SchedulePage />} />
         <Route path="/appointments/schedule/:roomId" element={<SchedulePage />} />
+        <Route path="/appointments/deposit" element={<DepositPaymentPage />} />
         <Route path="/appointments/deposit/:appointmentId" element={<DepositPaymentPage />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
         <Route path="/rentals" element={<Navigate to="/appointments" replace />} />
@@ -183,6 +185,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="posts" element={<PostsPage />} />
+        <Route path="viewings" element={<ViewingsPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="reviews" element={<ReviewsPage />} />
         <Route path="complaints" element={<ComplaintsAdminPage />} />

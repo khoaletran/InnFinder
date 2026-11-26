@@ -134,6 +134,10 @@ export const formatTransactionType = (
       return { label: 'Hoàn trả tiền cọc xem phòng', method: 'Ví InnFinder' };
     case 'CONG_TIEN_COC':
       return { label: 'Nhận cọc sau khi trừ phí hoa hồng sàn', method: 'Ví Chủ trọ' };
+    case 'BOI_THUONG_NO_SHOW':
+      return { label: 'Bồi thường cọc khách No-show', method: 'Chuyển vào Ví Chủ trọ' };
+    case 'BOI_THUONG_HUY_SAT_GIO':
+      return { label: 'Bồi thường cọc hủy sát giờ', method: 'Chuyển vào Ví Chủ trọ' };
     case 'THU_HOA_HONG':
       return { label: 'Phí hoa hồng môi giới sàn', method: 'Hệ thống InnFinder' };
     case 'RUT_TIEN':

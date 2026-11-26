@@ -96,6 +96,13 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
            "AND g.noiDung LIKE CONCAT('%', :maDatLich, '%')")
     boolean existsDepositByMaDatLich(@Param("maNguoiDung") String maNguoiDung, @Param("maDatLich") String maDatLich);
 
+    @Query("SELECT g FROM GiaoDich g WHERE g.nguoiDung.maNguoiDung = :maNguoiDung " +
+           "AND g.loaiGiaoDich = 'HOAN_COC' AND g.noiDung LIKE CONCAT('%', :maDatLich, '%') ORDER BY g.ngayGiaoDich DESC")
+    List<GiaoDich> findRefundTransactions(@Param("maNguoiDung") String maNguoiDung, @Param("maDatLich") String maDatLich);
+
+    @Query("SELECT COUNT(g) > 0 FROM GiaoDich g WHERE g.noiDung LIKE CONCAT('%', :candidateId, '%')")
+    boolean existsByCandidateId(@Param("candidateId") String candidateId);
+
     /**
      * Khóa bi quan (Pessimistic Lock) khi Admin phê duyệt giao dịch để chống race-condition / nhiều Admin duyệt trùng
      */

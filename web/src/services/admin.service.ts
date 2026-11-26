@@ -329,13 +329,15 @@ export const adminService = {
       thucNhan: Number(t.thucNhan ?? t.soTien ?? 0),
       tenNganHang: t.tenNganHang as string | undefined,
       soTaiKhoan: t.soTaiKhoan as string | undefined,
+      tenChuTaiKhoan: (t.tenChuTaiKhoan as string | undefined) || (t.hoVaTen as string | undefined),
       ghiChu: (t.noiDung as string | undefined) || (t.ghiChu as string | undefined),
     }));
   },
 
-  approveWithdrawal: (id: string) => {
+  approveWithdrawal: (id: string, maThamChieu?: string) => {
     return axiosClient.patch<unknown, AdminTransactionItem>(
       `/api/admin/transactions/${id}/approve`,
+      maThamChieu ? { maThamChieu } : {},
     );
   },
 

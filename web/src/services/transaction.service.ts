@@ -14,6 +14,16 @@ export const transactionService = {
   requestWithdraw: async (payload: WithdrawRequestDTO): Promise<TransactionResponse> => {
     return axiosClient.post<unknown, TransactionResponse>('/api/landlord/wallet/withdraw', payload);
   },
+
+  retryRefund: async (
+    maGiaoDich: string,
+    payload: { tenNganHang: string; soTaiKhoan: string; tenChuTaiKhoan?: string },
+  ): Promise<TransactionResponse> => {
+    return axiosClient.patch<unknown, TransactionResponse>(
+      `/api/transactions/${maGiaoDich}/retry-refund`,
+      payload,
+    );
+  },
 };
 
 export default transactionService;

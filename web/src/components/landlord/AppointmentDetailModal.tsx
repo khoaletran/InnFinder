@@ -125,6 +125,18 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 )}
               </div>
             )}
+            {appointment.trangThai === 'XAC_NHAN' && !appointment.daNhanLaiCoc && onCancel && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onCancel(appointment.id);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy lịch
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -202,15 +214,16 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           </div>
           <div className="flex items-center justify-between text-slate-600">
             <span>Trạng thái hoàn cọc trực tiếp:</span>
-            <span
-              className={`font-bold ${
-                appointment.daNhanLaiCoc ? 'text-emerald-700' : 'text-amber-700'
-              }`}
-            >
-              {appointment.daNhanLaiCoc
-                ? 'Khách đã xác nhận nhận lại cọc'
-                : 'Chờ khách xác nhận đã nhận lại cọc'}
-            </span>
+            {appointment.daNhanLaiCoc ? (
+              <span className="font-bold text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Khách hàng đã nhận lại cọc
+              </span>
+            ) : (
+              <span className="font-bold text-amber-700">
+                Chờ khách xác nhận đã nhận lại cọc
+              </span>
+            )}
           </div>
         </div>
 

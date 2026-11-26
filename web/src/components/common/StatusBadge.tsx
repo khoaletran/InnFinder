@@ -45,12 +45,13 @@ const APPOINTMENT_STATUS_MAP: Record<TrangThaiDatLich, StatusSpec> = {
 const TRANSACTION_STATUS_MAP: Record<TrangThaiGD, StatusSpec> = {
   CHO_THANH_TOAN: { label: 'Chờ thanh toán', tone: 'warning' },
   THANH_CONG: { label: 'Thành công', tone: 'success' },
-  HOAN_TIEN: { label: 'Hoàn tiền', tone: 'info' },
+  HOAN_TIEN: { label: 'Đã hoàn tiền', tone: 'info' },
   THAT_BAI: { label: 'Thất bại', tone: 'danger' },
 };
 
 interface StatusBadgeProps {
   status?: string;
+  type?: string;
   label?: string;
   tone?: BadgeTone;
   pulse?: boolean;
@@ -59,6 +60,7 @@ interface StatusBadgeProps {
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
+  type,
   label,
   tone,
   className = '',
@@ -67,8 +69,19 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     (status && APPOINTMENT_STATUS_MAP[status as TrangThaiDatLich]) ||
     (status && TRANSACTION_STATUS_MAP[status as TrangThaiGD]);
 
-  const resolvedLabel = label || mapped?.label || status || 'Không rõ';
-  const resolvedTone: BadgeTone = tone || mapped?.tone || 'neutral';
+  // Đặc tả nghiệp vụ: Nếu là giao dịch HOAN_COC đang ở trạng thái CHO_THANH_TOAN,
+  // hiển thị nhãn thân thiện "Đang hoàn cọc" thay vì "Chờ thanh toán"
+  let resolvedLabel = label || mapped?.label || status || 'Không rõ';
+  let resolvedTone: BadgeTone = tone || mapped?.tone || 'neutral';
+
+  if (status === 'CHO_THANH_TOAN' && type === 'HOAN_COC') {
+    resolvedLabel = 'Đang hoàn cọc';
+    resolvedTone = 'info';
+  } else if (status === 'CHO_THANH_TOAN' && (type === 'RUT_TIEN' || type === 'YEU_CAU_RUT_TIEN')) {
+    resolvedLabel = 'Chờ duyệt rút tiền';
+    resolvedTone = 'warning';
+  }
+
   const styles = TONE_CLASSES[resolvedTone];
 
   return (

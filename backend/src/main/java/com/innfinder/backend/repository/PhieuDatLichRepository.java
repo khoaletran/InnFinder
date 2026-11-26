@@ -2,22 +2,22 @@ package com.innfinder.backend.repository;
 
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, String> {
     @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
     String findMaxMaDatLichByPrefix(@Param("prefix") String prefix);
-    /**
-     * 1. Lấy danh sách lịch hẹn của một khách hàng (sắp xếp ngày hẹn mới nhất lên đầu)
-     * Dùng cho endpoint: GET /api/appointments/my-appointments
-     */
-    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.hinhAnh", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
-    List<PhieuDatLich> findByKhachHang_MaNguoiDungOrderByNgayHenDesc(String maKhachHang);
+
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(String khachHangMaNguoiDung);
 
     /**
      * 2. Lấy danh sách lịch hẹn đặt vào các phòng thuộc sở hữu của một Chủ trọ
@@ -53,9 +53,65 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
      */
     @Query("SELECT COALESCE(SUM(p.coc), 0L) FROM PhieuDatLich p WHERE p.trangThai = :trangThai AND p.coc > 0")
     Long sumCocByTrangThai(@Param("trangThai") TrangThaiDatLich trangThai);
-    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PhieuDatLich p WHERE p.maDatLich = :id")
-    java.util.Optional<PhieuDatLich> findByIdForUpdate(@Param("id") String id);
+
+    /**
+     * 7. Khóa bi quan (Pessimistic Lock) khi duyệt, hủy hoặc xử lý quyết toán lịch hẹn
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.maDatLich = :maDatLich")
+    Optional<PhieuDatLich> findByIdForUpdate(@Param("maDatLich") String maDatLich);
+
+    /**
+     * 8. Kiểm tra lịch trùng đang hoạt động của cùng một khách hàng cho cùng một phòng
+     */
+    @Query("SELECT COUNT(p) > 0 FROM PhieuDatLich p " +
+           "WHERE p.khachHang.maNguoiDung = :maKhachHang " +
+           "AND p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.ngayHen = :ngayHen " +
+           "AND (p.trangThai = com.innfinder.backend.entity.enums.TrangThaiDatLich.XAC_NHAN " +
+           "     OR (p.trangThai = com.innfinder.backend.entity.enums.TrangThaiDatLich.CHO_XAC_NHAN " +
+           "         AND p.thoiGianDat > :minBookingTime " +
+           "         AND p.ngayHen > :minViewingTime))")
+    boolean existsActiveDuplicateAppointment(
+            @Param("maKhachHang") String maKhachHang,
+            @Param("maPhongTro") String maPhongTro,
+            @Param("ngayHen") LocalDateTime ngayHen,
+            @Param("minBookingTime") LocalDateTime minBookingTime,
+            @Param("minViewingTime") LocalDateTime minViewingTime
+    );
+
+    /**
+     * 9. Lấy tất cả các lịch hẹn đang hoạt động khác của một phòng trọ để hủy dây chuyền khi phòng đã có khách chốt thuê
+     */
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.trangThai IN :trangThais AND p.maDatLich <> :excludeMaDatLich")
+    List<PhieuDatLich> findOtherActiveAppointmentsByRoom(
+            @Param("maPhongTro") String maPhongTro,
+            @Param("trangThais") List<TrangThaiDatLich> trangThais,
+            @Param("excludeMaDatLich") String excludeMaDatLich
+    );
+
+    /**
+     * 10. Lấy các lịch hẹn của một phòng trọ trong khoảng thời gian để kiểm tra trùng khung giờ (kèm khoảng đệm)
+     */
+    @Query("SELECT p FROM PhieuDatLich p WHERE p.phongTro.maPhongTro = :maPhongTro " +
+           "AND p.ngayHen BETWEEN :startTime AND :endTime " +
+           "AND p.trangThai IN :trangThais")
+    List<PhieuDatLich> findAppointmentsByRoomAndTimeRange(
+            @Param("maPhongTro") String maPhongTro,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            @Param("trangThais") List<TrangThaiDatLich> trangThais
+    );
+
+    /**
+     * 11. Lấy các lịch hẹn đang hoạt động của một khách hàng cho một phòng trọ cụ thể
+     */
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungAndPhongTro_MaPhongTroAndTrangThaiIn(
+            String maKhachHang,
+            String maPhongTro,
+            List<TrangThaiDatLich> trangThais
+    );
 
     List<PhieuDatLich> findTop20ByPhongTro_ChuPhongTro_MaChuTroOrderByThoiGianDatDesc(String id);
 

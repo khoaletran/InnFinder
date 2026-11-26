@@ -19,12 +19,14 @@ interface BookingState {
   paidAppointmentIds: string[];
 
   setActiveTab: (tab: AppointmentFilterTab) => void;
+  resetBookingStore: () => void;
   fetchAppointments: (silent?: boolean) => Promise<void>;
   payAppointmentDeposit: (maDatLich: string) => Promise<{ success: boolean; message?: string }>;
   markRoomAsReviewed: (roomId: string) => void;
   cancelAppointment: (
     maDatLich: string,
     liDoHuy: string,
+    bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string },
   ) => Promise<{ success: boolean; message?: string }>;
   confirmReceivedDeposit: (
     maDatLich: string,
@@ -33,7 +35,16 @@ interface BookingState {
     maDatLich: string,
     dongY: boolean,
     liDoTuChoi?: string,
-  ) => Promise<{ success: boolean; isCompleted?: boolean; message?: string }>;
+  ) => Promise<{
+    success: boolean;
+    isCompleted?: boolean;
+    trangThai?: string;
+    liDoHuy?: string;
+    message?: string;
+  }>;
+  reportLandlordNoShow: (
+    maDatLich: string,
+  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useBookingStore = create<BookingState>()(
@@ -48,6 +59,20 @@ export const useBookingStore = create<BookingState>()(
 
       setActiveTab: (tab) => set({ activeTab: tab }),
 
+      resetBookingStore: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('innfinder_booking_storage');
+        }
+        set({
+          appointments: [],
+          isLoading: false,
+          error: null,
+          activeTab: 'ALL',
+          reviewedRoomIds: [],
+          paidAppointmentIds: [],
+        });
+      },
+
       fetchAppointments: async (silent = false) => {
         if (!silent) {
           set({ isLoading: true, error: null });
@@ -58,13 +83,10 @@ export const useBookingStore = create<BookingState>()(
           const backendPaidIds = list
             .filter((item) => item.daNopCoc)
             .map((item) => item.maDatLich);
-          const mergedPaid = Array.from(
-            new Set([...get().paidAppointmentIds, ...backendPaidIds]),
-          );
 
           set({
             appointments: list,
-            paidAppointmentIds: mergedPaid,
+            paidAppointmentIds: backendPaidIds,
             isLoading: false,
           });
         } catch (err: unknown) {
@@ -103,9 +125,13 @@ export const useBookingStore = create<BookingState>()(
         set({ reviewedRoomIds: nextReviewed });
       },
 
-      cancelAppointment: async (maDatLich: string, liDoHuy: string) => {
+      cancelAppointment: async (
+        maDatLich: string,
+        liDoHuy: string,
+        bankInfo?: { tenNganHang?: string; soTaiKhoan?: string; tenChuTaiKhoan?: string },
+      ) => {
         try {
-          await appointmentService.cancelAppointment(maDatLich, liDoHuy);
+          await appointmentService.cancelAppointment(maDatLich, liDoHuy, bankInfo);
           const remainingPaid = get().paidAppointmentIds.filter((id) => id !== maDatLich);
           set((state) => ({
             paidAppointmentIds: remainingPaid,
@@ -168,11 +194,29 @@ export const useBookingStore = create<BookingState>()(
                 : item,
             ),
           }));
-          return { success: true, isCompleted };
+          return {
+            success: true,
+            isCompleted,
+            trangThai: updated.trangThai,
+            liDoHuy: updated.liDoHuy,
+          };
         } catch (err: unknown) {
           return {
             success: false,
             message: err instanceof Error ? err.message : 'Gửi quyết định thuê thất bại',
+          };
+        }
+      },
+
+      reportLandlordNoShow: async (maDatLich: string) => {
+        try {
+          await appointmentService.reportLandlordNoShow(maDatLich);
+          await get().fetchAppointments(true);
+          return { success: true };
+        } catch (err: unknown) {
+          return {
+            success: false,
+            message: err instanceof Error ? err.message : 'Báo cáo chủ trọ vắng mặt thất bại',
           };
         }
       },

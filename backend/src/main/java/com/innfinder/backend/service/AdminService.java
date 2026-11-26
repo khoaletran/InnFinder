@@ -306,7 +306,9 @@ public class AdminService {
             if (p.getTrangThai() == TrangThaiDatLich.HOAN_THANH) {
                 completedAppointments.add(p);
                 tongDoanhThu += (p.getPhiThu() != null ? p.getPhiThu() : 0L);
-            } else if (p.getTrangThai() == TrangThaiDatLich.XAC_NHAN && p.getCoc() != null && p.getCoc() > 0) {
+            } else if ((p.getTrangThai() == TrangThaiDatLich.XAC_NHAN || p.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN)
+                    && p.getCoc() != null && p.getCoc() > 0 && p.getKhachHang() != null
+                    && giaoDichRepository.existsDepositByMaDatLich(p.getKhachHang().getMaNguoiDung(), p.getMaDatLich())) {
                 quyTamGiuCoc += p.getCoc();
             }
         }
@@ -323,6 +325,11 @@ public class AdminService {
             long amount = g.getSoTien() != null ? g.getSoTien() : 0L;
             String loai = g.getLoaiGiaoDich() != null ? g.getLoaiGiaoDich() : "";
             TrangThaiGD trangThai = g.getTrangThai();
+
+            if (trangThai == TrangThaiGD.CHO_THANH_TOAN && ("HOAN_COC".equalsIgnoreCase(loai)
+                    || "BOI_THUONG_NO_SHOW".equalsIgnoreCase(loai))) {
+                quyTamGiuCoc += amount;
+            }
 
             if ("RUT_TIEN".equalsIgnoreCase(loai)) {
                 if (trangThai == TrangThaiGD.CHO_THANH_TOAN) {
@@ -580,12 +587,12 @@ public class AdminService {
         if (keyword != null && !keyword.trim().isEmpty()) {
             return giaoDichRepository.searchAllTransactionsByUserInfo(keyword.trim())
                     .stream()
-                    .map(AdminTransactionResponseDTO::fromEntity)
+                    .map(this::toAdminTransactionDTO)
                     .toList();
         }
         return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
                 .stream()
-                .map(AdminTransactionResponseDTO::fromEntity)
+                .map(this::toAdminTransactionDTO)
                 .toList();
     }
 
@@ -601,7 +608,7 @@ public class AdminService {
     public List<AdminTransactionResponseDTO> getAllTransactions() {
         return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
                 .stream()
-                .map(AdminTransactionResponseDTO::fromEntity)
+                .map(this::toAdminTransactionDTO)
                 .toList();
     }
 
@@ -609,13 +616,26 @@ public class AdminService {
     public AdminTransactionResponseDTO getTransactionById(String id) {
         GiaoDich gd = giaoDichRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
-        return AdminTransactionResponseDTO.fromEntity(gd);
+        return toAdminTransactionDTO(gd);
     }
 
-    @Transactional
-    @CacheEvict(value = "admin_statistics", allEntries = true)
-    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername) {
-        return approveTransaction(id, adminUsername, null);
+    private AdminTransactionResponseDTO toAdminTransactionDTO(GiaoDich gd) {
+        AdminTransactionResponseDTO dto = AdminTransactionResponseDTO.fromEntity(gd);
+        if ((dto.getSoTaiKhoan() == null || dto.getSoTaiKhoan().isBlank())
+                && gd.getNguoiDung() != null
+                && ("HOAN_COC".equalsIgnoreCase(gd.getLoaiGiaoDich()) || "RUT_TIEN".equalsIgnoreCase(gd.getLoaiGiaoDich()))) {
+            List<TaiKhoanNganHang> banks = taiKhoanNganHangRepository.findByNguoiDung_MaNguoiDung(gd.getNguoiDung().getMaNguoiDung());
+            if (!banks.isEmpty()) {
+                TaiKhoanNganHang primary = banks.stream()
+                        .filter(TaiKhoanNganHang::isMacDinh).findFirst().orElse(banks.get(0));
+                dto.setTenNganHang(primary.getTenNganHang());
+                dto.setSoTaiKhoan(primary.getSoTaiKhoan());
+                if (primary.getTenChuTaiKhoan() != null && !primary.getTenChuTaiKhoan().isBlank()) {
+                    dto.setTenChuTaiKhoan(primary.getTenChuTaiKhoan());
+                }
+            }
+        }
+        return dto;
     }
 
     @Transactional
@@ -646,7 +666,22 @@ public class AdminService {
         }
         gd = giaoDichRepository.save(gd);
 
+        // Nếu là lệnh bồi thường No-show: Giải ngân tiền từ Sàn vào ví Chủ trọ
+        if ("BOI_THUONG_NO_SHOW".equalsIgnoreCase(gd.getLoaiGiaoDich()) && gd.getNguoiDung() != null) {
+            ChuTro chuTro = chuTroRepository.findByIdForUpdate(gd.getNguoiDung().getMaNguoiDung()).orElse(null);
+            if (chuTro != null) {
+                chuTro.setSoDu(chuTro.getSoDu() + soTienDuyet);
+                chuTroRepository.save(chuTro);
+            }
+        }
+
         return AdminTransactionResponseDTO.fromEntity(gd);
+    }
+
+    @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
+    public AdminTransactionResponseDTO approveTransaction(String id, String adminUsername) {
+        return approveTransaction(id, adminUsername, null);
     }
 
     @Transactional
@@ -808,6 +843,7 @@ public class AdminService {
             TaiKhoanNganHang tk = TaiKhoanNganHang.builder()
                     .soTaiKhoan(yc.getSoTaiKhoan())
                     .tenNganHang(yc.getTenNganHang())
+                    .tenChuTaiKhoan(yc.getTenChuTaiKhoan())
                     .nguoiDung(user)
                     .build();
             taiKhoanNganHangRepository.save(tk);

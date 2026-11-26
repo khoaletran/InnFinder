@@ -9,7 +9,6 @@ import com.innfinder.backend.entity.PhieuKhieuNai;
 import com.innfinder.backend.entity.PhongTro;
 import com.innfinder.backend.entity.enums.MucDoViPham;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
-import com.innfinder.backend.entity.enums.TrangThaiGD;
 import com.innfinder.backend.entity.enums.TrangThaiKhieuNai;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.exception.AppException;
@@ -41,7 +40,7 @@ public class ComplaintService {
     private final PhongTroRepository phongTroRepository;
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final GiaoDichRepository giaoDichRepository;
-    private final TransactionService transactionService;
+    private final AppointmentService appointmentService;
 
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
@@ -184,7 +183,7 @@ public class ComplaintService {
             throw new AppException(ErrorCode.APPOINTMENT_NOT_FOUND);
         }
 
-        PhieuDatLich phieu = phieuDatLichRepository.findById(maDatLichHoanCoc.trim())
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLichHoanCoc.trim())
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
 
         String customerId = kn.getNguoiGui().getMaNguoiDung();
@@ -209,13 +208,8 @@ public class ComplaintService {
         phieu.setLiDoHuy("Hoàn cọc theo phán quyết khiếu nại #" + kn.getMaKhieuNai());
         phieuDatLichRepository.save(phieu);
 
-        transactionService.taoGiaoDich(
-                kn.getNguoiGui(),
-                phieu.getCoc(),
-                "HOAN_COC",
-                "Hoàn cọc theo phán quyết khiếu nại #" + kn.getMaKhieuNai() + " (Lịch " + phieu.getMaDatLich() + ")",
-                TrangThaiGD.HOAN_TIEN
-        );
+        appointmentService.taoGiaoDichHoanCocChoKhach(phieu,
+                "Hoàn cọc theo phán quyết khiếu nại #" + kn.getMaKhieuNai(), null);
     }
 
     private boolean isRefundEligible(PhieuDatLich phieu, boolean daNopCoc) {

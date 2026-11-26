@@ -1,32 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card } from '@heroui/react';
 import {
   AlertCircle,
-  ArrowRight,
   ArrowUpDown,
   Calendar,
   CheckCircle2,
   Clock,
-  LayoutGrid,
-  LayoutList,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppointmentCard } from '@/components/booking/AppointmentCard';
-import { CancelConfirmModal } from '@/components/booking/CancelConfirmModal';
-import { RentalProgressBar } from '@/components/booking/RentalProgressBar';
-import { RentalRequestCard } from '@/components/booking/RentalRequestCard';
+import { CancelConfirmModal, type BankInfoInput } from '@/components/booking/CancelConfirmModal';
+import { RefundSuccessModal } from '@/components/booking/RefundSuccessModal';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer, PageHeader } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { useBookingStore } from '@/store/useBookingStore';
 import type { AppointmentResponse, TrangThaiDatLich } from '@/types/booking.types';
+import { formatVND } from '@/utils/formatters';
 
 type StatusFilter = 'ALL' | TrangThaiDatLich;
 
@@ -58,11 +54,17 @@ export const AppointmentsPage: React.FC = () => {
   const [statusTab, setStatusTab] = useState<StatusFilter>('ALL');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('asc');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
 
   const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [isCanceling, setIsCanceling] = useState<boolean>(false);
+  const [refundModalData, setRefundModalData] = useState<{
+    isOpen: boolean;
+    maDatLich: string;
+    amount: number;
+    bankName?: string;
+    accountNumber?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -85,13 +87,6 @@ export const AppointmentsPage: React.FC = () => {
     return counts;
   }, [appointments]);
 
-  const activeRental = useMemo(() => {
-    return (
-      appointments.find(
-        (a) => a.trangThai === 'XAC_NHAN' || a.trangThai === 'CHO_XAC_NHAN',
-      ) || null
-    );
-  }, [appointments]);
   const filteredAppointments = useMemo(() => {
     let list = [...appointments];
 
@@ -119,12 +114,9 @@ export const AppointmentsPage: React.FC = () => {
     });
   }, [appointments, statusTab, searchKeyword, sortOrder]);
 
-  const { upcomingAppointments, pastAppointments, kanbanColumns } = useMemo(() => {
+  const { upcomingAppointments, pastAppointments } = useMemo(() => {
     const upcoming: AppointmentResponse[] = [];
     const past: AppointmentResponse[] = [];
-    const waiting: AppointmentResponse[] = [];
-    const confirmed: AppointmentResponse[] = [];
-    const closed: AppointmentResponse[] = [];
 
     for (const apt of filteredAppointments) {
       if (apt.trangThai === 'CHO_XAC_NHAN' || apt.trangThai === 'XAC_NHAN') {
@@ -132,20 +124,11 @@ export const AppointmentsPage: React.FC = () => {
       } else {
         past.push(apt);
       }
-
-      if (apt.trangThai === 'CHO_XAC_NHAN') waiting.push(apt);
-      else if (apt.trangThai === 'XAC_NHAN') confirmed.push(apt);
-      else closed.push(apt);
     }
 
     return {
       upcomingAppointments: upcoming,
       pastAppointments: past,
-      kanbanColumns: [
-        { key: 'waiting', title: 'Chờ cọc / Chờ xác nhận', items: waiting },
-        { key: 'confirmed', title: 'Đã xác nhận xem phòng', items: confirmed },
-        { key: 'closed', title: 'Hoàn tất & Đã hủy', items: closed },
-      ],
     };
   }, [filteredAppointments]);
 
@@ -154,15 +137,33 @@ export const AppointmentsPage: React.FC = () => {
     setCancelModalVisible(true);
   };
 
-  const handleConfirmCancel = async (reason: string) => {
+  const handleConfirmCancel = async (reason: string, bankInfo?: BankInfoInput) => {
     if (!selectedAppointmentId) return;
+    const targetAppt = appointments.find((a) => a.maDatLich === selectedAppointmentId);
+    const isLate =
+      targetAppt &&
+      targetAppt.trangThai === 'XAC_NHAN' &&
+      targetAppt.ngayHen &&
+      new Date(targetAppt.ngayHen).getTime() - Date.now() < 2 * 60 * 60 * 1000;
+
     setIsCanceling(true);
-    const res = await cancelAppointment(selectedAppointmentId, reason);
+    const res = await cancelAppointment(selectedAppointmentId, reason, bankInfo);
     setIsCanceling(false);
     setCancelModalVisible(false);
 
     if (res.success) {
-      toast.success('Đã hủy lịch hẹn xem phòng thành công');
+      const coCocHoan = targetAppt && targetAppt.daNopCoc && (targetAppt.coc || 0) > 0 && !isLate;
+      if (coCocHoan) {
+        setRefundModalData({
+          isOpen: true,
+          maDatLich: selectedAppointmentId,
+          amount: targetAppt.coc || 0,
+          bankName: bankInfo?.tenNganHang,
+          accountNumber: bankInfo?.soTaiKhoan,
+        });
+      } else {
+        toast.success('Đã hủy lịch hẹn xem phòng thành công');
+      }
       await fetchAppointments(true);
     } else {
       toast.error(res.message || 'Hủy lịch hẹn thất bại');
@@ -176,33 +177,6 @@ export const AppointmentsPage: React.FC = () => {
         subtitle="Theo dõi lịch hẹn sắp tới, cọc giữ chân và tiến trình thuê phòng"
         action={
           <>
-            <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <LayoutList className="w-4 h-4" />
-                <span>Danh sách</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === 'cards'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                <span>Thẻ tiến trình</span>
-              </button>
-            </div>
-
             <AppButton
               variant="secondary"
               size="md"
@@ -220,43 +194,6 @@ export const AppointmentsPage: React.FC = () => {
           </>
         }
       />
-
-      {activeRental && (
-        <Card className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
-          <Card.Header className="p-0 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-            <div>
-              <Card.Title className="text-sm sm:text-base font-bold text-slate-900">
-                Tiến trình xem & thuê phòng gần nhất
-              </Card.Title>
-              <Card.Description className="text-xs text-slate-500 mt-0.5">
-                {activeRental.tieuDePhong || `Phòng trọ mã #${activeRental.maPhongTro}`} · Mã lịch: #{activeRental.maDatLich}
-              </Card.Description>
-            </div>
-
-            <Link
-              to={`/appointments/${activeRental.maDatLich}`}
-              className="text-xs font-bold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1 transition-colors"
-            >
-              Xem chi tiết tiến trình <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </Card.Header>
-
-          <Card.Content className="p-0 pt-2">
-            <RentalProgressBar
-              status={activeRental.trangThai}
-              sentDate={
-                activeRental.thoiGianDat
-                  ? `${new Date(activeRental.thoiGianDat).getDate()}/${new Date(activeRental.thoiGianDat).getMonth() + 1}`
-                  : '--/--'
-              }
-              daNhanLaiCoc={Boolean(activeRental.daNhanLaiCoc)}
-              daNopCoc={Boolean(activeRental.daNopCoc)}
-              khachHangDongY={activeRental.khachHangDongY}
-              chuTroDongY={activeRental.chuTroDongY}
-            />
-          </Card.Content>
-        </Card>
-      )}
 
       {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -373,35 +310,6 @@ export const AppointmentsPage: React.FC = () => {
             )
           }
         />
-      ) : viewMode === 'cards' ? (
-        /* Chế độ Thẻ tiến trình (Kanban 3 cột trên Desktop) */
-        <div className="hidden lg:grid grid-cols-3 gap-6 items-start">
-          {kanbanColumns.map((col) => (
-            <div
-              key={col.key}
-              className="bg-slate-100/80 rounded-2xl border border-slate-200 p-4 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900">{col.title}</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-700">
-                  {col.items.length}
-                </span>
-              </div>
-
-              {col.items.length > 0 ? (
-                <div className="space-y-4">
-                  {col.items.map((item) => (
-                    <RentalRequestCard key={item.maDatLich} item={item} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-xs text-slate-600 bg-white/70 rounded-xl border border-dashed border-slate-300">
-                  Không có lịch hẹn nào
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
       ) : statusTab !== 'ALL' ? (
         /* Khi đang chọn một tab cụ thể: Hiển thị danh sách lọc theo tab đó */
         <div className="space-y-4">
@@ -478,16 +386,60 @@ export const AppointmentsPage: React.FC = () => {
         </div>
       )}
 
-      <CancelConfirmModal
-        isOpen={cancelModalVisible}
-        isLoading={isCanceling}
-        onClose={() => setCancelModalVisible(false)}
-        onConfirmCancel={handleConfirmCancel}
-        title="Hủy lịch xem phòng"
-        description="Vui lòng chọn hoặc nhập lý do hủy lịch hẹn"
-        cancelButtonText={isCanceling ? 'Đang hủy...' : 'Xác nhận hủy'}
-        keepButtonText="Giữ lại lịch"
-      />
+      {(() => {
+        const selectedAppt = appointments.find((a) => a.maDatLich === selectedAppointmentId);
+        const isLateCancel =
+          selectedAppt?.trangThai === 'XAC_NHAN' &&
+          selectedAppt.ngayHen &&
+          new Date(selectedAppt.ngayHen).getTime() - new Date().getTime() < 2 * 60 * 60 * 1000;
+
+        return (
+          <CancelConfirmModal
+            isOpen={cancelModalVisible}
+            isLoading={isCanceling}
+            onClose={() => setCancelModalVisible(false)}
+            onConfirmCancel={handleConfirmCancel}
+            title={
+              isLateCancel
+                ? 'Hủy lịch hẹn sát giờ?'
+                : 'Hủy lịch xem phòng'
+            }
+            description={
+              isLateCancel
+                ? `⚠️ Bạn đang hủy lịch trong vòng 2 tiếng trước giờ hẹn. Nếu hủy trong thời gian này, tiền cọc ${formatVND(selectedAppt?.coc || 0)} sẽ không được hoàn lại và sẽ được dùng để bồi thường cho chủ trọ.\nBạn có chắc chắn muốn hủy lịch hẹn này không?`
+                : 'Vui lòng chọn hoặc nhập lý do hủy lịch hẹn. Tiền cọc sẽ được hoàn trả theo quy định.'
+            }
+            cancelButtonText={
+              isCanceling
+                ? 'Đang hủy...'
+                : isLateCancel
+                  ? 'Chấp nhận mất cọc & Hủy'
+                  : selectedAppt?.daNopCoc && (selectedAppt?.coc || 0) > 0
+                    ? 'Xác nhận hủy & Hoàn cọc'
+                    : 'Xác nhận hủy'
+            }
+            keepButtonText="Giữ lại lịch"
+            depositAmount={selectedAppt?.coc || 0}
+            isRefundEligible={!isLateCancel && Boolean(selectedAppt?.daNopCoc) && (selectedAppt?.coc || 0) > 0}
+          />
+        );
+      })()}
+
+      {/* Hộp thoại thông báo yêu cầu hoàn tiền đã gửi đi thành công */}
+      {refundModalData && (
+        <RefundSuccessModal
+          isOpen={refundModalData.isOpen}
+          onClose={() => setRefundModalData(null)}
+          onViewTransactions={() => {
+            setRefundModalData(null);
+            navigate('/transactions');
+          }}
+          maDatLich={refundModalData.maDatLich}
+          depositAmount={refundModalData.amount}
+          bankName={refundModalData.bankName}
+          accountNumber={refundModalData.accountNumber}
+        />
+      )}
     </PageContainer>
   );
 };

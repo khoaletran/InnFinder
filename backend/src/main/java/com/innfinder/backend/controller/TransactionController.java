@@ -48,4 +48,14 @@ public class TransactionController {
         TransactionResponse response = transactionService.taoYeuCauRutTien(username, request);
         return ApiResponse.ok(response, "Tạo yêu cầu rút tiền thành công");
     }
+
+    @PatchMapping("/api/transactions/{id}/retry-refund")
+    @Operation(summary = "Khách hàng cập nhật lại STK khi yêu cầu hoàn cọc trước đó bị từ chối")
+    public ApiResponse<TransactionResponse> capNhatLaiStkHoanCoc(
+            @PathVariable("id") String maGiaoDich,
+            @Valid @RequestBody com.innfinder.backend.dto.appointment.RetryRefundRequest request) {
+        String username = getCurrentUsername();
+        TransactionResponse response = transactionService.capNhatLaiStkHoanCoc(username, maGiaoDich, request);
+        return ApiResponse.ok(response, "Cập nhật tài khoản nhận tiền hoàn thành công");
+    }
 }

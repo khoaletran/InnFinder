@@ -1,12 +1,10 @@
 import React, { useId, useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Card } from '@heroui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CreditCard, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
-import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
-import { BankSelect } from '@/components/common/BankSelect';
+import { LinkBankAccountModal } from '@/components/common/LinkBankAccountModal';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -14,7 +12,6 @@ import { VIETNAM_BANKS } from '@/constants/banks';
 import { authUserService } from '@/services/authUser.service';
 import type { BankAccountResponse } from '@/types/auth-user.types';
 import { maskBankAccount } from '@/utils/security';
-import { bankAccountSchema } from '@/utils/validators';
 
 function getBankLogo(bankName?: string): string | null {
   if (!bankName) return null;
@@ -29,17 +26,9 @@ function getBankLogo(bankName?: string): string | null {
   return found?.logoUrl || null;
 }
 
-interface AddBankFormValues {
-  tenNganHang: string;
-  soTaiKhoan: string;
-  tenChuTaiKhoan?: string;
-}
-
 const ProfileBankTab: React.FC = () => {
   const queryClient = useQueryClient();
   const sectionHeadingId = useId();
-  const accountInputId = useId();
-  const holderInputId = useId();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingBank, setDeletingBank] = useState<BankAccountResponse | null>(null);
@@ -56,25 +45,6 @@ const ProfileBankTab: React.FC = () => {
     queryFn: authUserService.getMyBankAccounts,
   });
 
-  const {
-    register,
-    control,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<AddBankFormValues>({
-    resolver: zodResolver(bankAccountSchema),
-    mode: 'onChange',
-    defaultValues: {
-      tenNganHang: 'Vietcombank',
-      soTaiKhoan: '',
-      tenChuTaiKhoan: '',
-    },
-  });
-
-  const selectedBankName = useWatch({ control, name: 'tenNganHang' });
-
   const addBankMutation = useMutation({
     mutationFn: authUserService.addBankAccount,
     onSuccess: () => {
@@ -82,7 +52,6 @@ const ProfileBankTab: React.FC = () => {
       setLiveStatus('Liên kết tài khoản ngân hàng thành công.');
       toast.success('Liên kết tài khoản ngân hàng thành công!');
       setShowAddModal(false);
-      reset({ tenNganHang: 'Vietcombank', soTaiKhoan: '', tenChuTaiKhoan: '' });
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Lỗi liên kết ngân hàng';
@@ -105,14 +74,6 @@ const ProfileBankTab: React.FC = () => {
       toast.error(msg);
     },
   });
-
-  const onSubmitAddBank = (data: AddBankFormValues) => {
-    addBankMutation.mutate({
-      tenNganHang: data.tenNganHang.trim(),
-      soTaiKhoan: data.soTaiKhoan.trim(),
-      tenChuTaiKhoan: data.tenChuTaiKhoan?.trim().toUpperCase() || undefined,
-    });
-  };
 
   const toggleReveal = (key: string) => {
     setRevealedKeys((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -264,106 +225,13 @@ const ProfileBankTab: React.FC = () => {
       </Card>
 
       {/* Modal thêm tài khoản ngân hàng */}
-      {showAddModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-bank-modal-title"
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
-        >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 space-y-4">
-            <div>
-              <h3 id="add-bank-modal-title" className="text-base font-bold text-slate-900">
-                Liên kết ngân hàng mới
-              </h3>
-              <p className="text-xs text-slate-600 mt-0.5">Số tài khoản gồm từ 6 đến 20 chữ số</p>
-            </div>
+      <LinkBankAccountModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={async (payload) => { await addBankMutation.mutateAsync(payload); }}
+        isSubmitting={addBankMutation.isPending}
+      />
 
-            <form onSubmit={handleSubmit(onSubmitAddBank)} noValidate className="space-y-3">
-              <BankSelect
-                label="Ngân hàng"
-                required
-                value={selectedBankName}
-                onChange={(shortName) =>
-                  setValue('tenNganHang', shortName, { shouldValidate: true })
-                }
-                error={errors.tenNganHang?.message}
-              />
-
-              <div>
-                <label
-                  htmlFor={accountInputId}
-                  className="block text-xs font-semibold text-slate-700 mb-1"
-                >
-                  Số tài khoản
-                </label>
-                <input
-                  id={accountInputId}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={20}
-                  placeholder="Nhập 6–20 chữ số"
-                  aria-invalid={Boolean(errors.soTaiKhoan)}
-                  aria-describedby={errors.soTaiKhoan ? `${accountInputId}-error` : undefined}
-                  {...register('soTaiKhoan', {
-                    onChange: (e) => {
-                      const digitsOnly = String(e.target.value).replace(/\D/g, '');
-                      setValue('soTaiKhoan', digitsOnly, { shouldValidate: true });
-                    },
-                  })}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                />
-                {errors.soTaiKhoan && (
-                  <p id={`${accountInputId}-error`} role="alert" className="text-xs text-red-700 mt-1">
-                    {errors.soTaiKhoan.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor={holderInputId}
-                  className="block text-xs font-semibold text-slate-700 mb-1"
-                >
-                  Tên chủ tài khoản (In hoa)
-                </label>
-                <input
-                  id={holderInputId}
-                  type="text"
-                  autoComplete="name"
-                  placeholder="VD: NGUYEN VAN A"
-                  {...register('tenChuTaiKhoan')}
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm uppercase text-slate-900 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <AppButton
-                  variant="secondary"
-                  size="md"
-                  fullWidth
-                  onClick={() => setShowAddModal(false)}
-                  className="min-h-[44px]"
-                >
-                  Hủy
-                </AppButton>
-                <AppButton
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  fullWidth
-                  isLoading={addBankMutation.isPending}
-                  className="min-h-[44px]"
-                >
-                  Liên kết
-                </AppButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal xác nhận hủy liên kết tài khoản */}
       {deletingBank && (
         <div
           role="dialog"

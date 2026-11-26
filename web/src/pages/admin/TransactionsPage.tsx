@@ -5,6 +5,7 @@ import {
   Copy,
   Info,
   Eye,
+  ExternalLink,
   CheckCircle2,
   Clock,
   RotateCcw,
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
+import { VIETNAM_BANKS } from '@/constants/banks';
 import { RowActions, StatusBadge, TableCell } from '@/components/common/TableParts';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import { MoneyText } from '@/components/common/MoneyText';
@@ -33,6 +35,38 @@ import {
 import type { AdminTransactionItem } from '@/types/admin.types';
 import type { TrangThaiGD } from '@/types/transaction.types';
 
+function getBankId(bankName?: string): string {
+  if (!bankName) return '970422';
+  const clean = bankName.trim().toLowerCase();
+  const found = VIETNAM_BANKS.find(
+    (b) =>
+      b.shortName.toLowerCase() === clean ||
+      b.code.toLowerCase() === clean ||
+      b.bin === clean ||
+      b.name.toLowerCase().includes(clean) ||
+      clean.includes(b.shortName.toLowerCase()) ||
+      clean.includes(b.code.toLowerCase()),
+  );
+  return found ? found.bin : '970422';
+}
+
+function buildVietQrImageUrl(
+  bankName: string | undefined,
+  accountNo: string,
+  amount: number,
+  description: string,
+  accountName: string,
+  template = 'compact2',
+): string {
+  const bankId = getBankId(bankName);
+  const cleanAcc = encodeURIComponent(accountNo.replace(/\s+/g, ''));
+  const cleanAmount = Math.max(0, Math.round(amount));
+  const cleanDesc = encodeURIComponent(description.trim());
+  const cleanHolder = encodeURIComponent(accountName.trim().toUpperCase());
+
+  return `https://img.vietqr.io/image/${bankId}-${cleanAcc}-${template}.svg?amount=${cleanAmount}&addInfo=${cleanDesc}&accountName=${cleanHolder}`;
+}
+
 export const TransactionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
@@ -49,8 +83,21 @@ export const TransactionsPage: React.FC = () => {
   };
   const [statusFilter, setStatusFilter] = useState<TrangThaiGD>('CHO_THANH_TOAN');
   const [selectedTx, setSelectedTx] = useState<AdminTransactionItem | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Từ chối rút tiền
+  // Modal xác nhận chuyển tiền 2 bước có chứng từ (Proof of Transfer)
+  const [approvingTx, setApprovingTx] = useState<AdminTransactionItem | null>(null);
+  const [bankRefCode, setBankRefCode] = useState('');
+  const [isConfirmedTransfer, setIsConfirmedTransfer] = useState(false);
+
+  const handleCopy = (text: string, field: string) => {
+    void navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast.success(`Đã sao chép ${field}!`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  // Từ chối rút tiền / hoàn cọc
   const [rejectingTxId, setRejectingTxId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -77,15 +124,19 @@ export const TransactionsPage: React.FC = () => {
   });
 
   const approveWithdrawalMutation = useMutation({
-    mutationFn: (id: string) => adminService.approveWithdrawal(id),
+    mutationFn: ({ id, refCode }: { id: string; refCode?: string }) =>
+      adminService.approveWithdrawal(id, refCode),
     onSuccess: () => {
-      toast.success('Đã phê duyệt lệnh rút tiền thành công!');
+      toast.success('Đã phê duyệt và cập nhật sổ cái thành công!');
+      setApprovingTx(null);
+      setBankRefCode('');
+      setIsConfirmedTransfer(false);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'treasury-stats'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi duyệt rút tiền');
+      toast.error(err instanceof Error ? err.message : 'Lỗi duyệt giao dịch');
     },
   });
 
@@ -93,7 +144,7 @@ export const TransactionsPage: React.FC = () => {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       adminService.rejectWithdrawal(id, reason),
     onSuccess: () => {
-      toast.success('Đã từ chối lệnh rút tiền và hoàn số dư về ví Chủ trọ!');
+      toast.success('Đã từ chối giao dịch thành công!');
       setRejectingTxId(null);
       setRejectReason('');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] });
@@ -101,7 +152,7 @@ export const TransactionsPage: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'Lỗi từ chối rút tiền');
+      toast.error(err instanceof Error ? err.message : 'Lỗi từ chối giao dịch');
     },
   });
 
@@ -314,7 +365,8 @@ export const TransactionsPage: React.FC = () => {
               {isLoading ? <AdminTableSkeleton rows={6} cols={8} /> : filtered.length ? filtered.map((tx) => {
                 const isWithdrawal = tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' || tx.loaiGiaoDich === 'RUT_TIEN';
                 const isIncoming = tx.loaiGiaoDich === 'COC_XEM_PHONG' || tx.loaiGiaoDich === 'THU_HOA_HONG';
-                const statusAllowsProcessing = isWithdrawal && tx.trangThai === 'CHO_THANH_TOAN';
+                const refund = tx.loaiGiaoDich === 'HOAN_COC';
+                const statusAllowsProcessing = (isWithdrawal || refund) && tx.trangThai === 'CHO_THANH_TOAN';
                 const [time, date] = formatDateTime(tx.thoiGian).replace(',', '').split(' ');
                 const account = tx.soTaiKhoan?.trim();
                 const ghost = 'grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text';
@@ -360,7 +412,7 @@ export const TransactionsPage: React.FC = () => {
                     <TableCell label="Trạng thái">{renderStatusBadge(tx.trangThai)}</TableCell>
                     <TableCell label="Thao tác">
                       <RowActions actions={statusAllowsProcessing ? [
-                        { label: 'Duyệt', run: () => approveWithdrawalMutation.mutate(tx.maGiaoDich), disabled: approveWithdrawalMutation.isPending },
+                        { label: 'Duyệt', run: () => setSelectedTx(tx), disabled: refund && !account },
                         { label: 'Từ chối', danger: true, run: () => { setRejectingTxId(tx.maGiaoDich); setRejectReason(''); } },
                       ] : undefined}>
                         <button type="button" onClick={() => setSelectedTx(tx)} aria-label={'Xem giao dịch ' + tx.maGiaoDich} className={ghost}>
@@ -387,13 +439,51 @@ export const TransactionsPage: React.FC = () => {
         subtitle={selectedTx ? `Mã giao dịch: ${selectedTx.maGiaoDich}` : undefined}
         maxWidth="md"
         footer={
-          <button
-            type="button"
-            onClick={() => setSelectedTx(null)}
-            className="px-4 py-2 bg-surface border border-border hover:bg-surface-subtle text-text-secondary text-xs font-medium rounded-lg cursor-pointer transition-colors"
-          >
-            Đóng
-          </button>
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={() => setSelectedTx(null)}
+              className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              Đóng
+            </button>
+            {selectedTx && selectedTx.trangThai === 'CHO_THANH_TOAN' && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const txId = selectedTx.maGiaoDich;
+                    setSelectedTx(null);
+                    setRejectingTxId(txId);
+                    setRejectReason('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl cursor-pointer"
+                >
+                  Từ chối
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedTx.loaiGiaoDich === 'HOAN_COC' && !selectedTx.soTaiKhoan}
+                  title={
+                    selectedTx.loaiGiaoDich === 'HOAN_COC' && !selectedTx.soTaiKhoan
+                      ? 'Khách hàng chưa cập nhật tài khoản ngân hàng nhận tiền'
+                      : undefined
+                  }
+                  onClick={() => {
+                    const tx = selectedTx;
+                    setSelectedTx(null);
+                    setApprovingTx(tx);
+                    setBankRefCode('');
+                    setIsConfirmedTransfer(false);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xác nhận đã chuyển tiền</span>
+                </button>
+              </div>
+            )}
+          </div>
         }
       >
         {selectedTx && (
@@ -405,6 +495,113 @@ export const TransactionsPage: React.FC = () => {
               </div>
               {renderStatusBadge(selectedTx.trangThai)}
             </div>
+
+            {/* Cảnh báo nếu là lệnh hoàn cọc nhưng khách chưa liên kết STK ngân hàng */}
+            {selectedTx.trangThai === 'CHO_THANH_TOAN' &&
+              selectedTx.loaiGiaoDich === 'HOAN_COC' &&
+              !selectedTx.soTaiKhoan && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1">
+                  <p className="font-bold text-amber-950">
+                    Khách hàng chưa liên kết tài khoản ngân hàng nhận tiền
+                  </p>
+                  <p className="text-amber-800 leading-relaxed">
+                    Chưa thể tạo mã VietQR và chưa thể xác nhận hoàn tất chuyển khoản. Vui lòng chờ khách hàng bổ sung số tài khoản, hoặc bấm Từ chối kèm lý do để thông báo khách cập nhật STK.
+                  </p>
+                </div>
+              )}
+
+            {/* Khối VietQR chuẩn API img.vietqr.io nếu là lệnh hoàn cọc hoặc rút tiền đang chờ xử lý */}
+            {selectedTx.trangThai === 'CHO_THANH_TOAN' && selectedTx.soTaiKhoan && (() => {
+              const description =
+                (selectedTx.loaiGiaoDich === 'HOAN_COC' ? 'HOAN COC ' : 'RUT TIEN ') +
+                selectedTx.maGiaoDich;
+              const accountHolder = selectedTx.tenChuTaiKhoan || selectedTx.nguoiThucHien;
+              const qrUrl = buildVietQrImageUrl(
+                selectedTx.tenNganHang,
+                selectedTx.soTaiKhoan,
+                selectedTx.soTien,
+                description,
+                accountHolder,
+                'compact2',
+              );
+
+              return (
+                <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col md:flex-row items-center gap-4">
+                  <div className="bg-white p-2.5 rounded-2xl shadow-xs shrink-0 text-center border border-emerald-100">
+                    <img
+                      src={qrUrl}
+                      alt="Mã VietQR chuyển khoản"
+                      className="w-36 h-36 object-contain mx-auto rounded-lg"
+                    />
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(qrUrl, 'Link VietQR')}
+                        className="text-[10px] text-teal-700 bg-teal-50 hover:bg-teal-100 font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer"
+                        title="Sao chép link VietQR"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Sao chép link</span>
+                      </button>
+                      <a
+                        href={qrUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-slate-500 hover:text-slate-800 bg-slate-100 p-0.5 rounded-md cursor-pointer"
+                        title="Mở ảnh gốc trong tab mới"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-slate-700 w-full">
+                    <div className="font-bold text-emerald-800 text-sm">
+                      Mã VietQR chuyển khoản
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 space-y-1 bg-white/80 p-2.5 rounded-xl border border-emerald-100/60">
+                      <div className="flex items-center justify-between">
+                        <span>Ngân hàng: <strong>{selectedTx.tenNganHang || 'Ngân hàng'}</strong></span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Số tài khoản: <strong className="font-mono text-slate-900">{selectedTx.soTaiKhoan}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(selectedTx.soTaiKhoan!, 'Số tài khoản')}
+                          className="text-[10px] text-teal-600 hover:text-teal-700 font-semibold cursor-pointer"
+                        >
+                          {copiedField === 'Số tài khoản' ? 'Đã chép' : 'Chép STK'}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Chủ tài khoản: <strong>{accountHolder}</strong></span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Số tiền: <strong className="text-emerald-700 font-bold">{formatVND(selectedTx.soTien)}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(selectedTx.soTien.toString(), 'Số tiền')}
+                          className="text-[10px] text-teal-600 hover:text-teal-700 font-semibold cursor-pointer"
+                        >
+                          {copiedField === 'Số tiền' ? 'Đã chép' : 'Chép tiền'}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Nội dung CK: <strong className="font-mono text-slate-900">{description}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(description, 'Nội dung chuyển khoản')}
+                          className="text-[10px] text-teal-600 hover:text-teal-700 font-semibold cursor-pointer"
+                        >
+                          {copiedField === 'Nội dung chuyển khoản' ? 'Đã chép' : 'Chép nội dung'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1.5 border-b border-border/70">
@@ -420,6 +617,7 @@ export const TransactionsPage: React.FC = () => {
                   <span className="text-text-muted">Ngân hàng nhận</span>
                   <span className="font-medium text-text">
                     {selectedTx.tenNganHang} ({selectedTx.soTaiKhoan})
+                    {selectedTx.tenChuTaiKhoan ? ` - ${selectedTx.tenChuTaiKhoan}` : ''}
                   </span>
                 </div>
               )}
@@ -433,12 +631,101 @@ export const TransactionsPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* MODAL TỪ CHỐI RÚT TIỀN */}
+      {/* MODAL XÁC NHẬN ĐÃ CHUYỂN TIỀN THỦ CÔNG (PROOF OF TRANSFER) */}
+      <Modal
+        isOpen={!!approvingTx}
+        onClose={() => setApprovingTx(null)}
+        title="Xác nhận hoàn tất chuyển tiền"
+        subtitle={approvingTx ? `Đối soát giao dịch #${approvingTx.maGiaoDich}` : undefined}
+        maxWidth="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setApprovingTx(null)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              disabled={!isConfirmedTransfer || approveWithdrawalMutation.isPending}
+              onClick={() => {
+                if (!approvingTx) return;
+                approveWithdrawalMutation.mutate({
+                  id: approvingTx.maGiaoDich,
+                  refCode: bankRefCode.trim() || undefined,
+                });
+              }}
+              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {approveWithdrawalMutation.isPending && <Spinner size="sm" color="current" />}
+              <span>Xác nhận &amp; Cập nhật sổ cái</span>
+            </button>
+          </>
+        }
+      >
+        {approvingTx && (
+          <div className="space-y-4 text-xs">
+            {/* Tóm tắt tiền và tài khoản */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Số tiền chuyển:</span>
+                <span className="text-base font-extrabold text-emerald-700">{formatVND(approvingTx.soTien)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Người nhận:</span>
+                <span className="font-bold text-slate-800">{approvingTx.nguoiThucHien}</span>
+              </div>
+              {approvingTx.tenNganHang && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Tài khoản nhận:</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {approvingTx.tenNganHang} - {approvingTx.soTaiKhoan} ({approvingTx.tenChuTaiKhoan || approvingTx.nguoiThucHien})
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Ô nhập mã tham chiếu ngân hàng */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Mã tham chiếu ngân hàng (Mã FT / SePay Ref):
+              </label>
+              <input
+                type="text"
+                placeholder="VD: FT2411220001 (khuyến nghị để làm bằng chứng đối soát)"
+                value={bankRefCode}
+                onChange={(e) => setBankRefCode(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Mã này sẽ hiển thị trên biên nhận của khách hàng để minh bạch thông tin giao dịch.
+              </span>
+            </div>
+
+            {/* Checkbox cam kết */}
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 cursor-pointer text-amber-900">
+              <input
+                type="checkbox"
+                checked={isConfirmedTransfer}
+                onChange={(e) => setIsConfirmedTransfer(e.target.checked)}
+                className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-[11px] leading-relaxed">
+                <strong>Cam kết trách nhiệm:</strong> Tôi xác nhận đã trực tiếp chuyển khoản thành công số tiền <strong>{formatVND(approvingTx.soTien)}</strong> tới đúng số tài khoản thụ hưởng ngoài ngân hàng.
+              </span>
+            </label>
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL TỪ CHỐI GIAO DỊCH */}
       <Modal
         isOpen={!!rejectingTxId}
         onClose={() => setRejectingTxId(null)}
-        title="Từ chối lệnh rút tiền"
-        subtitle="Số tiền yêu cầu sẽ được hoàn lại 100% vào ví của Chủ trọ."
+        title="Từ chối giao dịch"
+        subtitle="Vui lòng nhập lý do từ chối để hệ thống gửi thông báo cho người dùng."
         maxWidth="sm"
         footer={
           <>
