@@ -16,6 +16,13 @@ function resolveRouteBreadcrumb(pathname: string): BreadcrumbItem[] | null {
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return null;
 
+  if (path === '/search/map') {
+    return [
+      { label: 'Trang chủ', to: '/' },
+      { label: 'Tìm kiếm phòng', to: '/search' },
+      { label: 'Tìm trên bản đồ' },
+    ];
+  }
   if (path === '/search') {
     return [{ label: 'Trang chủ', to: '/' }, { label: 'Tìm kiếm phòng' }];
   }

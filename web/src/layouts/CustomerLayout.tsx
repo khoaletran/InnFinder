@@ -38,6 +38,7 @@ export const CustomerLayout: React.FC = () => {
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
   const favoriteIds = useFavoriteStore((s) => s.favoriteIds);
   const setKeyword = useRoomFilterStore((s) => s.setKeyword);
+  const lastSearchMode = useRoomFilterStore((s) => s.lastSearchMode);
 
   const [navSearch, setNavSearch] = useState('');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -77,6 +78,7 @@ export const CustomerLayout: React.FC = () => {
 
   const isHomePage = location.pathname === '/';
   const isSearchPage = location.pathname.startsWith('/search');
+  const isMapSearchPage = location.pathname.startsWith('/search/map');
   const isDiscoveryRoute =
     isHomePage || isSearchPage || location.pathname.startsWith('/room/');
 
@@ -102,15 +104,17 @@ export const CustomerLayout: React.FC = () => {
     .slice(0, 2)
     .toUpperCase();
 
+  const searchPath = lastSearchMode === 'map' ? '/search/map' : '/search';
+
   const mainNavLinks = isAdmin
     ? [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
-        { label: 'Tìm phòng', path: '/search', icon: Search },
+        { label: 'Tìm phòng', path: searchPath, icon: Search },
         { label: 'Yêu thích', path: '/favorites', icon: Heart },
       ]
     : [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
-        { label: 'Tìm phòng', path: '/search', icon: Search },
+        { label: 'Tìm phòng', path: searchPath, icon: Search },
         { label: 'Yêu thích', path: '/favorites', icon: Heart },
         { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar },
       ];
@@ -118,7 +122,7 @@ export const CustomerLayout: React.FC = () => {
   return (
     <div
       className={`bg-slate-50 flex flex-col ${
-        isSearchPage ? 'h-screen overflow-hidden' : 'min-h-screen'
+        isMapSearchPage ? 'h-screen overflow-hidden' : 'min-h-screen'
       }`}
     >
       {/* TOP NAVBAR CỐ ĐỊNH */}
@@ -417,7 +421,7 @@ export const CustomerLayout: React.FC = () => {
       {/* NỘI DUNG MÀN HÌNH (padding đáy cho bottom tab bar mobile) */}
       <main
         className={`relative flex-1 flex flex-col ${
-          isSearchPage
+          isMapSearchPage
             ? 'min-h-0 overflow-hidden pb-16 lg:pb-0'
             : !isDiscoveryRoute
               ? 'py-6 sm:py-8 pb-24 lg:pb-10'
@@ -428,8 +432,8 @@ export const CustomerLayout: React.FC = () => {
         <RouteLoadingOverlay />
       </main>
 
-      {/* Footer hiển thị ở Trang chủ & Chi tiết phòng (không chèn ở Search split view) */}
-      {isDiscoveryRoute && !isSearchPage && <Footer />}
+      {/* Footer hiển thị ở Trang chủ, Tìm kiếm danh sách & Chi tiết phòng (không chèn ở Map split view) */}
+      {isDiscoveryRoute && !isMapSearchPage && <Footer />}
 
       {/* Mobile Bottom Tab Bar (4 mục) */}
       <BottomTabBar />

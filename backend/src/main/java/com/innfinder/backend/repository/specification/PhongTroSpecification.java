@@ -23,6 +23,8 @@ import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
 public class PhongTroSpecification {
     public static Specification<PhongTro> buildFilter(RoomFilterRequest filter) {
         return (root, query, cb) -> {
@@ -33,28 +35,34 @@ public class PhongTroSpecification {
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }
-            // 2. Lọc theo từ khóa (keyword) không phân biệt hoa thường trong Địa chỉ, Mô tả bài đăng và Loại phòng
+            // 2. Lọc theo khu vực (suffix) hoặc từng từ khóa (keyword) trên địa chỉ, mô tả, loại phòng, mã phòng & tiện ích
             if (filter.getArea() != null && !filter.getArea().isBlank()) {
-                String suffix = filter.getArea().trim().toLowerCase(java.util.Locale.ROOT);
+                String suffix = filter.getArea().trim().toLowerCase(Locale.ROOT);
                 int components = suffix.split(",", -1).length;
                 var addressSuffix = cb.function("substring_index", String.class,
                         cb.trim(root.get("diaChi")), cb.literal(","), cb.literal(-components));
                 predicates.add(cb.equal(cb.lower(cb.trim(addressSuffix)), suffix));
             }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
-                String searchPattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
+                String[] tokens = filter.getKeyword().trim().toLowerCase(Locale.ROOT).split("[\\s,;|]+");
+                for (String token : tokens) {
+                    if (token.isBlank()) continue;
+                    String searchPattern = "%" + token + "%";
 
-                // Khớp địa chỉ (không phân biệt hoa thường)
-                Predicate matchDiaChi = cb.like(cb.lower(root.get("diaChi")), searchPattern);
+                    Predicate matchDiaChi = cb.like(cb.lower(root.get("diaChi")), searchPattern);
+                    Predicate matchMoTa = cb.like(cb.lower(root.get("moTa")), searchPattern);
+                    Predicate matchLoaiPhong = cb.like(cb.lower(root.get("loaiPhong").get("tenLoaiPhongTro")), searchPattern);
+                    Predicate matchMaPhong = cb.like(cb.lower(root.get("maPhongTro")), searchPattern);
 
-                // Khớp mô tả chi tiết bài đăng (không phân biệt hoa thường)
-                Predicate matchMoTa = cb.like(cb.lower(root.get("moTa")), searchPattern);
+                    var amenitySubquery = query.subquery(String.class);
+                    var correlatedRoom = amenitySubquery.correlate(root);
+                    Join<PhongTro, TienIch> amenityJoin = correlatedRoom.join("dsTienIch", JoinType.INNER);
+                    amenitySubquery.select(amenityJoin.get("maTienIch"))
+                            .where(cb.like(cb.lower(amenityJoin.get("tenTienIch")), searchPattern));
+                    Predicate matchTienIch = cb.exists(amenitySubquery);
 
-                // Khớp tên loại phòng (ví dụ: Ký túc xá, Căn hộ mini, Studio...)
-                Predicate matchLoaiPhong = cb.like(cb.lower(root.get("loaiPhong").get("tenLoaiPhongTro")), searchPattern);
-
-                // Kết hợp bằng điều kiện HOẶC (OR)
-                predicates.add(cb.or(matchDiaChi, matchMoTa, matchLoaiPhong));
+                    predicates.add(cb.or(matchDiaChi, matchMoTa, matchLoaiPhong, matchMaPhong, matchTienIch));
+                }
             }
             // 3. Lọc theo khoảng giá thuê
             if (filter.getMinGia() != null && filter.getMinGia() >= 0) {
@@ -88,6 +96,10 @@ public class PhongTroSpecification {
                     subquery.select(amenity.get("maTienIch")).where(cb.equal(amenity.get("maTienIch"), code));
                     predicates.add(cb.exists(subquery));
                 }
+            }
+            // 8. Lọc theo điểm uy tín tối thiểu của chủ trọ
+            if (filter.getMinDiemUyTin() != null && filter.getMinDiemUyTin() > 0) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("chuPhongTro").get("diemUyTin"), filter.getMinDiemUyTin()));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

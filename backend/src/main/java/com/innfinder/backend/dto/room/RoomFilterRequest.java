@@ -31,6 +31,8 @@ public class RoomFilterRequest {
     private Integer maxDienTich;
     // Số người ở
     private Integer soNguoi;
+    // Điểm uy tín tối thiểu của chủ trọ
+    private Integer minDiemUyTin;
     // Mã loại phòng (LPT001, LPT002...)
     private String maLpt;
     // Danh sách mã tiện ích bắt buộc phải có (TI0001, TI0002...)

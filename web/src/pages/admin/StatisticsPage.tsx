@@ -886,7 +886,7 @@ export const StatisticsPage: React.FC = () => {
             {insightMutation.isPending && <p role="status" className="text-xs text-teal-700">Đang tổng hợp nhận định. Bạn có thể tiếp tục xem các số liệu bên trên.</p>}
             {insightMutation.isError && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{insightMutation.error.message}{aiInsight ? ' Kết quả lần trước vẫn được giữ bên dưới.' : ''}</p>}
             {/* Instant Rule-Based Evaluation Grid */}
-            {!aiInsight && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {quickInsights.map((item) => (
                 <div
                   key={item.key}
@@ -905,7 +905,7 @@ export const StatisticsPage: React.FC = () => {
                   <p className="text-xs text-slate-600 leading-relaxed">{item.detail}</p>
                 </div>
               ))}
-            </div>}
+            </div>
 
             {/* On-Demand AI Deep Analysis & Recommended Decisions */}
             {aiInsight && (

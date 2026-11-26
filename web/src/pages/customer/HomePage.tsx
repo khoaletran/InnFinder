@@ -20,8 +20,8 @@ export const HomePage: React.FC = () => {
   const { data: popularAreas = [], isLoading: areasLoading, isError: areasError, refetch: refetchAreas } = useQuery({
     queryKey: ['rooms', 'popular-areas'],
     queryFn: roomService.getPopularAreas,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const handleLandlordAction = () => {
@@ -54,7 +54,7 @@ export const HomePage: React.FC = () => {
             </p>
           </div>
           <Link
-            to="/search"
+            to="/search/map"
             className="text-sm font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 shrink-0"
           >
             <span>Xem bản đồ</span>

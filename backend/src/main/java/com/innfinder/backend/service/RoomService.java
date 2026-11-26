@@ -19,6 +19,7 @@ import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.*;
+import com.innfinder.backend.repository.specification.NaturalQueryParser;
 import com.innfinder.backend.repository.specification.PhongTroSpecification;
 import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -102,7 +103,8 @@ public class RoomService {
                 filter.getSize() > 0 ? filter.getSize() : 10,
                 sort
         );
-        Specification<PhongTro> spec = PhongTroSpecification.buildFilter(filter);
+        RoomFilterRequest effectiveFilter = NaturalQueryParser.parse(filter);
+        Specification<PhongTro> spec = PhongTroSpecification.buildFilter(effectiveFilter);
         Page<PhongTro> roomPage = phongTroRepository.findAll(spec, pageable);
         return roomPage.map(RoomSummaryResponse::fromEntity);
     }

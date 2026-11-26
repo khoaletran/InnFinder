@@ -2,20 +2,23 @@ import React from 'react';
 import { Calendar, Home, Search, User } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 
 export const BottomTabBar: React.FC = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isAdmin = useAuthStore((s) => s.isAdmin);
+  const lastSearchMode = useRoomFilterStore((s) => s.lastSearchMode);
+  const searchPath = lastSearchMode === 'map' ? '/search/map' : '/search';
 
   const tabs = isAdmin
     ? [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
-        { label: 'Tìm phòng', path: '/search', icon: Search, end: false },
+        { label: 'Tìm phòng', path: searchPath, icon: Search, end: false },
         { label: 'Quản trị', path: '/admin/dashboard', icon: User, end: false },
       ]
     : [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
-        { label: 'Tìm phòng', path: '/search', icon: Search, end: false },
+        { label: 'Tìm phòng', path: searchPath, icon: Search, end: false },
         { label: 'Lịch', path: '/appointments', icon: Calendar, end: false },
         {
           label: 'Tài khoản',

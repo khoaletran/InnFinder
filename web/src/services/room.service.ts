@@ -30,6 +30,7 @@ export const roomService = {
         minDienTich: filter.minDienTich,
         maxDienTich: filter.maxDienTich,
         soNguoi: filter.soNguoi,
+        minDiemUyTin: filter.minDiemUyTin,
         maLpt: filter.maLpt,
         dsTienIch:
           filter.dsTienIch && filter.dsTienIch.length > 0

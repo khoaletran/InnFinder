@@ -33,8 +33,12 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     List<PhongTro> findPublicRoomsForAreaStats();
 
     @Override
-    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
+    @EntityGraph(attributePaths = {"loaiPhong", "chuPhongTro"})
     Page<PhongTro> findAll(Specification<PhongTro> spec, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    List<PhongTro> findAll(Specification<PhongTro> spec);
 //    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "dsTienIch", "chuPhongTro", "chuPhongTro.nguoiDung", "dsDanhGia"})
     @EntityGraph(attributePaths = {"loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung", "hinhAnh"})
     Optional<PhongTro> findByMaPhongTro(String maPhongTro);

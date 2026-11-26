@@ -21,6 +21,7 @@ import { RoomMap } from '@/components/map/RoomMap';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
+import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatDate, formatVND, formatVNDShort, getValidCoords } from '@/utils/formatters';
 
@@ -29,6 +30,7 @@ export const RoomDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { isFavorite, toggleFavorite } = useFavoriteStore();
+  const lastSearchMode = useRoomFilterStore((s) => s.lastSearchMode);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [carouselState, setCarouselState] = useState<{ roomId?: string; index: number }>({
     roomId: id,
@@ -198,11 +200,20 @@ export const RoomDetailPage: React.FC = () => {
   return (
     <div className="flex-1 bg-white flex flex-col">
       <AppBreadcrumb
-        items={[
-          { label: 'Trang chủ', to: '/' },
-          { label: 'Tìm kiếm phòng', to: '/search' },
-          { label: roomTitle },
-        ]}
+        items={
+          lastSearchMode === 'map'
+            ? [
+                { label: 'Trang chủ', to: '/' },
+                { label: 'Tìm kiếm phòng', to: '/search' },
+                { label: 'Tìm trên bản đồ', to: '/search/map' },
+                { label: roomTitle },
+              ]
+            : [
+                { label: 'Trang chủ', to: '/' },
+                { label: 'Tìm kiếm phòng', to: '/search' },
+                { label: roomTitle },
+              ]
+        }
       />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Carousel 1 ảnh lớn, tự chuyển mỗi 5s, có nút điều hướng và badge tổng số ảnh góc phải */}

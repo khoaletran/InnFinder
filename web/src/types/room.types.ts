@@ -96,6 +96,7 @@ export interface RoomFilterRequest {
   minDienTich?: number;
   maxDienTich?: number;
   soNguoi?: number;
+  minDiemUyTin?: number;
   maLpt?: string;
   dsTienIch?: string[];
   page?: number;

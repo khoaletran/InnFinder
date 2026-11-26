@@ -28,6 +28,7 @@ import { UsersPage } from '@/pages/admin/UsersPage';
 // Customer Discovery & Details Pages (Thành viên 2)
 import { FavoritesPage } from '@/pages/customer/FavoritesPage';
 import { HomePage } from '@/pages/customer/HomePage';
+import { MapSearchPage } from '@/pages/customer/MapSearchPage';
 import { RoomDetailPage } from '@/pages/customer/RoomDetailPage';
 import { SearchPage } from '@/pages/customer/SearchPage';
 
@@ -95,6 +96,7 @@ export const AppRoutes: React.FC = () => {
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/search/map" element={<MapSearchPage />} />
         <Route path="/room/:id" element={<RoomDetailPage />} />
         <Route path="/favorites" element={<NonAdminFavoritesRoute />} />
       </Route>

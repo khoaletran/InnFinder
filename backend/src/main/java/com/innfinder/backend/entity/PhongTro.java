@@ -3,6 +3,7 @@ package com.innfinder.backend.entity;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,9 +67,11 @@ public class PhongTro {
     private Long cocPhong = 0L;
 
     @OneToMany(mappedBy = "phongTro", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<HinhAnh> hinhAnh;
 
     @ManyToMany
+    @BatchSize(size = 50)
     @JoinTable(
         name = "tien_ich_phong",
         joinColumns = @JoinColumn(name = "ma_phong_tro"),
@@ -77,6 +80,7 @@ public class PhongTro {
     private List<TienIch> dsTienIch;
 
     @OneToMany(mappedBy = "phongTro", cascade = CascadeType.ALL)
+    @BatchSize(size = 50)
     private List<DanhGia> dsDanhGia;
 
     @OneToMany(mappedBy = "phongTro", cascade = CascadeType.ALL)

@@ -25,6 +25,8 @@ export interface RoomMapProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   onClearPickedCoords?: () => void;
   markerStyle?: 'price' | 'brand';
+  initialViewport?: { lat: number; lng: number; zoom: number } | null;
+  onViewportChange?: (viewport: { lat: number; lng: number; zoom: number }) => void;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -46,6 +48,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   onMapClick,
   onClearPickedCoords,
   markerStyle = 'price',
+  initialViewport = null,
+  onViewportChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -55,12 +59,17 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   const pickedCircleRef = useRef<L.Circle | null>(null);
   const pickedMarkerRef = useRef<L.Marker | null>(null);
   const onMapClickRef = useRef(onMapClick);
-  const hasPannedToInitialRef = useRef(false);
+  const onViewportChangeRef = useRef(onViewportChange);
+  const hasPannedToInitialRef = useRef(Boolean(initialViewport));
   const navigate = useNavigate();
 
   useEffect(() => {
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   const userLat = userCoords?.lat;
   const userLng = userCoords?.lng;
@@ -68,10 +77,18 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   const pickedLng = pickedCoords?.lng;
 
   const initialCoordsRef = useRef<[number, number]>([
-    userCoords?.lat || (rooms[0] ? getValidCoords(rooms[0])?.lat : null) || 21.0285,
-    userCoords?.lng || (rooms[0] ? getValidCoords(rooms[0])?.lng : null) || 105.8542,
+    initialViewport?.lat ??
+      userCoords?.lat ??
+      (rooms[0] ? getValidCoords(rooms[0])?.lat : undefined) ??
+      21.0285,
+    initialViewport?.lng ??
+      userCoords?.lng ??
+      (rooms[0] ? getValidCoords(rooms[0])?.lng : undefined) ??
+      105.8542,
   ]);
-  const initialZoomRef = useRef<number>(rooms.length === 1 && !userCoords ? 16 : 14);
+  const initialZoomRef = useRef<number>(
+    initialViewport?.zoom ?? (rooms.length === 1 && !userCoords ? 16 : 14),
+  );
   const shouldShowRadiusBadge = showRadiusBadge ?? (Boolean(userCoords) || Boolean(onRadiusChange));
 
   // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
@@ -97,6 +114,18 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     map.on('click', (e: L.LeafletMouseEvent) => {
       onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
+
+    const syncViewport = () => {
+      const center = map.getCenter();
+      onViewportChangeRef.current?.({
+        lat: center.lat,
+        lng: center.lng,
+        zoom: map.getZoom(),
+      });
+    };
+
+    map.on('moveend', syncViewport);
+    map.on('zoomend', syncViewport);
 
     // Đảm bảo Leaflet tính toán chuẩn tỷ lệ khung hình 1:1 ngay khi render
     const resizeTimer = setTimeout(() => {
