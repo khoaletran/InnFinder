@@ -1,11 +1,11 @@
 package com.innfinder.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.innfinder.backend.controller.WebhookController;
 import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO;
-import com.innfinder.backend.dto.webhook.CassoTransactionItem;
-import com.innfinder.backend.dto.webhook.CassoWebhookPayload;
 import com.innfinder.backend.dto.webhook.SePayWebhookPayload;
 import com.innfinder.backend.entity.*;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
@@ -18,22 +18,28 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class AppointmentNoShowAndExpiryTest {
@@ -97,7 +103,8 @@ class AppointmentNoShowAndExpiryTest {
         bankingWebhookService = new BankingWebhookService(
                 phieuDatLichRepository,
                 giaoDichRepository,
-                transactionService
+                transactionService,
+                new ObjectMapper()
         );
 
         khachHang = NguoiDung.builder()
@@ -629,46 +636,62 @@ class AppointmentNoShowAndExpiryTest {
     // =========================================================================
     // TRƯỜNG HỢP 17: CASSO WEBHOOK ĐỐI SOÁT CỌC THÀNH CÔNG VỚI ĐỊNH DẠNG CASSO FLOW
     // =========================================================================
-    @Test
-    @DisplayName("TH17: Casso Webhook gửi giao dịch hợp lệ -> Ghi nhận cọc thành công với mã CASSO_<id>")
-    void testCassoWebhook_NopCocThanhCong() {
+    private static final String CASSO_V2_BODY = """
+            {"data":{"id":888999,"reference":"FT24TEST999","description":"IFCOC20261123001 nộp cọc",
+            "amount":200000,"accountNumber":"0383838383"},"error":0}
+            """;
+    private static final String CASSO_V2_SIGNATURE = "t=1734924830020,v1="
+            + "3a6b91487feca0fb22bb4f31c3f898ae3a3cc6e89705e60c83cb3853523148704d"
+            + "079eb404ad5022fb6def1958f2d106f032cf66effa71e31d1d80e8ca043601";
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("Casso Webhook hợp lệ ghi nhận cọc và mã tham chiếu")
+    void testCassoWebhook_NopCocThanhCong(boolean v2) throws Exception {
         ReflectionTestUtils.setField(bankingWebhookService, "cassoSecureToken", "test-casso-token");
         phieu.setTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         phieu.setCoc(200_000L);
-
-        // Test định dạng Casso Flow (data là một Object đơn lẻ)
-        Map<String, Object> itemMap = Map.of(
-                "id", 888999L,
-                "tid", "FT24TEST999",
-                "description", "IFCOC" + phieu.getMaDatLich().replace("DL", "") + " Nguyen Van A",
-                "amount", 200_000L,
-                "subAccId", "0383838383"
-        );
-
-        CassoWebhookPayload payload = CassoWebhookPayload.builder()
-                .error(0)
-                .messages("Success")
-                .data(itemMap)
-                .build();
 
         when(giaoDichRepository.existsById("CASSO_888999")).thenReturn(false);
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
 
-        var response = bankingWebhookService.xuLyCassoWebhook(
-                "test-casso-token",
-                payload
-        );
-
-        assertTrue((Boolean) response.get("success"));
-        assertEquals(1, response.get("processed"));
+        String body = v2 ? CASSO_V2_BODY : """
+                {"error":0,"data":[{"id":888999,"tid":"FT24TEST999","description":"IFCOC20261123001",
+                "amount":200000,"subAccId":"0383838383"}]}
+                """;
+        WebhookController controller = new WebhookController(bankingWebhookService);
+        ReflectionTestUtils.setField(controller, "cassoEnabled", true);
+        byte[] responseBody = MockMvcBuilders.standaloneSetup(controller).build()
+                .perform(post("/api/webhooks/casso")
+                        .header(v2 ? "X-Casso-Signature" : "secure-token",
+                                v2 ? CASSO_V2_SIGNATURE : "test-casso-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.getBytes(StandardCharsets.UTF_8)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        var response = new ObjectMapper().readTree(responseBody);
+        assertTrue(response.path("success").asBoolean());
+        assertEquals(1, response.path("processed").asInt());
 
         ArgumentCaptor<GiaoDich> gdCaptor = ArgumentCaptor.forClass(GiaoDich.class);
         verify(giaoDichRepository).save(gdCaptor.capture());
         assertEquals("CASSO_888999", gdCaptor.getValue().getMaGiaoDich());
         assertEquals(200_000L, gdCaptor.getValue().getSoTien());
+        assertEquals("FT24TEST999", gdCaptor.getValue().getMaThamChieuNganHang());
         assertEquals("COC_XEM_PHONG", gdCaptor.getValue().getLoaiGiaoDich());
         assertEquals(TrangThaiGD.THANH_CONG, gdCaptor.getValue().getTrangThai());
+    }
+
+    @Test
+    void cassoRejectsTamperedV2AndMissingCredentialsBeforeReconciliation() {
+        ReflectionTestUtils.setField(bankingWebhookService, "cassoSecureToken", "test-casso-token");
+        byte[] tampered = CASSO_V2_BODY.replace("200000", "200001").getBytes(StandardCharsets.UTF_8);
+
+        assertEquals(false, bankingWebhookService.xuLyCassoWebhook("test-casso-token", CASSO_V2_SIGNATURE, tampered)
+                .get("success"));
+        assertEquals(false, bankingWebhookService.xuLyCassoWebhook(null, null, tampered).get("success"));
+        verifyNoInteractions(phieuDatLichRepository, giaoDichRepository);
     }
 
     // =========================================================================
@@ -679,10 +702,7 @@ class AppointmentNoShowAndExpiryTest {
     void testBankingWebhook_FeatureToggle_TuChoiKhiDisabled() {
         // 1. Tắt Casso
         ReflectionTestUtils.setField(bankingWebhookService, "cassoEnabled", false);
-        CassoWebhookPayload cassoPayload = CassoWebhookPayload.builder()
-                .data(List.of(CassoTransactionItem.builder().amount(200_000L).build()))
-                .build();
-        var cassoRes = bankingWebhookService.xuLyCassoWebhook("test-casso-token", cassoPayload);
+        var cassoRes = bankingWebhookService.xuLyCassoWebhook(null, null, new byte[0]);
         assertFalse((Boolean) cassoRes.get("success"));
         assertTrue(cassoRes.get("message").toString().contains("vô hiệu hóa"));
 
