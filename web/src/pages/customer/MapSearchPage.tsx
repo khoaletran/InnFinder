@@ -205,6 +205,8 @@ export const MapSearchPage: React.FC = () => {
 
   useEffect(() => {
     if (!navigator.geolocation) return;
+    const { userLat, userLng } = useRoomFilterStore.getState();
+    if (userLat !== undefined && userLng !== undefined) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation(pos.coords.latitude, pos.coords.longitude);
@@ -900,10 +902,10 @@ export const MapSearchPage: React.FC = () => {
                         onClick={() => handleSelectRoom(room)}
                         onMouseEnter={() => setHoveredRoomId(room.maPhongTro)}
                         onMouseLeave={() => setHoveredRoomId(null)}
-                        className={`group bg-white rounded-2xl border p-2.5 flex items-center gap-3 cursor-pointer transition-all shadow-xs hover:shadow-md ${
+                        className={`group bg-white rounded-2xl border p-2.5 flex items-center gap-3 cursor-pointer transition-all ${
                           isHovered
-                            ? 'border-teal-500 ring-1 ring-teal-500/20'
-                            : 'border-slate-200/90 hover:border-teal-500'
+                            ? 'border-teal-600 ring-4 ring-teal-500/20 shadow-[0_10px_22px_rgba(13,148,136,0.25)] -translate-y-0.5'
+                            : 'border-slate-200/90 shadow-xs hover:border-teal-600'
                         }`}
                       >
                         <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">

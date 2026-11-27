@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@heroui/react';
 import { ArrowRight, Calendar, Heart, MapPin, ShieldCheck, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,6 +7,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatRelativeTime, formatVNDShort } from '@/utils/formatters';
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+const isRecentRoom = (thoiGianDang: string | undefined, nowMs: number): boolean => {
+  if (!thoiGianDang) return false;
+  const postedTime = new Date(thoiGianDang).getTime();
+  if (Number.isNaN(postedTime)) return false;
+  return nowMs - postedTime <= THREE_DAYS_MS;
+};
 
 interface RoomCardProps {
   room: RoomSummaryResponse;
@@ -34,9 +43,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   homeCompact = false,
 }) => {
   const navigate = useNavigate();
+  const [nowMs] = useState(() => Date.now());
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isFavorite, toggleFavorite } = useFavoriteStore();
   const favorited = isFavorite(room.maPhongTro);
+  const isNewRoom = isRecentRoom(room.thoiGianDang, nowMs);
 
   const formatPrice = (price: number) => {
     if (!price || price <= 0) return 'Thỏa thuận';
@@ -96,9 +107,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
-          <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
-            Mới
-          </span>
+          {isNewRoom && (
+            <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
+              Mới
+            </span>
+          )}
 
           <button
             type="button"
@@ -208,9 +221,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             loading="lazy"
           />
 
-          <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
-            Mới
-          </span>
+          {isNewRoom && (
+            <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-xs font-semibold shadow-xs">
+              Mới
+            </span>
+          )}
 
           <button
             type="button"
