@@ -12,7 +12,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
-import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import { PageContainer } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { transactionService } from '@/services/transaction.service';
@@ -105,22 +105,6 @@ export const TransactionsPage: React.FC = () => {
 
   return (
     <PageContainer width="wide" className="space-y-6">
-      <PageHeader
-        title="Lịch sử giao dịch"
-        subtitle="Theo dõi biến động dòng tiền cọc giữ chân, hoàn cọc và rút tiền của tài khoản"
-        action={
-          <AppButton
-            variant="secondary"
-            size="md"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-teal-600' : ''}`} />
-            <span>Làm mới</span>
-          </AppButton>
-        }
-      />
-
       {/* 1 dải số liệu mỏng thay cho 4 thẻ KPI lớn */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-4 grid grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
         <div className="lg:pr-4">
@@ -193,6 +177,16 @@ export const TransactionsPage: React.FC = () => {
             <option value="CONG_TIEN_COC">Cộng cọc chủ trọ</option>
             <option value="RUT_TIEN">Rút tiền</option>
           </select>
+
+          <AppButton
+            variant="secondary"
+            size="md"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-teal-600' : ''}`} />
+            <span>Làm mới</span>
+          </AppButton>
         </div>
       </div>
 

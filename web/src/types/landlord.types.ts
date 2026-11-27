@@ -5,6 +5,27 @@ import type { TransactionResponse } from './transaction.types';
 
 export type { TrangThaiPhongTro };
 
+export interface ReputationHistoryItem {
+  id: number;
+  bienDong: number;
+  diemTruoc: number;
+  diemSau: number;
+  loaiSuKien: string;
+  maThamChieu?: string | null;
+  lyDo: string;
+  thoiGian: string;
+}
+
+export interface LandlordReputationSummary {
+  diemUyTin: number;
+  phanHang: string;
+  tamAnDen?: string | null;
+  dangTamAn: boolean;
+  gioiHanSoPhong?: number | null;
+  chanDangTinMoi: boolean;
+  lichSu: ReputationHistoryItem[];
+}
+
 export interface LandlordDashboardStats {
   tongPhong: number;
   phongChoDuyet: number;
@@ -14,6 +35,7 @@ export interface LandlordDashboardStats {
   diemDanhGia: number | string;
   soDu: number;
   diemUyTin?: number;
+  tamAnDen?: string | null;
   yeuCauMoi: number;
   tongPhongMoi?: number;
 }
@@ -107,6 +129,7 @@ export interface BankAccountItem {
 export interface LandlordWalletInfo {
   soDu: number;
   diemUyTin: number;
+  tamAnDen?: string | null;
   dsTaiKhoanNganHang: BankAccountItem[];
   tongDaThu: number;
   tongDaRut: number;
@@ -149,4 +172,106 @@ export interface CategoryItem {
   tenLoaiPhongTro: string;
   soTienCoc?: number;
   phiThu?: number;
+}
+
+export interface LandlordAnalyticsSummary {
+  soDuHienTai: number;
+  diemUyTin: number;
+  tongPhong: number;
+  phongDangMo: number;
+  phongDaThue: number;
+  phongChoDuyet: number;
+  tongTienCocThucNhan: number;
+  tongPhiHoaHongDaTra: number;
+  tongBoiThuongNoShow: number;
+  tongLuotHienThi: number;
+  tongLuotClick: number;
+  ctrPercent: number;
+  tongLuotXemPhong: number;
+  tongLuotXemTour360: number;
+  tongYeuThich: number;
+  tongLichHen: number;
+  lichChoDuyet: number;
+  lichDaXem: number;
+  lichHoanThanh: number;
+  lichHuy: number;
+  tyLeChotPercent: number;
+  diemDanhGiaTrungBinh: number;
+  tongDanhGia: number;
+}
+
+export interface LandlordMonthlyCashflowPoint {
+  thang: string;
+  tienThucNhan: number;
+  phiHoaHong: number;
+  soLichHoanThanh: number;
+  soLichDat: number;
+}
+
+export interface LandlordFunnelStats {
+  luotHienThi: number;
+  luotClick: number;
+  luotXem: number;
+  luotXemTour360: number;
+  luotYeuThich: number;
+  lichDatXem: number;
+  daXemThucTe: number;
+  chotThue: number;
+}
+
+export type LandlordRoomHealth =
+  | 'HUT_KHACH'
+  | 'XEM_NHIEU_IT_COC'
+  | 'CTR_THAP'
+  | 'DA_THUE'
+  | 'CHO_DUYET'
+  | 'ON_DINH';
+
+export interface LandlordRoomPerformance {
+  maPhongTro: string;
+  tenPhong: string;
+  diaChi: string;
+  tenLoaiPhong: string;
+  hinhAnhUrl?: string;
+  trangThai: TrangThaiPhongTro;
+  tamAn: boolean;
+  giaThue: number;
+  giaTrungBinhCungLoai: number;
+  chenhLechGiaPercent: number;
+  coTour360: boolean;
+  soAnh: number;
+  luotHienThi: number;
+  luotClick: number;
+  ctrPercent: number;
+  luotXem: number;
+  luotXemTour360: number;
+  luotYeuThich: number;
+  soLichHen: number;
+  soLichHoanThanh: number;
+  soLichKhachTuChoi: number;
+  tyLeChotPercent: number;
+  diemDanhGiaTrungBinh: number;
+  soDanhGia: number;
+  nhanSucKhoe: LandlordRoomHealth;
+}
+
+export interface LandlordRecommendationItem {
+  id: string;
+  maPhongTro?: string;
+  tenPhong?: string;
+  mucDoUuTien: 'CAO' | 'TRUNG_BINH' | 'GOI_Y';
+  nhom: 'LICH_HEN' | 'GIA_THUE' | 'NOI_DUNG_360' | 'CHAT_LUONG';
+  tieuDe: string;
+  moTa: string;
+  hanhDongLabel: string;
+  duongDan: string;
+}
+
+export interface LandlordAnalyticsResponse {
+  months: number;
+  tongQuan: LandlordAnalyticsSummary;
+  bieuDoDongTien: LandlordMonthlyCashflowPoint[];
+  pheuKhachHang: LandlordFunnelStats;
+  hieuQuaTungPhong: LandlordRoomPerformance[];
+  deXuatCaiThien: LandlordRecommendationItem[];
 }

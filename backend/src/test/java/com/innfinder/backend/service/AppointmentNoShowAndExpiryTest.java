@@ -907,4 +907,53 @@ class AppointmentNoShowAndExpiryTest {
         assertEquals(1, result.size());
         assertEquals("DL20261125102", result.get(0).getMaDatLich());
     }
+
+    // =========================================================================
+    // TRƯỜNG HỢP 23: PHẠT QUÁ HẠN PHẢN HỒI & CHẶN ĐẶT LỊCH CHỦ TRỌ ĐANG TẠM ẨN
+    // =========================================================================
+    @Test
+    @DisplayName("TH23: Quá hạn phản hồi đơn đã nộp cọc gọi ReputationService; quá 15p chưa nộp cọc không phạt chủ trọ")
+    void testQuaHanPhanHoi_PhatDungDoiTuong() {
+        ReputationService repMock = mock(ReputationService.class);
+        ReflectionTestUtils.setField(appointmentService, "reputationService", repMock);
+
+        phieu.setThoiGianDat(LocalDateTime.now().minusHours(25));
+        phieu.setNgayHen(LocalDateTime.now().plusDays(2));
+        when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(true);
+
+        appointmentService.kiemTraVaTuDongHuyQuaHan(phieu);
+        verify(repMock, times(1)).penalizeOverdueResponse(chuTro.getMaChuTro(), phieu.getMaDatLich());
+
+        // Trường hợp khách chưa nộp cọc quá 15 phút -> không phạt chủ trọ
+        PhieuDatLich phieuChuaCoc = PhieuDatLich.builder()
+                .maDatLich("DL_NOCOC")
+                .khachHang(khachHang)
+                .phongTro(phongTro)
+                .thoiGianDat(LocalDateTime.now().minusMinutes(20))
+                .ngayHen(LocalDateTime.now().plusDays(2))
+                .trangThai(TrangThaiDatLich.CHO_XAC_NHAN)
+                .coc(200_000L)
+                .build();
+        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), "DL_NOCOC")).thenReturn(false);
+
+        appointmentService.kiemTraVaTuDongHuyQuaHan(phieuChuaCoc);
+        verify(repMock, never()).penalizeOverdueResponse(anyString(), eq("DL_NOCOC"));
+    }
+
+    @Test
+    @DisplayName("TH24: Phòng thuộc Chủ trọ đang bị tạm ẩn 7 ngày -> Chặn đặt lịch với ROOM_NOT_AVAILABLE")
+    void testTaoDatLich_BiChanKhiChuTroDangTamAn() {
+        chuTro.setTamAnDen(LocalDateTime.now().plusDays(5));
+        AppointmentCreateRequest request = new AppointmentCreateRequest();
+        request.setMaPhongTro(phongTro.getMaPhongTro());
+        request.setNgayHen(LocalDateTime.now().plusDays(1));
+
+        when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
+        when(phongTroRepository.findByIdForUpdate(phongTro.getMaPhongTro())).thenReturn(Optional.of(phongTro));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                appointmentService.taoDatLich("khach_hang", request));
+        assertEquals(ErrorCode.ROOM_NOT_AVAILABLE, ex.getErrorCode());
+    }
 }

@@ -60,7 +60,9 @@ class AiTrackingServiceTest {
             .promptTokens(1000000).totalTokens(1000000).createdAt(java.time.LocalDateTime.now()).build();
         var impression = AiUsageLog.builder().traceId("card").feature("RECOMMEND_IMPRESSION").status("SUCCESS").createdAt(java.time.LocalDateTime.now()).build();
         var click = AiUsageLog.builder().traceId("card").feature("RECOMMEND_CLICK").status("SUCCESS").createdAt(java.time.LocalDateTime.now()).build();
-        when(logs.findByCreatedAtAfterOrderByCreatedAtAsc(any())).thenReturn(List.of(provider, impression, click));
+        var roomView = AiUsageLog.builder().traceId("view").feature("ROOM_VIEW").maPhongTro("PT010126100001").status("SUCCESS").createdAt(java.time.LocalDateTime.now()).build();
+        var tourView = AiUsageLog.builder().traceId("tour").feature("TOUR_360_VIEW").maPhongTro("PT010126100001").status("SUCCESS").createdAt(java.time.LocalDateTime.now()).build();
+        when(logs.findByCreatedAtAfterOrderByCreatedAtAsc(any())).thenReturn(List.of(provider, impression, click, roomView, tourView));
         var summary = service.getSummary(7);
         assertEquals(1, summary.getProviderCalls());
         assertEquals(100.0, summary.getRecommendationStats().getCtrPercent());

@@ -12,7 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
-import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import { PageContainer } from '@/components/common/PageContainer';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import type { NotificationItem } from '@/types/auth-user.types';
 import { formatDateTime } from '@/utils/formatters';
@@ -72,60 +72,55 @@ export const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <PageContainer width="narrow" className="space-y-6">
-      <PageHeader
-        title="Trung tâm thông báo"
-        subtitle="Theo dõi tiến độ xem phòng, cập nhật giao dịch cọc và thông báo từ hệ thống"
-        action={
-          <div className="flex items-center gap-2">
-            <AppButton
-              variant="secondary"
-              size="md"
-              onClick={() => void fetchNotifications(true)}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 text-teal-600 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Làm mới</span>
-            </AppButton>
-            {unreadCount > 0 && (
-              <AppButton
-                variant="primary"
-                size="md"
-                onClick={markAllAsRead}
+    <PageContainer width="narrow" className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200 p-1.5 shadow-xs flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {[
+            { key: 'ALL', label: 'Tất cả' },
+            { key: 'UNREAD', label: `Chưa đọc (${unreadCount})` },
+            { key: 'APPOINTMENT', label: 'Lịch xem phòng' },
+            { key: 'TRANSACTION', label: 'Giao dịch cọc' },
+            { key: 'SYSTEM', label: 'Hệ thống & Khiếu nại' },
+          ].map((tab) => {
+            const isActive = filterType === tab.key;
+            return (
+              <button
+                type="button"
+                key={tab.key}
+                onClick={() => setFilterType(tab.key)}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'bg-teal-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
               >
-                <CheckCheck className="w-4 h-4" />
-                <span>Đã đọc tất cả ({unreadCount})</span>
-              </AppButton>
-            )}
-          </div>
-        }
-      />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Shopee-style filter tabs */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-1.5 shadow-xs flex items-center gap-1 overflow-x-auto no-scrollbar">
-        {[
-          { key: 'ALL', label: 'Tất cả' },
-          { key: 'UNREAD', label: `Chưa đọc (${unreadCount})` },
-          { key: 'APPOINTMENT', label: 'Lịch xem phòng' },
-          { key: 'TRANSACTION', label: 'Giao dịch cọc' },
-          { key: 'SYSTEM', label: 'Hệ thống & Khiếu nại' },
-        ].map((tab) => {
-          const isActive = filterType === tab.key;
-          return (
-            <button
-              type="button"
-              key={tab.key}
-              onClick={() => setFilterType(tab.key)}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                isActive
-                  ? 'bg-teal-600 text-white shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
+        <div className="flex items-center gap-2 shrink-0">
+          <AppButton
+            variant="secondary"
+            size="md"
+            onClick={() => void fetchNotifications(true)}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 text-teal-600 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Làm mới</span>
+          </AppButton>
+          {unreadCount > 0 && (
+            <AppButton
+              variant="primary"
+              size="md"
+              onClick={markAllAsRead}
             >
-              {tab.label}
-            </button>
-          );
-        })}
+              <CheckCheck className="w-4 h-4" />
+              <span>Đã đọc tất cả ({unreadCount})</span>
+            </AppButton>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">

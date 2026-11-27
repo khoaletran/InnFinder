@@ -47,6 +47,6 @@ public class RecommendationInteractionService {
     }
     private void event(String feature, String trace, String room, String source, String actor) {
         tracking.recordAsync(AiUsageLog.builder().traceId(trace).feature(feature).model("hybrid-recommender")
-                .searchMode(source).maNguoiDung(actor).status("SUCCESS").metadataSummary("roomId=" + room).build());
+                .searchMode(source).maNguoiDung(actor).maPhongTro(room).status("SUCCESS").metadataSummary("roomId=" + room).build());
     }
 }

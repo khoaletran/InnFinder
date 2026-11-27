@@ -1,5 +1,7 @@
 package com.innfinder.backend.controller;
 
+import com.innfinder.backend.dto.landlord.LandlordReputationSummaryDTO;
+import com.innfinder.backend.dto.request.AdminReputationAdjustRequest;
 import com.innfinder.backend.dto.request.CategoryUpdateRequest;
 import com.innfinder.backend.dto.request.ComplaintResolveDTO;
 import com.innfinder.backend.dto.request.CreateAdminRequest;
@@ -13,6 +15,7 @@ import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AdminInsightService;
 import com.innfinder.backend.service.AdminService;
 import com.innfinder.backend.service.ComplaintService;
+import com.innfinder.backend.service.ReputationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,12 +39,22 @@ public class AdminController {
     private final AdminService adminService;
     private final AdminInsightService adminInsightService;
     private final ComplaintService complaintService;
+    private final ReputationService reputationService;
 
     @GetMapping("/rooms")
     @Operation(summary = "Lấy danh sách toàn bộ bài đăng phòng trọ theo tất cả trạng thái")
     public ResponseEntity<ApiResponse<List<RoomResponseDTO>>> getAllRooms() {
         List<RoomResponseDTO> result = adminService.getAllRooms();
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách toàn bộ phòng trọ thành công"));
+    }
+
+    @GetMapping("/rooms/paged")
+    @Operation(summary = "Lấy danh sách bài đăng phòng trọ có phân trang")
+    public ResponseEntity<ApiResponse<Page<RoomResponseDTO>>> getAllRoomsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.clamp(size, 1, 100));
+        return ResponseEntity.ok(ApiResponse.ok(adminService.getAllRooms(pageable), "Lấy danh sách phòng trọ phân trang thành công"));
     }
 
     @GetMapping("/rooms/pending")
@@ -98,6 +111,16 @@ public class AdminController {
                 ? "Khóa tài khoản người dùng thành công"
                 : "Mở khóa tài khoản người dùng thành công";
         return ResponseEntity.ok(ApiResponse.ok(result, msg));
+    }
+
+    @PostMapping("/users/{id}/reputation")
+    @Operation(summary = "Admin điều chỉnh điểm uy tín hoặc gỡ tạm ẩn bài đăng cho Chủ trọ")
+    public ResponseEntity<ApiResponse<LandlordReputationSummaryDTO>> adjustLandlordReputation(
+            @PathVariable String id,
+            @Valid @RequestBody AdminReputationAdjustRequest request) {
+        String adminUsername = SecurityUtils.getCurrentUsername();
+        LandlordReputationSummaryDTO result = reputationService.adjustByAdmin(id, request, adminUsername);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Điều chỉnh điểm uy tín Chủ trọ thành công"));
     }
 
     @PostMapping("/admins")
@@ -246,6 +269,14 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<RoomTypeDepositFeeResponseDTO>>> getRoomTypeDepositFees() {
         List<RoomTypeDepositFeeResponseDTO> result = adminService.getRoomTypeDepositFees();
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách biểu phí cọc & sàn thành công"));
+    }
+
+    @GetMapping("/room-types/deposit-fees/history")
+    @Operation(summary = "Admin xem lịch sử kiểm toán thay đổi biểu phí cọc & hoa hồng sàn")
+    public ResponseEntity<ApiResponse<List<DepositFeeHistoryResponseDTO>>> getDepositFeeHistory(
+            @RequestParam(required = false) String maLpt) {
+        List<DepositFeeHistoryResponseDTO> result = adminService.getDepositFeeHistory(maLpt);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy lịch sử thay đổi biểu phí thành công"));
     }
 
     @PutMapping("/room-types/{maLpt}/deposit-fee")

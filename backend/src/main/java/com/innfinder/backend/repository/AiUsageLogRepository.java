@@ -32,9 +32,29 @@ public interface AiUsageLogRepository extends JpaRepository<AiUsageLog, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT COALESCE(SUM(l.totalTokens), 0L) FROM AiUsageLog l WHERE l.createdAt >= :since AND l.cacheHit = false AND l.feature NOT LIKE 'RECOMMEND%'")
+    @Query("SELECT COALESCE(SUM(l.totalTokens), 0L) FROM AiUsageLog l WHERE l.createdAt >= :since AND l.cacheHit = false AND l.feature NOT LIKE 'RECOMMEND%' AND l.feature NOT IN ('ROOM_VIEW', 'TOUR_360_VIEW')")
     Long sumTokensSince(@Param("since") LocalDateTime since);
 
-    @Query("SELECT COUNT(l) FROM AiUsageLog l WHERE l.createdAt >= :since AND l.cacheHit = false AND l.feature NOT LIKE 'RECOMMEND%'")
+    @Query("SELECT COUNT(l) FROM AiUsageLog l WHERE l.createdAt >= :since AND l.cacheHit = false AND l.feature NOT LIKE 'RECOMMEND%' AND l.feature NOT IN ('ROOM_VIEW', 'TOUR_360_VIEW')")
     Long countProviderCallsSince(@Param("since") LocalDateTime since);
+
+    @Query("""
+            SELECT l.maPhongTro, l.feature, COUNT(l)
+            FROM AiUsageLog l
+            WHERE l.maPhongTro IN :roomIds
+              AND l.feature IN ('RECOMMEND_IMPRESSION', 'RECOMMEND_CLICK', 'ROOM_VIEW', 'TOUR_360_VIEW')
+              AND (:since IS NULL OR l.createdAt >= :since)
+            GROUP BY l.maPhongTro, l.feature
+            """)
+    List<Object[]> countRoomTrackingEvents(
+            @Param("roomIds") List<String> roomIds,
+            @Param("since") LocalDateTime since
+    );
+
+    @Query("""
+            SELECT l.feature, l.maPhongTro, l.createdAt
+            FROM AiUsageLog l
+            WHERE l.feature IN ('AI_SEARCH', 'RECOMMEND_IMPRESSION', 'RECOMMEND_CLICK', 'ROOM_VIEW', 'TOUR_360_VIEW')
+            """)
+    List<Object[]> findTrackingSummaryForStats();
 }

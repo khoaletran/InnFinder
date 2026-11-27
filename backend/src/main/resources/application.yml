@@ -16,10 +16,10 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         default_batch_fetch_size: 50
   flyway:
     enabled: true
@@ -32,6 +32,7 @@ app:
 
 # Cấu hình DataSource Failover: Mặc định AUTO (Ưu tiên TiDB Cloud, tự động fallback sang Docker Local port 3307 khi mất mạng; hoặc đặt LOCAL/CLOUD)
 innfinder:
+  test-deposit: ${INNFINDER_TEST_DEPOSIT:true}
   firestore:
     project-id: ${INNFINDER_FIRESTORE_PROJECT_ID:innfinder-70261}
     credentials-file: ${INNFINDER_FIRESTORE_CREDENTIALS_FILE:}

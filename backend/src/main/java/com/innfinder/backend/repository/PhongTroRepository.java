@@ -32,7 +32,7 @@ import java.util.Optional;
 @Repository
 public interface PhongTroRepository extends JpaRepository<PhongTro, String>, JpaSpecificationExecutor<PhongTro> {
     @EntityGraph(attributePaths = {"hinhAnh"})
-    @Query("SELECT p FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false ORDER BY p.maPhongTro")
+    @Query("SELECT p FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false AND (p.chuPhongTro.tamAnDen IS NULL OR p.chuPhongTro.tamAnDen <= CURRENT_TIMESTAMP) ORDER BY p.maPhongTro")
     List<PhongTro> findPublicRoomsForAreaStats();
 
     @Override
@@ -48,7 +48,7 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
     List<PhongTro> findByChuPhongTro_MaChuTro(String maChuTro);
 
-    @EntityGraph(attributePaths = {"loaiPhong", "dsTienIch"})
+    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
     List<PhongTro> findByTrangThai(TrangThaiPhongTro trangThai);
 
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
@@ -57,7 +57,14 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
     List<PhongTro> findAllByOrderByThoiGianDangDesc();
 
+    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    Page<PhongTro> findAllByOrderByThoiGianDangDesc(Pageable pageable);
+
     long countByTrangThai(TrangThaiPhongTro trangThai);
+
+    long countByChuPhongTro_MaChuTroAndTrangThaiIn(String maChuTro, List<TrangThaiPhongTro> trangThais);
+
+    long countByChuPhongTro_MaChuTroAndTrangThai(String maChuTro, TrangThaiPhongTro trangThai);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PhongTro p WHERE p.maPhongTro = :maPhongTro")
@@ -71,6 +78,18 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"loaiPhong"})
     @Query("SELECT p FROM PhongTro p")
     List<PhongTro> findAllWithLoaiPhong();
-    @Query("SELECT p.maPhongTro FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false ORDER BY p.thoiGianDang DESC, p.maPhongTro")
+
+    @Query("SELECT p.loaiPhong.maLpt, SUM(p.giaThue), COUNT(p) FROM PhongTro p "
+            + "WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET "
+            + "AND p.tamAn = false AND p.loaiPhong IS NOT NULL AND p.giaThue IS NOT NULL "
+            + "GROUP BY p.loaiPhong.maLpt")
+    List<Object[]> sumAndCountPublicRentByRoomType();
+    @Query("SELECT p.maPhongTro FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false AND (p.chuPhongTro.tamAnDen IS NULL OR p.chuPhongTro.tamAnDen <= CURRENT_TIMESTAMP) ORDER BY p.thoiGianDang DESC, p.maPhongTro")
     List<String> findRecommendationIds(org.springframework.data.domain.Pageable page);
+
+    @Query(value = "SELECT ma_phong_tro, COUNT(*) FROM phong_yeu_thich GROUP BY ma_phong_tro", nativeQuery = true)
+    List<Object[]> countFavoritesByRoom();
+
+    @Query(value = "SELECT ma_phong_tro, COUNT(*) FROM phong_yeu_thich WHERE ma_phong_tro IN (:roomIds) GROUP BY ma_phong_tro", nativeQuery = true)
+    List<Object[]> countFavoritesByRoomIds(@Param("roomIds") List<String> roomIds);
 }

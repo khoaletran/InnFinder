@@ -37,6 +37,9 @@ public enum ErrorCode {
     AMENITY_NOT_FOUND("Không tìm thấy tiện ích yêu cầu", HttpStatus.NOT_FOUND),
     LANDLORD_NOT_FOUND("Không tìm thấy thông tin chủ trọ tương ứng", HttpStatus.NOT_FOUND),
     NOT_A_LANDLORD("Tài khoản chưa được kích hoạt quyền chủ trọ", HttpStatus.FORBIDDEN),
+    LANDLORD_TEMP_HIDDEN("Tài khoản Chủ trọ của bạn đang trong thời gian tạm ẩn bài đăng do vi phạm. Vui lòng thử lại sau khi hết hạn chế tài.", HttpStatus.FORBIDDEN),
+    LANDLORD_LOW_REPUTATION_POSTING_BLOCKED("Điểm uy tín Chủ trọ dưới 50 nên tạm thời không thể đăng tin mới hoặc bật hiển thị bài đăng.", HttpStatus.FORBIDDEN),
+    LANDLORD_ROOM_LIMIT_EXCEEDED("Chủ trọ có điểm uy tín dưới 70 chỉ được duy trì tối đa 3 phòng đang hoạt động/chờ duyệt cùng lúc.", HttpStatus.FORBIDDEN),
     ROOM_NOT_OWNED("Bạn không sở hữu hoặc không có quyền thao tác trên phòng trọ này", HttpStatus.FORBIDDEN),
     ROOM_ALREADY_FAVORITED("Phòng trọ này đã nằm trong danh sách yêu thích", HttpStatus.BAD_REQUEST),
     FAVORITE_NOT_FOUND("Phòng trọ không có trong danh sách yêu thích của bạn", HttpStatus.NOT_FOUND),
@@ -76,7 +79,10 @@ public enum ErrorCode {
 
     // --- BIỂU PHÍ CỌC & HOA HỒNG SÀN ---
     ROOM_TYPE_NOT_FOUND("Không tìm thấy loại phòng trọ", HttpStatus.NOT_FOUND),
-    INVALID_DEPOSIT_FEE("Mức phí thu sàn phải nhỏ hơn số tiền cọc", HttpStatus.BAD_REQUEST),
+    INVALID_DEPOSIT_FEE("Tiền cọc giữ chân phải từ 50.000 đến 2.000.000 VNĐ và phí hoa hồng phải nhỏ hơn tiền cọc", HttpStatus.BAD_REQUEST),
+    DEPOSIT_AMOUNT_STEP_INVALID("Số tiền cọc và phí hoa hồng phải là bội số của 1.000 VNĐ", HttpStatus.BAD_REQUEST),
+    COMMISSION_RATE_EXCEEDED("Mức phí hoa hồng sàn không được vượt quá 30% tiền cọc giữ chân", HttpStatus.BAD_REQUEST),
+    DEPOSIT_FEE_UNCHANGED("Biểu phí mới không có thay đổi nào so với cấu hình hiện tại", HttpStatus.BAD_REQUEST),
 
     // --- TÀI KHOẢN CÁ NHÂN, NGÂN HÀNG & HỒ SƠ CHỦ TRỌ ---
     INVALID_CURRENT_PASSWORD("Mật khẩu hiện tại không chính xác", HttpStatus.BAD_REQUEST),

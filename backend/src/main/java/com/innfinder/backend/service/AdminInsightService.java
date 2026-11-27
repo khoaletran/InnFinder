@@ -318,6 +318,28 @@ public class AdminInsightService {
                     .build());
         }
 
+        var aiSummary = stats.getTongQuanAiTracking();
+        if (aiSummary != null && aiSummary.getTotalApprovedRooms() > 0 && aiSummary.getVectorCoveragePercent() < 85.0) {
+            actions.add(RecommendedActionDTO.builder()
+                    .tieuDe("Bổ sung chỉ mục Vector cho phòng đang mở")
+                    .moTa(String.format("Độ phủ tìm kiếm AI hiện đạt %.1f%% (%d/%d phòng); cần đồng bộ thêm.",
+                            aiSummary.getVectorCoveragePercent(), aiSummary.getIndexedRooms(), aiSummary.getTotalApprovedRooms()))
+                    .mucDoUuTien("CAO")
+                    .duongDan("/admin/posts")
+                    .build());
+        }
+
+        var funnel = stats.getPheuChuyenDoi();
+        if (funnel != null && funnel.getSoLichDaXem() > 0 && funnel.getTyLeChotTuXemThucTePercent() < 40.0) {
+            actions.add(RecommendedActionDTO.builder()
+                    .tieuDe("Cải thiện tỷ lệ chốt sau khi xem phòng")
+                    .moTa(String.format("Mới chốt %.1f%% sau gặp mặt (%d khách từ chối); rà soát lịch xem và chất lượng tin.",
+                            funnel.getTyLeChotTuXemThucTePercent(), funnel.getSoLichKhachTuChoi()))
+                    .mucDoUuTien("TRUNG_BINH")
+                    .duongDan("/admin/viewings")
+                    .build());
+        }
+
         if (stats.getTongDoanhThu() <= 0 || t.delta() < 0) {
             actions.add(RecommendedActionDTO.builder()
                     .tieuDe("Thúc đẩy tỷ lệ chốt thuê từ các lịch xem phòng")
@@ -380,6 +402,12 @@ public class AdminInsightService {
         root.put("phanTramTangGiamMocMoiNhat", t.deltaPercent());
         root.put("chuoiDoanhThuTheoMoc", stats.getBieuDoDoanhThu());
         root.put("coCauLoaiPhong", stats.getCoCauLoaiPhong());
+        if (stats.getPheuChuyenDoi() != null) {
+            root.put("pheuChuyenDoi", stats.getPheuChuyenDoi());
+        }
+        if (stats.getTongQuanAiTracking() != null) {
+            root.put("tongQuanAiTracking", stats.getTongQuanAiTracking());
+        }
         return root;
     }
 

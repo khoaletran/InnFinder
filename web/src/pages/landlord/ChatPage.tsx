@@ -1,34 +1,60 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@heroui/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { Loader2, MessageCircle, Search, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  appendOptimisticChatMessage,
   directChatService,
+  reconcileSavedChatMessage,
   type ChatConversationSummary,
+  type ChatMessage,
+  type ChatThread,
 } from '@/services/directChat.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export const LandlordChatPage: React.FC = () => {
-  const currentUserId = useAuthStore((s) => s.user?.maNguoiDung);
+  const currentUser = useAuthStore((s) => s.user);
+  const currentUserId = currentUser?.maNguoiDung;
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<ChatConversationSummary | null>(null);
   const [draft, setDraft] = useState('');
   const listEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const lastNewestMsgIdRef = useRef<string | null>(null);
 
-  const conversationsQuery = useQuery({
+  const conversationsQuery = useInfiniteQuery({
     queryKey: ['chat', 'conversations', 'LANDLORD'],
-    queryFn: () => directChatService.getConversations('LANDLORD'),
-    refetchInterval: 5000,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => directChatService.getConversations('LANDLORD', 10, pageParam),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
+    refetchInterval: 15000,
     retry: false,
   });
 
-  const conversations = useMemo(
-    () => conversationsQuery.data ?? [],
-    [conversationsQuery.data],
-  );
+  const conversations = useMemo(() => {
+    const pages = conversationsQuery.data?.pages ?? [];
+    const seen = new Set<string>();
+    const list: ChatConversationSummary[] = [];
+    for (const page of pages) {
+      for (const item of page.items) {
+        if (!seen.has(item.channelId)) {
+          seen.add(item.channelId);
+          list.push(item);
+        }
+      }
+    }
+    return list;
+  }, [conversationsQuery.data]);
 
   const filteredConversations = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -48,15 +74,20 @@ export const LandlordChatPage: React.FC = () => {
     return filteredConversations[0] ?? null;
   }, [selectedChannel, conversations, filteredConversations]);
 
-  const threadQuery = useQuery({
+  const threadQuery = useInfiniteQuery({
     queryKey: ['chat', activeConversation?.contextType, activeConversation?.contextId],
-    queryFn: () =>
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
       directChatService.getThread(
         activeConversation!.contextType,
         activeConversation!.contextId,
+        10,
+        pageParam,
       ),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
     enabled: Boolean(activeConversation),
-    refetchInterval: activeConversation ? 3000 : false,
+    refetchInterval: activeConversation ? 15000 : false,
     retry: false,
   });
 
@@ -67,23 +98,108 @@ export const LandlordChatPage: React.FC = () => {
         activeConversation!.contextId,
         content,
       ),
-    onSuccess: async () => {
+    onMutate: async (content: string) => {
+      const target = activeConversation!;
+      await queryClient.cancelQueries({
+        queryKey: ['chat', target.contextType, target.contextId],
+      });
+      const tempId = `temp-${Date.now()}`;
+      const previous = appendOptimisticChatMessage(
+        queryClient,
+        target.contextType,
+        target.contextId,
+        {
+          id: tempId,
+          senderId: currentUserId || '',
+          senderName: currentUser?.hoVaTen || currentUser?.tenDangNhap || 'Bạn',
+          senderAvatar: currentUser?.hinhDaiDien || null,
+          content,
+          createdAt: new Date().toISOString(),
+        },
+      );
       setDraft('');
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['chat', activeConversation?.contextType, activeConversation?.contextId],
-        }),
-        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations', 'LANDLORD'] }),
-      ]);
+      return { previous, tempId, content, target };
     },
-    onError: (err: Error) => toast.error(err.message || 'Không thể gửi tin nhắn'),
+    onSuccess: (saved, _content, ctx) => {
+      if (ctx?.tempId && ctx.target) {
+        reconcileSavedChatMessage(
+          queryClient,
+          ctx.target.contextType,
+          ctx.target.contextId,
+          saved,
+          ctx.tempId,
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'conversations', 'LANDLORD'] });
+    },
+    onError: (err: Error, _content, ctx) => {
+      if (ctx?.previous && ctx.target) {
+        queryClient.setQueryData<InfiniteData<ChatThread>>(
+          ['chat', ctx.target.contextType, ctx.target.contextId],
+          ctx.previous,
+        );
+      }
+      if (ctx?.content) {
+        setDraft((prev) => prev || ctx.content);
+      }
+      toast.error(err.message || 'Không thể gửi tin nhắn');
+    },
   });
 
-  const messages = threadQuery.data?.messages ?? [];
+  const messages = useMemo(() => {
+    const pages = threadQuery.data?.pages ?? [];
+    const orderedPages = [...pages].reverse();
+    const seen = new Set<string>();
+    const list: ChatMessage[] = [];
+    for (const page of orderedPages) {
+      for (const m of page.messages) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          list.push(m);
+        }
+      }
+    }
+    return list;
+  }, [threadQuery.data]);
+
+  const newestMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
 
   useEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, activeConversation?.channelId]);
+    lastNewestMsgIdRef.current = null;
+    prevScrollRef.current = null;
+  }, [activeConversation?.channelId]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (prevScrollRef.current && el) {
+      el.scrollTop = el.scrollHeight - prevScrollRef.current.scrollHeight + prevScrollRef.current.scrollTop;
+      prevScrollRef.current = null;
+      return;
+    }
+    if (newestMessageId && newestMessageId !== lastNewestMsgIdRef.current) {
+      lastNewestMsgIdRef.current = newestMessageId;
+      listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, newestMessageId, activeConversation?.channelId]);
+
+  const handleConversationsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (
+      el.scrollHeight - el.scrollTop - el.clientHeight < 60 &&
+      conversationsQuery.hasNextPage &&
+      !conversationsQuery.isFetchingNextPage
+    ) {
+      void conversationsQuery.fetchNextPage();
+    }
+  };
+
+  const handleMessagesScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop <= 40 && threadQuery.hasNextPage && !threadQuery.isFetchingNextPage) {
+      prevScrollRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop };
+      void threadQuery.fetchNextPage();
+    }
+  };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +225,10 @@ export const LandlordChatPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+        <div
+          onScroll={handleConversationsScroll}
+          className="flex-1 overflow-y-auto divide-y divide-slate-100"
+        >
           {conversationsQuery.isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
@@ -171,6 +290,12 @@ export const LandlordChatPage: React.FC = () => {
               );
             })
           )}
+          {conversationsQuery.isFetchingNextPage && (
+            <div className="py-3 flex items-center justify-center gap-1.5 text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+              <span className="text-[11px]">Đang tải thêm cuộc trò chuyện...</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -208,7 +333,17 @@ export const LandlordChatPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3"
+            >
+              {threadQuery.isFetchingNextPage && (
+                <div className="py-1.5 flex items-center justify-center gap-1.5 text-slate-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+                  <span className="text-[11px]">Đang tải tin nhắn cũ hơn...</span>
+                </div>
+              )}
               {threadQuery.isPending ? (
                 <div className="h-full flex items-center justify-center">
                   <Loader2 className="w-5 h-5 animate-spin text-teal-600" />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -102,6 +102,8 @@ export const UsersPage: React.FC = () => {
   const {
     data: usersPage,
     isLoading: isLoadingUsers,
+    isFetching: isFetchingUsers,
+    isPlaceholderData: isPlaceholderUsers,
     isError: isErrorUsers,
     error: errorUsers,
     refetch: refetchUsers,
@@ -109,6 +111,7 @@ export const UsersPage: React.FC = () => {
     queryKey: ['admin', 'users', submittedKeyword, page],
     queryFn: () => adminService.getUsers(submittedKeyword, page, 15),
     enabled: hasSearchQuery,
+    placeholderData: keepPreviousData,
   });
 
   const {
@@ -383,8 +386,12 @@ export const UsersPage: React.FC = () => {
                     <th scope="col" className="py-3 px-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/70">
-                  {isLoadingUsers ? (
+                <tbody
+                  className={`divide-y divide-border/70 transition-opacity duration-200 ${
+                    isPlaceholderUsers && isFetchingUsers ? 'opacity-60' : 'opacity-100'
+                  }`}
+                >
+                  {isLoadingUsers && !usersPage ? (
                     <AdminTableSkeleton rows={6} cols={6} />
                   ) : users.length > 0 ? (
                     users.map((u) => {

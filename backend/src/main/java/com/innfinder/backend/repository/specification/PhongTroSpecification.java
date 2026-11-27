@@ -21,6 +21,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -29,9 +30,13 @@ public class PhongTroSpecification {
     public static Specification<PhongTro> buildFilter(RoomFilterRequest filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            // 1. RÀNG BUỘC BẮT BUỘC: Chỉ lấy phòng ĐÃ DUYỆT cho khách vãng lai
+            // 1. RÀNG BUỘC BẮT BUỘC: Chỉ lấy phòng ĐÃ DUYỆT cho khách vãng lai & không thuộc chủ trọ đang tạm ẩn
             predicates.add(cb.equal(root.get("trangThai"), TrangThaiPhongTro.DA_DUYET));
             predicates.add(cb.isFalse(root.get("tamAn")));
+            predicates.add(cb.or(
+                    cb.isNull(root.get("chuPhongTro").get("tamAnDen")),
+                    cb.lessThanOrEqualTo(root.get("chuPhongTro").get("tamAnDen"), LocalDateTime.now())
+            ));
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }

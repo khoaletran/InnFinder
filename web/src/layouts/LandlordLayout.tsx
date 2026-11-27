@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Outlet, useLocation } from 'react-router-dom';
-import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { LandlordHeader } from '@/components/landlord/LandlordHeader';
 import { LandlordSidebar } from '@/components/landlord/LandlordSidebar';
+import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 
 const LandlordContent: React.FC = () => {
   const location = useLocation();

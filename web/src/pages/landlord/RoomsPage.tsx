@@ -8,6 +8,7 @@ import {
   Clock,
   Edit,
   Eye,
+  EyeOff,
   Loader2,
   MapPin,
   Plus,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Modal } from '@/components/common/Modal';
 import { DeleteRoomModal } from '@/components/landlord/DeleteRoomModal';
 import { RoomDetailModal } from '@/components/landlord/RoomDetailModal';
 import { landlordService } from '@/services/landlord.service';
@@ -95,6 +97,10 @@ export const RoomsPage: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<LandlordRoomItem | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailRoom, setSelectedDetailRoom] = useState<LandlordRoomItem | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'RENT_STATUS' | 'VISIBILITY';
+    room: LandlordRoomItem;
+  } | null>(null);
 
   const { data: rooms = [], isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['landlord', 'rooms'],
@@ -113,6 +119,7 @@ export const RoomsPage: React.FC = () => {
     onSuccess: (nextStatus) => {
       void queryClient.invalidateQueries({ queryKey: ['landlord'] });
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard-stats'] });
+      setPendingAction(null);
       toast.success(
         nextStatus === 'HOAN_THANH'
           ? 'Đã chuyển phòng sang trạng thái Đã cho thuê'
@@ -128,6 +135,7 @@ export const RoomsPage: React.FC = () => {
     mutationFn: (room: LandlordRoomItem) => landlordService.setRoomVisibility(room.maPhongTro, !room.tamAn),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['landlord'] });
+      setPendingAction(null);
       toast.success('Đã cập nhật ẩn/hiện tin phòng');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Không đổi được hiển thị'),
@@ -152,10 +160,23 @@ export const RoomsPage: React.FC = () => {
       toast.warning('Chỉ có thể chuyển trạng thái cho thuê khi phòng đã được Admin duyệt');
       return;
     }
-    toggleStatusMutation.mutate({
-      maPhongTro: room.maPhongTro,
-      trangThai: room.trangThai,
-    });
+    setPendingAction({ type: 'RENT_STATUS', room });
+  };
+
+  const handleToggleVisibility = (room: LandlordRoomItem) => {
+    setPendingAction({ type: 'VISIBILITY', room });
+  };
+
+  const handleConfirmPendingAction = () => {
+    if (!pendingAction) return;
+    if (pendingAction.type === 'RENT_STATUS') {
+      toggleStatusMutation.mutate({
+        maPhongTro: pendingAction.room.maPhongTro,
+        trangThai: pendingAction.room.trangThai,
+      });
+    } else {
+      visibilityMutation.mutate(pendingAction.room);
+    }
   };
 
   const handleDeleteClick = (room: LandlordRoomItem) => {
@@ -354,55 +375,76 @@ export const RoomsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 font-black text-teal-700 text-sm">
+                        <td className="py-3 px-4 font-black text-teal-700 text-sm whitespace-nowrap">
                           {formatVND(room.giaThue)}
                         </td>
 
-                        <td className="py-3 px-4 text-slate-600 font-semibold">
+                        <td className="py-3 px-4 text-slate-600 font-semibold whitespace-nowrap">
                           {formatVND(room.cocPhong ?? room.giaThue)}
                         </td>
 
-                        <td className="py-3 px-4">{renderApprovalBadge(room.trangThai)}</td>
+                        <td className="py-3 px-4 whitespace-nowrap">{renderApprovalBadge(room.trangThai)}</td>
 
                         <td className="py-3 px-4">
-                          {room.trangThai === 'DA_DUYET' && <button type="button" disabled={visibilityMutation.isPending}
-                            onClick={() => visibilityMutation.mutate(room)} className="mr-2 px-2 py-1 text-xs rounded-lg border border-slate-200">
-                            {room.tamAn ? 'Hiện lại tin (đang tạm ẩn)' : 'Tạm ẩn tin'}
-                          </button>}
-                          <button
-                            type="button"
-                            disabled={!canToggleRent || toggleStatusMutation.isPending}
-                            onClick={() => handleToggleStatus(room)}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
-                              !canToggleRent
-                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                : isRented
-                                  ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer'
-                                  : 'bg-teal-50 text-teal-700 hover:bg-teal-100 cursor-pointer'
-                            }`}
-                            title={
-                              canToggleRent
-                                ? 'Bấm để chuyển đổi giữa Còn trống và Đã cho thuê'
-                                : 'Cần được Admin duyệt trước khi mở cho thuê'
-                            }
-                          >
-                            <RefreshCw className="w-3 h-3" />
-                            <span>
-                              {isRented
-                                ? 'Đã cho thuê'
-                                : room.trangThai === 'DA_DUYET'
-                                  ? 'Còn trống'
-                                  : 'Không khả dụng'}
-                            </span>
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {canToggleRent ? (
+                              <button
+                                type="button"
+                                disabled={toggleStatusMutation.isPending}
+                                onClick={() => handleToggleStatus(room)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors whitespace-nowrap shadow-2xs disabled:opacity-60 ${
+                                  isRented
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-800 hover:bg-indigo-100 cursor-pointer'
+                                    : 'bg-teal-50 border-teal-200 text-teal-800 hover:bg-teal-100 cursor-pointer'
+                                }`}
+                                title="Bấm để chuyển đổi giữa Còn trống và Đã cho thuê"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isRented ? 'Đã cho thuê' : 'Còn trống'}</span>
+                              </button>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 text-[11px] font-semibold whitespace-nowrap"
+                                title="Cần được Admin duyệt trước khi mở cho thuê"
+                              >
+                                Không khả dụng
+                              </span>
+                            )}
+
+                            {room.trangThai === 'DA_DUYET' && (
+                              <button
+                                type="button"
+                                disabled={visibilityMutation.isPending}
+                                onClick={() => handleToggleVisibility(room)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors whitespace-nowrap shadow-2xs cursor-pointer disabled:opacity-60 ${
+                                  room.tamAn
+                                    ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                                }`}
+                                title={
+                                  room.tamAn
+                                    ? 'Tin đang tạm ẩn khỏi tìm kiếm — bấm để hiện lại'
+                                    : 'Bấm để tạm ẩn tin khỏi tìm kiếm'
+                                }
+                              >
+                                {room.tamAn ? (
+                                  <Eye className="w-3.5 h-3.5 shrink-0" />
+                                ) : (
+                                  <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                                )}
+                                <span>{room.tamAn ? 'Hiện lại tin' : 'Tạm ẩn tin'}</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
 
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleViewDetail(room)}
-                              className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                              aria-label="Xem chi tiết phòng"
+                              className="inline-flex items-center justify-center size-8 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors cursor-pointer"
                               title="Xem chi tiết phòng"
                             >
                               <Eye className="w-4 h-4" />
@@ -410,7 +452,8 @@ export const RoomsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => navigate(`/landlord/rooms/edit/${room.maPhongTro}`)}
-                              className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                              aria-label="Chỉnh sửa phòng"
+                              className="inline-flex items-center justify-center size-8 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200 transition-colors cursor-pointer"
                               title="Chỉnh sửa phòng"
                             >
                               <Edit className="w-4 h-4" />
@@ -419,7 +462,8 @@ export const RoomsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteClick(room)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                aria-label="Gỡ bài đăng phòng trọ"
+                                className="inline-flex items-center justify-center size-8 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-colors cursor-pointer"
                                 title="Gỡ bài đăng phòng trọ"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -451,6 +495,86 @@ export const RoomsPage: React.FC = () => {
         room={selectedDetailRoom}
         onEdit={(maPhongTro) => navigate(`/landlord/rooms/edit/${maPhongTro}`)}
       />
+
+      {(() => {
+        const isPendingMutating = toggleStatusMutation.isPending || visibilityMutation.isPending;
+        const isRentStatus = pendingAction?.type === 'RENT_STATUS';
+        const isMarkingRented = isRentStatus && pendingAction?.room.trangThai === 'DA_DUYET';
+        const isHidingRoom = !isRentStatus && !pendingAction?.room.tamAn;
+
+        const modalTitle = isRentStatus
+          ? isMarkingRented
+            ? 'Xác nhận đánh dấu Đã cho thuê'
+            : 'Xác nhận mở lại phòng Còn trống'
+          : isHidingRoom
+            ? 'Xác nhận tạm ẩn tin phòng'
+            : 'Xác nhận hiện lại tin phòng';
+
+        const modalDescription = isRentStatus
+          ? isMarkingRented
+            ? 'Phòng sẽ chuyển sang trạng thái Đã cho thuê và tạm ẩn khỏi kết quả tìm kiếm công khai.'
+            : 'Phòng sẽ chuyển về trạng thái Còn trống (Đã duyệt) và hiển thị lại trên tìm kiếm công khai.'
+          : isHidingRoom
+            ? 'Tin phòng sẽ tạm thời ẩn khỏi kết quả tìm kiếm của khách thuê. Bạn có thể bật lại bất cứ lúc nào.'
+            : 'Tin phòng sẽ hiển thị công khai trở lại trên trang tìm kiếm.';
+
+        const confirmLabel = isPendingMutating
+          ? 'Đang xử lý...'
+          : isRentStatus
+            ? isMarkingRented
+              ? 'Xác nhận đã cho thuê'
+              : 'Xác nhận mở lại'
+            : isHidingRoom
+              ? 'Xác nhận tạm ẩn'
+              : 'Xác nhận hiện lại';
+
+        const confirmClass = isRentStatus
+          ? isMarkingRented
+            ? 'bg-indigo-600 hover:bg-indigo-700'
+            : 'bg-teal-600 hover:bg-teal-700'
+          : isHidingRoom
+            ? 'bg-amber-600 hover:bg-amber-700'
+            : 'bg-teal-600 hover:bg-teal-700';
+
+        return (
+          <Modal
+            isOpen={!!pendingAction}
+            onClose={() => {
+              if (!isPendingMutating) setPendingAction(null);
+            }}
+            title={modalTitle}
+            maxWidth="sm"
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPendingAction(null)}
+                  disabled={isPendingMutating}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPendingAction}
+                  disabled={isPendingMutating}
+                  className={`px-4 py-2 text-xs font-bold text-white rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${confirmClass}`}
+                >
+                  {isPendingMutating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{confirmLabel}</span>
+                </button>
+              </>
+            }
+          >
+            <div className="space-y-2 text-xs text-slate-600">
+              <p className="text-sm font-semibold text-slate-800">
+                Phòng: <span className="text-teal-700">&ldquo;{pendingAction?.room.tenPhong}&rdquo;</span>
+              </p>
+              <p className="leading-relaxed">{modalDescription}</p>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 };

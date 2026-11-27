@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Headphones, Heart, ShieldCheck } from 'lucide-react';
+import { Headphones, ShieldCheck } from 'lucide-react';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 
 export const Footer: React.FC = () => {
@@ -91,9 +91,25 @@ export const Footer: React.FC = () => {
 
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-sidebar-text gap-4">
           <p>© 2026 InnFinder Platform. All rights reserved.</p>
-          <div className="flex items-center gap-1">
-            <span>Vận hành theo cơ chế bảo vệ cọc xem phòng minh bạch</span>
-            <Heart className="w-3.5 h-3.5 text-sidebar-text-hover inline ml-1" />
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            <Link to="/about" className="hover:text-white transition-colors">
+              Giới thiệu
+            </Link>
+            <Link to="/terms" className="hover:text-white transition-colors">
+              Điều khoản sử dụng
+            </Link>
+            <Link to="/privacy" className="hover:text-white transition-colors">
+              Chính sách bảo mật
+            </Link>
+            <Link to="/deposit-policy" className="hover:text-white transition-colors">
+              Chính sách cọc
+            </Link>
+            <Link to="/landlord-policy" className="hover:text-white transition-colors">
+              Chính sách Chủ trọ
+            </Link>
+            <Link to="/contact" className="hover:text-white transition-colors">
+              Liên hệ
+            </Link>
           </div>
         </div>
       </div>

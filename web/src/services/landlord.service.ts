@@ -8,8 +8,10 @@ import type {
   BankAccountItem,
   CategoryItem,
   ComplaintItem,
+  LandlordAnalyticsResponse,
   LandlordAppointmentItem,
   LandlordDashboardStats,
+  LandlordReputationSummary,
   LandlordRoomItem,
   LandlordTransactionItem,
   LandlordWalletInfo,
@@ -132,6 +134,16 @@ export const landlordService = {
   },
 
   // 1. Tổng hợp thống kê Dashboard từ API thực tế
+  getAnalytics: async (months = 6): Promise<LandlordAnalyticsResponse> => {
+    return axiosClient.get<unknown, LandlordAnalyticsResponse>('/api/landlord/analytics', {
+      params: { months },
+    });
+  },
+
+  getReputationSummary: async (): Promise<LandlordReputationSummary> => {
+    return axiosClient.get<unknown, LandlordReputationSummary>('/api/landlord/reputation/history');
+  },
+
   getDashboardStats: async (): Promise<LandlordDashboardStats> => {
     const [rooms, appointments, wallet, reviews] = await Promise.all([
       landlordService.getMyRooms(),
@@ -159,6 +171,7 @@ export const landlordService = {
       diemDanhGia: avgScore,
       soDu: wallet.soDu,
       diemUyTin: wallet.diemUyTin,
+      tamAnDen: wallet.tamAnDen,
       yeuCauMoi,
       tongPhongMoi: phongChoDuyet,
     };

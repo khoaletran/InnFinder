@@ -1,5 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Loader2, MessageCircle, X } from 'lucide-react';
 import {
   directChatService,
@@ -17,13 +17,44 @@ export const ChatInboxModal: React.FC<ChatInboxModalProps> = ({
   onClose,
   onSelectConversation,
 }) => {
-  const { data: conversations = [], isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: ['chat', 'conversations', 'CUSTOMER'],
-    queryFn: () => directChatService.getConversations('CUSTOMER'),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => directChatService.getConversations('CUSTOMER', 10, pageParam),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
     enabled: isOpen,
-    refetchInterval: isOpen ? 5000 : false,
+    refetchInterval: isOpen ? 15000 : false,
     retry: false,
   });
+
+  const conversations = useMemo(() => {
+    const pages = data?.pages ?? [];
+    const seen = new Set<string>();
+    const list: ChatConversationSummary[] = [];
+    for (const page of pages) {
+      for (const item of page.items) {
+        if (!seen.has(item.channelId)) {
+          seen.add(item.channelId);
+          list.push(item);
+        }
+      }
+    }
+    return list;
+  }, [data]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 60 && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -44,7 +75,10 @@ export const ChatInboxModal: React.FC<ChatInboxModalProps> = ({
         </button>
       </div>
 
-      <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+      <div
+        onScroll={handleScroll}
+        className="max-h-96 overflow-y-auto divide-y divide-slate-100"
+      >
         {isLoading ? (
           <div className="py-10 flex flex-col items-center justify-center text-slate-400 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
@@ -111,6 +145,12 @@ export const ChatInboxModal: React.FC<ChatInboxModalProps> = ({
               </div>
             </button>
           ))
+        )}
+        {isFetchingNextPage && (
+          <div className="py-3 flex items-center justify-center gap-1.5 text-slate-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+            <span className="text-[11px]">Đang tải thêm cuộc trò chuyện...</span>
+          </div>
         )}
       </div>
     </div>

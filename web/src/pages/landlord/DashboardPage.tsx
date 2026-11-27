@@ -1,21 +1,23 @@
 import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   ArrowRight,
   CalendarCheck,
   CheckCircle2,
   Clock,
+  History,
   Home,
-  Loader2,
   MapPin,
   PlusCircle,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
   Wallet,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppointmentDetailModal } from '@/components/landlord/AppointmentDetailModal';
 import { RoomDetailModal } from '@/components/landlord/RoomDetailModal';
 import { landlordService } from '@/services/landlord.service';
@@ -25,7 +27,7 @@ import type {
   LandlordRoomItem,
   TrangThaiPhongTro,
 } from '@/types/landlord.types';
-import { formatPhoneNumber, formatVND } from '@/utils/formatters';
+import { formatDateTime, formatPhoneNumber, formatVND } from '@/utils/formatters';
 
 const renderRoomStatusChip = (status: TrangThaiPhongTro) => {
   switch (status) {
@@ -61,35 +63,101 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const setStoreStats = useLandlordStore((s) => s.setStats);
 
-  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
-    queryKey: ['landlord', 'dashboard-stats'],
-    queryFn: landlordService.getDashboardStats,
+  const {
+    data: rooms = [],
+    isLoading: roomsLoading,
+    error: roomsError,
+    refetch: refetchRooms,
+  } = useQuery({
+    queryKey: ['landlord', 'rooms'],
+    queryFn: landlordService.getMyRooms,
     refetchInterval: 30000,
   });
 
-  const { data: rooms = [] } = useQuery({
-    queryKey: ['landlord', 'rooms'],
-    queryFn: landlordService.getMyRooms,
-  });
-
-  const { data: appointments = [] } = useQuery({
+  const {
+    data: appointments = [],
+    isLoading: appointmentsLoading,
+    refetch: refetchAppointments,
+  } = useQuery({
     queryKey: ['landlord', 'appointments'],
     queryFn: landlordService.getAppointments,
+    refetchInterval: 30000,
   });
 
+  const {
+    data: walletInfo,
+    isLoading: walletLoading,
+    error: walletError,
+    refetch: refetchWallet,
+  } = useQuery({
+    queryKey: ['landlord', 'wallet'],
+    queryFn: landlordService.getWalletInfo,
+    refetchInterval: 30000,
+  });
+
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['landlord', 'reviews'],
+    queryFn: landlordService.getReviews,
+    refetchInterval: 60000,
+  });
+
+  const { data: analytics } = useQuery({
+    queryKey: ['landlord', 'analytics', 6],
+    queryFn: () => landlordService.getAnalytics(6),
+    refetchInterval: 60000,
+  });
+
+  const { data: reputationSummary } = useQuery({
+    queryKey: ['landlord', 'reputation-summary'],
+    queryFn: landlordService.getReputationSummary,
+    refetchInterval: 30000,
+  });
+
+  const stats = useMemo(() => {
+    const tongPhong = rooms.length;
+    const phongChoDuyet = rooms.filter((r) => r.trangThai === 'CHO_DUYET').length;
+    const dangTrong = rooms.filter((r) => r.trangThai === 'DA_DUYET').length;
+    const dangThue = rooms.filter((r) => r.trangThai === 'HOAN_THANH').length;
+    const yeuCauMoi = appointments.filter((a) => a.trangThai === 'CHO_XAC_NHAN').length;
+    const avgScore =
+      reviews.length > 0
+        ? (reviews.reduce((sum, r) => sum + r.diem, 0) / reviews.length).toFixed(1)
+        : 'Chưa có';
+    return {
+      tongPhong,
+      phongChoDuyet,
+      dangTrong,
+      dangThue,
+      tongDanhGia: reviews.length,
+      diemDanhGia: avgScore,
+      soDu: walletInfo?.soDu ?? 0,
+      diemUyTin: walletInfo?.diemUyTin,
+      tamAnDen: walletInfo?.tamAnDen,
+      yeuCauMoi,
+      tongPhongMoi: phongChoDuyet,
+    };
+  }, [rooms, appointments, reviews, walletInfo]);
+
   useEffect(() => {
-    if (stats) {
-      setStoreStats(stats);
-    }
+    setStoreStats(stats);
   }, [stats, setStoreStats]);
 
-  const diemUyTin = stats?.diemUyTin ?? 100;
+  const diemUyTin = reputationSummary?.diemUyTin ?? stats.diemUyTin ?? 100;
   const reputationRank =
-    diemUyTin >= 90
+    reputationSummary?.phanHang ||
+    (diemUyTin >= 90
       ? 'Chủ trọ Uy tín Cao'
-      : diemUyTin >= 70
-        ? 'Chủ trọ Tiêu chuẩn'
-        : 'Cần cải thiện uy tín';
+      : diemUyTin >= 81
+        ? 'Chủ trọ Tiêu chuẩn (Tốt)'
+        : diemUyTin >= 70
+          ? 'Chủ trọ Tiêu chuẩn (Mất đề xuất)'
+          : diemUyTin >= 50
+            ? 'Hạn chế (Tối đa 3 phòng)'
+            : diemUyTin >= 30
+              ? 'Đình chỉ đăng tin mới'
+              : 'Nguy cơ khóa tài khoản');
+  const isTempHidden = Boolean(reputationSummary?.dangTamAn);
+  const tamAnDen = reputationSummary?.tamAnDen ?? stats.tamAnDen;
 
   const recentRooms = rooms.slice(0, 4);
   const recentAppointments = appointments.slice(0, 4);
@@ -111,19 +179,67 @@ export const DashboardPage: React.FC = () => {
     setIsRoomModalOpen(true);
   };
 
-  if (statsError) return <LandlordQueryError error={statsError} onRetry={() => void refetchStats()} />;
-
-  if (statsLoading && !stats) {
+  if (walletError && roomsError && !walletInfo && rooms.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[360px] text-slate-500">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-600 mb-2" />
-        <span className="text-xs font-medium">Đang tải dữ liệu tổng quan Chủ trọ...</span>
-      </div>
+      <LandlordQueryError
+        error={walletError || roomsError}
+        onRetry={() => {
+          void refetchWallet();
+          void refetchRooms();
+          void refetchAppointments();
+        }}
+      />
     );
   }
 
   return (
     <div className="space-y-6">
+      {(isTempHidden || diemUyTin < 70) && (
+        <div
+          className={`p-4 rounded-2xl border flex items-start gap-3 ${
+            isTempHidden || diemUyTin < 50
+              ? 'bg-rose-50 border-rose-200 text-rose-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}
+        >
+          <AlertTriangle
+            className={`w-5 h-5 shrink-0 mt-0.5 ${
+              isTempHidden || diemUyTin < 50 ? 'text-rose-600' : 'text-amber-600'
+            }`}
+          />
+          <div className="text-xs leading-relaxed space-y-1">
+            {isTempHidden ? (
+              <>
+                <p className="font-bold">
+                  Bài đăng của bạn đang bị tạm ẩn đến {formatDateTime(tamAnDen || '')}
+                </p>
+                <p>
+                  Trong thời gian tạm ẩn, các phòng không hiển thị tìm kiếm và tạm khóa đăng mới/bật hiển thị. Bạn vẫn có thể hoàn tất lịch hẹn đã xác nhận và rút số dư ví hợp lệ.
+                </p>
+              </>
+            ) : diemUyTin < 50 ? (
+              <>
+                <p className="font-bold">
+                  Điểm uy tín hiện tại ({diemUyTin}/100) dưới ngưỡng 50 — Tạm đình chỉ đăng tin mới
+                </p>
+                <p>
+                  Hệ thống tạm khóa quyền đăng phòng mới và bật hiển thị phòng ẩn. Nếu điểm tiếp tục giảm dưới 30, tài khoản sẽ bị tự động khóa. Hãy hoàn thành tốt lịch hẹn để phục hồi điểm.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold">
+                  Điểm uy tín hiện tại ({diemUyTin}/100) ở mức hạn chế — Tối đa 3 phòng hoạt động
+                </p>
+                <p>
+                  Bạn chỉ được duy trì tối đa 3 phòng đang hiển thị hoặc chờ duyệt cùng lúc và mất suất Phòng đề xuất. Duy trì lịch hẹn sạch để nhanh chóng phục hồi điểm.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Số Dư Khả Dụng - Điểm nhấn màu chính (Primary Teal) */}
         <Card
@@ -140,9 +256,13 @@ export const DashboardPage: React.FC = () => {
             </div>
           </Card.Header>
           <Card.Content className="p-0 mt-2">
-            <p className="text-2xl font-black text-slate-900 group-hover:text-teal-900 transition-colors">
-              {formatVND(stats?.soDu ?? 0)}
-            </p>
+            {walletLoading && !walletInfo ? (
+              <div className="h-8 w-36 bg-slate-200/80 rounded-lg animate-pulse" />
+            ) : (
+              <p className="text-2xl font-black text-slate-900 group-hover:text-teal-900 transition-colors">
+                {formatVND(stats.soDu)}
+              </p>
+            )}
             <div className="flex items-center justify-between mt-2 text-[11px] text-teal-700 font-semibold">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -167,15 +287,19 @@ export const DashboardPage: React.FC = () => {
             </div>
           </Card.Header>
           <Card.Content className="p-0 mt-2">
-            <p className="text-2xl font-black text-slate-900">
-              {stats?.tongPhong ?? 0}{' '}
-              <span className="text-sm font-semibold text-slate-400">phòng</span>
-            </p>
+            {roomsLoading && rooms.length === 0 ? (
+              <div className="h-8 w-24 bg-slate-200/80 rounded-lg animate-pulse" />
+            ) : (
+              <p className="text-2xl font-black text-slate-900">
+                {stats.tongPhong}{' '}
+                <span className="text-sm font-semibold text-slate-400">phòng</span>
+              </p>
+            )}
             <div className="flex items-center justify-between mt-2 text-[11px] text-slate-600">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-800">{stats?.dangThue ?? 0} đã thuê</span>
+                <span className="font-semibold text-slate-800">{stats.dangThue} đã thuê</span>
                 <span>•</span>
-                <span className="font-semibold text-teal-700">{stats?.dangTrong ?? 0} đang trống</span>
+                <span className="font-semibold text-teal-700">{stats.dangTrong} đang trống</span>
               </div>
               <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-slate-500" />
             </div>
@@ -196,12 +320,16 @@ export const DashboardPage: React.FC = () => {
             </div>
           </Card.Header>
           <Card.Content className="p-0 mt-2">
-            <p className="text-2xl font-black text-slate-900">
-              {stats?.yeuCauMoi ?? 0}{' '}
-              <span className="text-sm font-semibold text-slate-400">yêu cầu</span>
-            </p>
+            {appointmentsLoading && appointments.length === 0 ? (
+              <div className="h-8 w-24 bg-slate-200/80 rounded-lg animate-pulse" />
+            ) : (
+              <p className="text-2xl font-black text-slate-900">
+                {stats.yeuCauMoi}{' '}
+                <span className="text-sm font-semibold text-slate-400">yêu cầu</span>
+              </p>
+            )}
             <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-medium">
-              <span>{stats?.phongChoDuyet ?? 0} tin đăng đang chờ Admin duyệt</span>
+              <span>{stats.phongChoDuyet} tin đăng đang chờ Admin duyệt</span>
               <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-slate-500" />
             </div>
           </Card.Content>
@@ -236,6 +364,69 @@ export const DashboardPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Đề xuất tối ưu hôm nay (ghim từ Thống kê & Tối ưu) */}
+      {analytics && analytics.deXuatCaiThien.length > 0 && (
+        <Card className="bg-white rounded-2xl border border-teal-200/80 p-5 shadow-xs">
+          <Card.Header className="p-0 pb-3.5 flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <Card.Title className="text-sm font-bold text-slate-900">
+                  Đề xuất tối ưu hôm nay
+                </Card.Title>
+                <Card.Description className="text-[11px] text-slate-500">
+                  Gợi ý ưu tiên dựa trên lượt xem, giá thị trường và lịch hẹn phòng trọ của bạn
+                </Card.Description>
+              </div>
+            </div>
+            <Link
+              to="/landlord/statistics"
+              className="text-xs font-bold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1 shrink-0"
+            >
+              <span>Xem thống kê chi tiết</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </Card.Header>
+          <Card.Content className="p-0 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {analytics.deXuatCaiThien.slice(0, 3).map((rec) => (
+              <div
+                key={rec.id}
+                className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between gap-2.5"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 line-clamp-1">{rec.tieuDe}</span>
+                    <span
+                      className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        rec.mucDoUuTien === 'CAO'
+                          ? 'bg-rose-50 text-rose-700'
+                          : rec.mucDoUuTien === 'TRUNG_BINH'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-teal-50 text-teal-700'
+                      }`}
+                    >
+                      {rec.mucDoUuTien === 'CAO' ? 'Ưu tiên' : rec.mucDoUuTien === 'TRUNG_BINH' ? 'Nên làm' : 'Gợi ý'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">{rec.moTa}</p>
+                </div>
+                <div className="flex justify-end">
+                  <Link
+                    to={rec.duongDan}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800"
+                  >
+                    <span>{rec.hanhDongLabel}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </Card.Content>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
           <Card.Header className="p-0 pb-4 flex flex-row items-center justify-between">
@@ -255,7 +446,13 @@ export const DashboardPage: React.FC = () => {
           </Card.Header>
 
           <Card.Content className="p-0 divide-y divide-slate-100">
-            {recentAppointments.length === 0 ? (
+            {appointmentsLoading && recentAppointments.length === 0 ? (
+              <div className="space-y-3 py-2 animate-pulse">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={idx} className="h-14 rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            ) : recentAppointments.length === 0 ? (
               <p className="text-xs text-slate-400 py-8 text-center">
                 Chưa có lịch hẹn xem phòng nào
               </p>
@@ -345,7 +542,13 @@ export const DashboardPage: React.FC = () => {
             </Card.Header>
 
             <Card.Content className="p-0 space-y-3">
-              {recentRooms.length === 0 ? (
+              {roomsLoading && recentRooms.length === 0 ? (
+                <div className="space-y-3 animate-pulse">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="h-16 rounded-xl bg-slate-100" />
+                  ))}
+                </div>
+              ) : recentRooms.length === 0 ? (
                 <p className="text-xs text-slate-400 py-8 text-center">
                   Bạn chưa đăng phòng trọ nào
                 </p>
@@ -396,6 +599,65 @@ export const DashboardPage: React.FC = () => {
           </Card.Footer>
         </Card>
       </div>
+
+      {/* Lịch sử biến động điểm uy tín */}
+      <Card className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+        <Card.Header className="p-0 pb-3.5 flex flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+              <History className="w-4 h-4" />
+            </div>
+            <div>
+              <Card.Title className="text-sm font-bold text-slate-900">
+                Lịch Sử Biến Động Điểm Uy Tín
+              </Card.Title>
+              <Card.Description className="text-[11px] text-slate-500">
+                Theo dõi các lần cộng/trừ điểm uy tín và chế tài áp dụng trên tài khoản Chủ trọ
+              </Card.Description>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
+            {diemUyTin} / 100 điểm
+          </span>
+        </Card.Header>
+        <Card.Content className="p-0">
+          {!reputationSummary?.lichSu || reputationSummary.lichSu.length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center">
+              Chưa có biến động điểm uy tín nào được ghi nhận.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {reputationSummary.lichSu.slice(0, 6).map((item) => (
+                <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 truncate">{item.lyDo}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {formatDateTime(item.thoiGian)} • {item.loaiSuKien}
+                      {item.maThamChieu ? ` • #${item.maThamChieu}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span
+                      className={`inline-block font-black tabular-nums ${
+                        item.bienDong > 0
+                          ? 'text-teal-700'
+                          : item.bienDong < 0
+                            ? 'text-rose-600'
+                            : 'text-amber-700'
+                      }`}
+                    >
+                      {item.bienDong > 0 ? `+${item.bienDong}` : item.bienDong} điểm
+                    </span>
+                    <p className="text-[10px] text-slate-400 tabular-nums">
+                      {item.diemTruoc} ➔ {item.diemSau}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card.Content>
+      </Card>
 
       {/* MODAL CHI TIẾT LỊCH HẸN */}
       <AppointmentDetailModal

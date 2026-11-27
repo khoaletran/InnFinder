@@ -49,6 +49,21 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
             List<TrangThaiDatLich> trangThais
     );
 
+    List<PhieuDatLich> findByPhongTro_ChuPhongTro_MaChuTroAndTrangThaiIn(
+            String maChuTro,
+            List<TrangThaiDatLich> trangThais
+    );
+
+    @Query("SELECT COUNT(p) > 0 FROM PhieuDatLich p " +
+           "WHERE p.phongTro.chuPhongTro.maChuTro = :maChuTro " +
+           "AND p.trangThai IN :trangThais " +
+           "AND (p.ngayHen > :since OR p.thoiGianDat > :since)")
+    boolean existsRecentValidAppointment(
+            @Param("maChuTro") String maChuTro,
+            @Param("trangThais") List<TrangThaiDatLich> trangThais,
+            @Param("since") LocalDateTime since
+    );
+
     List<PhieuDatLich> findByKhachHang_MaNguoiDungAndTrangThai(String maNguoiDung, TrangThaiDatLich trangThai);
 
     /**

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class TestDepositAccess {
     private final boolean enabled;
 
-    public TestDepositAccess(@Value("${INNFINDER_TEST_DEPOSIT:false}") boolean enabled) {
+    public TestDepositAccess(@Value("${innfinder.test-deposit:${INNFINDER_TEST_DEPOSIT:true}}") boolean enabled) {
         this.enabled = enabled;
     }
 

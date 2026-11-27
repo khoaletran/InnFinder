@@ -31,6 +31,30 @@ public class AiTrackingService {
     @Value("${gemini.usd-vnd-rate:25400}") private double usdVndRate = 25400;
     private LocalDate observedDay;
     private long observedTokens;
+    private final Map<String, Long> recentBehaviorEvents = new LinkedHashMap<>();
+
+    public synchronized void recordRoomBehavior(String feature, String maPhongTro, String actor) {
+        if (feature == null || maPhongTro == null || maPhongTro.isBlank()) return;
+        long now = System.currentTimeMillis();
+        recentBehaviorEvents.values().removeIf(ts -> now - ts > 60_000L);
+        String key = feature + "|" + maPhongTro + "|" + (actor != null && !actor.isBlank() ? actor : "guest");
+        if (recentBehaviorEvents.containsKey(key)) {
+            return;
+        }
+        if (recentBehaviorEvents.size() >= 2000) {
+            recentBehaviorEvents.remove(recentBehaviorEvents.keySet().iterator().next());
+        }
+        recentBehaviorEvents.put(key, now);
+        recordAsync(AiUsageLog.builder()
+                .traceId(UUID.randomUUID().toString())
+                .feature(feature)
+                .model("innfinder-tracker")
+                .maNguoiDung(actor)
+                .maPhongTro(maPhongTro)
+                .status("SUCCESS")
+                .metadataSummary("roomId=" + maPhongTro)
+                .build());
+    }
 
     public void recordAsync(AiUsageLog entry) {
         if (entry == null) return;
@@ -39,6 +63,12 @@ public class AiTrackingService {
             entry.setMaNguoiDung(actor == null ? null : users.findByTenDangNhap(actor).map(u -> u.getMaNguoiDung()).orElse(null));
             entry.setMetadataSummary(trim(entry.getMetadataSummary(), 255));
             entry.setSearchMode(trim(entry.getSearchMode(), 24));
+            if (entry.getMaPhongTro() == null && entry.getMetadataSummary() != null
+                    && entry.getMetadataSummary().startsWith("roomId=PT")) {
+                entry.setMaPhongTro(trim(entry.getMetadataSummary().substring(7), 14));
+            } else {
+                entry.setMaPhongTro(trim(entry.getMaPhongTro(), 14));
+            }
             if (entry.getCreatedAt() == null) entry.setCreatedAt(LocalDateTime.now());
             if (entry.getTraceId() == null) entry.setTraceId(UUID.randomUUID().toString());
             executor.execute(() -> {
@@ -69,8 +99,15 @@ public class AiTrackingService {
         try { if (dailyTokenBudget <= 0) return false; refreshObservedUsage(); return observedTokens >= dailyTokenBudget * .8; }
         catch (Exception ex) { return false; }
     }
+    public static boolean isBehavioralFeature(String feature) {
+        if (feature == null) return false;
+        return feature.startsWith("RECOMMEND")
+                || "ROOM_VIEW".equals(feature)
+                || "TOUR_360_VIEW".equals(feature);
+    }
+
     private static boolean providerLog(AiUsageLog entry) {
-        return !entry.isCacheHit() && !entry.getFeature().startsWith("RECOMMEND");
+        return !entry.isCacheHit() && !isBehavioralFeature(entry.getFeature());
     }
     @Transactional(readOnly = true)
     public AiTrackingSummaryResponse getSummary(int days) {

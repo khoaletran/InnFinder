@@ -5,6 +5,8 @@ import type {
   AdminDashboardStats,
   AdminLandlordRequestItem,
   AdminPostItem,
+  AdminReputationAdjustPayload,
+  AdminReputationHistoryItem,
   AdminReviewItem,
   AdminRevenueInsightResponse,
   AdminStatisticsFilter,
@@ -13,7 +15,9 @@ import type {
   AdminTreasuryStats,
   AdminUserDetailResponse,
   AdminUserItem,
+  DepositFeeHistoryItem,
   RoomTypeDepositFee,
+  UpdateDepositFeePayload,
 } from '@/types/admin.types';
 import type { PageResponse } from '@/types/api.types';
 import type { MucDoViPham, TrangThaiKhieuNai } from '@/types/auth-user.types';
@@ -94,6 +98,7 @@ export const adminService = {
             nhan: String(p?.nhan ?? '').replace(/^T(?=\d{2}\/\d{4}$)/, ''),
             doanhThu: Number(p?.doanhThu ?? 0),
             soLichHoanThanh: Number(p?.soLichHoanThanh ?? 0),
+            soLichDat: Number(p?.soLichDat ?? 0),
           }))
         : d?.bieuDoDoanhThu === undefined
           ? [
@@ -101,18 +106,30 @@ export const adminService = {
                 nhan: `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`,
                 doanhThu: tongDoanhThu,
                 soLichHoanThanh: 0,
+                soLichDat: 0,
               },
             ]
           : [],
       coCauLoaiPhong: Array.isArray(d?.coCauLoaiPhong)
         ? d.coCauLoaiPhong.map((r) => ({
+            maLoaiPhong: r?.maLoaiPhong ? String(r.maLoaiPhong) : undefined,
             tenLoaiPhong: String(r?.tenLoaiPhong ?? 'Khác'),
             soLuong: Number(r?.soLuong ?? 0),
+            soPhongDangHienThi: Number(r?.soPhongDangHienThi ?? 0),
+            luotXem: Number(r?.luotXem ?? 0),
+            luotClickGoiY: Number(r?.luotClickGoiY ?? 0),
+            soLichDat: Number(r?.soLichDat ?? 0),
+            soLichHoanThanh: Number(r?.soLichHoanThanh ?? 0),
+            doanhThuHoaHong: Number(r?.doanhThuHoaHong ?? 0),
+            tyLeChot: Number(r?.tyLeChot ?? 0),
           }))
         : [],
       cacNamCoDuLieu: Array.isArray(d?.cacNamCoDuLieu)
         ? d.cacNamCoDuLieu.map(Number).filter((n) => Number.isFinite(n))
         : [],
+      soSanhKyTruoc: d?.soSanhKyTruoc,
+      pheuChuyenDoi: d?.pheuChuyenDoi,
+      tongQuanAiTracking: d?.tongQuanAiTracking ?? null,
     };
   },
 
@@ -225,6 +242,9 @@ export const adminService = {
     const raw = await axiosClient.get<unknown, {
       user: AdminUserItem & { thoiGianMoTaiKhoan?: string };
       soDu?: number;
+      diemUyTin?: number | null;
+      tamAnDen?: string | null;
+      lichSuDiemUyTin?: AdminReputationHistoryItem[];
       taiKhoanNganHang?: AdminUserDetailResponse['taiKhoanNganHang'];
       giaoDich?: Array<AdminTransactionItem & { ngayGiaoDich?: string; moTa?: string }>;
       lichXemPhong?: Array<Record<string, unknown>>;
@@ -237,6 +257,9 @@ export const adminService = {
         ngayTao: raw.user.ngayTao || raw.user.thoiGianMoTaiKhoan || '',
       },
       soDu: Number(raw.soDu ?? 0),
+      diemUyTin: raw.diemUyTin ?? raw.user.diemUyTin ?? null,
+      tamAnDen: raw.tamAnDen ?? null,
+      lichSuDiemUyTin: Array.isArray(raw.lichSuDiemUyTin) ? raw.lichSuDiemUyTin : [],
       taiKhoanNganHang: Array.isArray(raw.taiKhoanNganHang) ? raw.taiKhoanNganHang : [],
       giaoDich: Array.isArray(raw.giaoDich)
         ? raw.giaoDich.map((gd) => ({
@@ -272,6 +295,10 @@ export const adminService = {
 
   toggleLockUser: (id: string) => {
     return axiosClient.patch<unknown, AdminUserItem>(`/api/admin/users/${id}/toggle-lock`);
+  },
+
+  adjustLandlordReputation: (id: string, payload: AdminReputationAdjustPayload) => {
+    return axiosClient.post<unknown, unknown>(`/api/admin/users/${encodeURIComponent(id)}/reputation`, payload);
   },
 
   resetUserPassword: (id: string, matKhauMoi?: string) => {
@@ -472,11 +499,20 @@ export const adminService = {
       tenLoaiPhong: String(r.tenLoaiPhongTro || r.tenLoaiPhong || ''),
       soTienCoc: Number(r.soTienCoc ?? 0),
       phiThu: Number(r.phiThu ?? 0),
+      tyLePhiPercent: r.tyLePhiPercent !== undefined ? Number(r.tyLePhiPercent) : undefined,
       moTa: r.moTa ? String(r.moTa) : undefined,
     }));
   },
 
-  updateDepositFee: (maLpt: string, payload: { soTienCoc: number; phiThu: number }) => {
+  getDepositFeeHistory: async (maLpt?: string): Promise<DepositFeeHistoryItem[]> => {
+    const res = await axiosClient.get<unknown, DepositFeeHistoryItem[]>(
+      '/api/admin/room-types/deposit-fees/history',
+      { params: maLpt ? { maLpt } : undefined },
+    );
+    return Array.isArray(res) ? res : [];
+  },
+
+  updateDepositFee: (maLpt: string, payload: UpdateDepositFeePayload) => {
     return axiosClient.put<unknown, RoomTypeDepositFee>(
       `/api/admin/room-types/${maLpt}/deposit-fee`,
       payload,

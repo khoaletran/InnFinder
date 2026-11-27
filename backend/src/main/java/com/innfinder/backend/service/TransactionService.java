@@ -119,6 +119,7 @@ public class TransactionService {
         return LandlordWalletResponse.builder()
                 .soDu(chuTro.getSoDu() != null ? chuTro.getSoDu() : 0L)
                 .diemUyTin(chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100)
+                .tamAnDen(chuTro.getTamAnDen())
                 .dsTaiKhoanNganHang(dsBank)
                 .tongDaThu(tongDaThu != null ? tongDaThu : 0L)
                 .tongDaRut(tongDaRut != null ? tongDaRut : 0L)

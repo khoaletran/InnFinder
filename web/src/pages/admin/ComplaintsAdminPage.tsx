@@ -16,9 +16,9 @@ import type { TrangThaiDatLich } from '@/types/booking.types';
 import type { MucDoViPham, TrangThaiKhieuNai } from '@/types/auth-user.types';
 
 const VIOLATION_OPTIONS: Array<{ val: MucDoViPham; label: string; desc: string }> = [
-  { val: 'NHE', label: 'Nhẹ', desc: 'Nhắc nhở cảnh cáo qua email/hệ thống' },
-  { val: 'TRUNG_BINH', label: 'Trung bình', desc: 'Trừ 10 điểm uy tín chủ trọ (áp dụng khi chốt Đã xử lý)' },
-  { val: 'NANG', label: 'Nặng', desc: 'Khóa tài khoản vĩnh viễn & gỡ toàn bộ tin đang hiển thị' },
+  { val: 'NHE', label: 'Nhẹ', desc: 'Cảnh cáo nhắc nhở (3 lần trong 30 ngày tự động trừ 5 điểm)' },
+  { val: 'TRUNG_BINH', label: 'Trung bình', desc: 'Trừ 10 điểm uy tín & tạm ẩn toàn bộ bài đăng 7 ngày' },
+  { val: 'NANG', label: 'Nặng', desc: 'Về 0 điểm, khóa tài khoản vĩnh viễn, gỡ toàn bộ tin & hủy/hoàn cọc các lịch đang mở' },
 ];
 
 export const ComplaintsAdminPage: React.FC = () => {

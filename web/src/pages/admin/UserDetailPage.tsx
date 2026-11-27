@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, Chip, Spinner } from '@heroui/react';
+import { Card, Chip } from '@heroui/react';
 import {
   ArrowLeft,
   Building2,
   CalendarCheck,
   CreditCard,
+  History,
   KeyRound,
   Landmark,
   Lock,
   Receipt,
+  SlidersHorizontal,
   Unlock,
   User,
   Wallet,
@@ -18,6 +20,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
 import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { Modal } from '@/components/common/Modal';
 import { formatDateTime, formatVND } from '@/utils/formatters';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -29,6 +32,10 @@ export const UserDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<DetailTab>('INFO');
+  const [isReputationModalOpen, setIsReputationModalOpen] = useState(false);
+  const [nextScoreInput, setNextScoreInput] = useState('100');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [clearTempHide, setClearTempHide] = useState(false);
 
   const {
     data: detail,
@@ -66,11 +73,45 @@ export const UserDetailPage: React.FC = () => {
     },
   });
 
+  const adjustReputationMutation = useMutation({
+    mutationFn: () =>
+      adminService.adjustLandlordReputation(id!, {
+        diemMoi: Number(nextScoreInput),
+        lyDo: adjustReason.trim(),
+        goTamAn: clearTempHide,
+      }),
+    onSuccess: () => {
+      toast.success('Đã cập nhật điểm uy tín Chủ trọ thành công!');
+      setIsReputationModalOpen(false);
+      setAdjustReason('');
+      setClearTempHide(false);
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'user-detail', id] });
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Lỗi điều chỉnh điểm uy tín');
+    },
+  });
+
   if (isLoading) {
     return (
-      <div className="py-20 flex flex-col items-center justify-center text-text-muted">
-        <Spinner size="md" />
-        <p className="text-xs mt-2">Đang tải hồ sơ chi tiết người dùng...</p>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-36 rounded-lg bg-surface-muted" />
+          <div className="flex gap-2">
+            <div className="h-8 w-28 rounded-lg bg-surface-muted" />
+            <div className="h-8 w-28 rounded-lg bg-surface-muted" />
+          </div>
+        </div>
+        <div className="h-28 rounded-xl bg-surface border border-border" />
+        <div className="flex gap-2">
+          <div className="h-9 w-36 rounded-lg bg-surface-muted" />
+          <div className="h-9 w-28 rounded-lg bg-surface-muted" />
+          <div className="h-9 w-32 rounded-lg bg-surface-muted" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-48 rounded-xl bg-surface border border-border" />
+          <div className="h-48 rounded-xl bg-surface border border-border" />
+        </div>
       </div>
     );
   }
@@ -85,7 +126,19 @@ export const UserDetailPage: React.FC = () => {
     );
   }
 
-  const { user, soDu, taiKhoanNganHang, giaoDich, lichXemPhong, phongChoThue } = detail;
+  const {
+    user,
+    soDu,
+    diemUyTin,
+    tamAnDen,
+    lichSuDiemUyTin = [],
+    taiKhoanNganHang,
+    giaoDich,
+    lichXemPhong,
+    phongChoThue,
+  } = detail;
+  const effectiveReputation = diemUyTin ?? user.diemUyTin ?? 100;
+  const isTempHidden = Boolean(tamAnDen && new Date(tamAnDen).getTime() > Date.now());
   const isLocked = Boolean(user.trangThaiKhoa || user.trangThai === 'KHOA');
   const isSelf = user.maNguoiDung === currentUser?.maNguoiDung;
   const isLandlord = Boolean(user.chuTro || phongChoThue.length > 0);
@@ -131,6 +184,21 @@ export const UserDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <AdminRefreshButton onClick={() => void refetch()} isRefreshing={isFetching} />
+          {isLandlord && (
+            <button
+              type="button"
+              onClick={() => {
+                setNextScoreInput(String(effectiveReputation));
+                setClearTempHide(isTempHidden);
+                setAdjustReason('');
+                setIsReputationModalOpen(true);
+              }}
+              className="px-3 py-2 rounded-lg border border-border bg-surface hover:bg-surface-subtle text-xs font-medium text-text flex items-center gap-1.5 cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-accent" />
+              Điều chỉnh uy tín
+            </button>
+          )}
           <button
             type="button"
             disabled={resetPasswordMutation.isPending}
@@ -197,9 +265,22 @@ export const UserDetailPage: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="p-3 rounded-lg bg-surface-subtle border border-border">
               <span className="text-[11px] text-text-muted block">Điểm uy tín</span>
-              <span className="font-bold text-success-text tabular-nums">
-                {user.diemUyTin ?? 100} / 100
+              <span
+                className={`font-bold tabular-nums ${
+                  effectiveReputation < 50
+                    ? 'text-danger-text'
+                    : effectiveReputation < 70
+                      ? 'text-warning-text'
+                      : 'text-success-text'
+                }`}
+              >
+                {effectiveReputation} / 100
               </span>
+              {isTempHidden && tamAnDen && (
+                <span className="block text-[10px] text-danger-text mt-0.5">
+                  Tạm ẩn đến {formatDateTime(tamAnDen)}
+                </span>
+              )}
             </div>
             {isLandlord && (
               <div className="p-3 rounded-lg bg-surface-subtle border border-border">
@@ -314,6 +395,50 @@ export const UserDetailPage: React.FC = () => {
             )}
           </Card>
         </div>
+      )}
+
+      {activeTab === 'INFO' && isLandlord && (
+        <Card className="bg-surface rounded-xl border border-border p-5 space-y-3">
+          <h2 className="text-sm font-bold text-text flex items-center gap-2">
+            <History className="w-4 h-4 text-accent" />
+            Lịch sử biến động điểm uy tín ({lichSuDiemUyTin.length})
+          </h2>
+          {lichSuDiemUyTin.length === 0 ? (
+            <p className="text-xs text-text-muted py-4 text-center">
+              Chưa có lịch sử điều chỉnh hoặc xử phạt điểm uy tín.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {lichSuDiemUyTin.map((item) => (
+                <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text">{item.lyDo}</p>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      {formatDateTime(item.thoiGian)} • {item.loaiSuKien}
+                      {item.maThamChieu ? ` • #${item.maThamChieu}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span
+                      className={`font-bold tabular-nums ${
+                        item.bienDong > 0
+                          ? 'text-success-text'
+                          : item.bienDong < 0
+                            ? 'text-danger-text'
+                            : 'text-warning-text'
+                      }`}
+                    >
+                      {item.bienDong > 0 ? `+${item.bienDong}` : item.bienDong}
+                    </span>
+                    <div className="text-[10px] text-text-muted tabular-nums">
+                      {item.diemTruoc} ➔ {item.diemSau}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       )}
 
       {activeTab === 'TRANSACTIONS' && (
@@ -516,6 +641,84 @@ export const UserDetailPage: React.FC = () => {
           </Card.Content>
         </Card>
       )}
+
+      <Modal
+        isOpen={isReputationModalOpen}
+        onClose={() => setIsReputationModalOpen(false)}
+        title="Điều chỉnh điểm uy tín Chủ trọ"
+        subtitle={`${user.hoVaTen || user.tenDangNhap} (${user.maNguoiDung})`}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsReputationModalOpen(false)}
+              className="px-4 py-2 rounded-lg border border-border text-xs font-medium text-text-secondary hover:bg-surface-subtle cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              disabled={adjustReputationMutation.isPending}
+              onClick={() => {
+                const parsed = Number(nextScoreInput);
+                if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+                  toast.error('Điểm uy tín mới phải là số nguyên từ 0 đến 100');
+                  return;
+                }
+                if (!adjustReason.trim()) {
+                  toast.error('Vui lòng nhập lý do điều chỉnh');
+                  return;
+                }
+                adjustReputationMutation.mutate();
+              }}
+              className="px-4 py-2 rounded-lg bg-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            >
+              {adjustReputationMutation.isPending ? 'Đang lưu...' : 'Xác nhận điều chỉnh'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold text-text mb-1.5">
+              Điểm uy tín mới (0 – 100)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={nextScoreInput}
+              onChange={(e) => setNextScoreInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text text-sm font-semibold"
+            />
+          </div>
+          {isTempHidden && (
+            <label className="flex items-center gap-2 cursor-pointer select-none p-3 rounded-lg bg-surface-subtle border border-border">
+              <input
+                type="checkbox"
+                checked={clearTempHide}
+                onChange={(e) => setClearTempHide(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span className="font-medium text-text">
+                Gỡ trạng thái tạm ẩn bài đăng 7 ngày ngay lập tức
+              </span>
+            </label>
+          )}
+          <div>
+            <label className="block font-semibold text-text mb-1.5">
+              Lý do điều chỉnh (bắt buộc)
+            </label>
+            <textarea
+              rows={3}
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              placeholder="Ví dụ: Giải oan khiếu nại #KN..., khôi phục uy tín sau xác minh thực tế..."
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text text-xs"
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

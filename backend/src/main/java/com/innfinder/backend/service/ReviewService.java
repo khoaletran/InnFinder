@@ -32,6 +32,9 @@ public class ReviewService {
     private final NguoiDungRepository nguoiDungRepository;
     private final PhieuDatLichRepository phieuDatLichRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ReputationService reputationService;
+
     @Transactional
     public ReviewResponseDTO createReview(String roomId, ReviewRequestDTO request) {
         PhongTro phongTro = phongTroRepository.findById(roomId)
@@ -84,6 +87,9 @@ public class ReviewService {
                 .build();
 
         danhGia = danhGiaRepository.save(danhGia);
+        if (reputationService != null && phongTro.getChuPhongTro() != null && request.getDiem() >= 4) {
+            reputationService.rewardNewReview(phongTro.getChuPhongTro().getMaChuTro(), danhGia.getMaDanhGia(), request.getDiem());
+        }
         return toResponseDTO(danhGia);
     }
 

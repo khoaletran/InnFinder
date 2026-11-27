@@ -107,20 +107,11 @@ export const WalletPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl w-full mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Quản lý Ví & Tài khoản Ngân hàng
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Quản lý danh sách ngân hàng nhận hoàn cọc và đối soát dòng tiền
-          </p>
-        </div>
-
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => setIsAddBankOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm cursor-pointer self-start sm:self-auto transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm cursor-pointer transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>Liên kết ngân hàng mới</span>

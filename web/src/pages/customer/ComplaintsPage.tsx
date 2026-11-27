@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { axiosClient } from '@/api/axiosClient';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
-import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import { PageContainer } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { authUserService } from '@/services/authUser.service';
@@ -183,11 +183,6 @@ export const ComplaintsPage: React.FC = () => {
 
   return (
     <PageContainer width="wide" className="space-y-6">
-      <PageHeader
-        title="Khiếu nại & Hỗ trợ"
-        subtitle="Gửi minh chứng vi phạm, theo dõi kết quả xử lý và liên hệ đội ngũ bảo vệ người dùng"
-      />
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* CỘT TRÁI: FORM TẠO KHIẾU NẠI + LỊCH SỬ KHIẾU NẠI */}
         <div className="lg:col-span-7 space-y-6">

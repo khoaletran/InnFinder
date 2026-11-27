@@ -8,29 +8,48 @@ import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.SseNotificationService;
 import com.innfinder.backend.repository.NguoiDungRepository;
 import com.innfinder.backend.repository.PhieuDatLichRepository;
 import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DirectChatService {
 
     private static final TypeReference<Map<String, Map<String, Object>>> MAP_OF_DOCS = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> SINGLE_MAP = new TypeReference<>() {};
+    private static final int DEFAULT_PAGE_LIMIT = 10;
+    private static final int MAX_PAGE_LIMIT = 50;
 
     private final RoommateRealtimeDbClient rtdb;
     private final PhieuDatLichRepository bookings;
     private final NguoiDungRepository users;
 
+    @Autowired(required = false)
+    private SseNotificationService sseNotificationService;
+
     @Transactional(readOnly = true)
-    public List<ChatConversationSummaryDto> getConversations(String roleScope) {
+    public ChatConversationPageDto getConversations(String roleScope) {
+        return getConversations(roleScope, DEFAULT_PAGE_LIMIT, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ChatConversationPageDto getConversations(String roleScope, int limit, String cursor) {
+        int safeLimit = Math.clamp(limit, 1, MAX_PAGE_LIMIT);
         String currentUsername = SecurityUtils.getCurrentUsername();
         NguoiDung currentUser = users.findByTenDangNhap(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -40,19 +59,58 @@ public class DirectChatService {
         List<TrangThaiDatLich> allowedStatuses = List.of(TrangThaiDatLich.XAC_NHAN, TrangThaiDatLich.HOAN_THANH);
         String scope = roleScope == null ? "ALL" : roleScope.trim().toUpperCase(Locale.ROOT);
 
-        // Đọc toàn bộ metadata của các kênh chat một lần để ghép tin nhắn mới nhất
-        Map<String, Map<String, Object>> allChatNodes = rtdb.get("chats", MAP_OF_DOCS);
+        List<PhieuDatLich> customerBookings = !"LANDLORD".equals(scope)
+                ? bookings.findByKhachHang_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(currentUserId, allowedStatuses)
+                : List.of();
+        List<PhieuDatLich> landlordBookings = !"CUSTOMER".equals(scope)
+                ? bookings.findByPhongTro_ChuPhongTro_NguoiDung_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(currentUserId, allowedStatuses)
+                : List.of();
+
+        Set<String> candidateChannelIds = new LinkedHashSet<>();
+        for (PhieuDatLich booking : customerBookings) {
+            NguoiDung landlord = booking.getPhongTro() != null && booking.getPhongTro().getChuPhongTro() != null
+                    ? booking.getPhongTro().getChuPhongTro().getNguoiDung()
+                    : null;
+            if (landlord != null) {
+                candidateChannelIds.add(buildPairChannelId("booking_pair", currentUserId, landlord.getMaNguoiDung()));
+            }
+        }
+        for (PhieuDatLich booking : landlordBookings) {
+            NguoiDung tenant = booking.getKhachHang();
+            if (tenant != null) {
+                candidateChannelIds.add(buildPairChannelId("booking_pair", currentUserId, tenant.getMaNguoiDung()));
+            }
+        }
+
+        List<String> roommateChannelIds = new ArrayList<>();
+        if (!"LANDLORD".equals(scope)) {
+            Map<String, Object> indexedChats = rtdb.get("userChats/" + currentUserId, SINGLE_MAP);
+            Map<String, Object> sourceChats = (indexedChats != null && !indexedChats.isEmpty())
+                    ? indexedChats
+                    : rtdb.getWithQuery("chats", "shallow=true", SINGLE_MAP);
+            if (sourceChats != null) {
+                for (String channelId : sourceChats.keySet()) {
+                    if (channelId.startsWith("roommate_")) {
+                        roommateChannelIds.add(channelId);
+                        candidateChannelIds.add(channelId);
+                    }
+                }
+            }
+        }
+
+        // Chỉ đọc node /meta của từng kênh song song, không tải toàn bộ cây /chats hay /messages
+        Map<String, Map<String, Object>> metaByChannel = fetchMetaInParallel(candidateChannelIds);
 
         if (!"LANDLORD".equals(scope)) {
             // 1. Lịch hẹn với tư cách Khách thuê (gom 1 kênh duy nhất theo cặp Khách - Chủ trọ)
-            for (PhieuDatLich booking : bookings.findByKhachHang_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(currentUserId, allowedStatuses)) {
+            for (PhieuDatLich booking : customerBookings) {
                 NguoiDung landlord = booking.getPhongTro() != null && booking.getPhongTro().getChuPhongTro() != null
                         ? booking.getPhongTro().getChuPhongTro().getNguoiDung()
                         : null;
                 if (landlord == null) continue;
                 String channelId = buildPairChannelId("booking_pair", currentUserId, landlord.getMaNguoiDung());
                 if (byChannel.containsKey(channelId)) continue;
-                Map<String, Object> meta = extractMeta(allChatNodes, channelId);
+                Map<String, Object> meta = metaByChannel.get(channelId);
                 String roomTitle = booking.getPhongTro().getDiaChi() != null
                         ? booking.getPhongTro().getDiaChi()
                         : ("Lịch hẹn #" + booking.getMaDatLich());
@@ -72,12 +130,12 @@ public class DirectChatService {
 
         if (!"CUSTOMER".equals(scope)) {
             // 2. Lịch hẹn với tư cách Chủ trọ (gom 1 kênh duy nhất theo cặp Chủ trọ - Khách)
-            for (PhieuDatLich booking : bookings.findByPhongTro_ChuPhongTro_NguoiDung_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(currentUserId, allowedStatuses)) {
+            for (PhieuDatLich booking : landlordBookings) {
                 NguoiDung tenant = booking.getKhachHang();
                 if (tenant == null) continue;
                 String channelId = buildPairChannelId("booking_pair", currentUserId, tenant.getMaNguoiDung());
                 if (byChannel.containsKey(channelId)) continue;
-                Map<String, Object> meta = extractMeta(allChatNodes, channelId);
+                Map<String, Object> meta = metaByChannel.get(channelId);
                 String roomTitle = booking.getPhongTro() != null && booking.getPhongTro().getDiaChi() != null
                         ? booking.getPhongTro().getDiaChi()
                         : ("Lịch hẹn #" + booking.getMaDatLich());
@@ -95,65 +153,142 @@ public class DirectChatService {
             }
         }
 
-        // 3. Các cuộc trò chuyện Ở ghép (ROOMMATE) đã phát sinh tin nhắn từ RTDB
-        if (!"LANDLORD".equals(scope) && allChatNodes != null) {
-            for (Map.Entry<String, Map<String, Object>> entry : allChatNodes.entrySet()) {
-                String channelId = entry.getKey();
-                if (!channelId.startsWith("roommate_")) continue;
-                Map<String, Object> meta = extractMeta(allChatNodes, channelId);
-                if (meta == null) continue;
-
-                String authorId = str(meta.get("authorId"));
-                String applicantId = str(meta.get("applicantId"));
-                if (!currentUserId.equals(authorId) && !currentUserId.equals(applicantId)) continue;
-
-                boolean isAuthor = currentUserId.equals(authorId);
-                String partnerId = isAuthor ? applicantId : authorId;
-                NguoiDung partner = partnerId != null ? users.findById(partnerId).orElse(null) : null;
-                String partnerName = partner != null ? nonBlank(partner.getHoVaTen(), partner.getTenDangNhap()) : "Bạn ở ghép";
-                String partnerAvatar = partner != null ? partner.getHinhDaiDien() : null;
-
-                byChannel.put(channelId, buildSummary(
-                        channelId,
-                        "ROOMMATE",
-                        str(meta.get("contextId")),
-                        nonBlank(str(meta.get("title")), "Trao đổi ở ghép"),
-                        partnerName,
-                        partnerAvatar,
-                        isAuthor ? "Người quan tâm ở ghép" : "Chủ bài ở ghép",
-                        meta,
-                        0L
-                ));
+        // 3. Các cuộc trò chuyện Ở ghép (ROOMMATE) đã phát sinh tin nhắn từ RTDB (batch load partner)
+        Set<String> partnerIds = new LinkedHashSet<>();
+        for (String channelId : roommateChannelIds) {
+            Map<String, Object> meta = metaByChannel.get(channelId);
+            if (meta == null) continue;
+            String authorId = str(meta.get("authorId"));
+            String applicantId = str(meta.get("applicantId"));
+            if (!currentUserId.equals(authorId) && !currentUserId.equals(applicantId)) continue;
+            String partnerId = currentUserId.equals(authorId) ? applicantId : authorId;
+            if (partnerId != null && !partnerId.isBlank()) {
+                partnerIds.add(partnerId);
+            }
+        }
+        Map<String, NguoiDung> partnersById = new HashMap<>();
+        if (!partnerIds.isEmpty()) {
+            for (NguoiDung u : users.findAllById(partnerIds)) {
+                if (u.getMaNguoiDung() != null) {
+                    partnersById.put(u.getMaNguoiDung(), u);
+                }
             }
         }
 
-        return byChannel.values().stream()
-                .sorted(Comparator.comparingLong(ChatConversationSummaryDto::updatedAtMs).reversed())
+        for (String channelId : roommateChannelIds) {
+            Map<String, Object> meta = metaByChannel.get(channelId);
+            if (meta == null) continue;
+
+            String authorId = str(meta.get("authorId"));
+            String applicantId = str(meta.get("applicantId"));
+            if (!currentUserId.equals(authorId) && !currentUserId.equals(applicantId)) continue;
+
+            boolean isAuthor = currentUserId.equals(authorId);
+            String partnerId = isAuthor ? applicantId : authorId;
+            NguoiDung partner = partnerId != null ? partnersById.get(partnerId) : null;
+            String partnerName = partner != null ? nonBlank(partner.getHoVaTen(), partner.getTenDangNhap()) : "Bạn ở ghép";
+            String partnerAvatar = partner != null ? partner.getHinhDaiDien() : null;
+
+            byChannel.put(channelId, buildSummary(
+                    channelId,
+                    "ROOMMATE",
+                    str(meta.get("contextId")),
+                    nonBlank(str(meta.get("title")), "Trao đổi ở ghép"),
+                    partnerName,
+                    partnerAvatar,
+                    isAuthor ? "Người quan tâm ở ghép" : "Chủ bài ở ghép",
+                    meta,
+                    0L
+            ));
+        }
+
+        List<ChatConversationSummaryDto> sorted = byChannel.values().stream()
+                .sorted(Comparator.comparingLong(ChatConversationSummaryDto::updatedAtMs).reversed()
+                        .thenComparing(ChatConversationSummaryDto::channelId))
                 .toList();
+
+        Long cursorMs = null;
+        String cursorChannelId = null;
+        if (cursor != null && !cursor.isBlank()) {
+            int sep = cursor.indexOf(':');
+            if (sep > 0) {
+                try {
+                    cursorMs = Long.parseLong(cursor.substring(0, sep));
+                    cursorChannelId = cursor.substring(sep + 1);
+                } catch (NumberFormatException ignored) {
+                    cursorMs = null;
+                }
+            }
+        }
+
+        final Long cMs = cursorMs;
+        final String cId = cursorChannelId;
+        List<ChatConversationSummaryDto> slice = sorted.stream()
+                .filter(c -> cMs == null
+                        || c.updatedAtMs() < cMs
+                        || (c.updatedAtMs() == cMs && c.channelId().compareTo(cId) > 0))
+                .limit(safeLimit + 1L)
+                .toList();
+
+        boolean hasMore = slice.size() > safeLimit;
+        List<ChatConversationSummaryDto> pageItems = hasMore ? slice.subList(0, safeLimit) : slice;
+        String nextCursor = (hasMore && !pageItems.isEmpty())
+                ? pageItems.get(pageItems.size() - 1).updatedAtMs() + ":" + pageItems.get(pageItems.size() - 1).channelId()
+                : null;
+
+        return new ChatConversationPageDto(pageItems, nextCursor, hasMore);
     }
 
     @Transactional(readOnly = true)
     public ChatThreadDto getThread(String channelType, String contextId) {
+        return getThread(channelType, contextId, DEFAULT_PAGE_LIMIT, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ChatThreadDto getThread(String channelType, String contextId, int limit, String beforeId) {
+        int safeLimit = Math.clamp(limit, 1, MAX_PAGE_LIMIT);
         ChatContext ctx = resolveAndAuthorize(channelType, contextId);
-        Map<String, Map<String, Object>> raw = rtdb.get("chats/" + ctx.channelId + "/messages", MAP_OF_DOCS);
+
+        String trimmedBefore = beforeId != null ? beforeId.trim() : null;
+        boolean hasBefore = trimmedBefore != null && !trimmedBefore.isEmpty();
+        String query = hasBefore
+                ? "orderBy=%22%24key%22&endAt=%22" + URLEncoder.encode(trimmedBefore, StandardCharsets.UTF_8) + "%22&limitToLast=" + (safeLimit + 2)
+                : "orderBy=%22%24key%22&limitToLast=" + (safeLimit + 1);
+
+        Map<String, Map<String, Object>> raw = rtdb.getWithQuery(
+                "chats/" + ctx.channelId + "/messages",
+                query,
+                MAP_OF_DOCS
+        );
 
         List<ChatMessageDto> messages = new ArrayList<>();
+        boolean hasMore = false;
         if (raw != null && !raw.isEmpty()) {
-            raw.entrySet().stream()
+            List<Map.Entry<String, Map<String, Object>>> sorted = raw.entrySet().stream()
                     .filter(e -> e.getValue() != null)
-                    .sorted(Comparator.comparingLong(e -> toLong(e.getValue().get("createdAtMs"))))
-                    .forEach(e -> {
-                        Map<String, Object> doc = e.getValue();
-                        messages.add(new ChatMessageDto(
-                                e.getKey(),
-                                str(doc.get("senderId")),
-                                str(doc.get("senderName")),
-                                str(doc.get("senderAvatar")),
-                                str(doc.get("content")),
-                                str(doc.get("createdAt"))
-                        ));
-                    });
+                    .filter(e -> !hasBefore || e.getKey().compareTo(trimmedBefore) < 0)
+                    .sorted(Map.Entry.comparingByKey())
+                    .toList();
+
+            hasMore = sorted.size() > safeLimit;
+            if (hasMore) {
+                sorted = sorted.subList(sorted.size() - safeLimit, sorted.size());
+            }
+
+            for (Map.Entry<String, Map<String, Object>> e : sorted) {
+                Map<String, Object> doc = e.getValue();
+                messages.add(new ChatMessageDto(
+                        e.getKey(),
+                        str(doc.get("senderId")),
+                        str(doc.get("senderName")),
+                        str(doc.get("senderAvatar")),
+                        str(doc.get("content")),
+                        str(doc.get("createdAt"))
+                ));
+            }
         }
+
+        String nextCursor = (hasMore && !messages.isEmpty()) ? messages.get(0).id() : null;
 
         return new ChatThreadDto(
                 ctx.channelId,
@@ -163,7 +298,9 @@ public class DirectChatService {
                 ctx.partnerName,
                 ctx.partnerAvatar,
                 ctx.partnerRoleLabel,
-                messages
+                messages,
+                nextCursor,
+                hasMore
         );
     }
 
@@ -190,6 +327,15 @@ public class DirectChatService {
 
         String messageId = rtdb.post("chats/" + ctx.channelId + "/messages", payload);
 
+        ChatMessageDto savedMessage = new ChatMessageDto(
+                messageId,
+                sender.getMaNguoiDung(),
+                senderName,
+                sender.getHinhDaiDien(),
+                content,
+                nowIso
+        );
+
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("contextType", ctx.contextType);
         meta.put("contextId", contextId);
@@ -200,16 +346,36 @@ public class DirectChatService {
         meta.put("updatedAtMs", nowMs);
         if (ctx.authorId != null) meta.put("authorId", ctx.authorId);
         if (ctx.applicantId != null) meta.put("applicantId", ctx.applicantId);
-        rtdb.patch("chats/" + ctx.channelId + "/meta", meta);
 
-        return new ChatMessageDto(
-                messageId,
-                sender.getMaNguoiDung(),
-                senderName,
-                sender.getHinhDaiDien(),
-                content,
-                nowIso
-        );
+        // Cập nhật meta & chỉ mục userChats bất đồng bộ để API sendMessage trả về ngay sau khi ghi message
+        CompletableFuture.runAsync(() -> {
+            try {
+                rtdb.patch("chats/" + ctx.channelId + "/meta", meta);
+                rtdb.put("userChats/" + sender.getMaNguoiDung() + "/" + ctx.channelId, Map.of("active", true));
+                if (ctx.partnerId != null && !ctx.partnerId.isBlank()) {
+                    rtdb.put("userChats/" + ctx.partnerId + "/" + ctx.channelId, Map.of("active", true));
+                }
+            } catch (Exception ex) {
+                log.warn("Không thể cập nhật meta kênh chat {}: {}", ctx.channelId, ex.getMessage());
+            }
+        });
+
+        if (sseNotificationService != null) {
+            Map<String, Object> eventPayload = new LinkedHashMap<>();
+            eventPayload.put("channelId", ctx.channelId);
+            eventPayload.put("contextType", ctx.contextType);
+            eventPayload.put("contextId", contextId);
+            eventPayload.put("updatedAt", nowIso);
+            eventPayload.put("updatedAtMs", nowMs);
+            eventPayload.put("message", savedMessage);
+
+            if (ctx.partnerId != null && !ctx.partnerId.isBlank()) {
+                sseNotificationService.sendToUser(ctx.partnerId, "CHAT_MESSAGE", eventPayload);
+            }
+            sseNotificationService.sendToUser(sender.getMaNguoiDung(), "CHAT_MESSAGE", eventPayload);
+        }
+
+        return savedMessage;
     }
 
     private ChatContext resolveAndAuthorize(String channelType, String contextId) {
@@ -255,6 +421,7 @@ public class DirectChatService {
                     partnerAvatar,
                     isTenant ? "Chủ trọ" : "Khách xem phòng",
                     currentUser,
+                    partner != null ? partner.getMaNguoiDung() : null,
                     null,
                     null
             );
@@ -301,6 +468,7 @@ public class DirectChatService {
                     partnerAvatar,
                     isAuthor ? "Người quan tâm ở ghép" : "Chủ bài ở ghép",
                     currentUser,
+                    partnerId,
                     authorId,
                     applicantId
             );
@@ -309,16 +477,25 @@ public class DirectChatService {
         throw new AppException(ErrorCode.INVALID_KEY);
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> extractMeta(Map<String, Map<String, Object>> allNodes, String channelId) {
-        if (allNodes == null) return null;
-        Map<String, Object> node = allNodes.get(channelId);
-        if (node == null) return null;
-        Object metaObj = node.get("meta");
-        if (metaObj instanceof Map<?, ?> m) {
-            return (Map<String, Object>) m;
+    private Map<String, Map<String, Object>> fetchMetaInParallel(Collection<String> channelIds) {
+        if (channelIds == null || channelIds.isEmpty()) {
+            return Map.of();
         }
-        return null;
+        Map<String, Map<String, Object>> result = new ConcurrentHashMap<>();
+        List<CompletableFuture<Void>> futures = channelIds.stream()
+                .map(channelId -> CompletableFuture.runAsync(() -> {
+                    try {
+                        Map<String, Object> meta = rtdb.get("chats/" + channelId + "/meta", SINGLE_MAP);
+                        if (meta != null && !meta.isEmpty()) {
+                            result.put(channelId, meta);
+                        }
+                    } catch (Exception ex) {
+                        log.debug("Bỏ qua đọc meta kênh {}: {}", channelId, ex.getMessage());
+                    }
+                }))
+                .toList();
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        return result;
     }
 
     private static ChatConversationSummaryDto buildSummary(
@@ -387,6 +564,7 @@ public class DirectChatService {
             String partnerAvatar,
             String partnerRoleLabel,
             NguoiDung currentUser,
+            String partnerId,
             String authorId,
             String applicantId
     ) {

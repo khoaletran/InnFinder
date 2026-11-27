@@ -35,6 +35,11 @@ public class AdminStatisticsResponseDTO {
     private List<RoomTypeStatDTO> coCauLoaiPhong;
     private List<Integer> cacNamCoDuLieu;
 
+    // --- DỮ LIỆU TRACKING, PHỄU CHUYỂN ĐỔI & SO SÁNH KỲ TRƯỚC ---
+    private PeriodComparisonDTO soSanhKyTruoc;
+    private ConversionFunnelDTO pheuChuyenDoi;
+    private AiBusinessSummaryDTO tongQuanAiTracking;
+
     @Getter
     @Setter
     @NoArgsConstructor
@@ -44,6 +49,7 @@ public class AdminStatisticsResponseDTO {
         private String nhan;
         private long doanhThu;
         private long soLichHoanThanh;
+        private long soLichDat;
     }
 
     @Getter
@@ -52,7 +58,90 @@ public class AdminStatisticsResponseDTO {
     @AllArgsConstructor
     @Builder
     public static class RoomTypeStatDTO {
+        private String maLoaiPhong;
         private String tenLoaiPhong;
         private long soLuong;
+        private long soPhongDangHienThi;
+        private long luotXem;
+        private long luotClickGoiY;
+        private long soLichDat;
+        private long soLichHoanThanh;
+        private long doanhThuHoaHong;
+        private double tyLeChot;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PeriodComparisonDTO {
+        private boolean coSoSanh;
+        private long doanhThuKyTruoc;
+        private Double phanTramBienDongDoanhThu;
+        private long soLichHoanThanhKyTruoc;
+        private Double phanTramBienDongLich;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ConversionFunnelDTO {
+        private long luotTimKiemAi;
+        private long luotHienThiGoiY;
+        private long luotClickGoiY;
+        private double ctrGoiYPercent;
+        private long luotXemChiTiet;
+        private long luotXemTour360;
+        private long luotYeuThich;
+        private long soLichDatCoc;
+        private long soLichDaXem;
+        private long soLichHoanThanh;
+        private long soLichHuy;
+        private long soLichKhachTuChoi;
+        private long soLichChuTroTuChoi;
+        private long soCaNoShow;
+        private double tyLeChotTuDatLichPercent;
+        private double tyLeChotTuXemThucTePercent;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class AiBusinessSummaryDTO {
+        private long tongLuotGoiProvider;
+        private long tongLuotBypass;
+        private double tyLeTietKiemBypassPercent;
+        private double tyLeThanhCongPercent;
+        private long tongToken;
+        private double chiPhiUocTinhUsd;
+        private long chiPhiUocTinhVnd;
+        private boolean pricingConfigured;
+        private long bienLoiNhuanSauAiVnd;
+        private double tyLeChiPhiAiTrenDoanhThuPercent;
+        private long dailyTokensUsed;
+        private long dailyTokenLimit;
+        private double quotaUsagePercent;
+        private boolean quotaWarning;
+        private long totalApprovedRooms;
+        private long indexedRooms;
+        private double vectorCoveragePercent;
+        private long semanticSearchCount;
+        private long filteredFallbackCount;
+        private List<IntentStatDTO> topIntents;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class IntentStatDTO {
+        private String intent;
+        private long count;
     }
 }

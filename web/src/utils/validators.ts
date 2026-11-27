@@ -40,6 +40,9 @@ export const registerSchema = z
       ),
     matKhau: z.string().min(8, 'Mật khẩu phải có tối thiểu 8 ký tự'),
     xacNhanMatKhau: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+    dongYDieuKhoan: z.boolean().refine((val) => val === true, {
+      message: 'Vui lòng đọc và đồng ý với Điều khoản sử dụng & Chính sách bảo mật',
+    }),
     chuTro: z.boolean().default(false),
     cccd: z.string().optional(),
     anhCccdTruoc: z.string().optional(),
@@ -115,6 +118,9 @@ export const upgradeLandlordSchema = z.object({
     .string()
     .regex(REGEX_PATTERNS.BANK_ACCOUNT, 'Số tài khoản ngân hàng phải từ 6 đến 20 chữ số'),
   tenChuTaiKhoan: z.string().min(2, 'Vui lòng nhập họ tên chủ tài khoản khớp CCCD'),
+  dongYChinhSachChuTro: z.boolean().refine((val) => val === true, {
+    message: 'Vui lòng đọc toàn bộ và đồng ý với Chính sách Uy tín & Xử phạt Chủ trọ',
+  }),
 });
 
 export const changePasswordSchema = z
@@ -170,11 +176,31 @@ export const withdrawSchema = (maxBalance: number) =>
 
 export const categoryDepositFeeSchema = z
   .object({
-    soTienCoc: z.number().int().positive('Mức cọc xem phòng phải lớn hơn 0'),
-    phiThu: z.number().int().min(0, 'Phí hoa hồng sàn phải >= 0'),
+    soTienCoc: z
+      .number()
+      .int('Mức cọc phải là số nguyên')
+      .min(50000, 'Mức cọc giữ chân tối thiểu là 50.000 đ')
+      .max(2000000, 'Mức cọc giữ chân tối đa là 2.000.000 đ')
+      .refine((v) => v % 1000 === 0, 'Mức cọc phải là bội số của 1.000 đ'),
+    phiThu: z
+      .number()
+      .int('Phí hoa hồng phải là số nguyên')
+      .min(0, 'Phí hoa hồng sàn phải >= 0')
+      .max(600000, 'Phí hoa hồng sàn tối đa là 600.000 đ')
+      .refine((v) => v % 1000 === 0, 'Phí hoa hồng phải là bội số của 1.000 đ'),
+    lyDo: z
+      .string()
+      .trim()
+      .min(5, 'Lý do thay đổi biểu phí tối thiểu 5 ký tự')
+      .max(500, 'Lý do thay đổi biểu phí tối đa 500 ký tự'),
+    matKhauAdmin: z.string().min(1, 'Vui lòng nhập mật khẩu Quản trị viên để xác nhận'),
   })
   .refine((d) => d.phiThu < d.soTienCoc, {
     message: 'Phí hoa hồng phải nhỏ hơn tiền cọc giữ chân',
+    path: ['phiThu'],
+  })
+  .refine((d) => d.phiThu * 100 <= d.soTienCoc * 30, {
+    message: 'Phí hoa hồng sàn không được vượt quá 30% tiền cọc giữ chân',
     path: ['phiThu'],
   });
 

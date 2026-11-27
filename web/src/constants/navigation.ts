@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Activity,
   AlertTriangle,
   BarChart3,
   Bell,
@@ -55,6 +54,7 @@ export const LANDLORD_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Lịch hẹn xem phòng', path: '/landlord/appointments', icon: CalendarCheck },
   { label: 'Tin nhắn', path: '/landlord/chat', icon: MessageCircle },
   { label: 'Ví & Rút tiền', path: '/landlord/wallet', icon: Wallet },
+  { label: 'Thống kê & Tối ưu', path: '/landlord/statistics', icon: BarChart3 },
   { label: 'Đánh giá & Khiếu nại', path: '/landlord/reviews', icon: MessageSquare },
 ];
 
@@ -68,5 +68,4 @@ export const ADMIN_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Xử lý khiếu nại', path: '/admin/complaints', icon: AlertTriangle },
   { label: 'Danh mục & Phí sàn', path: '/admin/categories', icon: Layers },
   { label: 'Thống kê doanh thu', path: '/admin/statistics', icon: BarChart3 },
-  { label: 'Giám sát AI', path: '/admin/ai-tracking', icon: Activity },
 ];

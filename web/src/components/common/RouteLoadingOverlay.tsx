@@ -66,9 +66,33 @@ const RouteLoadingSession: React.FC<{ message?: string }> = ({ message }) => {
   );
 };
 
+const HEAVY_ROUTE_MESSAGES: Array<{ match: (path: string) => boolean; message: string }> = [
+  // Admin Console — các trang tổng hợp đa bảng / sổ cái / dữ liệu lớn
+  { match: (p) => p === '/admin/dashboard', message: 'Đang tải tổng quan quản trị & ngân khố...' },
+  { match: (p) => p === '/admin/statistics', message: 'Đang tổng hợp dữ liệu thống kê sàn...' },
+  { match: (p) => p === '/admin/posts', message: 'Đang tải danh sách bài đăng phòng trọ...' },
+  { match: (p) => p.startsWith('/admin/users'), message: 'Đang tải dữ liệu người dùng & hồ sơ...' },
+  { match: (p) => p === '/admin/transactions', message: 'Đang tải sổ cái giao dịch & ngân khố...' },
+
+  // Landlord Portal — các trang tổng hợp nhiều nguồn / biểu đồ phân tích
+  { match: (p) => p === '/landlord/dashboard', message: 'Đang tải bảng điều khiển chủ trọ...' },
+  { match: (p) => p === '/landlord/statistics', message: 'Đang phân tích hiệu quả & dòng tiền...' },
+
+  // Customer Portal — các trang bản đồ nặng hoặc đọc RTDB
+  { match: (p) => p === '/search/map', message: 'Đang tải bản đồ & vị trí phòng trọ...' },
+  { match: (p) => p.startsWith('/roommates'), message: 'Đang tải dữ liệu ở ghép...' },
+];
+
+export function resolveHeavyRouteMessage(pathname: string): string | null {
+  const found = HEAVY_ROUTE_MESSAGES.find((entry) => entry.match(pathname));
+  return found ? found.message : null;
+}
+
 export const RouteLoadingOverlay: React.FC<RouteLoadingOverlayProps> = ({
-  message = 'Đang tải dữ liệu trang...',
+  message,
 }) => {
   const location = useLocation();
-  return <RouteLoadingSession key={location.pathname} message={message} />;
+  const routeMessage = resolveHeavyRouteMessage(location.pathname);
+  if (!routeMessage) return null;
+  return <RouteLoadingSession key={location.pathname} message={message ?? routeMessage} />;
 };

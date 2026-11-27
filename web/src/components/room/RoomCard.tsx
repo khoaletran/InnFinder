@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Card } from '@heroui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Calendar, Heart, MapPin, ShieldCheck, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
@@ -43,11 +45,20 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   homeCompact = false,
 }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [nowMs] = useState(() => Date.now());
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isFavorite, toggleFavorite } = useFavoriteStore();
   const favorited = isFavorite(room.maPhongTro);
   const isNewRoom = isRecentRoom(room.thoiGianDang, nowMs);
+
+  const prefetchRoomDetail = () => {
+    void queryClient.prefetchQuery({
+      queryKey: ['rooms', 'detail', room.maPhongTro],
+      queryFn: () => roomService.getRoomDetail(room.maPhongTro),
+      staleTime: 1000 * 60,
+    });
+  };
 
   const formatPrice = (price: number) => {
     if (!price || price <= 0) return 'Thỏa thuận';
@@ -96,7 +107,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
     return (
       <Card
         onClick={handleCardClick}
-        onMouseEnter={() => onHoverChange?.(room.maPhongTro)}
+        onMouseEnter={() => {
+          onHoverChange?.(room.maPhongTro);
+          prefetchRoomDetail();
+        }}
+        onFocus={prefetchRoomDetail}
         onMouseLeave={() => onHoverChange?.(null)}
         className={`group bg-white rounded-2xl border shadow-xs transition-all duration-200 cursor-pointer overflow-hidden flex flex-col sm:flex-row p-4 gap-4 ${activeRingClass}`}
       >
@@ -185,7 +200,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
     const details = '/room/' + room.maPhongTro;
     const booking = '/appointments/schedule/' + room.maPhongTro;
     return (
-      <article className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+      <article
+        onMouseEnter={prefetchRoomDetail}
+        onFocus={prefetchRoomDetail}
+        className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs"
+      >
         <div className="relative aspect-square bg-slate-100">
           <Link to={details} className="block h-full"><img src={primaryImage} alt={roomTitle} loading="lazy" className="h-full w-full object-cover" /></Link>
           <button type="button" onClick={handleFavoriteClick} aria-label={favorited ? 'Bỏ yêu thích' : 'Yêu thích'} aria-pressed={favorited} className="absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-white text-slate-700">
@@ -208,7 +227,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   return (
     <Card
       onClick={handleCardClick}
-      onMouseEnter={() => onHoverChange?.(room.maPhongTro)}
+      onMouseEnter={() => {
+        onHoverChange?.(room.maPhongTro);
+        prefetchRoomDetail();
+      }}
+      onFocus={prefetchRoomDetail}
       onMouseLeave={() => onHoverChange?.(null)}
       className={`group bg-white rounded-2xl border shadow-xs overflow-hidden transition-all duration-200 flex flex-col justify-between p-0 cursor-pointer ${activeRingClass}`}
     >

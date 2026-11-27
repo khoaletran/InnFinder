@@ -16,7 +16,6 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 // Admin Console Pages (Thành viên 1)
 import { AdminProfileInfoTab } from '@/components/admin/AdminProfileInfoTab';
 import { AdminProfilePage } from '@/pages/admin/AdminProfilePage';
-import { AiTrackingPage } from '@/pages/admin/AiTrackingPage';
 import { CategoriesPage } from '@/pages/admin/CategoriesPage';
 import { ComplaintsAdminPage } from '@/pages/admin/ComplaintsAdminPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
@@ -41,6 +40,14 @@ import { MapSearchPage } from '@/pages/customer/MapSearchPage';
 import { RoomDetailPage } from '@/pages/customer/RoomDetailPage';
 import { SearchPage } from '@/pages/customer/SearchPage';
 import { RoomTour360Page } from '@/pages/public/RoomTour360Page';
+import {
+  AboutPage,
+  ContactPage,
+  DepositPolicyPage,
+  LandlordPolicyPage,
+  PrivacyPage,
+  TermsPage,
+} from '@/pages/public/BusinessPages';
 
 // Customer Profile, Notifications & Complaints Pages (Thành viên 1)
 import { ComplaintsPage } from '@/pages/customer/ComplaintsPage';
@@ -65,6 +72,7 @@ import { DashboardPage as LandlordDashboardPage } from '@/pages/landlord/Dashboa
 import { ProfilePage as LandlordProfilePage } from '@/pages/landlord/ProfilePage';
 import { ReviewsComplaintsPage } from '@/pages/landlord/ReviewsComplaintsPage';
 import { RoomsPage } from '@/pages/landlord/RoomsPage';
+import { StatisticsPage as LandlordStatisticsPage } from '@/pages/landlord/StatisticsPage';
 import { WalletPage as LandlordWalletPage } from '@/pages/landlord/WalletPage';
 
 const ProfileBankTab = lazy(() => import('@/components/profile/ProfileBankTab'));
@@ -122,6 +130,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="/search/map" element={<MapSearchPage />} />
         <Route path="/room/:id" element={<RoomDetailPage />} />
         <Route path="/favorites" element={<NonAdminFavoritesRoute />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/deposit-policy" element={<DepositPolicyPage />} />
+        <Route path="/landlord-policy" element={<LandlordPolicyPage />} />
+        <Route path="/contact" element={<ContactPage />} />
       </Route>
 
       {/* 2. PUBLIC AUTH ROUTES (Thành viên 1) */}
@@ -187,6 +201,7 @@ export const AppRoutes: React.FC = () => {
       >
         <Route index element={<Navigate to="/landlord/dashboard" replace />} />
         <Route path="dashboard" element={<LandlordDashboardPage />} />
+        <Route path="statistics" element={<LandlordStatisticsPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/create" element={<CreateRoomPage />} />
         <Route path="rooms/edit/:id" element={<CreateRoomPage isEdit={true} />} />
@@ -217,7 +232,6 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsAdminPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
-        <Route path="ai-tracking" element={<AiTrackingPage />} />
         <Route path="profile" element={<AdminProfilePage />}>
           <Route index element={<AdminProfileInfoTab />} />
           <Route path="security" element={<ProfileSecurityTab />} />

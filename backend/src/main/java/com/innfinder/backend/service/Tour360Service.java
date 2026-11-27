@@ -40,6 +40,9 @@ public class Tour360Service {
     private final CloudinaryService cloudinaryService;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTrackingService aiTrackingService;
+
     public PanoramaUploadResponse uploadPanorama(MultipartFile file) {
         getAuthenticatedLandlord();
 
@@ -121,6 +124,9 @@ public class Tour360Service {
     public Tour360Response getTourById(String maTour) {
         PhongTroTour360 tour = tourRepository.findById(maTour)
                 .orElseThrow(() -> new AppException(ErrorCode.TOUR_360_NOT_FOUND));
+        if (aiTrackingService != null && tour.getPhongTro() != null) {
+            aiTrackingService.recordRoomBehavior("TOUR_360_VIEW", tour.getPhongTro().getMaPhongTro(), SecurityUtils.getCurrentUsername());
+        }
         return Tour360Response.fromEntity(tour, objectMapper);
     }
 
@@ -128,7 +134,12 @@ public class Tour360Service {
     public Tour360Response getRoomTour(String maPhongTro) {
         return tourRepository
                 .findFirstByPhongTro_MaPhongTroOrderByUpdatedAtDesc(maPhongTro)
-                .map(tour -> Tour360Response.fromEntity(tour, objectMapper))
+                .map(tour -> {
+                    if (aiTrackingService != null) {
+                        aiTrackingService.recordRoomBehavior("TOUR_360_VIEW", maPhongTro, SecurityUtils.getCurrentUsername());
+                    }
+                    return Tour360Response.fromEntity(tour, objectMapper);
+                })
                 .orElse(null);
     }
 

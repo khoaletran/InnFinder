@@ -21,14 +21,23 @@ public class RoomDiscoveryService {
 
     @Transactional(readOnly = true)
     public List<Document> find(RoomFilterRequest filter) {
-        return repository.findAll(PhongTroSpecification.buildFilter(filter)).stream().map(this::document).toList();
+        return repository.findAll(
+                PhongTroSpecification.buildFilter(filter),
+                org.springframework.data.domain.PageRequest.of(
+                        0, 100,
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC, "thoiGianDang"))
+        ).getContent().stream().map(this::document).toList();
     }
 
     @Transactional(readOnly = true)
     public List<Document> findByIds(List<String> ids) {
         if (ids.isEmpty()) return List.of();
         return repository.findByMaPhongTroIn(ids).stream()
-                .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET && !r.isTamAn()).map(this::document).toList();
+                .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET
+                        && !r.isTamAn()
+                        && (r.getChuPhongTro() == null || !r.getChuPhongTro().isDangTamAn()))
+                .map(this::document).toList();
     }
 
     // Used only as private preference features; callers must never return these documents as candidates.

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowUpDown,
@@ -147,9 +147,12 @@ export const SearchPage: React.FC = () => {
   const {
     data: queryResult,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     error,
     refetch,
   } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: [
       'rooms',
       'search',
@@ -728,7 +731,11 @@ export const SearchPage: React.FC = () => {
             columnsClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           />
         ) : rooms.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 transition-opacity duration-200 ${
+              isPlaceholderData && isFetching ? 'opacity-60' : 'opacity-100'
+            }`}
+          >
             {rooms.map((room) => (
               <RoomCard key={room.maPhongTro} room={room} layout="vertical" />
             ))}

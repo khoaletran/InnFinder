@@ -332,4 +332,33 @@ class ComplaintServiceTest {
         assertEquals(ErrorCode.INVALID_APPOINTMENT_STATUS, ex.getErrorCode());
         verifyNoInteractions(appointmentService);
     }
+
+    @Test
+    void resolveComplaint_delegatesToReputationServiceWhenPresent() {
+        authenticateAs("admin");
+        ReputationService repMock = mock(ReputationService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(complaintService, "reputationService", repMock);
+
+        PhieuKhieuNai kn = PhieuKhieuNai.builder()
+                .maKhieuNai("KN006")
+                .nguoiGui(customer)
+                .doiTuongKhieuNai(landlordUser)
+                .trangThai(TrangThaiKhieuNai.CHO_DUYET)
+                .mucDoViPham(MucDoViPham.NHE)
+                .vanDe("Tin đăng sai thực tế")
+                .build();
+
+        when(phieuKhieuNaiRepository.findById("KN006")).thenReturn(Optional.of(kn));
+        when(nguoiDungRepository.findByTenDangNhap("admin")).thenReturn(Optional.of(adminUser));
+        when(phieuKhieuNaiRepository.save(any(PhieuKhieuNai.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ComplaintResolveDTO req = ComplaintResolveDTO.builder()
+                .trangThai(TrangThaiKhieuNai.DA_XU_LI)
+                .mucDoViPham(MucDoViPham.TRUNG_BINH)
+                .ketQua("Tạm ẩn 7 ngày và trừ 10 điểm")
+                .build();
+
+        complaintService.resolveComplaint("KN006", req);
+        verify(repMock).penalizeMediumComplaint("ND010120260002", "KN006");
+    }
 }

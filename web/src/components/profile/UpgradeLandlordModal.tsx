@@ -1,9 +1,11 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
 import { BankSelect } from '@/components/common/BankSelect';
+import { LANDLORD_POLICY_SECTIONS } from '@/pages/public/BusinessPages';
 import { authUserService } from '@/services/authUser.service';
 import { uploadService } from '@/services/upload.service';
 import { upgradeLandlordSchema } from '@/utils/validators';
@@ -21,6 +23,8 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
   const backId = useId();
   const accNumId = useId();
   const accHolderId = useId();
+  const policyAgreeId = useId();
+  const policyScrollRef = useRef<HTMLDivElement>(null);
 
   const [upgradeCccd, setUpgradeCccd] = useState('');
   const [upgradeFrontUrl, setUpgradeFrontUrl] = useState('');
@@ -28,6 +32,28 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
   const [upgradeBank, setUpgradeBank] = useState('Vietcombank');
   const [upgradeAccNum, setUpgradeAccNum] = useState('');
   const [upgradeAccHolder, setUpgradeAccHolder] = useState('');
+  const [hasReadPolicy, setHasReadPolicy] = useState(false);
+  const [agreedPolicy, setAgreedPolicy] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHasReadPolicy(false);
+      setAgreedPolicy(false);
+      return;
+    }
+    const el = policyScrollRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 8) {
+      setHasReadPolicy(true);
+    }
+  }, [isOpen]);
+
+  const handlePolicyScroll = () => {
+    const el = policyScrollRef.current;
+    if (!el || hasReadPolicy) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 12) {
+      setHasReadPolicy(true);
+    }
+  };
 
   const upgradeMutation = useMutation({
     mutationFn: authUserService.upgradeToLandlord,
@@ -45,6 +71,10 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
 
   const handleUpgradeToLandlord = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasReadPolicy) {
+      toast.error('Vui lòng cuộn đọc hết toàn bộ Chính sách Uy tín & Xử phạt Chủ trọ trước khi đồng ý');
+      return;
+    }
     const parsed = upgradeLandlordSchema.safeParse({
       cccd: upgradeCccd.trim(),
       anhCccdTruoc: upgradeFrontUrl,
@@ -52,12 +82,28 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
       tenNganHang: upgradeBank.trim(),
       soTaiKhoan: upgradeAccNum.trim(),
       tenChuTaiKhoan: upgradeAccHolder.trim().toUpperCase(),
+      dongYChinhSachChuTro: agreedPolicy,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || 'Hồ sơ nâng cấp chưa hợp lệ');
       return;
     }
-    upgradeMutation.mutate(parsed.data);
+    const {
+      cccd,
+      anhCccdTruoc,
+      anhCccdSau,
+      tenNganHang,
+      soTaiKhoan,
+      tenChuTaiKhoan,
+    } = parsed.data;
+    upgradeMutation.mutate({
+      cccd,
+      anhCccdTruoc,
+      anhCccdSau,
+      tenNganHang,
+      soTaiKhoan,
+      tenChuTaiKhoan,
+    });
   };
 
   return (
@@ -67,7 +113,7 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
       aria-labelledby={titleId}
       className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
     >
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl border border-slate-200 space-y-4">
         <div>
           <h3 id={titleId} className="text-base font-bold text-slate-900">
             Đăng ký nâng cấp vai trò Chủ trọ
@@ -205,6 +251,69 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
             </div>
           </div>
 
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <ShieldAlert className="w-4 h-4 text-teal-700 shrink-0" />
+                <span>Chính sách Uy tín &amp; Xử phạt Chủ trọ *</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    hasReadPolicy
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {hasReadPolicy ? 'Đã đọc hết' : 'Cuộn đọc hết để đồng ý'}
+                </span>
+                <Link
+                  to="/landlord-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Mở toàn trang ở tab mới"
+                  className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-teal-700 hover:underline"
+                >
+                  Mở rộng
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            <div
+              ref={policyScrollRef}
+              onScroll={handlePolicyScroll}
+              className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 space-y-3 text-xs text-slate-600 leading-relaxed"
+            >
+              {LANDLORD_POLICY_SECTIONS.map((section) => (
+                <div key={section.title} className="space-y-1">
+                  <p className="font-bold text-slate-800">{section.title}</p>
+                  <div>{section.content}</div>
+                </div>
+              ))}
+            </div>
+
+            <label
+              htmlFor={policyAgreeId}
+              className={`flex items-start gap-2 text-xs leading-snug select-none ${
+                hasReadPolicy ? 'text-slate-700 cursor-pointer' : 'text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <input
+                id={policyAgreeId}
+                type="checkbox"
+                checked={agreedPolicy}
+                disabled={!hasReadPolicy}
+                onChange={(e) => setAgreedPolicy(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 disabled:opacity-50 shrink-0"
+              />
+              <span>
+                Tôi đã đọc toàn bộ <strong>Chính sách Uy tín &amp; Xử phạt Chủ trọ</strong> ở trên
+                và đồng ý tuân thủ các mức trừ điểm, tạm ẩn tin hoặc khóa tài khoản nếu vi phạm.
+              </span>
+            </label>
+          </div>
+
           <div className="flex gap-2 pt-2">
             <AppButton
               variant="secondary"
@@ -220,6 +329,7 @@ export const UpgradeLandlordModal: React.FC<UpgradeLandlordModalProps> = ({ isOp
               variant="primary"
               size="md"
               fullWidth
+              disabled={!hasReadPolicy || !agreedPolicy}
               isLoading={upgradeMutation.isPending}
               className="min-h-[44px]"
             >

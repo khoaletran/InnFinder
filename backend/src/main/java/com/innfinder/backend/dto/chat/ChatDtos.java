@@ -35,7 +35,16 @@ public final class ChatDtos {
             String partnerName,
             String partnerAvatar,
             String partnerRoleLabel,
-            List<ChatMessageDto> messages
+            List<ChatMessageDto> messages,
+            String nextCursor,
+            boolean hasMore
+    ) {
+    }
+
+    public record ChatConversationPageDto(
+            List<ChatConversationSummaryDto> items,
+            String nextCursor,
+            boolean hasMore
     ) {
     }
 

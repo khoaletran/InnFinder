@@ -44,6 +44,9 @@ public class AiUsageLog {
     @Column(name = "ma_nguoi_dung", length = 14)
     private String maNguoiDung;
 
+    @Column(name = "ma_phong_tro", length = 14)
+    private String maPhongTro;
+
     @Column(name = "prompt_tokens", nullable = false)
     @Builder.Default
     private int promptTokens = 0;

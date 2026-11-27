@@ -48,6 +48,8 @@ public class RoomService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RealtimePublisher realtimePublisher;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTrackingService aiTrackingService;
     // Định dạng sinh mã phòng: PTDDMMYYHHmmSS (14 ký tự)
     private static final DateTimeFormatter ROOM_CODE_FORMATTER = DateTimeFormatter.ofPattern("ddMMyyHHmmss");
 
@@ -116,6 +118,9 @@ public class RoomService {
     public RoomDetailResponse getRoomDetail(String maPhongTro) {
         PhongTro room = phongTroRepository.findByMaPhongTro(maPhongTro)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
+        if (aiTrackingService != null) {
+            aiTrackingService.recordRoomBehavior("ROOM_VIEW", room.getMaPhongTro(), SecurityUtils.getCurrentUsername());
+        }
         return RoomDetailResponse.fromEntity(room);
     }
     @Transactional(readOnly = true)
@@ -154,6 +159,7 @@ public class RoomService {
     @Transactional
     public RoomDetailResponse createRoom(RoomCreateRequest request, List<MultipartFile> images) {
         ChuTro currentLandlord = getAuthenticatedLandlord();
+        validateLandlordPostingEligibility(currentLandlord, true);
         // 1. Kiểm tra ảnh tải lên: Tối thiểu 1 ảnh theo quy tắc mục 2.4
         if (images == null || images.isEmpty() || images.stream().allMatch(MultipartFile::isEmpty)) {
             throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
@@ -213,6 +219,7 @@ public class RoomService {
     @Transactional
     public RoomDetailResponse createRoomFromJson(RoomCreateRequest request) {
         ChuTro currentLandlord = getAuthenticatedLandlord();
+        validateLandlordPostingEligibility(currentLandlord, true);
 
         validateImageUrls(request.getHinhAnhUrls());
         // 1. Kiểm tra loại phòng
@@ -357,6 +364,9 @@ public class RoomService {
                 || (current == TrangThaiPhongTro.DA_DUYET && newStatus == TrangThaiPhongTro.HOAN_THANH)
                 || (current == TrangThaiPhongTro.HOAN_THANH && newStatus == TrangThaiPhongTro.DA_DUYET);
         if (!allowed) throw new AppException(ErrorCode.ROOM_STATUS_NOT_ALLOWED);
+        if (newStatus == TrangThaiPhongTro.DA_DUYET) {
+            validateLandlordPostingEligibility(currentLandlord, true);
+        }
         phongTro.setTrangThai(newStatus);
         phongTroRepository.save(phongTro);
         log.info("Chủ trọ {} đã đổi trạng thái phòng {} sang {}", currentLandlord.getMaChuTro(), maPhongTro, newStatus);
@@ -368,6 +378,9 @@ public class RoomService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
         validateRoomOwnership(room, owner);
         if (room.getTrangThai() != TrangThaiPhongTro.DA_DUYET) throw new AppException(ErrorCode.ROOM_STATUS_NOT_ALLOWED);
+        if (!hidden) {
+            validateLandlordPostingEligibility(owner, false);
+        }
         room.setTamAn(hidden);
         phongTroRepository.save(room);
     }
@@ -407,6 +420,26 @@ public class RoomService {
         return chuTroRepository.findByNguoiDung_TenDangNhap(username)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_A_LANDLORD));
     }
+    private void validateLandlordPostingEligibility(ChuTro landlord, boolean isCreateOrReopen) {
+        if (landlord == null) return;
+        if (landlord.isDangTamAn()) {
+            throw new AppException(ErrorCode.LANDLORD_TEMP_HIDDEN);
+        }
+        int diem = landlord.getDiemUyTin() != null ? landlord.getDiemUyTin() : 100;
+        if (diem < 50) {
+            throw new AppException(ErrorCode.LANDLORD_LOW_REPUTATION_POSTING_BLOCKED);
+        }
+        if (isCreateOrReopen && diem < 70) {
+            long activeOrPendingCount = phongTroRepository.countByChuPhongTro_MaChuTroAndTrangThaiIn(
+                    landlord.getMaChuTro(),
+                    List.of(TrangThaiPhongTro.DA_DUYET, TrangThaiPhongTro.CHO_DUYET)
+            );
+            if (activeOrPendingCount >= 3) {
+                throw new AppException(ErrorCode.LANDLORD_ROOM_LIMIT_EXCEEDED);
+            }
+        }
+    }
+
     /**
      * Kiểm tra Chủ trọ có đúng là người sở hữu phòng này hay không
      */

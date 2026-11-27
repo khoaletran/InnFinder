@@ -60,7 +60,11 @@ public class RoommateRealtimeDbClient {
     }
 
     public <T> T get(String path, TypeReference<T> typeRef) {
-        String body = execute("GET", path, null);
+        return getWithQuery(path, null, typeRef);
+    }
+
+    public <T> T getWithQuery(String path, String queryParams, TypeReference<T> typeRef) {
+        String body = execute("GET", path, queryParams, null);
         if (body == null || body.isBlank() || "null".equals(body.trim())) {
             return null;
         }
@@ -100,6 +104,10 @@ public class RoommateRealtimeDbClient {
     }
 
     private String execute(String method, String path, Object payload) {
+        return execute(method, path, null, payload);
+    }
+
+    private String execute(String method, String path, String queryParams, Object payload) {
         if (baseUrl.isBlank()) {
             log.warn("Chưa cấu hình innfinder.firebase.rtdb-url");
             throw new AppException(ErrorCode.ROOMMATE_UNAVAILABLE);
@@ -108,7 +116,18 @@ public class RoommateRealtimeDbClient {
         try {
             String normalizedPath = path.startsWith("/") ? path : "/" + path;
             String authQuery = resolveAuthQuery();
-            String url = baseUrl + normalizedPath + ".json" + authQuery;
+            String extraQuery = (queryParams != null && !queryParams.isBlank()) ? queryParams.trim() : "";
+            StringBuilder urlBuilder = new StringBuilder(baseUrl)
+                    .append(normalizedPath)
+                    .append(".json");
+            if (!authQuery.isEmpty() && !extraQuery.isEmpty()) {
+                urlBuilder.append(authQuery).append("&").append(extraQuery);
+            } else if (!authQuery.isEmpty()) {
+                urlBuilder.append(authQuery);
+            } else if (!extraQuery.isEmpty()) {
+                urlBuilder.append("?").append(extraQuery);
+            }
+            String url = urlBuilder.toString();
 
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))

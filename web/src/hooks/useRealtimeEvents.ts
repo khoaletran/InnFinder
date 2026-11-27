@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { BASE_URL, tokenStorage } from '@/api/axiosClient';
+import { applySseChatMessage, type ChatSsePayload } from '@/services/directChat.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBookingStore } from '@/store/useBookingStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -25,8 +26,18 @@ export function useRealtimeEvents() {
     let retryTimer: number | null = null;
     let activeController: AbortController | null = null;
 
-    const handleSseEvent = (eventName: string) => {
+    const handleSseEvent = (eventName: string, rawData: string) => {
       switch (eventName) {
+        case 'CHAT_MESSAGE':
+          if (rawData) {
+            try {
+              const payload = JSON.parse(rawData) as ChatSsePayload;
+              applySseChatMessage(queryClient, payload);
+            } catch {
+              void queryClient.invalidateQueries({ queryKey: ['chat'] });
+            }
+          }
+          break;
         case 'APPOINTMENT_UPDATED':
           void queryClient.invalidateQueries({ queryKey: ['appointments'] });
           void queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
@@ -117,12 +128,15 @@ export function useRealtimeEvents() {
           for (const frame of frames) {
             if (!frame.trim() || frame.startsWith(':')) continue;
             let eventName = 'message';
+            const dataLines: string[] = [];
             for (const line of frame.split(/\r?\n/)) {
               if (line.startsWith('event:')) {
                 eventName = line.slice(6).trim();
+              } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice(5).trimStart());
               }
             }
-            handleSseEvent(eventName);
+            handleSseEvent(eventName, dataLines.join('\n'));
           }
         }
 

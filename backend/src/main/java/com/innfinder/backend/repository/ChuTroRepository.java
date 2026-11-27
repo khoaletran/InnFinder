@@ -13,6 +13,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,4 +26,8 @@ public interface ChuTroRepository extends JpaRepository<ChuTro, String> {
 
     @Query("SELECT COALESCE(SUM(c.soDu), 0L) FROM ChuTro c")
     Long sumTotalSoDu();
+
+    @Query("SELECT c FROM ChuTro c JOIN FETCH c.nguoiDung u " +
+           "WHERE c.diemUyTin < 100 AND (u.trangThaiKhoa IS NULL OR u.trangThaiKhoa = false)")
+    List<ChuTro> findEligibleForCleanStreak();
 }

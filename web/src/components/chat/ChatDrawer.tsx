@@ -1,8 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { Loader2, MessageCircle, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { directChatService, type ChatChannelType } from '@/services/directChat.service';
+import {
+  appendOptimisticChatMessage,
+  directChatService,
+  reconcileSavedChatMessage,
+  type ChatChannelType,
+  type ChatMessage,
+  type ChatThread,
+} from '@/services/directChat.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
 interface ChatDrawerProps {
@@ -20,41 +32,110 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   onClose,
   fallbackTitle,
 }) => {
-  const currentUserId = useAuthStore((s) => s.user?.maNguoiDung);
+  const currentUser = useAuthStore((s) => s.user);
+  const currentUserId = currentUser?.maNguoiDung;
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
   const listEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const lastNewestMsgIdRef = useRef<string | null>(null);
 
-  const threadQuery = useQuery({
+  const threadQuery = useInfiniteQuery({
     queryKey: ['chat', channelType, contextId],
-    queryFn: () => directChatService.getThread(channelType, contextId),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => directChatService.getThread(channelType, contextId, 10, pageParam),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
     enabled: open && Boolean(contextId),
-    refetchInterval: open ? 3000 : false,
+    refetchInterval: open ? 15000 : false,
     retry: false,
   });
 
   const sendMutation = useMutation({
     mutationFn: (content: string) => directChatService.sendMessage(channelType, contextId, content),
-    onSuccess: async () => {
+    onMutate: async (content: string) => {
+      await queryClient.cancelQueries({ queryKey: ['chat', channelType, contextId] });
+      const tempId = `temp-${Date.now()}`;
+      const previous = appendOptimisticChatMessage(queryClient, channelType, contextId, {
+        id: tempId,
+        senderId: currentUserId || '',
+        senderName: currentUser?.hoVaTen || currentUser?.tenDangNhap || 'Bạn',
+        senderAvatar: currentUser?.hinhDaiDien || null,
+        content,
+        createdAt: new Date().toISOString(),
+      });
       setDraft('');
-      await queryClient.invalidateQueries({ queryKey: ['chat', channelType, contextId] });
+      return { previous, tempId, content };
     },
-    onError: (err: Error) => {
+    onSuccess: (saved, _content, ctx) => {
+      if (ctx?.tempId) {
+        reconcileSavedChatMessage(queryClient, channelType, contextId, saved, ctx.tempId);
+      }
+      void queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+    },
+    onError: (err: Error, _content, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData<InfiniteData<ChatThread>>(
+          ['chat', channelType, contextId],
+          ctx.previous,
+        );
+      }
+      if (ctx?.content) {
+        setDraft((prev) => prev || ctx.content);
+      }
       toast.error(err.message || 'Không thể gửi tin nhắn');
     },
   });
 
-  const messages = threadQuery.data?.messages ?? [];
+  const messages = useMemo(() => {
+    const pages = threadQuery.data?.pages ?? [];
+    const orderedPages = [...pages].reverse();
+    const seen = new Set<string>();
+    const list: ChatMessage[] = [];
+    for (const page of orderedPages) {
+      for (const m of page.messages) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          list.push(m);
+        }
+      }
+    }
+    return list;
+  }, [threadQuery.data]);
+
+  const newestMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
 
   useEffect(() => {
-    if (open) {
+    lastNewestMsgIdRef.current = null;
+    prevScrollRef.current = null;
+  }, [channelType, contextId, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = messagesContainerRef.current;
+    if (prevScrollRef.current && el) {
+      el.scrollTop = el.scrollHeight - prevScrollRef.current.scrollHeight + prevScrollRef.current.scrollTop;
+      prevScrollRef.current = null;
+      return;
+    }
+    if (newestMessageId && newestMessageId !== lastNewestMsgIdRef.current) {
+      lastNewestMsgIdRef.current = newestMessageId;
       listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [open, messages.length]);
+  }, [open, messages.length, newestMessageId]);
+
+  const handleMessagesScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop <= 40 && threadQuery.hasNextPage && !threadQuery.isFetchingNextPage) {
+      prevScrollRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop };
+      void threadQuery.fetchNextPage();
+    }
+  };
 
   if (!open) return null;
 
-  const thread = threadQuery.data;
+  const thread = threadQuery.data?.pages[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +195,17 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/70">
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
+          className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/70"
+        >
+          {threadQuery.isFetchingNextPage && (
+            <div className="py-1.5 flex items-center justify-center gap-1.5 text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+              <span className="text-[11px]">Đang tải tin nhắn cũ hơn...</span>
+            </div>
+          )}
           {threadQuery.isPending ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-teal-600" />

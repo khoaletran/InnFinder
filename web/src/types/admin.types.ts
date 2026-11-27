@@ -25,11 +25,75 @@ export interface AdminRevenuePoint {
   nhan: string;
   doanhThu: number;
   soLichHoanThanh: number;
+  soLichDat?: number;
 }
 
 export interface AdminRoomTypeStat {
+  maLoaiPhong?: string;
   tenLoaiPhong: string;
   soLuong: number;
+  soPhongDangHienThi?: number;
+  luotXem?: number;
+  luotClickGoiY?: number;
+  soLichDat?: number;
+  soLichHoanThanh?: number;
+  doanhThuHoaHong?: number;
+  tyLeChot?: number;
+}
+
+export interface AdminPeriodComparison {
+  coSoSanh: boolean;
+  doanhThuKyTruoc: number;
+  phanTramBienDongDoanhThu: number | null;
+  soLichHoanThanhKyTruoc: number;
+  phanTramBienDongLich: number | null;
+}
+
+export interface AdminConversionFunnel {
+  luotTimKiemAi: number;
+  luotHienThiGoiY: number;
+  luotClickGoiY: number;
+  ctrGoiYPercent: number;
+  luotXemChiTiet: number;
+  luotXemTour360: number;
+  luotYeuThich: number;
+  soLichDatCoc: number;
+  soLichDaXem: number;
+  soLichHoanThanh: number;
+  soLichHuy: number;
+  soLichKhachTuChoi: number;
+  soLichChuTroTuChoi: number;
+  soCaNoShow: number;
+  tyLeChotTuDatLichPercent: number;
+  tyLeChotTuXemThucTePercent: number;
+}
+
+export interface AdminIntentStat {
+  intent: string;
+  count: number;
+}
+
+export interface AdminAiBusinessSummary {
+  tongLuotGoiProvider: number;
+  tongLuotBypass: number;
+  tyLeTietKiemBypassPercent: number;
+  tyLeThanhCongPercent: number;
+  tongToken: number;
+  chiPhiUocTinhUsd: number;
+  chiPhiUocTinhVnd: number;
+  pricingConfigured: boolean;
+  bienLoiNhuanSauAiVnd: number;
+  tyLeChiPhiAiTrenDoanhThuPercent: number;
+  dailyTokensUsed: number;
+  dailyTokenLimit: number;
+  quotaUsagePercent: number;
+  quotaWarning: boolean;
+  totalApprovedRooms: number;
+  indexedRooms: number;
+  vectorCoveragePercent: number;
+  semanticSearchCount: number;
+  filteredFallbackCount: number;
+  topIntents: AdminIntentStat[];
 }
 
 export interface AdminStatisticsFilter {
@@ -59,6 +123,9 @@ export interface AdminStatisticsResponse {
   bieuDoDoanhThu: AdminRevenuePoint[];
   coCauLoaiPhong: AdminRoomTypeStat[];
   cacNamCoDuLieu: number[];
+  soSanhKyTruoc?: AdminPeriodComparison;
+  pheuChuyenDoi?: AdminConversionFunnel;
+  tongQuanAiTracking?: AdminAiBusinessSummary | null;
 }
 
 export interface AdminRecommendedAction {
@@ -251,9 +318,30 @@ export interface AdminUserBankAccount {
   macDinh: boolean;
 }
 
+export interface AdminReputationHistoryItem {
+  id: number;
+  bienDong: number;
+  diemTruoc: number;
+  diemSau: number;
+  loaiSuKien: string;
+  maThamChieu?: string | null;
+  lyDo: string;
+  thoiGian: string;
+}
+
+export interface AdminReputationAdjustPayload {
+  diemMoi?: number;
+  bienDong?: number;
+  lyDo: string;
+  goTamAn?: boolean;
+}
+
 export interface AdminUserDetailResponse {
   user: AdminUserItem;
   soDu: number;
+  diemUyTin?: number | null;
+  tamAnDen?: string | null;
+  lichSuDiemUyTin?: AdminReputationHistoryItem[];
   taiKhoanNganHang: AdminUserBankAccount[];
   giaoDich: AdminTransactionItem[];
   lichXemPhong: AdminAppointmentItem[];
@@ -265,8 +353,29 @@ export interface RoomTypeDepositFee {
   tenLoaiPhong: string;
   soTienCoc: number;
   phiThu: number;
+  tyLePhiPercent?: number;
   moTa?: string;
   ngayCapNhat?: string;
+}
+
+export interface UpdateDepositFeePayload {
+  soTienCoc: number;
+  phiThu: number;
+  lyDo: string;
+  matKhauAdmin: string;
+}
+
+export interface DepositFeeHistoryItem {
+  id: number;
+  maLpt: string;
+  tenLoaiPhong: string;
+  cocCu: number;
+  cocMoi: number;
+  phiCu: number;
+  phiMoi: number;
+  lyDo: string;
+  nguoiSua: string;
+  thoiGian: string;
 }
 
 export interface AdminCategoryItem {

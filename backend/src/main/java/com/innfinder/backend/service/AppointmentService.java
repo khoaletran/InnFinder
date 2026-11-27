@@ -49,6 +49,9 @@ public class AppointmentService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RealtimePublisher realtimePublisher;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ReputationService reputationService;
+
     /**
      * Sinh mã phiếu đặt lịch theo chuẩn ISO: ĐL + yyyyMMdd + sequence 3 số
      * Ví dụ: DL20261106001
@@ -111,6 +114,10 @@ public class AppointmentService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_FOUND));
 
         if (phongTro.getTrangThai() != TrangThaiPhongTro.DA_DUYET || phongTro.isTamAn()) {
+            throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE);
+        }
+
+        if (phongTro.getChuPhongTro() != null && phongTro.getChuPhongTro().isDangTamAn()) {
             throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE);
         }
 
@@ -347,11 +354,21 @@ public class AppointmentService {
 
         if (qua24h || satGioHen) {
             phieu.setTrangThai(TrangThaiDatLich.HUY);
-            phieu.setLiDoHuy("Hệ thống tự động hủy do chủ trọ quá hạn phản hồi");
+            boolean overduePenaltyApplies = !hasDeposit || daNop;
+            phieu.setLiDoHuy(overduePenaltyApplies
+                    ? "Hệ thống tự động hủy do chủ trọ quá hạn phản hồi (trừ 3 điểm uy tín)"
+                    : "Hệ thống tự động hủy do chủ trọ quá hạn phản hồi");
             phieu = phieuDatLichRepository.save(phieu);
 
             if (daNop && hasDeposit) {
                 taoGiaoDichHoanCocChoKhach(phieu, "Tự động hoàn cọc do quá hạn phản hồi", null);
+            }
+            if (overduePenaltyApplies && reputationService != null
+                    && phieu.getPhongTro() != null && phieu.getPhongTro().getChuPhongTro() != null) {
+                reputationService.penalizeOverdueResponse(
+                        phieu.getPhongTro().getChuPhongTro().getMaChuTro(),
+                        phieu.getMaDatLich()
+                );
             }
         }
         return phieu;
@@ -366,7 +383,8 @@ public class AppointmentService {
     public void autoCancelExpiredPendingAppointments() {
         List<PhieuDatLich> pending = phieuDatLichRepository.findByTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
         for (PhieuDatLich phieu : pending) {
-            kiemTraVaTuDongHuyQuaHan(phieu);
+            PhieuDatLich locked = phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich()).orElse(phieu);
+            kiemTraVaTuDongHuyQuaHan(locked);
         }
     }
 
@@ -475,14 +493,26 @@ public class AppointmentService {
         LocalDateTime now = LocalDateTime.now();
         if (now.isAfter(hanDuyet) || now.isEqual(hanDuyet)) {
             // ĐÃ QUÁ HẠN DUYỆT: Tự động hủy và hoàn cọc (nếu có) ngay trong transaction này
-            phieu.setTrangThai(TrangThaiDatLich.HUY);
-            phieu.setLiDoHuy("Tự động hủy: Chủ trọ quá hạn phản hồi duyệt lịch hẹn");
-            phieuDatLichRepository.save(phieu);
-
+            boolean hasDeposit = phieu.getCoc() != null && phieu.getCoc() > 0;
             boolean daNop = phieu.getKhachHang() != null &&
                     daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
-            if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
+            boolean overduePenaltyApplies = !hasDeposit || daNop;
+
+            phieu.setTrangThai(TrangThaiDatLich.HUY);
+            phieu.setLiDoHuy(overduePenaltyApplies
+                    ? "Tự động hủy: Chủ trọ quá hạn phản hồi duyệt lịch hẹn (trừ 3 điểm uy tín)"
+                    : "Tự động hủy: Chủ trọ quá hạn phản hồi duyệt lịch hẹn");
+            phieuDatLichRepository.save(phieu);
+
+            if (daNop && hasDeposit) {
                 taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ quá hạn duyệt lịch", null);
+            }
+            if (overduePenaltyApplies && reputationService != null
+                    && phieu.getPhongTro() != null && phieu.getPhongTro().getChuPhongTro() != null) {
+                reputationService.penalizeOverdueResponse(
+                        phieu.getPhongTro().getChuPhongTro().getMaChuTro(),
+                        phieu.getMaDatLich()
+                );
             }
             if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
             return false; // Hết hạn, transaction đã commit HUY và hoàn cọc an toàn
@@ -721,6 +751,10 @@ public class AppointmentService {
             phieu.setTrangThai(TrangThaiDatLich.HOAN_THANH);
             phieuDatLichRepository.save(phieu);
 
+            if (reputationService != null && chuTro != null) {
+                reputationService.rewardCompletedRental(chuTro.getMaChuTro(), phieu.getMaDatLich());
+            }
+
             // Tự động HỦY DÂY CHUYỀN các lịch hẹn còn lại của phòng này và hoàn 100% cọc
             List<PhieuDatLich> otherAppointments = phieuDatLichRepository.findOtherActiveAppointmentsByRoom(
                     phongTroLocked.getMaPhongTro(),
@@ -903,9 +937,13 @@ public class AppointmentService {
             // Chủ trọ hủy lịch: Luôn hoàn 100% cọc cho khách + trừ điểm uy tín nếu hủy sau khi đã duyệt
             if (phieu.getTrangThai() == TrangThaiDatLich.XAC_NHAN && phieu.getPhongTro().getChuPhongTro() != null) {
                 ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
-                ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
-                chuTroLocked.setDiemUyTin(Math.max(0, chuTroLocked.getDiemUyTin() - 5));
-                chuTroRepository.save(chuTroLocked);
+                if (reputationService != null) {
+                    reputationService.penalizeCancelConfirmedAppointment(chuTro.getMaChuTro(), maDatLich);
+                } else {
+                    ChuTro chuTroLocked = chuTroRepository.findByIdForUpdate(chuTro.getMaChuTro()).orElse(chuTro);
+                    chuTroLocked.setDiemUyTin(Math.max(0, chuTroLocked.getDiemUyTin() - 5));
+                    chuTroRepository.save(chuTroLocked);
+                }
                 phieu.setLiDoHuy("Chủ trọ hủy sau khi xác nhận: " + request.getLiDoHuy() + " (Bị trừ 5 điểm uy tín)");
             } else {
                 phieu.setLiDoHuy("Chủ trọ từ chối/hủy: " + request.getLiDoHuy());
@@ -1053,11 +1091,15 @@ public class AppointmentService {
         phieu.setTrangThai(TrangThaiDatLich.HUY);
         phieu.setLiDoHuy("Khách báo chủ trọ vắng mặt (No-show)");
 
-        // Trừ 10 điểm uy tín của chủ trọ
+        // Trừ 10 điểm uy tín của chủ trọ (tái phạm > 2 lần trong 30 ngày tự động tạm ẩn 7 ngày)
         if (phieu.getPhongTro() != null && phieu.getPhongTro().getChuPhongTro() != null) {
             ChuTro chuTro = phieu.getPhongTro().getChuPhongTro();
-            chuTro.setDiemUyTin(Math.max(0, (chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100) - 10));
-            chuTroRepository.save(chuTro);
+            if (reputationService != null) {
+                reputationService.penalizeLandlordNoShow(chuTro.getMaChuTro(), maDatLich);
+            } else {
+                chuTro.setDiemUyTin(Math.max(0, (chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100) - 10));
+                chuTroRepository.save(chuTro);
+            }
         }
 
         phieuDatLichRepository.save(phieu);

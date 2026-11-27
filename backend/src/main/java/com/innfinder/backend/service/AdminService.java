@@ -63,6 +63,18 @@ public class AdminService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RealtimePublisher realtimePublisher;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiUsageLogRepository aiUsageLogRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AiTrackingService aiTrackingService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ReputationService reputationService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LichSuBieuPhiRepository lichSuBieuPhiRepository;
+
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
         List<PhongTro> list = phongTroRepository.findByTrangThai(TrangThaiPhongTro.CHO_DUYET);
@@ -81,6 +93,12 @@ public class AdminService {
             result.add(toRoomResponseDTO(pt));
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<RoomResponseDTO> getAllRooms(Pageable pageable) {
+        return phongTroRepository.findAllByOrderByThoiGianDangDesc(pageable)
+                .map(this::toRoomResponseDTO);
     }
 
     @Transactional
@@ -177,24 +195,21 @@ public class AdminService {
                         .toList()
                 : List.of();
 
+        List<ReputationHistoryResponseDTO> reputationHistory = (reputationService != null && landlord != null)
+                ? reputationService.getHistoryByLandlordId(landlord.getMaChuTro())
+                : List.of();
+
         return AdminUserDetailResponseDTO.builder()
                 .user(userDto)
                 .soDu(landlord != null && landlord.getSoDu() != null ? landlord.getSoDu() : 0L)
+                .diemUyTin(landlord != null ? landlord.getDiemUyTin() : null)
+                .tamAnDen(landlord != null ? landlord.getTamAnDen() : null)
+                .lichSuDiemUyTin(reputationHistory)
                 .taiKhoanNganHang(bankAccounts)
                 .giaoDich(transactions)
                 .lichXemPhong(appointments)
                 .phongChoThue(rooms)
                 .build();
-    }
-
-    @Transactional(readOnly = true)
-    public List<UserResponseDTO> getAllUsers() {
-        List<NguoiDung> list = nguoiDungRepository.findAll();
-        List<UserResponseDTO> result = new ArrayList<>();
-        for (NguoiDung u : list) {
-            result.add(toUserResponseDTO(u));
-        }
-        return result;
     }
 
     @Transactional
@@ -218,6 +233,10 @@ public class AdminService {
 
         user.setTrangThaiKhoa(!currentStatus);
         user = nguoiDungRepository.save(user);
+        if (currentStatus && !Boolean.TRUE.equals(user.getTrangThaiKhoa())
+                && Boolean.TRUE.equals(user.getChuTro()) && reputationService != null) {
+            reputationService.restoreOnAdminUnlock(user, currentUsername);
+        }
         return toUserResponseDTO(user);
     }
 
@@ -301,6 +320,23 @@ public class AdminService {
         List<NguoiDung> allUsers = nguoiDungRepository.findAll();
         List<PhieuDatLich> allAppointments = phieuDatLichRepository.findAll();
         List<GiaoDich> allTransactions = giaoDichRepository.findAll();
+        List<Object[]> aiTrackingRows = aiUsageLogRepository != null ? aiUsageLogRepository.findTrackingSummaryForStats() : List.of();
+
+        Map<String, PhongTro> roomById = new LinkedHashMap<>();
+        Map<String, String> roomTypeIdByName = new LinkedHashMap<>();
+        Map<String, Long> approvedSupplyByType = new LinkedHashMap<>();
+        for (PhongTro pt : allRooms) {
+            if (pt.getMaPhongTro() != null) {
+                roomById.put(pt.getMaPhongTro(), pt);
+            }
+            String typeName = resolveRoomTypeName(pt);
+            if (pt.getLoaiPhong() != null && pt.getLoaiPhong().getMaLpt() != null) {
+                roomTypeIdByName.putIfAbsent(typeName, pt.getLoaiPhong().getMaLpt());
+            }
+            if (pt.getTrangThai() == TrangThaiPhongTro.DA_DUYET && !pt.isTamAn()) {
+                approvedSupplyByType.merge(typeName, 1L, Long::sum);
+            }
+        }
 
         // Danh sách năm thực tế có dữ liệu trong database (sắp xếp giảm dần)
         TreeSet<Integer> yearSet = new TreeSet<>(Comparator.reverseOrder());
@@ -333,21 +369,9 @@ public class AdminService {
             else if (pt.getTrangThai() == TrangThaiPhongTro.HOAN_THANH) soPhongHoanThanh++;
             else if (pt.getTrangThai() == TrangThaiPhongTro.HUY) soPhongHuy++;
 
-            String typeName = (pt.getLoaiPhong() != null && pt.getLoaiPhong().getTenLoaiPhongTro() != null
-                    && !pt.getLoaiPhong().getTenLoaiPhongTro().isBlank())
-                    ? pt.getLoaiPhong().getTenLoaiPhongTro()
-                    : "Khác";
+            String typeName = resolveRoomTypeName(pt);
             roomTypeCounts.merge(typeName, 1L, Long::sum);
         }
-
-        List<AdminStatisticsResponseDTO.RoomTypeStatDTO> coCauLoaiPhong = roomTypeCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
-                        .thenComparing(Map.Entry.comparingByKey()))
-                .map(e -> AdminStatisticsResponseDTO.RoomTypeStatDTO.builder()
-                        .tenLoaiPhong(e.getKey())
-                        .soLuong(e.getValue())
-                        .build())
-                .toList();
 
         // 2. Thống kê tài khoản người dùng & hàng đợi duyệt chủ trọ
         long tongNguoiDung = 0;
@@ -362,18 +386,51 @@ public class AdminService {
         long soChuTroChoDuyet = yeuCauChuTroRepository.countByTrangThai(TrangThaiYeuCauChuTro.CHO_DUYET);
 
         // 3. Doanh thu hoa hồng sàn: SUM(phiThu) từ PhieuDatLich trạng thái HOAN_THANH (tuyệt đối không tính từ GiaoDich)
+        List<PhieuDatLich> periodAppointments = new ArrayList<>();
         List<PhieuDatLich> completedAppointments = new ArrayList<>();
         List<String> paidDepositNotes = giaoDichRepository.findPaidDepositNotes();
         long tongDoanhThu = 0L;
         long quyTamGiuCoc = 0L;
+        long soLichDatCoc = 0L;
+        long soLichDaXem = 0L;
+        long soLichHuy = 0L;
+        long soLichKhachTuChoi = 0L;
+        long soLichChuTroTuChoi = 0L;
+        long soCaNoShow = 0L;
+
+        Map<String, Long> bookingsByType = new LinkedHashMap<>();
+        Map<String, Long> completedByType = new LinkedHashMap<>();
+        Map<String, Long> revenueByType = new LinkedHashMap<>();
 
         for (PhieuDatLich p : allAppointments) {
             LocalDateTime appointmentTime = resolveAppointmentTime(p);
             if (!matchesDateFilter(appointmentTime, day, month, year)) continue;
+            periodAppointments.add(p);
+
+            String roomTypeName = resolveRoomTypeName(resolveRoomFromAppointment(p, roomById));
+            roomTypeCounts.putIfAbsent(roomTypeName, 0L);
+            bookingsByType.merge(roomTypeName, 1L, Long::sum);
+            if ((p.getCoc() != null && p.getCoc() > 0) || p.getTrangThai() != TrangThaiDatLich.HUY) {
+                soLichDatCoc++;
+            }
+            if (Boolean.TRUE.equals(p.getDaNhanLaiCoc()) || p.getTrangThai() == TrangThaiDatLich.HOAN_THANH) {
+                soLichDaXem++;
+            }
 
             if (p.getTrangThai() == TrangThaiDatLich.HOAN_THANH) {
                 completedAppointments.add(p);
-                tongDoanhThu += (p.getPhiThu() != null ? p.getPhiThu() : 0L);
+                long fee = p.getPhiThu() != null ? p.getPhiThu() : 0L;
+                tongDoanhThu += fee;
+                completedByType.merge(roomTypeName, 1L, Long::sum);
+                revenueByType.merge(roomTypeName, fee, Long::sum);
+            } else if (p.getTrangThai() == TrangThaiDatLich.HUY) {
+                soLichHuy++;
+                if (Boolean.FALSE.equals(p.getKhachHangDongY())) soLichKhachTuChoi++;
+                if (Boolean.FALSE.equals(p.getChuTroDongY())) soLichChuTroTuChoi++;
+                String reason = p.getLiDoHuy() != null ? p.getLiDoHuy().toLowerCase(java.util.Locale.ROOT) : "";
+                if (reason.contains("vắng mặt") || reason.contains("no-show") || reason.contains("no show")) {
+                    soCaNoShow++;
+                }
             } else if ((p.getTrangThai() == TrangThaiDatLich.XAC_NHAN || p.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN)
                     && p.getCoc() != null && p.getCoc() > 0 && p.getMaDatLich() != null
                     && paidDepositNotes.stream().anyMatch(note -> note.contains(p.getMaDatLich()))) {
@@ -433,7 +490,101 @@ public class AdminService {
         long tongQuyThucTe = tongQuyHeThong + tongDoanhThu;
 
         List<AdminStatisticsResponseDTO.RevenuePointDTO> bieuDoDoanhThu =
-                buildRevenueChart(completedAppointments, day, month, year, cacNamCoDuLieu);
+                buildRevenueChart(completedAppointments, periodAppointments, day, month, year, cacNamCoDuLieu);
+
+        // 5. Tracking phễu hành vi & Ma trận Cung-Cầu-Hoa hồng theo loại phòng
+        long luotTimKiemAi = 0L;
+        long luotHienThiGoiY = 0L;
+        long luotClickGoiY = 0L;
+        long luotXemChiTiet = 0L;
+        long luotXemTour360 = 0L;
+        Map<String, Long> viewsByType = new LinkedHashMap<>();
+        Map<String, Long> clicksByType = new LinkedHashMap<>();
+
+        for (Object[] row : aiTrackingRows) {
+            if (row == null || row.length < 3) continue;
+            LocalDateTime createdAt = row[2] instanceof LocalDateTime t ? t : null;
+            if (!matchesDateFilter(createdAt, day, month, year)) continue;
+            String feature = row[0] != null ? String.valueOf(row[0]) : "";
+            String roomId = row[1] != null ? String.valueOf(row[1]) : null;
+            String typeName = roomId != null ? resolveRoomTypeName(roomById.get(roomId)) : null;
+
+            switch (feature) {
+                case "AI_SEARCH" -> luotTimKiemAi++;
+                case "RECOMMEND_IMPRESSION" -> luotHienThiGoiY++;
+                case "RECOMMEND_CLICK" -> {
+                    luotClickGoiY++;
+                    if (typeName != null) clicksByType.merge(typeName, 1L, Long::sum);
+                }
+                case "ROOM_VIEW" -> {
+                    luotXemChiTiet++;
+                    if (typeName != null) viewsByType.merge(typeName, 1L, Long::sum);
+                }
+                case "TOUR_360_VIEW" -> {
+                    luotXemTour360++;
+                    if (typeName != null) viewsByType.merge(typeName, 1L, Long::sum);
+                }
+                default -> { }
+            }
+        }
+
+        long luotYeuThich = 0L;
+        for (Object[] row : phongTroRepository.countFavoritesByRoom()) {
+            if (row != null && row.length >= 2 && row[1] instanceof Number cnt) {
+                luotYeuThich += cnt.longValue();
+            }
+        }
+
+        List<AdminStatisticsResponseDTO.RoomTypeStatDTO> coCauLoaiPhong = roomTypeCounts.entrySet().stream()
+                .filter(e -> e.getValue() > 0 || bookingsByType.getOrDefault(e.getKey(), 0L) > 0 || viewsByType.getOrDefault(e.getKey(), 0L) > 0)
+                .sorted(Comparator
+                        .<Map.Entry<String, Long>>comparingLong(e -> revenueByType.getOrDefault(e.getKey(), 0L)).reversed()
+                        .thenComparing(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .map(e -> {
+                    String name = e.getKey();
+                    long booked = bookingsByType.getOrDefault(name, 0L);
+                    long completed = completedByType.getOrDefault(name, 0L);
+                    return AdminStatisticsResponseDTO.RoomTypeStatDTO.builder()
+                            .maLoaiPhong(roomTypeIdByName.get(name))
+                            .tenLoaiPhong(name)
+                            .soLuong(e.getValue())
+                            .soPhongDangHienThi(approvedSupplyByType.getOrDefault(name, 0L))
+                            .luotXem(viewsByType.getOrDefault(name, 0L))
+                            .luotClickGoiY(clicksByType.getOrDefault(name, 0L))
+                            .soLichDat(booked)
+                            .soLichHoanThanh(completed)
+                            .doanhThuHoaHong(revenueByType.getOrDefault(name, 0L))
+                            .tyLeChot(booked > 0 ? round1(completed * 100.0 / booked) : 0.0)
+                            .build();
+                })
+                .toList();
+
+        AdminStatisticsResponseDTO.ConversionFunnelDTO pheuChuyenDoi =
+                AdminStatisticsResponseDTO.ConversionFunnelDTO.builder()
+                        .luotTimKiemAi(luotTimKiemAi)
+                        .luotHienThiGoiY(luotHienThiGoiY)
+                        .luotClickGoiY(luotClickGoiY)
+                        .ctrGoiYPercent(luotHienThiGoiY > 0 ? round1(luotClickGoiY * 100.0 / luotHienThiGoiY) : 0.0)
+                        .luotXemChiTiet(luotXemChiTiet)
+                        .luotXemTour360(luotXemTour360)
+                        .luotYeuThich(luotYeuThich)
+                        .soLichDatCoc(soLichDatCoc)
+                        .soLichDaXem(soLichDaXem)
+                        .soLichHoanThanh(soLichHoanThanh)
+                        .soLichHuy(soLichHuy)
+                        .soLichKhachTuChoi(soLichKhachTuChoi)
+                        .soLichChuTroTuChoi(soLichChuTroTuChoi)
+                        .soCaNoShow(soCaNoShow)
+                        .tyLeChotTuDatLichPercent(soLichDatCoc > 0 ? round1(soLichHoanThanh * 100.0 / soLichDatCoc) : 0.0)
+                        .tyLeChotTuXemThucTePercent(soLichDaXem > 0 ? round1(soLichHoanThanh * 100.0 / soLichDaXem) : 0.0)
+                        .build();
+
+        AdminStatisticsResponseDTO.PeriodComparisonDTO soSanhKyTruoc =
+                buildPeriodComparison(allAppointments, bieuDoDoanhThu, day, month, year, tongDoanhThu, soLichHoanThanh);
+
+        AdminStatisticsResponseDTO.AiBusinessSummaryDTO tongQuanAiTracking =
+                buildAiBusinessSummary(tongDoanhThu, day, month, year);
 
         return AdminStatisticsResponseDTO.builder()
                 .tongSoPhong(tongSoPhong)
@@ -456,6 +607,9 @@ public class AdminService {
                 .bieuDoDoanhThu(bieuDoDoanhThu)
                 .coCauLoaiPhong(coCauLoaiPhong)
                 .cacNamCoDuLieu(cacNamCoDuLieu)
+                .soSanhKyTruoc(soSanhKyTruoc)
+                .pheuChuyenDoi(pheuChuyenDoi)
+                .tongQuanAiTracking(tongQuanAiTracking)
                 .build();
     }
 
@@ -485,6 +639,7 @@ public class AdminService {
 
     private List<AdminStatisticsResponseDTO.RevenuePointDTO> buildRevenueChart(
             List<PhieuDatLich> completedAppointments,
+            List<PhieuDatLich> periodAppointments,
             Integer day,
             Integer month,
             Integer year,
@@ -495,13 +650,19 @@ public class AdminService {
         if (day != null && month != null && year != null) {
             String[] slotLabels = {"00h–04h", "04h–08h", "08h–12h", "12h–16h", "16h–20h", "20h–24h"};
             for (String slot : slotLabels) {
-                buckets.put(slot, new long[]{0L, 0L});
+                buckets.put(slot, new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
                 if (t == null) continue;
                 int idx = Math.min(5, Math.max(0, t.getHour() / 4));
                 accumulateBucket(buckets, slotLabels[idx], p.getPhiThu());
+            }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                int idx = Math.min(5, Math.max(0, t.getHour() / 4));
+                accumulateBookingBucket(buckets, slotLabels[idx]);
             }
             return toChartPoints(buckets);
         }
@@ -512,13 +673,19 @@ public class AdminService {
             }
             int daysInMonth = YearMonth.of(year, month).lengthOfMonth();
             for (int d = 1; d <= daysInMonth; d++) {
-                buckets.put(String.format("%02d/%02d", d, month), new long[]{0L, 0L});
+                buckets.put(String.format("%02d/%02d", d, month), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
                 if (t == null) continue;
                 String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
                 accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
+                accumulateBookingBucket(buckets, key);
             }
             return toChartPoints(buckets);
         }
@@ -529,7 +696,7 @@ public class AdminService {
             }
             int maxDay = (month == 2) ? 29 : (month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31);
             for (int d = 1; d <= maxDay; d++) {
-                buckets.put(String.format("Ngày %02d", d), new long[]{0L, 0L});
+                buckets.put(String.format("Ngày %02d", d), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
@@ -537,18 +704,30 @@ public class AdminService {
                 String key = String.format("Ngày %02d", t.getDayOfMonth());
                 accumulateBucket(buckets, key, p.getPhiThu());
             }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("Ngày %02d", t.getDayOfMonth());
+                accumulateBookingBucket(buckets, key);
+            }
             return toChartPoints(buckets);
         }
 
         if (day == null && year != null) {
             for (int m = 1; m <= 12; m++) {
-                buckets.put(String.format("%02d/%d", m, year), new long[]{0L, 0L});
+                buckets.put(String.format("%02d/%d", m, year), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
                 if (t == null) continue;
                 String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
                 accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
+                accumulateBookingBucket(buckets, key);
             }
             return toChartPoints(buckets);
         }
@@ -570,7 +749,7 @@ public class AdminService {
                 earliest = latest.minusMonths(5);
             }
             for (YearMonth ym = earliest; !ym.isAfter(latest); ym = ym.plusMonths(1)) {
-                buckets.put(String.format("%02d/%d", ym.getMonthValue(), ym.getYear()), new long[]{0L, 0L});
+                buckets.put(String.format("%02d/%d", ym.getMonthValue(), ym.getYear()), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
@@ -578,18 +757,32 @@ public class AdminService {
                 String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
                 accumulateBucket(buckets, key, p.getPhiThu());
             }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%d", t.getMonthValue(), t.getYear());
+                if (buckets.containsKey(key)) {
+                    accumulateBookingBucket(buckets, key);
+                }
+            }
             return toChartPoints(buckets);
         }
 
         if (month == null && year != null) {
             for (int m = 1; m <= 12; m++) {
-                buckets.put(String.format("%02d/%02d", day, m), new long[]{0L, 0L});
+                buckets.put(String.format("%02d/%02d", day, m), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
                 if (t == null) continue;
                 String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
                 accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d", t.getDayOfMonth(), t.getMonthValue());
+                accumulateBookingBucket(buckets, key);
             }
             return toChartPoints(buckets);
         }
@@ -598,13 +791,19 @@ public class AdminService {
             List<Integer> ascYears = new ArrayList<>(cacNamCoDuLieu);
             ascYears.sort(Comparator.naturalOrder());
             for (Integer y : ascYears) {
-                buckets.put(String.format("%02d/%02d/%d", day, month, y), new long[]{0L, 0L});
+                buckets.put(String.format("%02d/%02d/%d", day, month, y), new long[]{0L, 0L, 0L});
             }
             for (PhieuDatLich p : completedAppointments) {
                 LocalDateTime t = resolveAppointmentTime(p);
                 if (t == null) continue;
                 String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
                 accumulateBucket(buckets, key, p.getPhiThu());
+            }
+            for (PhieuDatLich p : periodAppointments) {
+                LocalDateTime t = resolveAppointmentTime(p);
+                if (t == null) continue;
+                String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
+                accumulateBookingBucket(buckets, key);
             }
             return toChartPoints(buckets);
         }
@@ -617,7 +816,7 @@ public class AdminService {
         }
         for (LocalDate d : dates) {
             buckets.put(String.format("%02d/%02d/%d", d.getDayOfMonth(), d.getMonthValue(), d.getYear()),
-                    new long[]{0L, 0L});
+                    new long[]{0L, 0L, 0L});
         }
         for (PhieuDatLich p : completedAppointments) {
             LocalDateTime t = resolveAppointmentTime(p);
@@ -625,13 +824,26 @@ public class AdminService {
             String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
             accumulateBucket(buckets, key, p.getPhiThu());
         }
+        for (PhieuDatLich p : periodAppointments) {
+            LocalDateTime t = resolveAppointmentTime(p);
+            if (t == null) continue;
+            String key = String.format("%02d/%02d/%d", t.getDayOfMonth(), t.getMonthValue(), t.getYear());
+            if (buckets.containsKey(key)) {
+                accumulateBookingBucket(buckets, key);
+            }
+        }
         return toChartPoints(buckets);
     }
 
     private void accumulateBucket(Map<String, long[]> buckets, String key, Long phiThu) {
-        long[] entry = buckets.computeIfAbsent(key, k -> new long[]{0L, 0L});
+        long[] entry = buckets.computeIfAbsent(key, k -> new long[]{0L, 0L, 0L});
         entry[0] += (phiThu != null ? phiThu : 0L);
         entry[1] += 1L;
+    }
+
+    private void accumulateBookingBucket(Map<String, long[]> buckets, String key) {
+        long[] entry = buckets.computeIfAbsent(key, k -> new long[]{0L, 0L, 0L});
+        entry[2] += 1L;
     }
 
     private List<AdminStatisticsResponseDTO.RevenuePointDTO> toChartPoints(Map<String, long[]> buckets) {
@@ -641,9 +853,167 @@ public class AdminService {
                     .nhan(entry.getKey())
                     .doanhThu(entry.getValue()[0])
                     .soLichHoanThanh(entry.getValue()[1])
+                    .soLichDat(entry.getValue()[2])
                     .build());
         }
         return points;
+    }
+
+    private PhongTro resolveRoomFromAppointment(PhieuDatLich p, Map<String, PhongTro> roomById) {
+        if (p == null || p.getPhongTro() == null) return null;
+        String id = p.getPhongTro().getMaPhongTro();
+        return id != null && roomById.containsKey(id) ? roomById.get(id) : p.getPhongTro();
+    }
+
+    private String resolveRoomTypeName(PhongTro pt) {
+        return (pt != null && pt.getLoaiPhong() != null && pt.getLoaiPhong().getTenLoaiPhongTro() != null
+                && !pt.getLoaiPhong().getTenLoaiPhongTro().isBlank())
+                ? pt.getLoaiPhong().getTenLoaiPhongTro()
+                : "Khác";
+    }
+
+    private String resolveRoomIdFromLog(AiUsageLog logEntry) {
+        if (logEntry.getMaPhongTro() != null && !logEntry.getMaPhongTro().isBlank()) {
+            return logEntry.getMaPhongTro();
+        }
+        String meta = logEntry.getMetadataSummary();
+        if (meta != null && meta.startsWith("roomId=PT") && meta.length() >= 21) {
+            return meta.substring(7, 21);
+        }
+        return null;
+    }
+
+    private AdminStatisticsResponseDTO.PeriodComparisonDTO buildPeriodComparison(
+            List<PhieuDatLich> allAppointments,
+            List<AdminStatisticsResponseDTO.RevenuePointDTO> chartPoints,
+            Integer day,
+            Integer month,
+            Integer year,
+            long currentRevenue,
+            long currentCompleted
+    ) {
+        if (day != null && month != null && year != null) {
+            try {
+                LocalDate prevDate = LocalDate.of(year, month, day).minusDays(1);
+                return compareWithFilter(allAppointments, prevDate.getDayOfMonth(), prevDate.getMonthValue(), prevDate.getYear(), currentRevenue, currentCompleted);
+            } catch (RuntimeException ignored) {
+                return AdminStatisticsResponseDTO.PeriodComparisonDTO.builder().coSoSanh(false).build();
+            }
+        }
+        if (day == null && month != null && year != null) {
+            YearMonth prevYm = YearMonth.of(year, month).minusMonths(1);
+            return compareWithFilter(allAppointments, null, prevYm.getMonthValue(), prevYm.getYear(), currentRevenue, currentCompleted);
+        }
+        if (day == null && month == null && year != null) {
+            return compareWithFilter(allAppointments, null, null, year - 1, currentRevenue, currentCompleted);
+        }
+        if (day == null && month == null && year == null && chartPoints != null && chartPoints.size() >= 2) {
+            var latest = chartPoints.get(chartPoints.size() - 1);
+            var prev = chartPoints.get(chartPoints.size() - 2);
+            return AdminStatisticsResponseDTO.PeriodComparisonDTO.builder()
+                    .coSoSanh(true)
+                    .doanhThuKyTruoc(prev.getDoanhThu())
+                    .phanTramBienDongDoanhThu(calcDeltaPct(latest.getDoanhThu(), prev.getDoanhThu()))
+                    .soLichHoanThanhKyTruoc(prev.getSoLichHoanThanh())
+                    .phanTramBienDongLich(calcDeltaPct(latest.getSoLichHoanThanh(), prev.getSoLichHoanThanh()))
+                    .build();
+        }
+        return AdminStatisticsResponseDTO.PeriodComparisonDTO.builder().coSoSanh(false).build();
+    }
+
+    private AdminStatisticsResponseDTO.PeriodComparisonDTO compareWithFilter(
+            List<PhieuDatLich> allAppointments,
+            Integer prevDay,
+            Integer prevMonth,
+            Integer prevYear,
+            long currentRevenue,
+            long currentCompleted
+    ) {
+        long prevRev = 0L;
+        long prevCompleted = 0L;
+        for (PhieuDatLich p : allAppointments) {
+            if (p.getTrangThai() != TrangThaiDatLich.HOAN_THANH) continue;
+            LocalDateTime t = resolveAppointmentTime(p);
+            if (!matchesDateFilter(t, prevDay, prevMonth, prevYear)) continue;
+            prevCompleted++;
+            prevRev += (p.getPhiThu() != null ? p.getPhiThu() : 0L);
+        }
+        return AdminStatisticsResponseDTO.PeriodComparisonDTO.builder()
+                .coSoSanh(true)
+                .doanhThuKyTruoc(prevRev)
+                .phanTramBienDongDoanhThu(calcDeltaPct(currentRevenue, prevRev))
+                .soLichHoanThanhKyTruoc(prevCompleted)
+                .phanTramBienDongLich(calcDeltaPct(currentCompleted, prevCompleted))
+                .build();
+    }
+
+    private Double calcDeltaPct(long current, long previous) {
+        if (previous <= 0) {
+            return current > 0 ? 100.0 : 0.0;
+        }
+        return round1((current - previous) * 100.0 / previous);
+    }
+
+    private AdminStatisticsResponseDTO.AiBusinessSummaryDTO buildAiBusinessSummary(
+            long tongDoanhThu,
+            Integer day,
+            Integer month,
+            Integer year
+    ) {
+        if (aiTrackingService == null) {
+            return null;
+        }
+        int days = 30;
+        if (day != null && month != null && year != null) days = 1;
+        else if (year != null && month == null) days = 90;
+
+        try {
+            AiTrackingSummaryResponse ai = aiTrackingService.getSummary(days);
+            if (ai == null) return null;
+            long aiCostVnd = ai.getEstimatedCostVnd();
+            long netMargin = tongDoanhThu - aiCostVnd;
+            double costRatio = tongDoanhThu > 0 ? round1(aiCostVnd * 100.0 / tongDoanhThu) : 0.0;
+            List<AdminStatisticsResponseDTO.IntentStatDTO> topIntents = ai.getIntentBreakdown() == null
+                    ? List.of()
+                    : ai.getIntentBreakdown().stream()
+                    .limit(6)
+                    .map(i -> AdminStatisticsResponseDTO.IntentStatDTO.builder()
+                            .intent(i.getIntent())
+                            .count(i.getCount())
+                            .build())
+                    .toList();
+
+            var quota = ai.getQuotaStatus();
+            var vector = ai.getVectorHealth();
+            return AdminStatisticsResponseDTO.AiBusinessSummaryDTO.builder()
+                    .tongLuotGoiProvider(ai.getProviderCalls())
+                    .tongLuotBypass(ai.getLocalBypassCalls())
+                    .tyLeTietKiemBypassPercent(ai.getCostSavingsPercent())
+                    .tyLeThanhCongPercent(ai.getSuccessRatePercent())
+                    .tongToken(ai.getTotalTokens())
+                    .chiPhiUocTinhUsd(ai.getEstimatedCostUsd())
+                    .chiPhiUocTinhVnd(aiCostVnd)
+                    .pricingConfigured(ai.isPricingConfigured())
+                    .bienLoiNhuanSauAiVnd(netMargin)
+                    .tyLeChiPhiAiTrenDoanhThuPercent(costRatio)
+                    .dailyTokensUsed(quota != null ? quota.getDailyTokensUsed() : 0L)
+                    .dailyTokenLimit(quota != null ? quota.getDailyTokenLimit() : 0L)
+                    .quotaUsagePercent(quota != null ? quota.getQuotaUsagePercent() : 0.0)
+                    .quotaWarning(quota != null && quota.isWarning())
+                    .totalApprovedRooms(vector != null ? vector.getTotalApprovedRooms() : 0L)
+                    .indexedRooms(vector != null ? vector.getIndexedRooms() : 0L)
+                    .vectorCoveragePercent(vector != null ? vector.getCoveragePercent() : 0.0)
+                    .semanticSearchCount(vector != null ? vector.getSemanticSearchCount() : 0L)
+                    .filteredFallbackCount(vector != null ? vector.getFilteredFallbackCount() : 0L)
+                    .topIntents(topIntents)
+                    .build();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 
     // ==========================================
@@ -672,14 +1042,6 @@ public class AdminService {
         return phieuDatLichRepository.searchByCodeOrPhone(keyword.trim(), PageRequest.of(0, 100))
                 .stream()
                 .map(AdminAppointmentResponseDTO::fromEntity)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<AdminTransactionResponseDTO> getAllTransactions() {
-        return giaoDichRepository.findAllByOrderByNgayGiaoDichDesc()
-                .stream()
-                .map(this::toAdminTransactionDTO)
                 .toList();
     }
 
@@ -1001,15 +1363,43 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "admin_statistics", allEntries = true)
     public RoomTypeDepositFeeResponseDTO updateDepositFee(String maLpt, UpdateDepositFeeRequest request) {
-        LoaiPhongTro lpt = loaiPhongTroRepository.findById(maLpt)
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_TYPE_NOT_FOUND));
-
-        if (request.getPhiThu() >= request.getSoTienCoc()) {
-            throw new AppException(ErrorCode.INVALID_DEPOSIT_FEE);
+        String currentUsername = SecurityUtils.getCurrentUsername();
+        if (currentUsername == null || "anonymousUser".equals(currentUsername)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        NguoiDung currentAdmin = nguoiDungRepository.findByTenDangNhap(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (!passwordEncoder.matches(request.getMatKhauAdmin(), currentAdmin.getMatKhau())) {
+            throw new AppException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
 
-        Coc coc = lpt.getCoc();
+        int soTienCoc = request.getSoTienCoc();
+        int phiMoi = request.getPhiThu();
+        if (soTienCoc < 50_000 || soTienCoc > 2_000_000 || phiMoi < 0 || phiMoi >= soTienCoc) {
+            throw new AppException(ErrorCode.INVALID_DEPOSIT_FEE);
+        }
+        if (soTienCoc % 1000 != 0 || phiMoi % 1000 != 0) {
+            throw new AppException(ErrorCode.DEPOSIT_AMOUNT_STEP_INVALID);
+        }
+        if ((long) phiMoi * 100L > (long) soTienCoc * 30L) {
+            throw new AppException(ErrorCode.COMMISSION_RATE_EXCEEDED);
+        }
+
+        LoaiPhongTro lpt = loaiPhongTroRepository.findByIdForUpdate(maLpt)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_TYPE_NOT_FOUND));
+
+        Coc existingCoc = lpt.getCoc();
+        PhiThu existingPhi = existingCoc != null ? existingCoc.getPhiThu() : null;
+        int cocCu = existingCoc != null && existingCoc.getSoTienCoc() != null ? existingCoc.getSoTienCoc() : 0;
+        int phiCu = existingPhi != null && existingPhi.getPhi() != null ? existingPhi.getPhi() : 0;
+
+        if (existingCoc != null && existingPhi != null && cocCu == soTienCoc && phiCu == phiMoi) {
+            throw new AppException(ErrorCode.DEPOSIT_FEE_UNCHANGED);
+        }
+
+        Coc coc = existingCoc;
         if (coc == null) {
             String maxCoc = cocRepository.findMaxMaCoc();
             int nextCocNum = 1;
@@ -1022,16 +1412,16 @@ public class AdminService {
             coc = Coc.builder()
                     .maCoc(newMaCoc)
                     .loaiPhong(lpt)
-                    .soTienCoc(request.getSoTienCoc())
+                    .soTienCoc(soTienCoc)
                     .build();
             coc = cocRepository.save(coc);
             lpt.setCoc(coc);
         } else {
-            coc.setSoTienCoc(request.getSoTienCoc());
+            coc.setSoTienCoc(soTienCoc);
             coc = cocRepository.save(coc);
         }
 
-        PhiThu phiThu = coc.getPhiThu();
+        PhiThu phiThu = existingPhi;
         if (phiThu == null) {
             String maxPt = phiThuRepository.findMaxMaPhiThu();
             int nextPtNum = 1;
@@ -1044,13 +1434,30 @@ public class AdminService {
             phiThu = PhiThu.builder()
                     .maPhiThu(newMaPt)
                     .coc(coc)
-                    .phi(request.getPhiThu())
+                    .phi(phiMoi)
                     .build();
             phiThu = phiThuRepository.save(phiThu);
             coc.setPhiThu(phiThu);
         } else {
-            phiThu.setPhi(request.getPhiThu());
+            phiThu.setPhi(phiMoi);
             phiThu = phiThuRepository.save(phiThu);
+        }
+
+        if (lichSuBieuPhiRepository != null) {
+            String nguoiSua = (currentAdmin.getHoVaTen() != null && !currentAdmin.getHoVaTen().isBlank())
+                    ? currentAdmin.getHoVaTen() + " (@" + currentAdmin.getTenDangNhap() + ")"
+                    : "@" + currentAdmin.getTenDangNhap();
+            lichSuBieuPhiRepository.save(LichSuBieuPhi.builder()
+                    .maLpt(lpt.getMaLpt())
+                    .tenLoaiPhong(lpt.getTenLoaiPhongTro())
+                    .cocCu(cocCu)
+                    .cocMoi(soTienCoc)
+                    .phiCu(phiCu)
+                    .phiMoi(phiMoi)
+                    .lyDo(request.getLyDo().trim())
+                    .nguoiSua(nguoiSua)
+                    .thoiGian(LocalDateTime.now())
+                    .build());
         }
 
         int thucNhan = Math.max(0, coc.getSoTienCoc() - phiThu.getPhi());
@@ -1067,6 +1474,17 @@ public class AdminService {
                 .thucNhanChuTro(thucNhan)
                 .tyLePhiPercent(Math.round(tyLe * 10.0) / 10.0)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DepositFeeHistoryResponseDTO> getDepositFeeHistory(String maLpt) {
+        if (lichSuBieuPhiRepository == null) {
+            return List.of();
+        }
+        List<LichSuBieuPhi> list = (maLpt != null && !maLpt.isBlank())
+                ? lichSuBieuPhiRepository.findTop50ByMaLptOrderByThoiGianDesc(maLpt.trim())
+                : lichSuBieuPhiRepository.findTop50ByOrderByThoiGianDesc();
+        return list.stream().map(DepositFeeHistoryResponseDTO::fromEntity).toList();
     }
 
     @Transactional

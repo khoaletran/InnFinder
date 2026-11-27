@@ -17,7 +17,6 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { CommuteDistancePanel } from '@/components/room/CommuteDistancePanel';
 import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
 import { RecommendedRoomsSection } from '@/components/room/RecommendedRoomsSection';
@@ -103,11 +102,27 @@ export const RoomDetailPage: React.FC = () => {
           items={[
             { label: 'Trang chủ', to: '/' },
             { label: 'Tìm kiếm phòng', to: '/search' },
-            { label: 'Đang tải...' },
+            { label: 'Chi tiết phòng trọ' },
           ]}
         />
-        <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
-          <LoadingSpinner fullHeight label="Đang tải thông tin chi tiết phòng trọ..." />
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-pulse">
+          <div className="aspect-16/9 max-h-[440px] w-full rounded-2xl bg-slate-200/80" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="h-7 w-3/4 rounded-lg bg-slate-200" />
+              <div className="h-4 w-1/2 rounded bg-slate-200/80" />
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200/70" />
+                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200/70" />
+                <div className="h-20 rounded-xl bg-slate-100 border border-slate-200/70" />
+              </div>
+              <div className="h-40 rounded-2xl bg-slate-100 border border-slate-200/70" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-56 rounded-2xl bg-slate-100 border border-slate-200/70" />
+              <div className="h-32 rounded-2xl bg-slate-100 border border-slate-200/70" />
+            </div>
+          </div>
         </div>
       </div>
     );

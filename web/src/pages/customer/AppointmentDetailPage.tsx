@@ -27,7 +27,6 @@ import { RentalTimeline } from '@/components/booking/RentalTimeline';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ChatDrawer } from '@/components/chat/ChatDrawer';
 import { LinkBankAccountModal, type LinkBankAccountPayload } from '@/components/common/LinkBankAccountModal';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useDepositCountdown } from '@/hooks/useDepositCountdown';
 import { authUserService } from '@/services/authUser.service';
 import { transactionService } from '@/services/transaction.service';
@@ -96,7 +95,19 @@ export const AppointmentDetailPage: React.FC = () => {
   });
 
   if (isLoading && !item) {
-    return <LoadingSpinner fullHeight label="Đang tải chi tiết phiếu đặt lịch..." />;
+    return (
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 space-y-6 animate-pulse">
+        <div className="h-10 w-56 rounded-xl bg-slate-200/80" />
+        <div className="h-24 rounded-2xl bg-slate-100 border border-slate-200/80" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="h-48 rounded-2xl bg-slate-100 border border-slate-200/80" />
+            <div className="h-40 rounded-2xl bg-slate-100 border border-slate-200/80" />
+          </div>
+          <div className="h-64 rounded-2xl bg-slate-100 border border-slate-200/80" />
+        </div>
+      </div>
+    );
   }
 
   if (!item) {

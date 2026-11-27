@@ -93,4 +93,23 @@ class LandlordRoomTests {
         assertEquals(ErrorCode.AMENITY_NOT_FOUND, assertThrows(AppException.class,
                 () -> service.createRoomFromJson(request())).getErrorCode());
     }
+    @Test void blocksPostingWhenTempHiddenOrLowReputationOrOverLimit() {
+        owner.setTamAnDen(java.time.LocalDateTime.now().plusDays(3));
+        assertEquals(ErrorCode.LANDLORD_TEMP_HIDDEN, assertThrows(AppException.class,
+                () -> service.createRoomFromJson(request())).getErrorCode());
+
+        room.setTrangThai(TrangThaiPhongTro.DA_DUYET);
+        assertEquals(ErrorCode.LANDLORD_TEMP_HIDDEN, assertThrows(AppException.class,
+                () -> service.setRoomVisibility(room.getMaPhongTro(), false)).getErrorCode());
+
+        owner.setTamAnDen(null);
+        owner.setDiemUyTin(45);
+        assertEquals(ErrorCode.LANDLORD_LOW_REPUTATION_POSTING_BLOCKED, assertThrows(AppException.class,
+                () -> service.createRoomFromJson(request())).getErrorCode());
+
+        owner.setDiemUyTin(65);
+        when(rooms.countByChuPhongTro_MaChuTroAndTrangThaiIn(eq("owner"), anyList())).thenReturn(3L);
+        assertEquals(ErrorCode.LANDLORD_ROOM_LIMIT_EXCEEDED, assertThrows(AppException.class,
+                () -> service.createRoomFromJson(request())).getErrorCode());
+    }
 }

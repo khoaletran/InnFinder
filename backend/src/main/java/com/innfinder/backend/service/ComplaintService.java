@@ -46,6 +46,9 @@ public class ComplaintService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RealtimePublisher realtimePublisher;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ReputationService reputationService;
+
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
         String username = SecurityUtils.getCurrentUsername();
@@ -148,33 +151,47 @@ public class ComplaintService {
 
         // Chỉ thực thi chế tài & hoàn cọc đúng một lần khi Admin chốt trạng thái Đã xử lý (DA_XU_LI)
         if (kn.getTrangThai() == TrangThaiKhieuNai.DA_XU_LI && kn.getDoiTuongKhieuNai() != null) {
-            MucDoViPham mucDo = kn.getMucDoViPham();
-            if (mucDo == MucDoViPham.TRUNG_BINH) {
-                chuTroRepository.findById(kn.getDoiTuongKhieuNai().getMaNguoiDung()).ifPresent(chuTro -> {
-                    int diemHienTai = chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100;
-                    chuTro.setDiemUyTin(Math.max(0, diemHienTai - 10));
-                    chuTroRepository.save(chuTro);
-                });
-            } else if (mucDo == MucDoViPham.NANG) {
-                NguoiDung doiTuong = kn.getDoiTuongKhieuNai();
-                doiTuong.setTrangThaiKhoa(true);
-                nguoiDungRepository.save(doiTuong);
-
-                List<PhongTro> landlordRooms = phongTroRepository.findByChuPhongTro_MaChuTro(doiTuong.getMaNguoiDung());
-                if (landlordRooms != null && !landlordRooms.isEmpty()) {
-                    List<PhongTro> roomsToHide = landlordRooms.stream()
-                            .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET
-                                    || r.getTrangThai() == TrangThaiPhongTro.CHO_DUYET)
-                            .peek(r -> r.setTrangThai(TrangThaiPhongTro.HUY))
-                            .toList();
-                    if (!roomsToHide.isEmpty()) {
-                        phongTroRepository.saveAll(roomsToHide);
-                    }
-                }
-            }
-
+            // Thực hiện hoàn cọc theo lịch hẹn chỉ định trước khi xử lý mức NANG để tránh hoàn trùng
             if (Boolean.TRUE.equals(request.getHoanCoc())) {
                 refundDepositForComplaint(kn, request.getMaDatLichHoanCoc());
+            }
+
+            MucDoViPham mucDo = kn.getMucDoViPham();
+            String doiTuongId = kn.getDoiTuongKhieuNai().getMaNguoiDung();
+            if (mucDo == MucDoViPham.NHE) {
+                if (reputationService != null) {
+                    reputationService.recordMildComplaintWarning(doiTuongId, kn.getMaKhieuNai());
+                }
+            } else if (mucDo == MucDoViPham.TRUNG_BINH) {
+                if (reputationService != null) {
+                    reputationService.penalizeMediumComplaint(doiTuongId, kn.getMaKhieuNai());
+                } else {
+                    chuTroRepository.findById(doiTuongId).ifPresent(chuTro -> {
+                        int diemHienTai = chuTro.getDiemUyTin() != null ? chuTro.getDiemUyTin() : 100;
+                        chuTro.setDiemUyTin(Math.max(0, diemHienTai - 10));
+                        chuTroRepository.save(chuTro);
+                    });
+                }
+            } else if (mucDo == MucDoViPham.NANG) {
+                if (reputationService != null) {
+                    reputationService.penalizeSevereComplaint(kn.getDoiTuongKhieuNai(), kn.getMaKhieuNai());
+                } else {
+                    NguoiDung doiTuong = kn.getDoiTuongKhieuNai();
+                    doiTuong.setTrangThaiKhoa(true);
+                    nguoiDungRepository.save(doiTuong);
+
+                    List<PhongTro> landlordRooms = phongTroRepository.findByChuPhongTro_MaChuTro(doiTuong.getMaNguoiDung());
+                    if (landlordRooms != null && !landlordRooms.isEmpty()) {
+                        List<PhongTro> roomsToHide = landlordRooms.stream()
+                                .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET
+                                        || r.getTrangThai() == TrangThaiPhongTro.CHO_DUYET)
+                                .peek(r -> r.setTrangThai(TrangThaiPhongTro.HUY))
+                                .toList();
+                        if (!roomsToHide.isEmpty()) {
+                            phongTroRepository.saveAll(roomsToHide);
+                        }
+                    }
+                }
             }
         }
 

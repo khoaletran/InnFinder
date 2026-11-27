@@ -304,14 +304,30 @@ public class RoommateService {
             return List.of();
         }
 
-        List<ReceivedApplication> result = new ArrayList<>();
+        List<Map.Entry<String, Map<String, Object>>> myPosts = new ArrayList<>();
         for (Map.Entry<String, Map<String, Object>> postEntry : postsMap.entrySet()) {
             Map<String, Object> postDoc = postEntry.getValue();
-            if (postDoc == null || !userId.equals(str(postDoc.get("maNguoiDang")))) {
-                continue;
+            if (postDoc != null && userId.equals(str(postDoc.get("maNguoiDang")))) {
+                myPosts.add(postEntry);
             }
+        }
+        if (myPosts.isEmpty()) {
+            return List.of();
+        }
+
+        // Tải song song danh sách đơn theo từng bài đăng thay vì gọi tuần tự từng bài
+        Map<String, java.util.concurrent.CompletableFuture<Map<String, Map<String, Object>>>> futures = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Object>> postEntry : myPosts) {
             String postId = postEntry.getKey();
-            Map<String, Map<String, Object>> appsMap = rtdb.get("dangKyOGhep/" + postId, MAP_OF_DOCS);
+            futures.put(postId, java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> rtdb.get("dangKyOGhep/" + postId, MAP_OF_DOCS)));
+        }
+
+        List<ReceivedApplication> result = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Object>> postEntry : myPosts) {
+            String postId = postEntry.getKey();
+            Map<String, Object> postDoc = postEntry.getValue();
+            Map<String, Map<String, Object>> appsMap = futures.get(postId).join();
             if (appsMap == null || appsMap.isEmpty()) {
                 continue;
             }

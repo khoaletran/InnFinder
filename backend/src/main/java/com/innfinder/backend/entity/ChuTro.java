@@ -3,6 +3,7 @@ package com.innfinder.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -31,6 +32,14 @@ public class ChuTro {
     @Builder.Default
     private Long soDu = 0L;
 
+    @Column(name = "tam_an_den")
+    private LocalDateTime tamAnDen;
+
     @OneToMany(mappedBy = "chuPhongTro", cascade = CascadeType.ALL)
     private List<PhongTro> dsPhongTro;
+
+    @Transient
+    public boolean isDangTamAn() {
+        return tamAnDen != null && tamAnDen.isAfter(LocalDateTime.now());
+    }
 }

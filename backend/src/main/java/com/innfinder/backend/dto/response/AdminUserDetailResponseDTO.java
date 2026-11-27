@@ -2,6 +2,7 @@ package com.innfinder.backend.dto.response;
 
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -12,6 +13,9 @@ import java.util.List;
 public class AdminUserDetailResponseDTO {
     private UserResponseDTO user;
     private Long soDu;
+    private Integer diemUyTin;
+    private LocalDateTime tamAnDen;
+    private List<ReputationHistoryResponseDTO> lichSuDiemUyTin;
     private List<BankAccountInfo> taiKhoanNganHang;
     private List<AdminTransactionResponseDTO> giaoDich;
     private List<AdminAppointmentResponseDTO> lichXemPhong;

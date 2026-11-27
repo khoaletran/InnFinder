@@ -151,6 +151,7 @@ export function RoommateListPage() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: effectiveTab !== 'APPLICATIONS',
+    placeholderData: (prev) => prev,
     retry: false,
   });
 
@@ -586,7 +587,20 @@ export function RoommateListPage() {
         {/* Nội dung Tab Khám phá & Bài của tôi */}
         {effectiveTab !== 'APPLICATIONS' && (
           <>
-          {listQuery.isPending && <LoadingSpinner label="Đang tải danh sách bài ở ghép..." />}
+          {listQuery.isPending && !listQuery.data && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="h-44 bg-slate-200/80" />
+                  <div className="p-4 space-y-2.5">
+                    <div className="h-4 w-2/3 bg-slate-200 rounded" />
+                    <div className="h-3 w-1/2 bg-slate-200/80 rounded" />
+                    <div className="h-8 w-full bg-slate-100 rounded-xl mt-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
             {listQuery.error && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">
@@ -616,7 +630,13 @@ export function RoommateListPage() {
             )}
 
             {posts.length > 0 && (effectiveTab === 'MINE' || viewMode === 'grid') && (
-              <RoommateCards posts={posts} />
+              <div
+                className={`transition-opacity duration-200 ${
+                  listQuery.isPlaceholderData && listQuery.isFetching ? 'opacity-60' : 'opacity-100'
+                }`}
+              >
+                <RoommateCards posts={posts} />
+              </div>
             )}
 
             {posts.length > 0 && effectiveTab === 'ALL' && viewMode === 'map' && (
@@ -1649,15 +1669,6 @@ export function RoommateCreatePage() {
   return (
     <div className="flex-1 bg-slate-50">
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Đăng bài tìm bạn ở ghép
-          </h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Tạo bài tìm người ở cùng từ phòng trọ bạn đã hoàn tất thuê.
-          </p>
-        </div>
-
         {booking.isPending && <LoadingSpinner label="Đang xác minh phiếu thuê..." />}
 
         {booking.error && (

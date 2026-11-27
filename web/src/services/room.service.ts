@@ -82,4 +82,32 @@ export const roomService = {
   },
 };
 
+export const recommendationService = {
+  getPersonalized: async (recentIds: string[], limit = 8): Promise<RoomSummaryResponse[]> => {
+    const data = await axiosClient.get<unknown, RoomSummaryResponse[]>(
+      '/api/rooms/recommendations',
+      {
+        params: {
+          recentIds: recentIds.length > 0 ? recentIds.join(',') : undefined,
+          limit,
+        },
+      },
+    );
+    return Array.isArray(data) ? data : [];
+  },
+
+  getSimilar: async (roomId: string, limit = 6): Promise<RoomSummaryResponse[]> => {
+    const data = await axiosClient.get<unknown, RoomSummaryResponse[]>(
+      `/api/rooms/${encodeURIComponent(roomId)}/recommendations`,
+      { params: { limit } },
+    );
+    return Array.isArray(data) ? data : [];
+  },
+
+  trackImpression: (roomIds: string[], source: string): Promise<string> =>
+    axiosClient.post<unknown, string>('/api/rooms/recommendations/impressions', { roomIds, source }),
+  trackClick: (roomId: string, impressionId: string) =>
+    axiosClient.post('/api/rooms/recommendations/click', { roomId, impressionId }),
+};
+
 export default roomService;

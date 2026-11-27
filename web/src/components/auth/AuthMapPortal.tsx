@@ -99,6 +99,7 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({ initialMode = 'log
       sdt: '',
       matKhau: '',
       xacNhanMatKhau: '',
+      dongYDieuKhoan: false,
       chuTro: false,
     },
   });
@@ -594,6 +595,42 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({ initialMode = 'log
                     {regErrors.xacNhanMatKhau && (
                       <p className="text-[10px] text-red-500 mt-0.5">
                         {regErrors.xacNhanMatKhau.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="flex items-start gap-2 text-[11px] text-slate-600 leading-snug cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        {...registerSignUp('dongYDieuKhoan')}
+                        className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer shrink-0"
+                      />
+                      <span>
+                        Tôi đã đọc và đồng ý với{' '}
+                        <Link
+                          to="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-teal-700 font-semibold hover:underline"
+                        >
+                          Điều khoản sử dụng
+                        </Link>{' '}
+                        và{' '}
+                        <Link
+                          to="/privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-teal-700 font-semibold hover:underline"
+                        >
+                          Chính sách bảo mật
+                        </Link>{' '}
+                        của InnFinder.
+                      </span>
+                    </label>
+                    {regErrors.dongYDieuKhoan && (
+                      <p className="text-[10px] text-red-500 mt-1">
+                        {regErrors.dongYDieuKhoan.message}
                       </p>
                     )}
                   </div>

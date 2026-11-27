@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export interface BreadcrumbItem {
   label: string;
@@ -103,6 +104,24 @@ function resolveRouteBreadcrumb(pathname: string): BreadcrumbItem[] | null {
       { label: 'Đánh giá phòng' },
     ];
   }
+  if (path === '/about') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Giới thiệu' }];
+  }
+  if (path === '/terms') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Điều khoản sử dụng' }];
+  }
+  if (path === '/privacy') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Chính sách bảo mật' }];
+  }
+  if (path === '/deposit-policy') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Chính sách cọc & hoàn tiền' }];
+  }
+  if (path === '/landlord-policy') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Chính sách Chủ trọ' }];
+  }
+  if (path === '/contact') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Liên hệ & Hỗ trợ' }];
+  }
   return null;
 }
 
@@ -112,9 +131,24 @@ export const AppBreadcrumb: React.FC<AppBreadcrumbProps> = ({
   className = '',
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const resolvedItems = items ?? resolveRouteBreadcrumb(location.pathname);
   if (!resolvedItems || resolvedItems.length === 0) return null;
+
+  const fallbackParent =
+    [...resolvedItems]
+      .slice(0, -1)
+      .reverse()
+      .find((item) => Boolean(item.to))?.to ?? '/';
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate(fallbackParent);
+    }
+  };
 
   return (
     <div
@@ -123,8 +157,23 @@ export const AppBreadcrumb: React.FC<AppBreadcrumbProps> = ({
       <div
         className={`${
           fullWidth ? 'w-full px-4 sm:px-6' : 'max-w-[1200px] w-full mx-auto px-4 sm:px-6'
-        } h-9 flex items-center text-xs font-medium text-slate-500 min-w-0`}
+        } h-9 flex items-center gap-3 text-xs font-medium text-slate-500 min-w-0`}
       >
+        {resolvedItems.length > 1 && (
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-slate-700 hover:text-teal-700 hover:bg-slate-100 font-semibold transition-colors shrink-0 cursor-pointer"
+            title="Quay lại trang trước"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Quay lại</span>
+          </button>
+        )}
+
+        {resolvedItems.length > 1 && (
+          <span className="h-3.5 w-px bg-slate-200 shrink-0" aria-hidden="true" />
+        )}
 
         <nav aria-label="Đường dẫn trang" className="flex items-center gap-2 min-w-0 overflow-hidden">
           {resolvedItems.map((item, idx) => {

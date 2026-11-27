@@ -4,7 +4,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageContainer } from '@/components/common/PageContainer';
 import { RoomCard } from '@/components/room/RoomCard';
-import { recommendationService } from '@/services/aiTracking.service';
+import { recommendationService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
 import { getRecentRoomIds, recordViewedRoom } from '@/services/recommendationHistory';
