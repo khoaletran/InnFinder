@@ -25,10 +25,13 @@ import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer, PageHeader } from '@/components/common/PageContainer';
 import {
+  buildCapacityOptions,
   buildNumericBrackets,
   formatMillions,
+  matchesProvinceAddress,
   ROOM_SORT_OPTIONS,
   sortRoomsByOption,
+  VIETNAM_PROVINCES,
 } from '@/components/room/searchHelpers';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -37,7 +40,15 @@ import type { MapSortOption } from '@/store/useRoomFilterStore';
 import type { RoomDetailResponse } from '@/types/room.types';
 import { formatVND, formatVNDShort } from '@/utils/formatters';
 
-type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'sort' | null;
+type ActivePopover =
+  | 'price'
+  | 'category'
+  | 'area'
+  | 'capacity'
+  | 'province'
+  | 'amenities'
+  | 'sort'
+  | null;
 
 const FALLBACK_ROOM_IMAGE =
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&q=85&auto=format';
@@ -78,6 +89,8 @@ export const FavoritesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [minArea, setMinArea] = useState<number | undefined>(undefined);
   const [maxArea, setMaxArea] = useState<number | undefined>(undefined);
+  const [capacity, setCapacity] = useState<number | undefined>(undefined);
+  const [selectedProvince, setSelectedProvince] = useState<string | undefined>(undefined);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState<MapSortOption>('NEWEST');
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
@@ -191,6 +204,14 @@ export const FavoritesPage: React.FC = () => {
     [rooms],
   );
 
+  const capacityOptions = useMemo(() => buildCapacityOptions(rooms), [rooms]);
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const filteredProvinces = useMemo(() => {
+    const q = provinceSearch.trim().toLowerCase();
+    if (!q) return VIETNAM_PROVINCES;
+    return VIETNAM_PROVINCES.filter((p) => p.toLowerCase().includes(q));
+  }, [provinceSearch]);
+
   const categoryOptions = useMemo(() => {
     const counts = new Map<string, number>();
     rooms.forEach((r) => {
@@ -269,11 +290,24 @@ export const FavoritesPage: React.FC = () => {
         (minArea === undefined || r.dienTich >= minArea) &&
         (maxArea === undefined || r.dienTich <= maxArea);
 
+      const matchCapacity = capacity === undefined || (r.soNguoi ?? 0) >= capacity;
+
+      const matchProvince =
+        !selectedProvince || matchesProvinceAddress(r.diaChi, selectedProvince);
+
       const matchAmenities =
         selectedAmenities.length === 0 ||
         selectedAmenities.every((am) => roomAmenities.includes(am));
 
-      return matchSearch && matchPrice && matchCategory && matchArea && matchAmenities;
+      return (
+        matchSearch &&
+        matchPrice &&
+        matchCategory &&
+        matchArea &&
+        matchCapacity &&
+        matchProvince &&
+        matchAmenities
+      );
     });
 
     return sortRoomsByOption(list, (r) => r, sortOption);
@@ -287,6 +321,8 @@ export const FavoritesPage: React.FC = () => {
     selectedCategory,
     minArea,
     maxArea,
+    capacity,
+    selectedProvince,
     selectedAmenities,
     sortOption,
   ]);
@@ -321,6 +357,8 @@ export const FavoritesPage: React.FC = () => {
     setSelectedCategory(undefined);
     setMinArea(undefined);
     setMaxArea(undefined);
+    setCapacity(undefined);
+    setSelectedProvince(undefined);
     setSelectedAmenities([]);
     setSortOption('NEWEST');
     setActivePopover(null);
@@ -335,6 +373,8 @@ export const FavoritesPage: React.FC = () => {
   const areaLabel = hasAreaFilter
     ? `${minArea ?? 0} – ${maxArea ?? '∞'} m²`
     : 'Diện tích';
+  const provinceLabel = selectedProvince || 'Tỉnh / Thành';
+  const capacityLabel = capacity !== undefined ? `Từ ${capacity} người` : 'Số người';
   const amenityCount = selectedAmenities.length;
   const currentSortLabel =
     ROOM_SORT_OPTIONS.find((opt) => opt.value === sortOption)?.label ?? 'Mới nhất';
@@ -344,6 +384,8 @@ export const FavoritesPage: React.FC = () => {
     hasPriceFilter ||
     Boolean(selectedCategory) ||
     hasAreaFilter ||
+    capacity !== undefined ||
+    Boolean(selectedProvince) ||
     amenityCount > 0 ||
     sortOption !== 'NEWEST';
 
@@ -415,10 +457,7 @@ export const FavoritesPage: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{option.label}</span>
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-slate-400">{option.count} phòng</span>
-                          {selected && <Check className="w-4 h-4 text-teal-700" />}
-                        </span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                       </button>
                     );
                   })}
@@ -475,10 +514,7 @@ export const FavoritesPage: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{c.label}</span>
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-slate-400">{c.count} phòng</span>
-                          {selected && <Check className="w-4 h-4 text-teal-700" />}
-                        </span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                       </button>
                     );
                   })}
@@ -521,10 +557,7 @@ export const FavoritesPage: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{option.label}</span>
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-slate-400">{option.count} phòng</span>
-                          {selected && <Check className="w-4 h-4 text-teal-700" />}
-                        </span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                       </button>
                     );
                   })}
@@ -532,7 +565,51 @@ export const FavoritesPage: React.FC = () => {
               )}
             </div>
 
-            {/* 4. Chip Tiện ích */}
+            {/* 4. Chip Số người */}
+            {capacityOptions.length > 1 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
+                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                    capacity !== undefined || activePopover === 'capacity'
+                      ? 'bg-teal-50 text-teal-800 border-teal-500'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{capacityLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+
+                {activePopover === 'capacity' && (
+                  <div className="absolute left-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                    {capacityOptions.map((option) => {
+                      const selected = capacity === option.value;
+                      return (
+                        <button
+                          key={option.label}
+                          type="button"
+                          onClick={() => {
+                            setCapacity(option.value);
+                            setActivePopover(null);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                            selected
+                              ? 'bg-teal-50 text-teal-800 font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="truncate">{option.label}</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 5. Chip Tiện ích */}
             {amenityOptions.length > 0 && (
               <div className="relative">
                 <button
@@ -569,10 +646,7 @@ export const FavoritesPage: React.FC = () => {
                             }`}
                           >
                             <span className="truncate">{am.name}</span>
-                            <span className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-xs text-slate-400">{am.count}</span>
-                              {active && <Check className="w-4 h-4 text-teal-700" />}
-                            </span>
+                            {active && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                           </button>
                         );
                       })}
@@ -599,6 +673,77 @@ export const FavoritesPage: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* 6. Chip Tỉnh / Thành phố (đặt cuối trước Sắp xếp) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setProvinceSearch('');
+                  setActivePopover((p) => (p === 'province' ? null : 'province'));
+                }}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  selectedProvince || activePopover === 'province'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{provinceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'province' && (
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
+                  <input
+                    type="text"
+                    value={provinceSearch}
+                    onChange={(e) => setProvinceSearch(e.target.value)}
+                    placeholder="Tìm tỉnh, thành phố..."
+                    className="w-full h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800 outline-none focus:border-teal-500"
+                  />
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProvince(undefined);
+                        setProvinceSearch('');
+                        setActivePopover(null);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                        !selectedProvince
+                          ? 'bg-teal-50 text-teal-800 font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Tất cả tỉnh / thành</span>
+                      {!selectedProvince && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                    </button>
+                    {filteredProvinces.map((province) => {
+                      const selected = selectedProvince === province;
+                      return (
+                        <button
+                          key={province}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProvince(province);
+                            setProvinceSearch('');
+                            setActivePopover(null);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-left ${
+                            selected
+                              ? 'bg-teal-50 text-teal-800 font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="truncate">{province}</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* 5. Nút Sắp xếp */}
             <div className="relative">

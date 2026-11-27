@@ -135,3 +135,91 @@ export function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
+export interface CapacityOption {
+  value?: number;
+  label: string;
+  count: number;
+}
+
+export function buildCapacityOptions(rooms: RoomSummaryResponse[]): CapacityOption[] {
+  const validCapacities = rooms
+    .map((r) => r.soNguoi)
+    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0);
+  const distinct = Array.from(new Set(validCapacities)).sort((a, b) => a - b);
+  return [
+    { label: 'Tất cả số người', count: rooms.length },
+    ...distinct.map((n) => ({
+      value: n,
+      label: `Từ ${n} người`,
+      count: validCapacities.filter((cap) => cap >= n).length,
+    })),
+  ];
+}
+
+export const VIETNAM_PROVINCES: readonly string[] = [
+  'TP. Hồ Chí Minh',
+  'Hà Nội',
+  'Đà Nẵng',
+  'Hải Phòng',
+  'Cần Thơ',
+  'Huế',
+  'An Giang',
+  'Bắc Ninh',
+  'Cà Mau',
+  'Cao Bằng',
+  'Đắk Lắk',
+  'Điện Biên',
+  'Đồng Nai',
+  'Đồng Tháp',
+  'Gia Lai',
+  'Hà Tĩnh',
+  'Hưng Yên',
+  'Khánh Hòa',
+  'Lai Châu',
+  'Lâm Đồng',
+  'Lạng Sơn',
+  'Lào Cai',
+  'Nghệ An',
+  'Ninh Bình',
+  'Phú Thọ',
+  'Quảng Ngãi',
+  'Quảng Ninh',
+  'Quảng Trị',
+  'Sơn La',
+  'Tây Ninh',
+  'Thái Nguyên',
+  'Thanh Hóa',
+  'Tuyên Quang',
+  'Vĩnh Long',
+];
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function getProvinceSearchToken(province: string): string {
+  if (province === 'TP. Hồ Chí Minh') return 'Hồ Chí Minh';
+  return province;
+}
+
+export function matchesProvinceAddress(address: string | undefined, province: string): boolean {
+  if (!address || !province) return false;
+  const normAddress = normalizeSearchText(address);
+  if (province === 'TP. Hồ Chí Minh') {
+    return (
+      normAddress.includes('ho chi minh') ||
+      normAddress.includes('tphcm') ||
+      normAddress.includes('tp hcm') ||
+      normAddress.includes('sai gon')
+    );
+  }
+  return normAddress.includes(normalizeSearchText(province));
+}

@@ -21,6 +21,7 @@ interface RoomFilterState {
   minArea?: number;
   maxArea?: number;
   capacity?: number;
+  province?: string;
   categoryId?: string;
   selectedAmenities: string[];
   radiusKm?: number;
@@ -40,6 +41,7 @@ interface RoomFilterState {
   setPriceRange: (min?: number, max?: number) => void;
   setAreaRange: (min?: number, max?: number) => void;
   setCapacity: (capacity?: number) => void;
+  setProvince: (province?: string) => void;
   setCategoryId: (categoryId?: string) => void;
   setSelectedAmenities: (amenities: string[]) => void;
   setRadiusKm: (radius?: number) => void;
@@ -65,6 +67,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   minArea: undefined,
   maxArea: undefined,
   capacity: undefined,
+  province: undefined,
   categoryId: undefined,
   selectedAmenities: [],
   radiusKm: undefined,
@@ -84,6 +87,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   setPriceRange: (minPrice, maxPrice) => set({ minPrice, maxPrice }),
   setAreaRange: (minArea, maxArea) => set({ minArea, maxArea }),
   setCapacity: (capacity) => set({ capacity }),
+  setProvince: (province) => set({ province }),
   setCategoryId: (categoryId) => set({ categoryId }),
   setSelectedAmenities: (selectedAmenities) => set({ selectedAmenities }),
   setRadiusKm: (radiusKm) => set({ radiusKm }),
@@ -106,6 +110,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
       minArea: undefined,
       maxArea: undefined,
       capacity: undefined,
+      province: undefined,
       categoryId: undefined,
       selectedAmenities: [],
       radiusKm: undefined,
@@ -121,6 +126,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
     if (s.minPrice !== undefined || s.maxPrice !== undefined) count++;
     if (s.minArea !== undefined || s.maxArea !== undefined) count++;
     if (s.capacity !== undefined) count++;
+    if (s.province !== undefined) count++;
     if (s.categoryId !== undefined) count++;
     if (s.selectedAmenities.length > 0) count += s.selectedAmenities.length;
     return count;
@@ -130,6 +136,7 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
     const s = get();
     return {
       keyword: s.keyword.trim() || undefined,
+      area: s.province || undefined,
       minGia: s.minPrice,
       maxGia: s.maxPrice,
       minDienTich: s.minArea,

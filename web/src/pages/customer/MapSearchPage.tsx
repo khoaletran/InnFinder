@@ -361,10 +361,7 @@ export const MapSearchPage: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{option.label}</span>
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-slate-400">{option.count} phòng</span>
-                          {selected && <Check className="w-4 h-4 text-teal-700" />}
-                        </span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                       </button>
                     );
                   })}
@@ -466,10 +463,7 @@ export const MapSearchPage: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{option.label}</span>
-                        <span className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-slate-400">{option.count} phòng</span>
-                          {selected && <Check className="w-4 h-4 text-teal-700" />}
-                        </span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
                       </button>
                     );
                   })}
