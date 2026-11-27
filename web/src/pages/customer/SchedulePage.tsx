@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -20,13 +20,17 @@ import { appointmentService } from '@/services/appointment.service';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBookingStore } from '@/store/useBookingStore';
+import type { AppointmentResponse } from '@/types/booking.types';
 import { formatVND, formatVNDShort } from '@/utils/formatters';
 import { REGEX_PATTERNS } from '@/utils/validators';
+
+const myAppointmentsQueryKey = ['appointments', 'my'] as const;
 
 export const SchedulePage: React.FC = () => {
   const { roomId: paramRoomId } = useParams<{ roomId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { fetchAppointments } = useBookingStore();
 
@@ -72,7 +76,7 @@ export const SchedulePage: React.FC = () => {
   });
 
   const { data: myAppointments = [] } = useQuery({
-    queryKey: ['appointments', 'my'],
+    queryKey: myAppointmentsQueryKey,
     queryFn: appointmentService.getMyAppointments,
     enabled: !!user,
   });
@@ -185,6 +189,13 @@ export const SchedulePage: React.FC = () => {
         ngayHen: isoString,
         ghiChu: note.trim() || undefined,
       });
+
+      if (response?.maDatLich) {
+        await queryClient.cancelQueries({ queryKey: myAppointmentsQueryKey, exact: true });
+        queryClient.setQueryData<AppointmentResponse[]>(myAppointmentsQueryKey, (appointments) =>
+          appointments && [response, ...appointments.filter((item) => item.maDatLich !== response.maDatLich)],
+        );
+      }
 
       await fetchAppointments(true);
       setIsSubmitting(false);
