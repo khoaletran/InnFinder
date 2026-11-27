@@ -18,7 +18,19 @@ public final class RoommateDtos {
             @Size(max = 8) List<@NotBlank @Size(max = 40) String> tieuChi,
             @Min(0) @Max(1000000) Long giaDien,
             @Min(0) @Max(1000000) Long giaNuoc,
-            Boolean giaNuocTheoNguoi) {}
+            Boolean giaNuocTheoNguoi) {
+        public Input(
+                String khuVuc,
+                Integer soNguoiCanTim,
+                Long chiPhiMoiNguoi,
+                LocalDate ngayVaoO,
+                String moTa,
+                String gioiTinhUuTien,
+                List<String> tieuChi
+        ) {
+            this(khuVuc, soNguoiCanTim, chiPhiMoiNguoi, ngayVaoO, moTa, gioiTinhUuTien, tieuChi, null, null, null);
+        }
+    }
 
     public record CommentInput(
             @NotBlank @Size(max = 1000) String noiDung,
@@ -50,6 +62,12 @@ public final class RoommateDtos {
     public record MyApplication(String id, String postId, String khuVuc, String loaiPhong,
                                 String anhPhong, long chiPhiMoiNguoi, String trangThai,
                                 String lyDoTuChoi, String guiLuc) {}
+
+    public record ReceivedApplication(String id, String postId, String khuVuc, String loaiPhong,
+                                      String anhPhong, long chiPhiMoiNguoi,
+                                      String maNguoiDangKy, String tenNguoiDangKy, String sdtLienHe,
+                                      String gioiTinh, String ngheNghiep, String loiNhan,
+                                      String trangThai, String lyDoTuChoi, String guiLuc, String xuLyLuc) {}
 
     public record Booking(String loaiPhong, String anhPhong, String baiDangId,
                           Long giaDien, Long giaNuoc, Boolean giaNuocTheoNguoi) {}

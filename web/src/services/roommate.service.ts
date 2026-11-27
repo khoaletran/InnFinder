@@ -57,6 +57,25 @@ export interface MyRoommateApplication {
   guiLuc: string;
 }
 
+export interface ReceivedRoommateApplication {
+  id: string;
+  postId: string;
+  khuVuc: string;
+  loaiPhong: string;
+  anhPhong: string | null;
+  chiPhiMoiNguoi: number;
+  maNguoiDangKy: string;
+  tenNguoiDangKy: string;
+  sdtLienHe: string;
+  gioiTinh: 'NAM' | 'NU' | 'KHAC';
+  ngheNghiep: string;
+  loiNhan: string;
+  trangThai: RoommateAppStatus;
+  lyDoTuChoi?: string | null;
+  guiLuc: string;
+  xuLyLuc?: string | null;
+}
+
 interface RoommatePage<T> { items: T[]; nextCursor: string | null }
 interface RoommateBooking {
   loaiPhong: string;
@@ -90,6 +109,8 @@ export const roommateService = {
     axiosClient.post<unknown, RoommateApplication>(postUrl(id) + '/apply', input),
   myApplications: () =>
     axiosClient.get<unknown, MyRoommateApplication[]>(base + '/my-applications'),
+  receivedApplications: () =>
+    axiosClient.get<unknown, ReceivedRoommateApplication[]>(base + '/received-applications'),
   myApplicationForPost: (id: string) =>
     axiosClient.get<unknown, RoommateApplication | null>(postUrl(id) + '/my-application'),
   applications: (id: string) =>

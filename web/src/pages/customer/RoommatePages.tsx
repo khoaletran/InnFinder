@@ -46,10 +46,16 @@ import { appointmentService } from '@/services/appointment.service';
 import { roomService } from '@/services/room.service';
 import { roommateService } from '@/services/roommate.service';
 import type {
+  MyRoommateApplication,
+  ReceivedRoommateApplication,
   RoommateAppStatus,
   RoommateApplication,
   RoommateGender,
 } from '@/services/roommate.service';
+
+const isReceivedApplication = (
+  app: MyRoommateApplication | ReceivedRoommateApplication,
+): app is ReceivedRoommateApplication => 'tenNguoiDangKy' in app;
 import { useAuthStore } from '@/store/useAuthStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import {
@@ -894,13 +900,22 @@ export function RoommateListPage() {
 export function RoommateMyApplicationsPage() {
   const userId = useAuthStore((state) => state.user?.maNguoiDung);
   const client = useQueryClient();
+  const [boxMode, setBoxMode] = useState<'AUTO' | 'SENT' | 'RECEIVED'>('AUTO');
   const [statusFilter, setStatusFilter] = useState<'ALL' | RoommateAppStatus>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [chatTarget, setChatTarget] = useState<{ contextId: string; title: string } | null>(null);
 
   const myAppsQuery = useQuery({
     queryKey: ['roommates', 'my-applications', userId],
     queryFn: roommateService.myApplications,
+    enabled: Boolean(userId),
+    retry: false,
+  });
+
+  const receivedAppsQuery = useQuery({
+    queryKey: ['roommates', 'received-applications', userId],
+    queryFn: roommateService.receivedApplications,
     enabled: Boolean(userId),
     retry: false,
   });
@@ -915,30 +930,54 @@ export function RoommateMyApplicationsPage() {
     onError: (err: Error) => toast.error(err.message || 'Không thể hủy đơn'),
   });
 
-  const allApps = useMemo(() => myAppsQuery.data ?? [], [myAppsQuery.data]);
+  const approveAppMutation = useMutation({
+    mutationFn: ({ postId, appId }: { postId: string; appId: string }) =>
+      roommateService.approveApplication(postId, appId),
+    onSuccess: async () => {
+      toast.success('Đã duyệt người ở ghép!');
+      await client.invalidateQueries({ queryKey: ['roommates'] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Không thể duyệt đơn'),
+  });
+
+  const sentApps = useMemo(() => myAppsQuery.data ?? [], [myAppsQuery.data]);
+  const receivedApps = useMemo(() => receivedAppsQuery.data ?? [], [receivedAppsQuery.data]);
+
+  const effectiveMode: 'SENT' | 'RECEIVED' =
+    boxMode === 'AUTO'
+      ? sentApps.length === 0 && receivedApps.length > 0
+        ? 'RECEIVED'
+        : 'SENT'
+      : boxMode;
+
+  const activeList = effectiveMode === 'RECEIVED' ? receivedApps : sentApps;
 
   const statusCounts = useMemo(() => {
     const counts: Record<'ALL' | RoommateAppStatus, number> = {
-      ALL: allApps.length,
+      ALL: activeList.length,
       CHO_DUYET: 0,
       DA_DUYET: 0,
       TU_CHOI: 0,
       DA_HUY: 0,
     };
-    for (const app of allApps) {
+    for (const app of activeList) {
       if (counts[app.trangThai] !== undefined) counts[app.trangThai] += 1;
     }
     return counts;
-  }, [allApps]);
+  }, [activeList]);
 
   const filteredApps = useMemo(() => {
     const q = searchKeyword.trim().toLowerCase();
-    const list = allApps.filter((app) => {
+    const list = activeList.filter((app) => {
       if (statusFilter !== 'ALL' && app.trangThai !== statusFilter) return false;
       if (!q) return true;
+      const applicantName = isReceivedApplication(app) ? app.tenNguoiDangKy : '';
+      const applicantPhone = isReceivedApplication(app) ? app.sdtLienHe : '';
       return (
         app.khuVuc.toLowerCase().includes(q) ||
         app.loaiPhong.toLowerCase().includes(q) ||
+        applicantName.toLowerCase().includes(q) ||
+        applicantPhone.toLowerCase().includes(q) ||
         app.id.toLowerCase().includes(q)
       );
     });
@@ -947,21 +986,52 @@ export function RoommateMyApplicationsPage() {
       const tB = new Date(b.guiLuc || 0).getTime();
       return sortOrder === 'desc' ? tB - tA : tA - tB;
     });
-  }, [allApps, statusFilter, searchKeyword, sortOrder]);
+  }, [activeList, statusFilter, searchKeyword, sortOrder]);
+
+  const activeQuery = effectiveMode === 'RECEIVED' ? receivedAppsQuery : myAppsQuery;
 
   return (
     <div className="flex-1 bg-slate-50">
-      <main className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 space-y-4">
+      <main className="mx-auto max-w-[1360px] px-4 py-6 sm:px-6 space-y-4">
         <Card className="bg-surface rounded-xl border border-border overflow-x-clip p-0">
           <Card.Header className="p-0 border-b border-border sticky top-[100px] z-30 bg-white/95 backdrop-blur-md rounded-t-xl">
-            {/* Hàng 1: Tìm kiếm + Sort + Làm mới + Thêm (chung 1 dòng) */}
+            {/* Hàng 1: Chuyển Đơn đã gửi / Đơn nhận được + Tìm kiếm + Sort + Làm mới + Thêm */}
             <div className="p-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
+                <div className="bg-slate-100 p-1 rounded-lg inline-flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setBoxMode('SENT')}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      effectiveMode === 'SENT'
+                        ? 'bg-white text-teal-800 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Đơn đã gửi ({sentApps.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBoxMode('RECEIVED')}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      effectiveMode === 'RECEIVED'
+                        ? 'bg-white text-teal-800 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Đơn nhận được ({receivedApps.length})
+                  </button>
+                </div>
+
+                <div className="relative flex-1 min-w-[180px] max-w-sm">
                   <Search className="w-4 h-4 text-text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Tìm theo khu vực, loại phòng..."
+                    placeholder={
+                      effectiveMode === 'RECEIVED'
+                        ? 'Tìm người gửi, SĐT, khu vực...'
+                        : 'Tìm theo khu vực, loại phòng...'
+                    }
                     value={searchKeyword}
                     onChange={(e) => setSearchKeyword(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 rounded-lg bg-surface-subtle border border-border text-xs text-text placeholder:text-text-subtle focus:outline-none focus:bg-surface focus:border-accent"
@@ -994,11 +1064,18 @@ export function RoommateMyApplicationsPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => void myAppsQuery.refetch()}
-                  disabled={myAppsQuery.isFetching}
+                  onClick={() => {
+                    void myAppsQuery.refetch();
+                    void receivedAppsQuery.refetch();
+                  }}
+                  disabled={myAppsQuery.isFetching || receivedAppsQuery.isFetching}
                   className="px-3 py-2 rounded-lg bg-white border border-border hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${myAppsQuery.isFetching ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 text-slate-500 ${
+                      myAppsQuery.isFetching || receivedAppsQuery.isFetching ? 'animate-spin' : ''
+                    }`}
+                  />
                   <span>Làm mới</span>
                 </button>
                 <Link
@@ -1050,19 +1127,27 @@ export function RoommateMyApplicationsPage() {
           </Card.Header>
 
           <Card.Content className="p-0 overflow-x-auto">
-            {myAppsQuery.isPending ? (
+            {activeQuery.isPending ? (
               <div className="p-6">
-                <LoadingSpinner label="Đang tải đơn đăng ký của bạn..." />
+                <LoadingSpinner label="Đang tải đơn đăng ký..." />
               </div>
-            ) : myAppsQuery.error ? (
+            ) : activeQuery.error ? (
               <div className="p-4 m-4 rounded-xl border border-rose-200 bg-rose-50 text-xs font-medium text-rose-700">
-                {myAppsQuery.error.message}
+                {activeQuery.error.message}
               </div>
             ) : filteredApps.length === 0 ? (
               <div className="p-6">
                 <EmptyState
-                  title="Chưa có đơn đăng ký ở ghép nào"
-                  description="Khám phá các bài tìm bạn ở ghép phù hợp và gửi đơn đăng ký để chủ bài duyệt."
+                  title={
+                    effectiveMode === 'RECEIVED'
+                      ? 'Chưa có ai gửi đơn vào bài ở ghép của bạn'
+                      : 'Chưa có đơn đăng ký ở ghép nào'
+                  }
+                  description={
+                    effectiveMode === 'RECEIVED'
+                      ? 'Khi có người quan tâm gửi đơn đăng ký vào bài bạn đăng, toàn bộ đơn sẽ hiển thị tại đây.'
+                      : 'Khám phá các bài tìm bạn ở ghép phù hợp và gửi đơn đăng ký để chủ bài duyệt.'
+                  }
                   action={
                     <Link
                       to="/roommates"
@@ -1077,21 +1162,23 @@ export function RoommateMyApplicationsPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Bài ở ghép</th>
-                    <th className="py-3 px-4">Chi phí / người</th>
-                    <th className="py-3 px-4">Ngày gửi</th>
-                    <th className="py-3 px-4">Trạng thái</th>
-                    <th className="py-3 px-4 text-right">Thao tác</th>
+                    <th className="py-3 px-3.5">Bài ở ghép</th>
+                    {effectiveMode === 'RECEIVED' && <th className="py-3 px-3.5">Người đăng ký</th>}
+                    <th className="py-3 px-3.5 whitespace-nowrap">Chi phí / người</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">Ngày gửi</th>
+                    <th className="py-3 px-3.5 whitespace-nowrap">Trạng thái</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {filteredApps.map((app) => {
                     const statusUi = APP_STATUS_UI[app.trangThai] || APP_STATUS_UI.CHO_DUYET;
+                    const isReceived = isReceivedApplication(app);
                     return (
                       <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3 min-w-[220px]">
-                            <div className="h-11 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                        <td className="py-3 px-3.5">
+                          <div className="flex items-center gap-2.5 max-w-[280px]">
+                            <div className="h-10 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                               {app.anhPhong ? (
                                 <img src={app.anhPhong} alt={app.khuVuc} className="h-full w-full object-cover" />
                               ) : (
@@ -1100,43 +1187,88 @@ export function RoommateMyApplicationsPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <Link
                                 to={`/roommates/${app.postId}`}
+                                title={`${app.khuVuc} · ${app.loaiPhong}`}
                                 className="font-semibold text-slate-900 hover:text-teal-700 truncate block"
                               >
-                                {app.khuVuc} · {app.loaiPhong}
+                                {app.khuVuc}
                               </Link>
+                              <p className="text-[11px] text-slate-500 truncate">{app.loaiPhong}</p>
                               {app.trangThai === 'TU_CHOI' && app.lyDoTuChoi && (
-                                <p className="text-[11px] text-rose-600 mt-0.5 truncate max-w-[260px]">
+                                <p className="text-[11px] text-rose-600 mt-0.5 truncate">
                                   Lý do: {app.lyDoTuChoi}
                                 </p>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4 font-bold text-teal-700 whitespace-nowrap">
-                          {roommatePrice(app.chiPhiMoiNguoi)}
+                        {isReceived && (
+                          <td className="py-3 px-3.5 max-w-[200px]">
+                            <p className="font-semibold text-slate-900 truncate">{app.tenNguoiDangKy}</p>
+                            <p
+                              className="text-[11px] text-slate-500 truncate"
+                              title={`${app.sdtLienHe} · ${app.ngheNghiep}`}
+                            >
+                              {app.sdtLienHe} · {app.ngheNghiep}
+                            </p>
+                          </td>
+                        )}
+                        <td className="py-3 px-3.5 font-bold text-teal-700 whitespace-nowrap">
+                          {roommatePrice(app.chiPhiMoiNguoi).replace('/tháng', '')}
                         </td>
-                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                          {new Date(app.guiLuc).toLocaleString('vi-VN')}
+                        <td className="py-3 px-3.5 text-slate-600 whitespace-nowrap">
+                          {new Date(app.guiLuc).toLocaleString('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <td className="py-3 px-3.5 whitespace-nowrap">
                           <span
                             className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${statusUi.badgeClass}`}
                           >
                             {statusUi.label}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
+                            {isReceived && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setChatTarget({
+                                    contextId: `${app.postId}__${app.maNguoiDangKy}`,
+                                    title: `Ở ghép · ${app.tenNguoiDangKy}`,
+                                  })
+                                }
+                                className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 cursor-pointer"
+                              >
+                                Nhắn tin
+                              </button>
+                            )}
+                            {isReceived && app.trangThai === 'CHO_DUYET' && (
+                              <button
+                                type="button"
+                                disabled={approveAppMutation.isPending}
+                                onClick={() =>
+                                  approveAppMutation.mutate({ postId: app.postId, appId: app.id })
+                                }
+                                className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 cursor-pointer"
+                              >
+                                Duyệt
+                              </button>
+                            )}
                             <Link
                               to={`/roommates/${app.postId}`}
                               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             >
-                              Xem bài viết
+                              Chi tiết
                             </Link>
-                            {app.trangThai === 'CHO_DUYET' && (
+                            {!isReceived && app.trangThai === 'CHO_DUYET' && (
                               <button
                                 type="button"
                                 disabled={cancelAppMutation.isPending}
@@ -1159,6 +1291,14 @@ export function RoommateMyApplicationsPage() {
           </Card.Content>
         </Card>
       </main>
+
+      <ChatDrawer
+        open={Boolean(chatTarget)}
+        channelType="ROOMMATE"
+        contextId={chatTarget?.contextId || ''}
+        onClose={() => setChatTarget(null)}
+        fallbackTitle={chatTarget?.title}
+      />
     </div>
   );
 }
@@ -1587,7 +1727,8 @@ export function RoommateCreatePage() {
 // -----------------------------------------------------------------------------
 export function RoommateDetailPage() {
   const { id = '' } = useParams();
-  const userId = useAuthStore((state) => state.user?.maNguoiDung);
+  const currentUser = useAuthStore((state) => state.user);
+  const userId = currentUser?.maNguoiDung;
   const location = useLocation();
   const client = useQueryClient();
 
@@ -1653,6 +1794,41 @@ export function RoommateDetailPage() {
     retry: false,
   });
 
+  const myAppsHistoryQuery = useQuery({
+    queryKey: ['roommates', 'my-applications', userId],
+    queryFn: roommateService.myApplications,
+    enabled: Boolean(userId) && Boolean(post) && !isOwner,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const openApplyModal = () => {
+    const currentApp = myAppQuery.data;
+    const latestPrevApp = myAppsHistoryQuery.data?.[0];
+    let savedDraft: Partial<RoommateApplyInput> | null = null;
+    if (userId) {
+      try {
+        const raw = localStorage.getItem(`innfinder_roommate_apply_${userId}`);
+        if (raw) savedDraft = JSON.parse(raw) as Partial<RoommateApplyInput>;
+      } catch {
+        savedDraft = null;
+      }
+    }
+
+    setApplyPhone(currentApp?.sdtLienHe || currentUser?.sdt || savedDraft?.sdtLienHe || '');
+    setApplyGender(
+      (currentApp?.gioiTinh || savedDraft?.gioiTinh || 'NAM') as 'NAM' | 'NU' | 'KHAC',
+    );
+    setApplyJob(currentApp?.ngheNghiep || savedDraft?.ngheNghiep || '');
+    setApplyNote(
+      currentApp?.loiNhan ||
+        savedDraft?.loiNhan ||
+        (latestPrevApp ? '' : ''),
+    );
+    setApplyError('');
+    setApplyModalOpen(true);
+  };
+
   const hostAppsQuery = useQuery({
     queryKey: ['roommates', 'applications', id, userId],
     queryFn: () => roommateService.applications(id),
@@ -1690,12 +1866,16 @@ export function RoommateDetailPage() {
 
   const applyMutation = useMutation({
     mutationFn: (input: RoommateApplyInput) => roommateService.apply(id, input),
-    onSuccess: async () => {
+    onSuccess: async (_res, vars) => {
       toast.success('Đã gửi đơn đăng ký ở ghép!');
+      if (userId) {
+        try {
+          localStorage.setItem(`innfinder_roommate_apply_${userId}`, JSON.stringify(vars));
+        } catch {
+          // ignore storage quota errors
+        }
+      }
       setApplyModalOpen(false);
-      setApplyPhone('');
-      setApplyJob('');
-      setApplyNote('');
       await refreshAll();
     },
     onError: (err: Error) => setApplyError(err.message),
@@ -2224,7 +2404,7 @@ export function RoommateDetailPage() {
                         {open && (myApp.trangThai === 'TU_CHOI' || myApp.trangThai === 'DA_HUY') && (
                           <button
                             type="button"
-                            onClick={() => setApplyModalOpen(true)}
+                            onClick={openApplyModal}
                             className="w-full rounded-xl bg-teal-700 py-2.5 text-xs font-bold text-white hover:bg-teal-800 cursor-pointer"
                           >
                             Gửi lại đơn đăng ký
@@ -2238,7 +2418,7 @@ export function RoommateDetailPage() {
                         </p>
                         <button
                           type="button"
-                          onClick={() => setApplyModalOpen(true)}
+                          onClick={openApplyModal}
                           className="w-full rounded-xl bg-teal-700 py-3 text-sm font-bold text-white shadow-xs hover:bg-teal-800 cursor-pointer"
                         >
                           Đăng ký ở ghép ngay

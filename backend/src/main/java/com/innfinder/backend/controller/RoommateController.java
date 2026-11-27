@@ -53,6 +53,11 @@ public class RoommateController {
         return ApiResponse.ok(service.myApplications(), "Đơn đăng ký ở ghép của tôi");
     }
 
+    @GetMapping("/received-applications")
+    public ApiResponse<List<ReceivedApplication>> receivedApplications() {
+        return ApiResponse.ok(service.receivedApplications(), "Đơn đăng ký ở ghép đã nhận");
+    }
+
     @GetMapping("/{id}/my-application")
     public ApiResponse<Application> myApplicationForPost(@PathVariable @Pattern(regexp = DOCUMENT_ID) String id) {
         return ApiResponse.ok(service.myApplicationForPost(id), "Trạng thái đơn đăng ký ở ghép");

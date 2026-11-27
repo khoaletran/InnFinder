@@ -297,6 +297,54 @@ public class RoommateService {
                 .toList();
     }
 
+    public List<ReceivedApplication> receivedApplications() {
+        String userId = currentUser().getMaNguoiDung();
+        Map<String, Map<String, Object>> postsMap = rtdb.get("baiOGhep", MAP_OF_DOCS);
+        if (postsMap == null || postsMap.isEmpty()) {
+            return List.of();
+        }
+
+        List<ReceivedApplication> result = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Object>> postEntry : postsMap.entrySet()) {
+            Map<String, Object> postDoc = postEntry.getValue();
+            if (postDoc == null || !userId.equals(str(postDoc.get("maNguoiDang")))) {
+                continue;
+            }
+            String postId = postEntry.getKey();
+            Map<String, Map<String, Object>> appsMap = rtdb.get("dangKyOGhep/" + postId, MAP_OF_DOCS);
+            if (appsMap == null || appsMap.isEmpty()) {
+                continue;
+            }
+            for (Map.Entry<String, Map<String, Object>> appEntry : appsMap.entrySet()) {
+                Map<String, Object> appDoc = appEntry.getValue();
+                if (appDoc == null) continue;
+                long xuLy = num(appDoc.get("xuLyLuc"));
+                result.add(new ReceivedApplication(
+                        appEntry.getKey(),
+                        postId,
+                        str(postDoc.get("khuVuc")),
+                        str(postDoc.get("loaiPhong")),
+                        str(postDoc.get("anhPhong")),
+                        num(postDoc.get("chiPhiMoiNguoi")),
+                        str(appDoc.get("maNguoiDangKy")),
+                        str(appDoc.get("tenNguoiDangKy")),
+                        str(appDoc.get("sdtLienHe")),
+                        str(appDoc.get("gioiTinh")),
+                        str(appDoc.get("ngheNghiep")),
+                        str(appDoc.get("loiNhan")),
+                        str(appDoc.get("trangThai")),
+                        emptyToNull(str(appDoc.get("lyDoTuChoi"))),
+                        Instant.ofEpochMilli(num(appDoc.get("guiLuc"))).toString(),
+                        xuLy > 0 ? Instant.ofEpochMilli(xuLy).toString() : null
+                ));
+            }
+        }
+
+        result.sort(Comparator.comparing(ReceivedApplication::guiLuc).reversed()
+                .thenComparing(ReceivedApplication::id));
+        return result;
+    }
+
     public Application myApplicationForPost(String postId) {
         String userId = currentUser().getMaNguoiDung();
         requirePost(rtdb.get("baiOGhep/" + postId, SINGLE_MAP));
