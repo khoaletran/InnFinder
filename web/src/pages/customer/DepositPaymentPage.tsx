@@ -13,7 +13,6 @@ import {
   Phone,
   QrCode,
   ShieldCheck,
-  Smartphone,
   X,
 } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -45,7 +44,6 @@ export const DepositPaymentPage: React.FC = () => {
 
   const { fetchAppointments } = useBookingStore();
 
-  const [selectedMethod, setSelectedMethod] = useState<'VIETQR' | 'MOMO'>('VIETQR');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -388,78 +386,30 @@ export const DepositPaymentPage: React.FC = () => {
             <>
               <div className="space-y-3">
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Chọn phương thức thanh toán cọc
+                  Phương thức thanh toán cọc
                 </label>
 
-                <div className="space-y-2.5">
-                  <div
-                    onClick={() => setSelectedMethod('VIETQR')}
-                    className={`p-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                      selectedMethod === 'VIETQR'
-                        ? 'border-teal-600 bg-teal-50/40 shadow-2xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-full bg-teal-100/60 text-teal-700 flex items-center justify-center shrink-0">
-                        <QrCode className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-900 text-sm">
-                          Chuyển khoản Ngân hàng (VietQR NAPAS 24/7)
-                        </span>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Quét mã QR tự động điền đúng số tiền cọc & nội dung đối soát
-                        </p>
-                      </div>
+                <div className="p-4 rounded-xl border border-teal-600 bg-teal-50/40 shadow-2xs flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-teal-100/60 text-teal-700 flex items-center justify-center shrink-0">
+                      <QrCode className="w-5 h-5" />
                     </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedMethod === 'VIETQR' ? 'border-teal-600' : 'border-slate-300'
-                      }`}
-                    >
-                      {selectedMethod === 'VIETQR' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
-                      )}
+                    <div>
+                      <span className="font-bold text-slate-900 text-sm">
+                        Chuyển khoản Ngân hàng (VietQR NAPAS 24/7)
+                      </span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Quét mã QR tự động điền đúng số tiền cọc & nội dung đối soát
+                      </p>
                     </div>
                   </div>
-
-                  <div
-                    onClick={() => setSelectedMethod('MOMO')}
-                    className={`p-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                      selectedMethod === 'MOMO'
-                        ? 'border-fuchsia-600 bg-fuchsia-50/40 shadow-2xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-full bg-fuchsia-100/60 text-fuchsia-700 flex items-center justify-center shrink-0">
-                        <Smartphone className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-900 text-sm">
-                          Cổng thanh toán MoMo / VNPay
-                        </span>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Thanh toán nhanh qua ứng dụng ví điện tử cá nhân
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedMethod === 'MOMO' ? 'border-fuchsia-600' : 'border-slate-300'
-                      }`}
-                    >
-                      {selectedMethod === 'MOMO' && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-600" />
-                      )}
-                    </div>
+                  <div className="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
                   </div>
                 </div>
               </div>
 
-              {selectedMethod === 'VIETQR' && (
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   {/* Cảnh báo bắt buộc trước khi chuyển khoản */}
                   <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-2xs">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -545,7 +495,6 @@ export const DepositPaymentPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              )}
             </>
           ) : (
             <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
