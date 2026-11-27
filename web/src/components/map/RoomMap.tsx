@@ -472,9 +472,6 @@ export const RoomMap: React.FC<RoomMapProps> = ({
                 Bán kính quét:{' '}
                 <strong className="text-teal-700 font-extrabold">{radiusKm} km</strong>
               </span>
-              <span className="hidden sm:inline-block text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-                Tự động lọt lòng bản đồ
-              </span>
             </div>
           )}
 

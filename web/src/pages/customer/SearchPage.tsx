@@ -15,12 +15,18 @@ import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomCard } from '@/components/room/RoomCard';
-import { buildNumericBrackets, formatMillions } from '@/components/room/searchHelpers';
+import {
+  buildNumericBrackets,
+  formatMillions,
+  ROOM_SORT_OPTIONS,
+  resolveRoomSortParams,
+  sortRoomsByOption,
+} from '@/components/room/searchHelpers';
 import { SearchModeTabs } from '@/components/room/SearchModeTabs';
 import { roomService } from '@/services/room.service';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 
-type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | null;
+type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'sort' | null;
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
@@ -144,8 +150,7 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       const trimmed = submittedKeyword.trim();
-      const sortField = sortBy === 'NEWEST' ? 'thoiGianDang' : 'giaThue';
-      const sortDirection = sortBy === 'PRICE_ASC' ? ('ASC' as const) : ('DESC' as const);
+      const { sortBy: sortField, sortDirection } = resolveRoomSortParams(sortBy);
       return roomService.searchRooms({
         keyword: isAreaSearch ? undefined : trimmed || undefined,
         area: isAreaSearch ? trimmed : undefined,
@@ -164,7 +169,10 @@ export const SearchPage: React.FC = () => {
     },
   });
 
-  const rooms = queryResult?.content ?? [];
+  const rooms = useMemo(
+    () => sortRoomsByOption(queryResult?.content ?? [], (r) => r, sortBy),
+    [queryResult?.content, sortBy],
+  );
   const totalElements = queryResult?.totalElements ?? 0;
   const totalPages = queryResult?.totalPages ?? 1;
 
@@ -470,28 +478,55 @@ export const SearchPage: React.FC = () => {
             </div>
 
             {/* 5. Nút Sắp xếp */}
-            <button
-              type="button"
-              onClick={() =>
-                setSortBy(
-                  sortBy === 'NEWEST'
-                    ? 'PRICE_ASC'
-                    : sortBy === 'PRICE_ASC'
-                      ? 'PRICE_DESC'
-                      : 'NEWEST',
-                )
-              }
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shrink-0"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 text-slate-600" />
-              <span>
-                {sortBy === 'NEWEST'
-                  ? 'Mới nhất'
-                  : sortBy === 'PRICE_ASC'
-                    ? 'Giá tăng'
-                    : 'Giá giảm'}
-              </span>
-            </button>
+            <div className="relative">
+              {(() => {
+                const currentSortLabel =
+                  ROOM_SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label ?? 'Mới nhất';
+                return (
+                  <button
+                    type="button"
+                    aria-label={`Sắp xếp: ${currentSortLabel}`}
+                    title={`Sắp xếp: ${currentSortLabel}`}
+                    aria-expanded={activePopover === 'sort'}
+                    onClick={() => setActivePopover((p) => (p === 'sort' ? null : 'sort'))}
+                    className={`inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors cursor-pointer shrink-0 ${
+                      sortBy !== 'NEWEST' || activePopover === 'sort'
+                        ? 'bg-teal-50 text-teal-800 border-teal-500'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <ArrowUpDown className="w-4 h-4" />
+                  </button>
+                );
+              })()}
+
+              {activePopover === 'sort' && (
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                  {ROOM_SORT_OPTIONS.map((option) => {
+                    const selected = sortBy === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setSortBy(option.value);
+                          setCurrentPage(0);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {showResetButton && (
               <button

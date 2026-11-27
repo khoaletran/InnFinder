@@ -12,7 +12,7 @@ export interface MapViewportState {
   zoom: number;
 }
 
-export type MapSortOption = 'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC';
+export type MapSortOption = 'NEWEST' | 'OLDEST' | 'PRICE_ASC' | 'PRICE_DESC';
 
 interface RoomFilterState {
   keyword: string;
