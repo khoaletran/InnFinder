@@ -396,12 +396,12 @@ export const FavoritesPage: React.FC = () => {
       {rooms.length > 0 && (
         <div
           ref={popoverBarRef}
-          className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5"
+          className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5"
         >
-          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full lg:flex-1 lg:min-w-0">
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center w-full sm:w-auto lg:w-[320px] shrink-0"
+              className="flex items-center w-full sm:w-[260px] lg:w-[300px] shrink-0"
             >
               <div className="flex-1 relative flex items-center">
                 <input
@@ -422,12 +422,13 @@ export const FavoritesPage: React.FC = () => {
               </div>
             </form>
 
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* 1. Chip Giá */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
-                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasPriceFilter || activePopover === 'price'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -438,7 +439,7 @@ export const FavoritesPage: React.FC = () => {
               </button>
 
               {activePopover === 'price' && (
-                <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
                   {priceOptions.map((option) => {
                     const selected = minPrice === option.min && maxPrice === option.max;
                     return (
@@ -470,7 +471,7 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
-                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedCategory || activePopover === 'category'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -481,7 +482,7 @@ export const FavoritesPage: React.FC = () => {
               </button>
 
               {activePopover === 'category' && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1 max-h-72 overflow-y-auto">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1 max-h-72 overflow-y-auto">
                   <button
                     type="button"
                     onClick={() => {
@@ -527,7 +528,7 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
-                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasAreaFilter || activePopover === 'area'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -538,7 +539,7 @@ export const FavoritesPage: React.FC = () => {
               </button>
 
               {activePopover === 'area' && (
-                <div className="absolute left-0 mt-2 w-68 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-68 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
                   {areaOptions.map((option) => {
                     const selected = minArea === option.min && maxArea === option.max;
                     return (
@@ -571,7 +572,7 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
-                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     capacity !== undefined || activePopover === 'capacity'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -582,7 +583,7 @@ export const FavoritesPage: React.FC = () => {
                 </button>
 
                 {activePopover === 'capacity' && (
-                  <div className="absolute left-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
                     {capacityOptions.map((option) => {
                       const selected = capacity === option.value;
                       return (
@@ -615,7 +616,7 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
-                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     amenityCount > 0 || activePopover === 'amenities'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -626,7 +627,7 @@ export const FavoritesPage: React.FC = () => {
                 </button>
 
                 {activePopover === 'amenities' && (
-                  <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
+                  <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
                     <div className="max-h-60 overflow-y-auto space-y-1">
                       {amenityOptions.map((am) => {
                         const active = selectedAmenities.includes(am.name);
@@ -682,7 +683,7 @@ export const FavoritesPage: React.FC = () => {
                   setProvinceSearch('');
                   setActivePopover((p) => (p === 'province' ? null : 'province'));
                 }}
-                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedProvince || activePopover === 'province'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -693,7 +694,7 @@ export const FavoritesPage: React.FC = () => {
               </button>
 
               {activePopover === 'province' && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
                   <input
                     type="text"
                     value={provinceSearch}
@@ -753,17 +754,17 @@ export const FavoritesPage: React.FC = () => {
                 title={`Sắp xếp: ${currentSortLabel}`}
                 aria-expanded={activePopover === 'sort'}
                 onClick={() => setActivePopover((p) => (p === 'sort' ? null : 'sort'))}
-                className={`inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors cursor-pointer shrink-0 ${
+                className={`inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border transition-colors cursor-pointer shrink-0 ${
                   sortOption !== 'NEWEST' || activePopover === 'sort'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <ArrowUpDown className="w-4 h-4" />
+                <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
 
               {activePopover === 'sort' && (
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
                   {ROOM_SORT_OPTIONS.map((option) => {
                     const selected = sortOption === option.value;
                     return (
@@ -793,18 +794,19 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1 h-9 px-3 rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2.5 sm:px-3 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Xóa lọc</span>
               </button>
             )}
+            </div>
           </div>
 
           <button
             type="button"
             onClick={() => navigate('/search')}
-            className="ml-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+            className="w-full sm:w-auto lg:ml-auto inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Tìm thêm phòng</span>
