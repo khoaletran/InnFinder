@@ -22,6 +22,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useRoomFilterStore } from "@/store/useRoomFilterStore";
 import type { ChatRequest } from "@/types/chat.types";
 import type { RoomSummaryResponse } from "@/types/room.types";
+import { searchAddressSuggestions } from "@/utils/geocoding";
 import { ChatRoomCard } from "./ChatRoomCard";
 
 const STARTERS = [
@@ -113,15 +114,105 @@ function formatSessionTime(timestamp: number): string {
   });
 }
 
-function isNearbyLocationPrompt(text: string): boolean {
-  const normalized = text
+const GENERIC_PLACE_STOPWORDS = new Set([
+  "day",
+  "toi",
+  "minh",
+  "nha",
+  "cho",
+  "truong",
+  "duong",
+  "pho",
+  "tram",
+  "ben",
+  "trung tam",
+  "vi tri",
+  "truong hoc",
+  "sieu thi",
+  "cong vien",
+  "benh vien",
+  "khu vuc",
+]);
+
+function normalizeForMatch(text: string): string {
+  return text
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isNearbyLocationPrompt(text: string): boolean {
+  const normalized = normalizeForMatch(text);
   return NEARBY_PHRASES.some((phrase) => normalized.includes(phrase));
+}
+
+const PLACE_ACRONYM_EXPANSIONS: Array<[RegExp, string]> = [
+  [/\biuh\b/giu, "Đại học Công nghiệp TP.HCM"],
+  [/\bhaui\b/giu, "Đại học Công nghiệp Hà Nội"],
+  [/\bhcmut\b/giu, "Đại học Bách Khoa TP.HCM"],
+  [/\bhust\b/giu, "Đại học Bách Khoa Hà Nội"],
+  [/\buit\b/giu, "Đại học Công nghệ Thông tin TP.HCM"],
+  [/\bhcmus\b/giu, "Đại học Khoa học Tự nhiên TP.HCM"],
+  [/\bueh\b/giu, "Đại học Kinh tế TP.HCM"],
+  [/\bhutech\b/giu, "Đại học Công nghệ TP.HCM"],
+  [/\btdtu\b/giu, "Đại học Tôn Đức Thắng"],
+  [/\brmit\b/giu, "Đại học RMIT"],
+  [/\bneu\b/giu, "Đại học Kinh tế Quốc dân"],
+  [/\bftu\b/giu, "Đại học Ngoại thương"],
+  [/\bptit\b/giu, "Học viện Công nghệ Bưu chính Viễn thông"],
+  [/\bsgu\b/giu, "Đại học Sài Gòn"],
+  [/\bvlu\b/giu, "Đại học Văn Lang"],
+  [/\bhuflit\b/giu, "Đại học Ngoại ngữ Tin học TP.HCM"],
+  [/\buth\b/giu, "Đại học Giao thông Vận tải TP.HCM"],
+  [/\butc\b/giu, "Đại học Giao thông Vận tải"],
+  [/\b(?:dhqg|vnu)\b/giu, "Đại học Quốc gia"],
+  [/\b(?:đh|dh)\b/giu, "Đại học"],
+  [/\bbv\b/giu, "Bệnh viện"],
+  [/\bkcn\b/giu, "Khu công nghiệp"],
+  [/\bbx\b/giu, "Bến xe"],
+  [/\btttm\b/giu, "Trung tâm thương mại"],
+];
+
+function extractNearbyPlaceQuery(text: string): string | null {
+  if (isNearbyLocationPrompt(text)) return null;
+  const normalized = normalizeForMatch(text);
+  if (
+    normalized.includes("phong nay") ||
+    normalized.includes("phong thu") ||
+    /\b(?:khong|bao xa|bao nhieu)\s*\??$/i.test(normalized)
+  ) {
+    return null;
+  }
+
+  const trimmed = text.trim();
+  const markerMatch = trimmed.match(
+    /(?:^|\s)(?:gần|gan|quanh|cạnh|canh|sát|sat)\s+([^?.!]+)$/iu,
+  );
+  if (!markerMatch) return null;
+
+  let candidate = markerMatch[1].trim();
+  candidate = candidate.split(/[,;]/)[0].trim();
+  candidate = candidate
+    .replace(
+      /\s+(?:giá\s+rẻ|gia\s+re|rẻ\s+hơn|re\s+hon|dưới|duoi|trên|tren|tầm|tam|khoảng|khoang|từ|tu|giá|gia|cho\s+\d+\s*(?:người|nguoi)|có\s+(?:gác|máy\s+lạnh|điều\s+hòa|wifi|ban\s+công|thang\s+máy|bãi\s+xe|tủ\s+lạnh|máy\s+giặt|nội\s+thất|bếp)|full\s+nội\s+thất|khép\s+kín|khep\s+kin|\d+\s*(?:tr|triệu|trieu|m2|m²|người|nguoi))\b.*$/iu,
+      "",
+    )
+    .trim();
+
+  candidate = candidate.replace(/^(?:khu\s+vực|khu\s+vuc|khu|vùng|vung)\s+/iu, "");
+  for (const [pattern, replacement] of PLACE_ACRONYM_EXPANSIONS) {
+    candidate = candidate.replace(pattern, replacement);
+  }
+  candidate = candidate.replace(/\s+/g, " ").trim();
+
+  const normalizedCandidate = normalizeForMatch(candidate);
+  if (normalizedCandidate.length < 3 || GENERIC_PLACE_STOPWORDS.has(normalizedCandidate)) {
+    return null;
+  }
+  return candidate;
 }
 
 export function RoomChatbot() {
@@ -289,6 +380,29 @@ export function RoomChatbot() {
       if (controller.signal.aborted) return;
     }
 
+    let targetPlace: { lat: number; lng: number; name: string } | null = null;
+    const placeQuery = extractNearbyPlaceQuery(message);
+    if (placeQuery) {
+      setIsRequestingLocation(true);
+      try {
+        const matches = await searchAddressSuggestions(placeQuery, controller.signal, coords);
+        if (matches.length > 0) {
+          targetPlace = {
+            lat: matches[0].lat,
+            lng: matches[0].lng,
+            name: matches[0].title || placeQuery,
+          };
+        }
+      } catch (geoErr: unknown) {
+        if (geoErr instanceof DOMException && geoErr.name === "AbortError") {
+          return;
+        }
+      } finally {
+        setIsRequestingLocation(false);
+      }
+      if (controller.signal.aborted) return;
+    }
+
     const request: ChatRequest = {
       message,
       history: state.messages
@@ -301,6 +415,9 @@ export function RoomChatbot() {
       criteria: state.criteria,
       userLat: coords?.lat,
       userLng: coords?.lng,
+      targetLat: targetPlace?.lat,
+      targetLng: targetPlace?.lng,
+      targetPlaceName: targetPlace?.name ?? placeQuery ?? undefined,
     };
     try {
       const response = await mutateAsync({

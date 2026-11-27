@@ -280,4 +280,96 @@ class ChatServiceTest {
         verify(search).search(anyString(), filter.capture(), eq(6), eq("RELEVANCE"));
         assertEquals("LPT001", filter.getValue().getMaLpt());
     }
+
+    @Test void findsRoomsWithin15KmOfSpecificTargetPlace() throws Exception {
+        RoomDiscoveryService.Document nearIuh = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(ID).giaThue(2500000L).dienTich(20)
+                        .diaChi("12 Nguyễn Văn Bảo, Gò Vấp").viDo("10.8222").kinhDo("106.6875").build(),
+                RoomDetailResponse.builder().maPhongTro(ID).giaThue(2500000L).dienTich(20)
+                        .diaChi("12 Nguyễn Văn Bảo, Gò Vấp").dsTienIch(List.of()).build(),
+                "phòng gần IUH");
+        RoomDiscoveryService.Document farRoom = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").viDo("21.0285").kinhDo("105.8542").build(),
+                RoomDetailResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").dsTienIch(List.of()).build(),
+                "phòng xa");
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(discovery.find(any())).thenReturn(List.of(farRoom, nearIuh));
+
+        ChatResponse result = service.chat(new ChatRequest(
+                "trọ gần đại học công nghiệp", List.of(), null, null, List.of(), null,
+                null, null, 10.8221, 106.6874, "Đại học Công nghiệp TP.HCM"));
+
+        assertEquals(1, result.rooms().size());
+        assertEquals(ID, result.rooms().get(0).getMaPhongTro());
+        assertTrue(result.message().contains("15 km"));
+        assertTrue(result.message().contains("Đại học Công nghiệp TP.HCM"));
+        verifyNoInteractions(search);
+    }
+
+    @Test void returnsHelpfulReplyWhenNoRoomsNearTargetPlace() throws Exception {
+        RoomDiscoveryService.Document farRoom = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").viDo("21.0285").kinhDo("105.8542").build(),
+                RoomDetailResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").dsTienIch(List.of()).build(),
+                "phòng xa");
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(discovery.find(any())).thenReturn(List.of(farRoom));
+
+        ChatResponse result = service.chat(new ChatRequest(
+                "trọ gần đại học công nghiệp", List.of(), null, null, List.of(), null,
+                null, null, 10.8221, 106.6874, "Đại học Công nghiệp TP.HCM"));
+
+        assertTrue(result.rooms().isEmpty());
+        assertTrue(result.message().contains("15 km"));
+        assertTrue(result.message().contains("Đại học Công nghiệp TP.HCM"));
+        verifyNoInteractions(search);
+    }
+
+    @Test void respectsExactRequestedRoomCountForNearbyAndStandardSearch() throws Exception {
+        RoomDiscoveryService.Document r1 = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(ID).giaThue(2500000L).dienTich(20)
+                        .diaChi("12 Nguyễn Văn Bảo, Gò Vấp").viDo("10.8222").kinhDo("106.6875").build(),
+                RoomDetailResponse.builder().maPhongTro(ID).giaThue(2500000L).dienTich(20)
+                        .diaChi("12 Nguyễn Văn Bảo, Gò Vấp").dsTienIch(List.of()).build(),
+                "phòng 1");
+        RoomDiscoveryService.Document r2 = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(OTHER).giaThue(2600000L).dienTich(20)
+                        .diaChi("15 Lê Lợi, Gò Vấp").viDo("10.8235").kinhDo("106.6880").build(),
+                RoomDetailResponse.builder().maPhongTro(OTHER).giaThue(2600000L).dienTich(20)
+                        .diaChi("15 Lê Lợi, Gò Vấp").dsTienIch(List.of()).build(),
+                "phòng 2");
+        RoomDiscoveryService.Document r3 = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro("PT191126150003").giaThue(2700000L).dienTich(20)
+                        .diaChi("20 Quang Trung, Gò Vấp").viDo("10.8260").kinhDo("106.6890").build(),
+                RoomDetailResponse.builder().maPhongTro("PT191126150003").giaThue(2700000L).dienTich(20)
+                        .diaChi("20 Quang Trung, Gò Vấp").dsTienIch(List.of()).build(),
+                "phòng 3");
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(discovery.find(any())).thenReturn(List.of(r3, r2, r1));
+
+        ChatResponse nearbyLimited = service.chat(new ChatRequest(
+                "tìm 2 phòng gần IUH", List.of(), null, null, List.of(), null,
+                null, null, 10.8221, 106.6874, "Đại học Công nghiệp TP.HCM"));
+
+        assertEquals(2, nearbyLimited.rooms().size());
+        assertEquals(ID, nearbyLimited.rooms().get(0).getMaPhongTro());
+        assertEquals(OTHER, nearbyLimited.rooms().get(1).getMaPhongTro());
+        verifyNoInteractions(search);
+    }
+
+    @Test void doesNotReturnUnrelatedCitiesWhenTargetPlaceHasNoCoordinates() throws Exception {
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(discovery.find(any())).thenReturn(List.of());
+
+        ChatResponse result = service.chat(new ChatRequest(
+                "tìm trọ gần trường XYZ không tồn tại", List.of(), null, null, List.of(), null,
+                null, null, null, null, "trường XYZ không tồn tại"));
+
+        assertTrue(result.rooms().isEmpty());
+        assertTrue(result.message().contains("trường XYZ không tồn tại"));
+        verifyNoInteractions(search);
+    }
 }

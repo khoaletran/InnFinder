@@ -28,19 +28,36 @@ interface PhotonFeature {
 
 const geocodeCache = new Map<string, AddressSuggestion[]>();
 
-export const getCachedAddressSuggestions = (rawQuery: string): AddressSuggestion[] | undefined => {
-  const cacheKey = rawQuery.trim().toLowerCase();
-  return cacheKey ? geocodeCache.get(cacheKey) : undefined;
+const buildCacheKey = (
+  query: string,
+  biasCoords?: { lat: number; lng: number } | null,
+): string => {
+  const base = query.trim().toLowerCase();
+  if (!biasCoords) return base;
+  return `${base}|${biasCoords.lat.toFixed(2)},${biasCoords.lng.toFixed(2)}`;
+};
+
+const isWithinVietnamBounds = (lat: number, lng: number): boolean =>
+  lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110;
+
+export const getCachedAddressSuggestions = (
+  rawQuery: string,
+  biasCoords?: { lat: number; lng: number } | null,
+): AddressSuggestion[] | undefined => {
+  const query = rawQuery.trim();
+  if (!query) return undefined;
+  return geocodeCache.get(buildCacheKey(query, biasCoords));
 };
 
 export const searchAddressSuggestions = async (
   rawQuery: string,
   signal?: AbortSignal,
+  biasCoords?: { lat: number; lng: number } | null,
 ): Promise<AddressSuggestion[]> => {
   const query = rawQuery.trim();
   if (query.length < 2) return [];
 
-  const cacheKey = query.toLowerCase();
+  const cacheKey = buildCacheKey(query, biasCoords);
   if (geocodeCache.has(cacheKey)) {
     return geocodeCache.get(cacheKey)!;
   }
@@ -54,8 +71,9 @@ export const searchAddressSuggestions = async (
 
   // 1. Tìm kiếm qua Photon (hỗ trợ tiếng Việt rất tốt cho số nhà, ngõ, hẻm, tên đường)
   try {
+    const biasParam = biasCoords ? `&lat=${biasCoords.lat}&lon=${biasCoords.lng}` : '';
     const photonRes = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6`,
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6${biasParam}`,
       { signal },
     );
     if (photonRes.ok) {
@@ -66,6 +84,10 @@ export const searchAddressSuggestions = async (
         const props = f.properties;
         const coords = f.geometry.coordinates;
         if (!coords || coords.length < 2) continue;
+
+        const lat = Number(coords[1].toFixed(6));
+        const lng = Number(coords[0].toFixed(6));
+        if (!isWithinVietnamBounds(lat, lng)) continue;
 
         let title = props.name || props.street || query;
         if (props.housenumber && !title.includes(props.housenumber)) {
@@ -91,8 +113,8 @@ export const searchAddressSuggestions = async (
             title,
             subtitle,
             fullAddress,
-            lat: Number(coords[1].toFixed(6)),
-            lng: Number(coords[0].toFixed(6)),
+            lat,
+            lng,
           });
         }
       }

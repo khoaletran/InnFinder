@@ -43,8 +43,8 @@ public class ChatService {
             criteria: toàn bộ tiêu chí đang hiệu lực, kế thừa previousCriteria trừ khi khách đổi/xóa hoặc muốn xem tất cả phòng.
             Tiền là VNĐ: 3 triệu=3000000, 3,5tr=3500000. Diện tích m². capacity là số người cần ở.
             location chỉ là địa danh có trong yêu cầu, KHÔNG chứa 'gần', 'tìm phòng', 'tất cả', tiện ích, giá.
-            Nếu khách hỏi tìm phòng gần vị trí hiện tại ('gần tôi', 'gần đây', 'quanh đây', 'gần vị trí của tôi'), đặt location=null vì hệ thống sẽ lọc theo GPS bán kính 15 km.
-            Khi hỏi gần trường/metro nhưng chưa biết địa chỉ, giữ nhu cầu đó ở query, location=null;
+            Nếu khách hỏi tìm phòng gần vị trí hiện tại ('gần tôi', 'gần đây', 'quanh đây', 'gần vị trí của tôi') hoặc gần một địa điểm cụ thể (khi có targetPlaceName hoặc 'gần <tên địa điểm/trường/bệnh viện>'), đặt location=null vì hệ thống sẽ lọc theo tọa độ bán kính 15 km.
+            Khi hỏi gần trường/địa điểm nhưng chưa có targetPlaceName, giữ nhu cầu đó ở query, location=null;
             không tự đoán khoảng cách, địa chỉ hay khẳng định phòng gần trường.
             Chọn mã categoryId/amenityIds chính xác từ danh mục đã cung cấp. Không tự đặt mã.
             Khi khách nói 'giá rẻ', 'phòng giá rẻ', 'phòng rẻ', 'trọ rẻ' mà không nêu mức tiền cụ thể, đặt maxPrice=4000000 (dưới 4 triệu) và sort=PRICE_ASC.
@@ -97,7 +97,8 @@ public class ChatService {
             return new ChatResponse(factualReply, List.of(selected.summary()), null, request.criteria(),
                     List.of("Tôi muốn đặt lịch xem phòng này"), "CONTEXT");
         }
-        boolean nearbyQuery = isNearbyLocationQuery(request.message());
+        boolean hasTargetPlace = request.targetLat() != null && request.targetLng() != null;
+        boolean nearbyQuery = !hasTargetPlace && isNearbyLocationQuery(request.message());
         if (nearbyQuery && (request.userLat() == null || request.userLng() == null)) {
             return new ChatResponse(
                     "Mình chưa lấy được vị trí hiện tại của bạn nên chưa thể tìm phòng trong bán kính 15 km. Bạn vui lòng cấp quyền truy cập vị trí trên trình duyệt rồi thử lại, hoặc nhập tên quận/khu vực bạn muốn tìm nhé!",
@@ -147,44 +148,50 @@ public class ChatService {
             }
         }
 
-        if (nearbyQuery && "SEARCH".equals(plan.intent()) && request.userLat() != null && request.userLng() != null) {
-            RoomFilterRequest nearbyFilter = filter(criteria);
-            nearbyFilter.setArea(null);
-            nearbyFilter.setKeyword(null);
-            double userLat = request.userLat();
-            double userLng = request.userLng();
-            String sort = criteria == null ? null : criteria.sort();
+        int resultLimit = extractRequestedRoomCount(request.message());
+        boolean hasTargetPlaceCoords = request.targetLat() != null && request.targetLng() != null;
+        boolean hasTargetPlaceNameOnly = !hasTargetPlaceCoords
+                && request.targetPlaceName() != null && !request.targetPlaceName().isBlank();
+
+        if (hasTargetPlaceCoords && "SEARCH".equals(plan.intent())) {
+            return nearbySearchResponse(
+                    request.targetLat(), request.targetLng(), request.targetPlaceName(),
+                    criteria, request.message(), resultLimit);
+        }
+
+        if (hasTargetPlaceNameOnly && "SEARCH".equals(plan.intent())) {
+            RoomFilterRequest strictPlaceFilter = filter(criteria);
+            strictPlaceFilter.setArea(request.targetPlaceName().trim());
+            strictPlaceFilter.setKeyword(null);
             boolean boostPhongTro = (criteria == null || criteria.categoryId() == null)
                     && AiSearchService.prefersPhongTro(request.message());
-            List<RoomDiscoveryService.Document> nearbyCandidates = discovery.find(nearbyFilter).stream()
-                    .map(doc -> {
-                        double[] coords = parseRoomCoords(doc.summary());
-                        if (coords == null) return null;
-                        double km = distanceKm(userLat, userLng, coords[0], coords[1]);
-                        return km <= NEARBY_RADIUS_KM ? new RoomDistance(doc, km) : null;
-                    })
-                    .filter(Objects::nonNull)
-                    .sorted(nearbyComparator(sort))
-                    .map(RoomDistance::doc)
-                    .toList();
-            List<RoomDiscoveryService.Document> nearbyRooms = (boostPhongTro
-                    ? prioritizePhongTroFirst(nearbyCandidates)
-                    : nearbyCandidates).stream().limit(6).toList();
-            String nearbyReply = nearbyRooms.isEmpty()
-                    ? "Mình chưa tìm thấy phòng nào trong bán kính 15 km quanh vị trí hiện tại của bạn. Bạn muốn mở rộng sang khu vực khác hoặc thử điều chỉnh tiêu chí không?"
-                    : "Mình tìm thấy " + nearbyRooms.size() + " phòng trong bán kính 15 km quanh vị trí của bạn (sắp xếp từ gần nhất). Bạn có thể xem chi tiết hoặc đặt lịch xem phòng ngay bên dưới nhé!";
-            List<String> nearbySuggestions = nearbyRooms.isEmpty()
-                    ? List.of("Tìm phòng ở TP.HCM", "Tìm phòng dưới 3 triệu")
-                    : List.of("Tìm phòng rẻ hơn", "Tôi muốn đặt lịch xem phòng");
-            return new ChatResponse(nearbyReply,
-                    nearbyRooms.stream().map(RoomDiscoveryService.Document::summary).toList(),
-                    null, criteria, nearbySuggestions, "FILTERED");
+            List<RoomDiscoveryService.Document> matchedByPlace = discovery.find(strictPlaceFilter);
+            List<RoomDiscoveryService.Document> limited = (boostPhongTro
+                    ? prioritizePhongTroFirst(matchedByPlace)
+                    : matchedByPlace).stream().limit(resultLimit).toList();
+            if (limited.isEmpty()) {
+                return new ChatResponse(
+                        "Mình chưa xác định được tọa độ chính xác của \"" + request.targetPlaceName().trim()
+                                + "\" để lọc trong bán kính 15 km. Bạn thử nhập tên địa điểm đầy đủ hơn hoặc kèm tên quận/thành phố nhé!",
+                        List.of(), null, criteria,
+                        List.of("Tìm phòng ở TP.HCM", "Tìm phòng dưới 3 triệu"), "FILTERED");
+            }
+            return new ChatResponse(
+                    "Mình tìm thấy " + limited.size() + " phòng phù hợp quanh khu vực "
+                            + request.targetPlaceName().trim() + ". Bạn có thể xem chi tiết hoặc đặt lịch xem phòng ngay bên dưới nhé!",
+                    limited.stream().map(RoomDiscoveryService.Document::summary).toList(),
+                    null, criteria, List.of("Tìm phòng rẻ hơn", "Tôi muốn đặt lịch xem phòng"), "FILTERED");
+        }
+
+        if (nearbyQuery && "SEARCH".equals(plan.intent()) && request.userLat() != null && request.userLng() != null) {
+            return nearbySearchResponse(
+                    request.userLat(), request.userLng(), null, criteria, request.message(), resultLimit);
         }
 
         List<RoomDiscoveryService.Document> facts = List.of();
         String mode = "CONTEXT";
         if ("SEARCH".equals(plan.intent())) {
-            AiSearchService.Result result = search.search(plan.query(), filter(criteria), 6, criteria == null ? null : criteria.sort());
+            AiSearchService.Result result = search.search(plan.query(), filter(criteria), resultLimit, criteria == null ? null : criteria.sort());
             boolean boostPhongTro = (criteria == null || criteria.categoryId() == null)
                     && AiSearchService.prefersPhongTro(request.message());
             facts = boostPhongTro ? prioritizePhongTroFirst(result.rooms()) : result.rooms();
@@ -214,6 +221,55 @@ public class ChatService {
                 : List.of("Tìm phòng rẻ hơn", "Tôi muốn đặt lịch xem phòng");
         return new ChatResponse(answer, facts.stream().map(RoomDiscoveryService.Document::summary).toList(),
                 null, criteria, suggestions, mode);
+    }
+
+    private ChatResponse nearbySearchResponse(
+            double centerLat,
+            double centerLng,
+            String placeLabel,
+            SearchCriteria criteria,
+            String rawMessage,
+            int limit) {
+        RoomFilterRequest nearbyFilter = filter(criteria);
+        nearbyFilter.setArea(null);
+        nearbyFilter.setKeyword(null);
+        String sort = criteria == null ? null : criteria.sort();
+        boolean boostPhongTro = (criteria == null || criteria.categoryId() == null)
+                && AiSearchService.prefersPhongTro(rawMessage);
+        List<RoomDiscoveryService.Document> nearbyCandidates = discovery.find(nearbyFilter).stream()
+                .map(doc -> {
+                    double[] coords = parseRoomCoords(doc.summary());
+                    if (coords == null) return null;
+                    double km = distanceKm(centerLat, centerLng, coords[0], coords[1]);
+                    return km <= NEARBY_RADIUS_KM ? new RoomDistance(doc, km) : null;
+                })
+                .filter(Objects::nonNull)
+                .sorted(nearbyComparator(sort))
+                .map(RoomDistance::doc)
+                .toList();
+        List<RoomDiscoveryService.Document> nearbyRooms = (boostPhongTro
+                ? prioritizePhongTroFirst(nearbyCandidates)
+                : nearbyCandidates).stream().limit(Math.clamp(limit, 1, 10)).toList();
+        String targetDesc = (placeLabel != null && !placeLabel.isBlank()) ? placeLabel.trim() : null;
+        String nearbyReply;
+        if (nearbyRooms.isEmpty()) {
+            nearbyReply = targetDesc != null
+                    ? "Mình chưa tìm thấy phòng nào trong bán kính 15 km quanh " + targetDesc
+                            + ". Bạn muốn mở rộng sang khu vực khác hoặc thử điều chỉnh tiêu chí không?"
+                    : "Mình chưa tìm thấy phòng nào trong bán kính 15 km quanh vị trí hiện tại của bạn. Bạn muốn mở rộng sang khu vực khác hoặc thử điều chỉnh tiêu chí không?";
+        } else {
+            nearbyReply = targetDesc != null
+                    ? "Mình tìm thấy " + nearbyRooms.size() + " phòng trong bán kính 15 km quanh " + targetDesc
+                            + " (sắp xếp từ gần nhất). Bạn có thể xem chi tiết hoặc đặt lịch xem phòng ngay bên dưới nhé!"
+                    : "Mình tìm thấy " + nearbyRooms.size()
+                            + " phòng trong bán kính 15 km quanh vị trí của bạn (sắp xếp từ gần nhất). Bạn có thể xem chi tiết hoặc đặt lịch xem phòng ngay bên dưới nhé!";
+        }
+        List<String> nearbySuggestions = nearbyRooms.isEmpty()
+                ? List.of("Tìm phòng ở TP.HCM", "Tìm phòng dưới 3 triệu")
+                : List.of("Tìm phòng rẻ hơn", "Tôi muốn đặt lịch xem phòng");
+        return new ChatResponse(nearbyReply,
+                nearbyRooms.stream().map(RoomDiscoveryService.Document::summary).toList(),
+                null, criteria, nearbySuggestions, "FILTERED");
     }
 
     private ChatResponse bookingResponse(RoomDiscoveryService.Document target,
@@ -276,6 +332,9 @@ public class ChatService {
     private Plan plan(ChatRequest request, List<RoomDiscoveryService.Document> context) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("message", request.message());
+        if (request.targetPlaceName() != null && !request.targetPlaceName().isBlank()) {
+            data.put("targetPlaceName", request.targetPlaceName());
+        }
         data.put("history", request.history() == null ? List.of() : request.history());
         data.put("previousCriteria", request.criteria());
         data.put("currentRoomId", request.currentRoomId());
@@ -354,6 +413,29 @@ public class ChatService {
                 || text.contains("gan day") || text.contains("quanh day") || text.contains("quanh toi")
                 || text.contains("quanh vi tri") || text.contains("xung quanh") || text.contains("o gan day")
                 || text.contains("o gan toi");
+    }
+
+    static int extractRequestedRoomCount(String message) {
+        if (message == null || message.isBlank()) return 6;
+        String text = AiSearchService.normalize(message).replaceAll("[\\p{Punct}]+", " ").replaceAll("\\s+", " ").trim();
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?:^|\\s)(\\d{1,2})\\s+(?:phong(?:\\s+tro)?|can(?:\\s+ho)?|tro)(?:\\s|$)")
+                .matcher(text);
+        while (matcher.find()) {
+            String prefix = text.substring(0, matcher.start()).trim();
+            if (prefix.endsWith("quan") || prefix.endsWith("tang") || prefix.endsWith("lau")
+                    || prefix.endsWith("so") || prefix.endsWith("khu") || prefix.endsWith("phuong")
+                    || prefix.endsWith("ngo") || prefix.endsWith("hem")) {
+                continue;
+            }
+            try {
+                int count = Integer.parseInt(matcher.group(1));
+                if (count >= 1) return Math.min(count, 10);
+            } catch (NumberFormatException ignored) {
+                // Ignore invalid numeric token.
+            }
+        }
+        return 6;
     }
 
     private static Comparator<RoomDistance> nearbyComparator(String sort) {
