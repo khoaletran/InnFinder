@@ -1,16 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowRight,
+  ArrowUpDown,
   Award,
   Calendar,
+  Check,
   CheckCircle2,
+  ChevronDown,
   Heart,
   Images,
   MapPin,
-  Sparkles,
+  Search,
   Star,
   User,
   Users,
@@ -21,11 +24,20 @@ import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import {
+  buildNumericBrackets,
+  formatMillions,
+  ROOM_SORT_OPTIONS,
+  sortRoomsByOption,
+} from '@/components/room/searchHelpers';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
+import type { MapSortOption } from '@/store/useRoomFilterStore';
 import type { RoomDetailResponse } from '@/types/room.types';
 import { formatVND, formatVNDShort } from '@/utils/formatters';
+
+type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'sort' | null;
 
 const FALLBACK_ROOM_IMAGE =
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&q=85&auto=format';
@@ -54,103 +66,6 @@ function getHighResImageUrl(url: string): string {
   return url;
 }
 
-interface PriceOption {
-  key: string;
-  label: string;
-  min?: number;
-  max?: number;
-  count: number;
-}
-
-function formatMillions(amount: number): string {
-  const millions = amount / 1_000_000;
-  return `${Number.isInteger(millions) ? millions : millions.toFixed(1).replace('.', ',')} triệu`;
-}
-
-function buildPriceOptions(rawPrices: number[]): PriceOption[] {
-  const sorted = [...rawPrices].filter((p) => Number.isFinite(p) && p > 0).sort((a, b) => a - b);
-  const allOption: PriceOption = {
-    key: 'ALL',
-    label: `Khoảng giá: Tất cả (${sorted.length})`,
-    count: sorted.length,
-  };
-  if (sorted.length === 0) return [allOption];
-
-  const minVal = sorted[0];
-  const maxVal = sorted[sorted.length - 1];
-  if (minVal === maxVal) {
-    return [
-      allOption,
-      {
-        key: `${minVal}-${maxVal}`,
-        label: `Giá ${formatMillions(minVal)} (${sorted.length})`,
-        min: minVal,
-        max: maxVal,
-        count: sorted.length,
-      },
-    ];
-  }
-
-  const step = 500_000;
-  const rawSplits = [0.25, 0.5, 0.75]
-    .map(
-      (q) =>
-        Math.round(sorted[Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)))] / step) *
-        step,
-    )
-    .filter((b) => b > minVal && b < maxVal);
-  const splits = Array.from(new Set(rawSplits)).sort((a, b) => a - b);
-
-  if (splits.length === 0) {
-    const mid = Math.round((minVal + maxVal) / 2 / step) * step;
-    if (mid > minVal && mid < maxVal) {
-      splits.push(mid);
-    } else {
-      return [
-        allOption,
-        {
-          key: `${minVal}-${maxVal}`,
-          label: `${formatMillions(minVal)} – ${formatMillions(maxVal)} (${sorted.length})`,
-          min: minVal,
-          max: maxVal,
-          count: sorted.length,
-        },
-      ];
-    }
-  }
-
-  const segments: Array<{ min?: number; max?: number; label: string }> = [
-    { min: undefined, max: splits[0], label: `Dưới ${formatMillions(splits[0])}` },
-  ];
-  for (let i = 0; i < splits.length - 1; i++) {
-    segments.push({
-      min: splits[i],
-      max: splits[i + 1],
-      label: `${formatMillions(splits[i])} – ${formatMillions(splits[i + 1])}`,
-    });
-  }
-  const lastSplit = splits[splits.length - 1];
-  segments.push({ min: lastSplit, max: undefined, label: `Từ ${formatMillions(lastSplit)}` });
-
-  const dynamicOptions: PriceOption[] = [];
-  for (const seg of segments) {
-    const count = sorted.filter(
-      (v) => (seg.min === undefined || v >= seg.min) && (seg.max === undefined || v <= seg.max),
-    ).length;
-    if (count > 0) {
-      dynamicOptions.push({
-        key: `${seg.min ?? 'min'}-${seg.max ?? 'max'}`,
-        label: `${seg.label} (${count})`,
-        min: seg.min,
-        max: seg.max,
-        count,
-      });
-    }
-  }
-
-  return [allOption, ...dynamicOptions];
-}
-
 export const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
@@ -158,9 +73,32 @@ export const FavoritesPage: React.FC = () => {
 
   const [searchInput, setSearchInput] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
-  const [cityFilter, setCityFilter] = useState('Tất cả');
-  const [selectedPriceKey, setSelectedPriceKey] = useState('ALL');
-  const [sortOption, setSortOption] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
+  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [minArea, setMinArea] = useState<number | undefined>(undefined);
+  const [maxArea, setMaxArea] = useState<number | undefined>(undefined);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState<MapSortOption>('NEWEST');
+  const [activePopover, setActivePopover] = useState<ActivePopover>(null);
+  const popoverBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (popoverBarRef.current && !popoverBarRef.current.contains(e.target as Node)) {
+        setActivePopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSubmittedQuery(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     loadFavorites(isAuthenticated);
@@ -205,13 +143,17 @@ export const FavoritesPage: React.FC = () => {
     },
   });
 
-  // Tìm kiếm ngôn ngữ tự nhiên mặc định bằng AI khi người dùng nhập yêu cầu
-  const { data: aiMatchedIds = undefined, isFetching: isAiSearching } = useQuery({
-    queryKey: ['rooms', 'favorites-ai-search', submittedQuery],
+  // Tìm kiếm bằng DB query (hỗ trợ parse ngôn ngữ tự nhiên) trên các phòng đã lưu
+  const { data: dbMatchedIds = undefined } = useQuery({
+    queryKey: ['rooms', 'favorites-db-search', submittedQuery],
     queryFn: async (): Promise<string[] | null> => {
       try {
-        const res = await roomService.aiSearchWithDetails(submittedQuery.trim(), {}, 30);
-        return (res.rooms || []).map((r) => r.maPhongTro);
+        const res = await roomService.searchRooms({
+          keyword: submittedQuery.trim(),
+          page: 0,
+          size: 100,
+        });
+        return (res.content || []).map((r) => r.maPhongTro);
       } catch {
         return null;
       }
@@ -221,109 +163,138 @@ export const FavoritesPage: React.FC = () => {
     retry: false,
   });
 
-  // Lấy danh sách khu vực / tỉnh thành động từ chính các phòng đã lưu
-  const areaOptions = useMemo(() => {
+  const priceOptions = useMemo(
+    () =>
+      buildNumericBrackets(
+        rooms.map((r) => r.giaThue),
+        500_000,
+        'Tất cả mức giá',
+        (n) => `Giá ${formatMillions(n)}`,
+        (n) => `Dưới ${formatMillions(n)}`,
+        (a, b) => `${formatMillions(a)} – ${formatMillions(b)}`,
+        (n) => `Từ ${formatMillions(n)} trở lên`,
+      ),
+    [rooms],
+  );
+
+  const areaOptions = useMemo(
+    () =>
+      buildNumericBrackets(
+        rooms.map((r) => r.dienTich),
+        5,
+        'Tất cả diện tích',
+        (n) => `${n} m²`,
+        (n) => `Dưới ${n} m²`,
+        (a, b) => `${a} – ${b} m²`,
+        (n) => `Từ ${n} m² trở lên`,
+      ),
+    [rooms],
+  );
+
+  const categoryOptions = useMemo(() => {
     const counts = new Map<string, number>();
     rooms.forEach((r) => {
-      if (!r.diaChi) return;
-      const parts = r.diaChi
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean);
-      const city = parts[parts.length - 1];
-      if (city) {
-        counts.set(city, (counts.get(city) ?? 0) + 1);
-      }
+      const detail = roomDetailsMap.get(r.maPhongTro);
+      const label =
+        detail?.loaiPhong?.tenLoaiPhongTro ||
+        detail?.loaiPhong?.tenLoaiPhong ||
+        r.tenLoaiPhong ||
+        'Phòng trọ';
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+  }, [rooms, roomDetailsMap]);
+
+  const amenityOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rooms.forEach((r) => {
+      const detail = roomDetailsMap.get(r.maPhongTro);
+      const detailAmenities =
+        detail?.dsTienIch
+          ?.map((a) => (typeof a === 'string' ? a : a.tenTienIch))
+          .filter(Boolean) ?? [];
+      const summaryAmenities = r.dsTienIch?.filter(Boolean) ?? [];
+      const uniqueNames = Array.from(
+        new Set(detailAmenities.length > 0 ? detailAmenities : summaryAmenities),
+      );
+      uniqueNames.forEach((name) => counts.set(name, (counts.get(name) ?? 0) + 1));
     });
     return Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-  }, [rooms]);
-
-  const effectiveCityFilter =
-    cityFilter === 'Tất cả' || areaOptions.some((a) => a.name === cityFilter)
-      ? cityFilter
-      : 'Tất cả';
-
-  // Các mốc khoảng giá sinh động hoàn toàn từ giá thực tế của các phòng đã lưu
-  const priceOptions = useMemo(
-    () => buildPriceOptions(rooms.map((r) => r.giaThue)),
-    [rooms],
-  );
-  const selectedPriceOption =
-    priceOptions.find((opt) => opt.key === selectedPriceKey) ?? priceOptions[0];
-  const effectivePriceKey = selectedPriceOption?.key ?? 'ALL';
+  }, [rooms, roomDetailsMap]);
 
   const filteredRooms = useMemo(() => {
     const trimmedQuery = submittedQuery.trim().toLowerCase();
 
     const list = rooms.filter((r) => {
       const detail = roomDetailsMap.get(r.maPhongTro);
-      let matchSearch = true;
+      const roomTypeLabel =
+        detail?.loaiPhong?.tenLoaiPhongTro ||
+        detail?.loaiPhong?.tenLoaiPhong ||
+        r.tenLoaiPhong ||
+        'Phòng trọ';
+      const detailAmenities =
+        detail?.dsTienIch
+          ?.map((a) => (typeof a === 'string' ? a : a.tenTienIch))
+          .filter(Boolean) ?? [];
+      const summaryAmenities = r.dsTienIch?.filter(Boolean) ?? [];
+      const roomAmenities = detailAmenities.length > 0 ? detailAmenities : summaryAmenities;
 
+      let matchSearch = true;
       if (trimmedQuery) {
-        if (Array.isArray(aiMatchedIds)) {
-          matchSearch = aiMatchedIds.includes(r.maPhongTro);
-        } else if (aiMatchedIds === null) {
+        if (Array.isArray(dbMatchedIds)) {
+          matchSearch = dbMatchedIds.includes(r.maPhongTro);
+        } else if (dbMatchedIds === null) {
           const title = detail?.tieuDe || detail?.tenPhong || r.tieuDe || r.diaChi;
-          const roomType = detail?.loaiPhong?.tenLoaiPhongTro || r.tenLoaiPhong || '';
           const desc = detail?.moTa || '';
-          const amenityNames = [
-            ...(r.dsTienIch || []),
-            ...(detail?.dsTienIch?.map((a) => (typeof a === 'string' ? a : a.tenTienIch)) || []),
-          ].join(' ');
           matchSearch =
             title.toLowerCase().includes(trimmedQuery) ||
             r.diaChi.toLowerCase().includes(trimmedQuery) ||
-            roomType.toLowerCase().includes(trimmedQuery) ||
+            roomTypeLabel.toLowerCase().includes(trimmedQuery) ||
             desc.toLowerCase().includes(trimmedQuery) ||
-            amenityNames.toLowerCase().includes(trimmedQuery);
+            roomAmenities.join(' ').toLowerCase().includes(trimmedQuery);
         }
       }
 
-      const matchCity =
-        effectiveCityFilter === 'Tất cả' ||
-        r.diaChi.toLowerCase().includes(effectiveCityFilter.toLowerCase());
-
       const matchPrice =
-        (!selectedPriceOption || selectedPriceOption.key === 'ALL') ||
-        ((selectedPriceOption.min === undefined || r.giaThue >= selectedPriceOption.min) &&
-          (selectedPriceOption.max === undefined || r.giaThue <= selectedPriceOption.max));
+        (minPrice === undefined || r.giaThue >= minPrice) &&
+        (maxPrice === undefined || r.giaThue <= maxPrice);
 
-      return matchSearch && matchCity && matchPrice;
+      const matchCategory = !selectedCategory || roomTypeLabel === selectedCategory;
+
+      const matchArea =
+        (minArea === undefined || r.dienTich >= minArea) &&
+        (maxArea === undefined || r.dienTich <= maxArea);
+
+      const matchAmenities =
+        selectedAmenities.length === 0 ||
+        selectedAmenities.every((am) => roomAmenities.includes(am));
+
+      return matchSearch && matchPrice && matchCategory && matchArea && matchAmenities;
     });
 
-    if (sortOption === 'PRICE_ASC') {
-      return [...list].sort((a, b) => a.giaThue - b.giaThue);
-    }
-    if (sortOption === 'PRICE_DESC') {
-      return [...list].sort((a, b) => b.giaThue - a.giaThue);
-    }
-    if (trimmedQuery && Array.isArray(aiMatchedIds)) {
-      const rank = new Map(aiMatchedIds.map((id, idx) => [id, idx]));
-      return [...list].sort(
-        (a, b) => (rank.get(a.maPhongTro) ?? Infinity) - (rank.get(b.maPhongTro) ?? Infinity),
-      );
-    }
-    return list;
+    return sortRoomsByOption(list, (r) => r, sortOption);
   }, [
     rooms,
     roomDetailsMap,
     submittedQuery,
-    aiMatchedIds,
-    effectiveCityFilter,
-    selectedPriceOption,
+    dbMatchedIds,
+    minPrice,
+    maxPrice,
+    selectedCategory,
+    minArea,
+    maxArea,
+    selectedAmenities,
     sortOption,
   ]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittedQuery(searchInput.trim());
-  };
-
-  const handleClearSearch = () => {
-    setSearchInput('');
-    setSubmittedQuery('');
+    setActivePopover(null);
   };
 
   const handleRemoveFavorite = async (roomId: string) => {
@@ -345,98 +316,355 @@ export const FavoritesPage: React.FC = () => {
   const resetFilters = () => {
     setSearchInput('');
     setSubmittedQuery('');
-    setCityFilter('Tất cả');
-    setSelectedPriceKey('ALL');
+    setMinPrice(undefined);
+    setMaxPrice(undefined);
+    setSelectedCategory(undefined);
+    setMinArea(undefined);
+    setMaxArea(undefined);
+    setSelectedAmenities([]);
     setSortOption('NEWEST');
+    setActivePopover(null);
   };
+
+  const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
+  const priceLabel = hasPriceFilter
+    ? `${minPrice ? `${minPrice / 1e6}tr` : '0'} – ${maxPrice ? `${maxPrice / 1e6}tr` : 'Max'}`
+    : 'Giá';
+  const categoryLabel = selectedCategory || 'Loại phòng';
+  const hasAreaFilter = minArea !== undefined || maxArea !== undefined;
+  const areaLabel = hasAreaFilter
+    ? `${minArea ?? 0} – ${maxArea ?? '∞'} m²`
+    : 'Diện tích';
+  const amenityCount = selectedAmenities.length;
+  const currentSortLabel =
+    ROOM_SORT_OPTIONS.find((opt) => opt.value === sortOption)?.label ?? 'Mới nhất';
+  const hasAnyActiveFilter =
+    Boolean(submittedQuery.trim()) ||
+    Boolean(searchInput.trim()) ||
+    hasPriceFilter ||
+    Boolean(selectedCategory) ||
+    hasAreaFilter ||
+    amenityCount > 0 ||
+    sortOption !== 'NEWEST';
 
   return (
     <PageContainer width="wide" className="space-y-6">
-      <PageHeader
-        title="Phòng yêu thích"
-        action={
-          <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
-            Tìm thêm phòng
-          </AppButton>
-        }
-      />
+      <PageHeader title="Phòng yêu thích" />
 
       {rooms.length > 0 && (
-        <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2 min-w-0">
-            <div className="flex-1 relative flex items-center bg-slate-50 focus-within:bg-white rounded-xl border border-slate-200 focus-within:border-teal-600 transition-colors">
-              <Sparkles
-                className={`w-4 h-4 text-teal-600 absolute left-3 pointer-events-none ${
-                  isAiSearching ? 'animate-spin' : ''
-                }`}
-              />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setSearchInput(next);
-                  if (!next.trim() && submittedQuery) {
-                    setSubmittedQuery('');
-                  }
-                }}
-                placeholder="Mô tả phòng đã lưu cần tìm bằng ngôn ngữ tự nhiên (VD: có máy lạnh dưới 4tr)..."
-                className="w-full h-10 pl-9 pr-8 text-sm text-slate-900 bg-transparent outline-none placeholder:text-slate-500"
-              />
-              {(searchInput || submittedQuery) && (
+        <div
+          ref={popoverBarRef}
+          className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5"
+        >
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center w-full sm:w-auto lg:w-[320px] shrink-0"
+            >
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Mô tả phòng cần tìm"
+                  className="w-full h-9 pl-3.5 pr-10 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
+                />
                 <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  aria-label="Xóa từ khóa tìm kiếm"
-                  className="absolute right-2 p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 cursor-pointer"
+                  type="submit"
+                  aria-label="Tìm kiếm"
+                  title="Tìm kiếm"
+                  className="absolute right-1.5 w-7 h-7 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <Search className="w-4 h-4" />
                 </button>
+              </div>
+            </form>
+
+            {/* 1. Chip Giá */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  hasPriceFilter || activePopover === 'price'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{priceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'price' && (
+                <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {priceOptions.map((option) => {
+                    const selected = minPrice === option.min && maxPrice === option.max;
+                    return (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => {
+                          setMinPrice(option.min);
+                          setMaxPrice(option.max);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate">{option.label}</span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-slate-400">{option.count} phòng</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <AppButton type="submit" variant="primary" size="sm" isLoading={isAiSearching}>
-              Tìm
-            </AppButton>
-          </form>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
-            <select
-              value={effectiveCityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="h-9 px-3 rounded-xl text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 outline-none cursor-pointer"
-            >
-              <option value="Tất cả">Khu vực: Tất cả ({rooms.length})</option>
-              {areaOptions.map((area) => (
-                <option key={area.name} value={area.name}>
-                  {area.name} ({area.count})
-                </option>
-              ))}
-            </select>
+            {/* 2. Chip Loại phòng */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  selectedCategory || activePopover === 'category'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{categoryLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
 
-            <select
-              value={effectivePriceKey}
-              onChange={(e) => setSelectedPriceKey(e.target.value)}
-              className="h-9 px-3 rounded-xl text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 outline-none cursor-pointer"
-            >
-              {priceOptions.map((opt) => (
-                <option key={opt.key} value={opt.key}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              {activePopover === 'category' && (
+                <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1 max-h-72 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(undefined);
+                      setActivePopover(null);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                      !selectedCategory
+                        ? 'bg-teal-50 text-teal-800 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Tất cả loại phòng</span>
+                    {!selectedCategory && <Check className="w-4 h-4 text-teal-700" />}
+                  </button>
+                  {categoryOptions.map((c) => {
+                    const selected = selectedCategory === c.label;
+                    return (
+                      <button
+                        key={c.label}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(c.label);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-left ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate">{c.label}</span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-slate-400">{c.count} phòng</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            <select
-              value={sortOption}
-              onChange={(e) =>
-                setSortOption(e.target.value as 'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC')
-              }
-              className="h-9 px-3 rounded-xl text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 outline-none cursor-pointer"
-            >
-              <option value="NEWEST">Mới lưu nhất</option>
-              <option value="PRICE_ASC">Giá thấp đến cao</option>
-              <option value="PRICE_DESC">Giá cao đến thấp</option>
-            </select>
+            {/* 3. Chip Diện tích */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
+                className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                  hasAreaFilter || activePopover === 'area'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{areaLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {activePopover === 'area' && (
+                <div className="absolute left-0 mt-2 w-68 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                  {areaOptions.map((option) => {
+                    const selected = minArea === option.min && maxArea === option.max;
+                    return (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => {
+                          setMinArea(option.min);
+                          setMaxArea(option.max);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate">{option.label}</span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-slate-400">{option.count} phòng</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 4. Chip Tiện ích */}
+            {amenityOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
+                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                    amenityCount > 0 || activePopover === 'amenities'
+                      ? 'bg-teal-50 text-teal-800 border-teal-500'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{amenityCount > 0 ? `Tiện ích (${amenityCount})` : 'Tiện ích'}</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+
+                {activePopover === 'amenities' && (
+                  <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-2">
+                    <div className="max-h-60 overflow-y-auto space-y-1">
+                      {amenityOptions.map((am) => {
+                        const active = selectedAmenities.includes(am.name);
+                        return (
+                          <button
+                            key={am.name}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAmenities((prev) =>
+                                active ? prev.filter((item) => item !== am.name) : [...prev, am.name],
+                              );
+                            }}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer text-left ${
+                              active
+                                ? 'bg-teal-50 text-teal-800 font-semibold'
+                                : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="truncate">{am.name}</span>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs text-slate-400">{am.count}</span>
+                              {active && <Check className="w-4 h-4 text-teal-700" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {amenityCount > 0 && (
+                      <div className="pt-2 border-t border-slate-100 flex justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAmenities([])}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                        >
+                          Bỏ chọn
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActivePopover(null)}
+                          className="text-xs font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
+                        >
+                          Xong
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 5. Nút Sắp xếp */}
+            <div className="relative">
+              <button
+                type="button"
+                aria-label={`Sắp xếp: ${currentSortLabel}`}
+                title={`Sắp xếp: ${currentSortLabel}`}
+                aria-expanded={activePopover === 'sort'}
+                onClick={() => setActivePopover((p) => (p === 'sort' ? null : 'sort'))}
+                className={`inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors cursor-pointer shrink-0 ${
+                  sortOption !== 'NEWEST' || activePopover === 'sort'
+                    ? 'bg-teal-50 text-teal-800 border-teal-500'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+              </button>
+
+              {activePopover === 'sort' && (
+                <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                  {ROOM_SORT_OPTIONS.map((option) => {
+                    const selected = sortOption === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setSortOption(option.value);
+                          setActivePopover(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                          selected
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {hasAnyActiveFilter && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1 h-9 px-3 rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Xóa lọc</span>
+              </button>
+            )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/search')}
+            className="ml-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>Tìm thêm phòng</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -622,21 +850,8 @@ export const FavoritesPage: React.FC = () => {
                 </div>
 
                 {/* CỘT PHẢI: GIÁ THUÊ, TIỀN CỌC & HÀNH ĐỘNG */}
-                <div className="md:w-[235px] lg:w-[250px] md:h-full shrink-0 p-4 sm:p-5 bg-slate-50/70 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-end gap-3.5">
-                  <div className="md:text-right space-y-1">
-                    <div className="text-2xl font-black text-teal-700 tracking-tight">
-                      {formatVNDShort(room.giaThue, '')}
-                      <span className="text-xs font-semibold text-slate-500 ml-1">/tháng</span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Cọc:{' '}
-                      <span className="font-semibold text-slate-700">
-                        {formatVND(contractDeposit)}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
+                <div className="md:w-[235px] lg:w-[250px] md:h-full shrink-0 p-4 sm:p-5 bg-slate-50/70 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-between gap-3.5">
+                  <div className="flex justify-end">
                     <button
                       type="button"
                       title="Bỏ yêu thích"
@@ -645,15 +860,30 @@ export const FavoritesPage: React.FC = () => {
                         e.stopPropagation();
                         void handleRemoveFavorite(room.maPhongTro);
                       }}
-                      className="w-11 h-11 shrink-0 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-9 h-9 shrink-0 rounded-full border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
+                      <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
                     </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="md:text-right space-y-1">
+                      <div className="text-2xl font-black text-teal-700 tracking-tight">
+                        {formatVNDShort(room.giaThue, '')}
+                        <span className="text-xs font-semibold text-slate-500 ml-1">/tháng</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Cọc:{' '}
+                        <span className="font-semibold text-slate-700">
+                          {formatVND(contractDeposit)}
+                        </span>
+                      </p>
+                    </div>
 
                     <button
                       type="button"
                       onClick={(e) => handleBookRoom(e, room.maPhongTro)}
-                      className="flex-1 h-11 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-sm shadow-teal-600/20 inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      className="w-full h-11 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-sm shadow-teal-600/20 inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
                       <Calendar className="w-4 h-4 shrink-0" />
                       <span>Đặt lịch xem</span>
