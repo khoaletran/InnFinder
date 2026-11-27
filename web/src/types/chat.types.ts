@@ -19,6 +19,8 @@ export interface ChatRequest {
   selectedRoomId?: string;
   roomIds: string[];
   criteria?: SearchCriteria;
+  userLat?: number;
+  userLng?: number;
 }
 
 export interface ChatResponse {

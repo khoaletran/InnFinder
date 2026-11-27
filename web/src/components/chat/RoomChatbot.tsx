@@ -16,6 +16,7 @@ import { chatService } from "@/services/chat.service";
 import { ROOM_CHAT_REFERENCE_PATTERN } from "@/constants/ai";
 import { useChatStore } from "@/store/useChatStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useRoomFilterStore } from "@/store/useRoomFilterStore";
 import type { ChatRequest } from "@/types/chat.types";
 import type { RoomSummaryResponse } from "@/types/room.types";
 import { ChatRoomCard } from "./ChatRoomCard";
@@ -26,6 +27,33 @@ const STARTERS = [
   "Cọc xem phòng được hoàn thế nào?",
 ];
 
+const NEARBY_PHRASES = [
+  "gan vi tri",
+  "vi tri cua toi",
+  "vi tri hien tai",
+  "gan toi",
+  "gan cho toi",
+  "gan minh",
+  "gan day",
+  "quanh day",
+  "quanh toi",
+  "quanh vi tri",
+  "xung quanh",
+  "o gan day",
+  "o gan toi",
+];
+
+function isNearbyLocationPrompt(text: string): boolean {
+  const normalized = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/\s+/g, " ")
+    .trim();
+  return NEARBY_PHRASES.some((phrase) => normalized.includes(phrase));
+}
+
 export function RoomChatbot() {
   const chat = useChatStore();
   const location = useLocation();
@@ -33,6 +61,7 @@ export function RoomChatbot() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -102,13 +131,15 @@ export function RoomChatbot() {
     };
   }, [chat.isOpen]);
 
+  const isBusy = isPending || isRequestingLocation;
+
   useEffect(() => {
     if (chat.isOpen)
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
         behavior: "smooth",
       });
-  }, [chat.messages, chat.isOpen, isPending, error]);
+  }, [chat.messages, chat.isOpen, isBusy, error]);
 
   function openBooking(roomId: string) {
     if (!ROOM_CHAT_REFERENCE_PATTERN.test(roomId)) return;
@@ -119,13 +150,56 @@ export function RoomChatbot() {
     } else navigate(path);
   }
 
+  function requestCurrentLocation(): Promise<{ lat: number; lng: number } | null> {
+    const filterState = useRoomFilterStore.getState();
+    if (filterState.userLat !== undefined && filterState.userLng !== undefined) {
+      return Promise.resolve({ lat: filterState.userLat, lng: filterState.userLng });
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          useRoomFilterStore.getState().setUserLocation(lat, lng);
+          resolve({ lat, lng });
+        },
+        () => resolve(null),
+        { timeout: 8000, enableHighAccuracy: true },
+      );
+    });
+  }
+
   async function sendMessage(text: string, selectedRoom?: RoomSummaryResponse) {
     const message = text.trim();
-    if (!message || message.length > 1500 || isPending) return;
+    if (!message || message.length > 1500 || isBusy) return;
     const state = useChatStore.getState();
     const controller = new AbortController();
     requestRef.current?.abort();
     requestRef.current = controller;
+    if (selectedRoom) state.selectRoom(selectedRoom);
+    state.addUser(message);
+    setDraft("");
+    setError(null);
+    setWaitingSeconds(0);
+
+    const filterState = useRoomFilterStore.getState();
+    let coords: { lat: number; lng: number } | null =
+      filterState.userLat !== undefined && filterState.userLng !== undefined
+        ? { lat: filterState.userLat, lng: filterState.userLng }
+        : null;
+    if (!coords && isNearbyLocationPrompt(message)) {
+      setIsRequestingLocation(true);
+      try {
+        coords = await requestCurrentLocation();
+      } finally {
+        setIsRequestingLocation(false);
+      }
+      if (controller.signal.aborted) return;
+    }
+
     const request: ChatRequest = {
       message,
       history: state.messages
@@ -136,12 +210,9 @@ export function RoomChatbot() {
         selectedRoom?.maPhongTro ?? state.selectedRoom?.maPhongTro,
       roomIds: state.roomIds,
       criteria: state.criteria,
+      userLat: coords?.lat,
+      userLng: coords?.lng,
     };
-    if (selectedRoom) state.selectRoom(selectedRoom);
-    state.addUser(message);
-    setDraft("");
-    setError(null);
-    setWaitingSeconds(0);
     try {
       const response = await mutateAsync({
         request,
@@ -338,7 +409,7 @@ export function RoomChatbot() {
                       key={room.maPhongTro}
                       room={room}
                       index={index}
-                      disabled={isPending}
+                      disabled={isBusy}
                       onAsk={(r) =>
                         void sendMessage(
                           "Cho tôi biết thêm về phòng này và các tiện ích.",
@@ -358,18 +429,20 @@ export function RoomChatbot() {
                 </div>
               ))}
             </div>
-            {isPending && (
+            {isBusy && (
               <div className="space-y-2 px-1">
                 <div
                   role="status"
                   className="flex items-center gap-2 text-xs text-teal-700"
                 >
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                  {waitingSeconds >= 12
-                    ? "AI đang phản hồi chậm hơn thường lệ…"
-                    : "Đang tìm thông tin phù hợp…"}
+                  {isRequestingLocation
+                    ? "Đang xin quyền truy cập vị trí của bạn…"
+                    : waitingSeconds >= 12
+                      ? "AI đang phản hồi chậm hơn thường lệ…"
+                      : "Đang tìm thông tin phù hợp…"}
                 </div>
-                {waitingSeconds >= 5 && (
+                {isPending && waitingSeconds >= 5 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -420,7 +493,7 @@ export function RoomChatbot() {
                 </button>
               </div>
             )}
-            {!!latestAssistant?.suggestions?.length && !isPending && (
+            {!!latestAssistant?.suggestions?.length && !isBusy && (
               <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
                 {latestAssistant.suggestions.map((s) => (
                   <button
@@ -463,11 +536,11 @@ export function RoomChatbot() {
               />
               <button
                 type="submit"
-                disabled={isPending || !draft.trim()}
+                disabled={isBusy || !draft.trim()}
                 aria-label="Gửi tin nhắn"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white transition-colors hover:bg-teal-800 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               >
-                {isPending ? (
+                {isBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />

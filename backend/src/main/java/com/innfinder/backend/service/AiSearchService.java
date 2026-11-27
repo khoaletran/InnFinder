@@ -87,8 +87,31 @@ public class AiSearchService {
                 .thenComparing(s -> s.room().summary().getMaPhongTro());
         if ("PRICE_ASC".equals(sort)) order = Comparator.comparingLong(s -> s.room().summary().getGiaThue());
         if ("PRICE_DESC".equals(sort)) order = Comparator.<Scored>comparingLong(s -> s.room().summary().getGiaThue()).reversed();
+        boolean boostPhongTro = (filter == null || filter.getMaLpt() == null || filter.getMaLpt().isBlank())
+                && prefersPhongTro(prompt);
+        if (boostPhongTro) {
+            order = Comparator.comparingInt((Scored s) -> isPhongTroCategory(s.room()) ? 0 : 1).thenComparing(order);
+        }
         return new Result(scored.stream().sorted(order).limit(Math.clamp(limit, 1, 30)).map(Scored::room).toList(),
                 semantic ? "SEMANTIC" : "FILTERED");
+    }
+
+    public static boolean prefersPhongTro(String prompt) {
+        if (prompt == null || prompt.isBlank()) return false;
+        String norm = normalize(prompt).replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+        return norm.matches(".*(?:^|\\s)tro(?:\\s|$).*");
+    }
+
+    public static boolean isPhongTroCategory(RoomDiscoveryService.Document doc) {
+        if (doc == null) return false;
+        String typeName = doc.summary() != null && doc.summary().getTenLoaiPhong() != null
+                ? doc.summary().getTenLoaiPhong()
+                : (doc.detail() != null && doc.detail().getLoaiPhong() != null
+                        ? doc.detail().getLoaiPhong().getTenLoaiPhongTro()
+                        : null);
+        if (typeName == null || typeName.isBlank()) return false;
+        String norm = normalize(typeName).replaceAll("[^a-z0-9\\s]", " ").replaceAll("\\s+", " ").trim();
+        return norm.contains("phong tro") || norm.matches(".*(?:^|\\s)tro(?:\\s|$).*");
     }
 
     public static String normalize(String value) {

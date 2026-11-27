@@ -153,11 +153,40 @@ class ChatServiceTest {
         verifyNoInteractions(gemini);
     }
 
-    @Test void simpleCheapSearchSortsActualDataWithoutInventingABudgetOrCallingGoogle() {
+    @Test void simpleCheapSearchFiltersUnder4MillionAndSortsWithoutCallingGoogle() {
         when(search.search(anyString(), any(), eq(6), eq("PRICE_ASC"))).thenReturn(new AiSearchService.Result(List.of(room(ID)), "FILTERED"));
-        ChatResponse result = service.chat(new ChatRequest("Trọ rẻ", List.of(), null, null, List.of(), null));
-        assertEquals("PRICE_ASC", result.criteria().sort());
-        assertNull(result.criteria().maxPrice());
+        ChatResponse troReResult = service.chat(new ChatRequest("Trọ rẻ", List.of(), null, null, List.of(), null));
+        assertEquals("PRICE_ASC", troReResult.criteria().sort());
+        assertEquals(4_000_000L, troReResult.criteria().maxPrice());
+
+        ChatResponse giaReResult = service.chat(new ChatRequest("giá rẻ", List.of(), null, null, List.of(), null));
+        assertEquals("PRICE_ASC", giaReResult.criteria().sort());
+        assertEquals(4_000_000L, giaReResult.criteria().maxPrice());
+        verifyNoInteractions(gemini);
+    }
+
+    @Test void troRePrioritizesPhongTroAboveDormitoryEvenWhenDormitoryIsCheaper() {
+        RoomDiscoveryService.Document dorm = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(ID).giaThue(1_600_000L).dienTich(15)
+                        .tenLoaiPhong("Ký túc xá / Sleepbox").diaChi("Cầu Giấy").build(),
+                RoomDetailResponse.builder().maPhongTro(ID).giaThue(1_600_000L).dienTich(15)
+                        .loaiPhong(CategoryResponse.builder().maLpt("LPT001").tenLoaiPhongTro("Ký túc xá / Sleepbox").build())
+                        .diaChi("Cầu Giấy").dsTienIch(List.of()).build(),
+                "Ký túc xá / Sleepbox");
+        RoomDiscoveryService.Document phongTro = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(OTHER).giaThue(3_000_000L).dienTich(22)
+                        .tenLoaiPhong("Phòng trọ khép kín").diaChi("Gò Vấp").build(),
+                RoomDetailResponse.builder().maPhongTro(OTHER).giaThue(3_000_000L).dienTich(22)
+                        .loaiPhong(CategoryResponse.builder().maLpt("LPT002").tenLoaiPhongTro("Phòng trọ khép kín").build())
+                        .diaChi("Gò Vấp").dsTienIch(List.of()).build(),
+                "Phòng trọ khép kín");
+        when(search.search(eq("trọ"), any(), eq(6), eq("PRICE_ASC")))
+                .thenReturn(new AiSearchService.Result(List.of(dorm, phongTro), "FILTERED"));
+
+        ChatResponse result = service.chat(new ChatRequest("trọ rẻ", List.of(), null, null, List.of(), null));
+        assertEquals(2, result.rooms().size());
+        assertEquals(OTHER, result.rooms().get(0).getMaPhongTro());
+        assertEquals(ID, result.rooms().get(1).getMaPhongTro());
         verifyNoInteractions(gemini);
     }
 
@@ -175,5 +204,80 @@ class ChatServiceTest {
         assertEquals(legacy, service.chat(request).action().roomId());
         ChatRequest invalid = new ChatRequest("hi", List.of(), "https://example.com", null, List.of(), null);
         assertFalse(validator.validate(invalid).isEmpty());
+    }
+
+    @Test void allRoomsRequestListsApprovedRoomsWithoutLiteralKeywordFilter() {
+        when(search.search(eq(""), any(), eq(6), eq("RELEVANCE")))
+                .thenReturn(new AiSearchService.Result(List.of(room(ID), room(OTHER)), "FILTERED"));
+        ChatResponse result = service.chat(new ChatRequest("tất cả các phòng", List.of(), null, null, List.of(), null));
+        assertEquals(2, result.rooms().size());
+        verify(search).search(eq(""), any(), eq(6), eq("RELEVANCE"));
+        verifyNoInteractions(gemini);
+    }
+
+    @Test void nearbyQueryWithoutCoordinatesAsksForLocationPermission() {
+        ChatResponse result = service.chat(new ChatRequest("tìm phòng gần vị trí của tôi", List.of(), null, null, List.of(), null));
+        assertTrue(result.rooms().isEmpty());
+        assertTrue(result.message().contains("vị trí"));
+        verifyNoInteractions(gemini, search);
+    }
+
+    @Test void nearbyQueryWithCoordinatesFiltersWithin15KmOnly() {
+        RoomDiscoveryService.Document hcmcRoom = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(ID).giaThue(3000000L).dienTich(20)
+                        .diaChi("Quận 1, TP.HCM").viDo("10.7769").kinhDo("106.7009").build(),
+                RoomDetailResponse.builder().maPhongTro(ID).giaThue(3000000L).dienTich(20)
+                        .diaChi("Quận 1, TP.HCM").dsTienIch(List.of()).build(),
+                "phòng TP.HCM");
+        RoomDiscoveryService.Document hanoiRoom = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").viDo("21.0285").kinhDo("105.8542").build(),
+                RoomDetailResponse.builder().maPhongTro(OTHER).giaThue(2500000L).dienTich(20)
+                        .diaChi("Đống Đa, Hà Nội").dsTienIch(List.of()).build(),
+                "phòng Hà Nội");
+        when(discovery.find(any())).thenReturn(List.of(hanoiRoom, hcmcRoom));
+
+        ChatResponse result = service.chat(new ChatRequest(
+                "tìm phòng gần vị trí của tôi", List.of(), null, null, List.of(), null, 10.7800, 106.6950));
+        assertEquals(1, result.rooms().size());
+        assertEquals(ID, result.rooms().get(0).getMaPhongTro());
+        assertTrue(result.message().contains("15 km"));
+        verifyNoInteractions(gemini);
+    }
+
+    @Test void enrichCriteriaMatchesDormitoryAmenitiesAreaAndPriceExactly() throws Exception {
+        when(categories.getAllRoomTypes()).thenReturn(List.of(
+                CategoryResponse.builder().maLpt("LPT001").tenLoaiPhongTro("Ký túc xá / Sleepbox").build(),
+                CategoryResponse.builder().maLpt("LPT002").tenLoaiPhongTro("Phòng trọ khép kín").build()));
+        when(categories.getAllAmenities()).thenReturn(List.of(
+                AmenityResponse.builder().maTienIch("TI0001").tenTienIch("Máy lạnh").build(),
+                AmenityResponse.builder().maTienIch("TI0002").tenTienIch("Wi-Fi").build()));
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(search.search(anyString(), any(), eq(6), eq("RELEVANCE"))).thenReturn(new AiSearchService.Result(List.of(room(ID)), "FILTERED"));
+
+        service.chat(new ChatRequest(
+                "tìm phòng kí túc xá có điều hòa, wifi trên 15m2 dưới 2.5 triệu", List.of(), null, null, List.of(), null));
+
+        ArgumentCaptor<RoomFilterRequest> filter = ArgumentCaptor.forClass(RoomFilterRequest.class);
+        verify(search).search(anyString(), filter.capture(), eq(6), eq("RELEVANCE"));
+        assertEquals("LPT001", filter.getValue().getMaLpt());
+        assertEquals(List.of("TI0001", "TI0002"), filter.getValue().getDsTienIch());
+        assertEquals(15, filter.getValue().getMinDienTich());
+        assertEquals(2_500_000L, filter.getValue().getMaxGia());
+    }
+
+    @Test void enrichCriteriaSwitchesCategoryWhenUserAsksForDifferentRoomType() throws Exception {
+        when(categories.getAllRoomTypes()).thenReturn(List.of(
+                CategoryResponse.builder().maLpt("LPT001").tenLoaiPhongTro("Ký túc xá / Sleepbox").build(),
+                CategoryResponse.builder().maLpt("LPT002").tenLoaiPhongTro("Phòng trọ khép kín").build()));
+        SearchCriteria previous = new SearchCriteria(null, null, null, null, null, null, "LPT002", List.of(), "RELEVANCE");
+        plan("SEARCH", null, previous);
+        when(search.search(anyString(), any(), eq(6), eq("RELEVANCE"))).thenReturn(new AiSearchService.Result(List.of(room(ID)), "FILTERED"));
+
+        service.chat(new ChatRequest("tìm sleepbox", List.of(), null, null, List.of(), previous));
+
+        ArgumentCaptor<RoomFilterRequest> filter = ArgumentCaptor.forClass(RoomFilterRequest.class);
+        verify(search).search(anyString(), filter.capture(), eq(6), eq("RELEVANCE"));
+        assertEquals("LPT001", filter.getValue().getMaLpt());
     }
 }
