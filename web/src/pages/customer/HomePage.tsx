@@ -1,8 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Building2, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppButton } from '@/components/common/AppButton';
 import { PageContainer } from '@/components/common/PageContainer';
 import { PopularAreaCard } from '@/components/room/PopularAreaCard';
 import { DepositMechanismSection } from '@/components/room/landing/DepositMechanismSection';
@@ -112,12 +111,22 @@ export const HomePage: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <AppButton variant="primary" size="lg" onClick={() => navigate('/search')}>
-                Tìm phòng ngay
-              </AppButton>
-              <AppButton variant="secondary" size="lg" onClick={handleLandlordAction}>
-                Đăng tin cho thuê
-              </AppButton>
+              <button
+                type="button"
+                onClick={() => navigate('/search')}
+                className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-sm shadow-teal-600/25 transition-colors cursor-pointer"
+              >
+                <Search className="w-4 h-4" />
+                <span>Tìm phòng ngay</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleLandlordAction}
+                className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Đăng tin cho thuê</span>
+              </button>
             </div>
           </div>
         </PageContainer>

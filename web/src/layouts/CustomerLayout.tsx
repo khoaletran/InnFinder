@@ -43,7 +43,6 @@ export const CustomerLayout: React.FC = () => {
   const [navSearch, setNavSearch] = useState('');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
-  const [isScrolledPastHero, setIsScrolledPastHero] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,20 +81,7 @@ export const CustomerLayout: React.FC = () => {
   const isDiscoveryRoute =
     isHomePage || isSearchPage || location.pathname.startsWith('/room/');
 
-  useEffect(() => {
-    if (!isHomePage) {
-      setIsScrolledPastHero(false);
-      return;
-    }
-    const handleScroll = () => {
-      setIsScrolledPastHero(window.scrollY > 240);
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHomePage]);
-
-  const showHeaderSearch = !isSearchPage && (!isHomePage || isScrolledPastHero);
+  const showHeaderSearch = !isSearchPage && !isHomePage;
 
   const initials = (user?.hoVaTen || user?.tenDangNhap || 'KH')
     .split(' ')
