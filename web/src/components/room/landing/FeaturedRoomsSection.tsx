@@ -80,9 +80,6 @@ export const FeaturedRoomsSection: React.FC = () => {
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
             Phòng nổi bật
           </h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Tối đa 25 phòng từ chủ trọ uy tín trên 80 điểm — lọc nhanh ngay tại trang chủ
-          </p>
         </div>
         <Link
           to="/search"

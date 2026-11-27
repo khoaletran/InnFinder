@@ -143,11 +143,8 @@ export const MapRoomDetailCard: React.FC<MapRoomDetailCardProps> = ({
       {/* Nội dung chi tiết đầy đủ */}
       <Card.Content className="p-4 space-y-3">
         <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
-            <span className="font-mono font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md">
-              {room.maPhongTro}
-            </span>
-            <div className="flex items-center gap-2">
+          {(ratingCount > 0 || postTime) && (
+            <div className="flex items-center justify-end gap-2 text-[11px] text-slate-500">
               {ratingCount > 0 && (
                 <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
                   <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
@@ -156,7 +153,7 @@ export const MapRoomDetailCard: React.FC<MapRoomDetailCardProps> = ({
               )}
               {postTime && <span>{formatRelativeTime(postTime)}</span>}
             </div>
-          </div>
+          )}
 
           <h3 className="font-bold text-slate-900 text-base leading-snug group-hover:text-teal-700 transition-colors">
             {roomTitle}

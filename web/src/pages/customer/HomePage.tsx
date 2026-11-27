@@ -49,9 +49,6 @@ export const HomePage: React.FC = () => {
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
               Khu vực phổ biến
             </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Khám phá khu vực có nhiều phòng đang được đăng cho thuê
-            </p>
           </div>
           <Link
             to="/search/map"

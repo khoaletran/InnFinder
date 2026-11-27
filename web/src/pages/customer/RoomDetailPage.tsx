@@ -437,8 +437,7 @@ export const RoomDetailPage: React.FC = () => {
                 </Card.Title>
                 <Card.Description className="text-xs text-slate-500 font-medium">
                   Cọc xem phòng:{' '}
-                  <strong className="text-teal-700">{formatVND(viewingDeposit)}</strong> (Hoàn 100%
-                  khi gặp xem)
+                  <strong className="text-teal-700">{formatVND(viewingDeposit)}</strong>
                 </Card.Description>
               </Card.Header>
 

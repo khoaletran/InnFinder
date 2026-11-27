@@ -14,7 +14,6 @@ export const DepositMechanismSection: React.FC = () => (
     <PageContainer width="wide" className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-teal-700">Dễ hẹn, rõ cọc</p>
           <h2 id="viewing-process-title" className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">Xem phòng trong 4 bước</h2>
         </div>
       </div>

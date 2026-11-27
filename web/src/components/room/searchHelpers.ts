@@ -1,3 +1,50 @@
+import type { MapSortOption } from '@/store/useRoomFilterStore';
+import type { RoomSummaryResponse } from '@/types/room.types';
+
+export const ROOM_SORT_OPTIONS: ReadonlyArray<{ value: MapSortOption; label: string }> = [
+  { value: 'NEWEST', label: 'Mới nhất' },
+  { value: 'OLDEST', label: 'Cũ nhất' },
+  { value: 'PRICE_ASC', label: 'Giá tăng' },
+  { value: 'PRICE_DESC', label: 'Giá giảm' },
+];
+
+export function resolveRoomSortParams(sortBy: MapSortOption): {
+  sortBy: 'thoiGianDang' | 'giaThue';
+  sortDirection: 'ASC' | 'DESC';
+} {
+  switch (sortBy) {
+    case 'OLDEST':
+      return { sortBy: 'thoiGianDang', sortDirection: 'ASC' };
+    case 'PRICE_ASC':
+      return { sortBy: 'giaThue', sortDirection: 'ASC' };
+    case 'PRICE_DESC':
+      return { sortBy: 'giaThue', sortDirection: 'DESC' };
+    case 'NEWEST':
+    default:
+      return { sortBy: 'thoiGianDang', sortDirection: 'DESC' };
+  }
+}
+
+export function sortRoomsByOption<T>(
+  items: T[],
+  getRoom: (item: T) => RoomSummaryResponse,
+  sortBy: MapSortOption,
+): T[] {
+  return [...items].sort((a, b) => {
+    const roomA = getRoom(a);
+    const roomB = getRoom(b);
+    if (sortBy === 'PRICE_ASC') {
+      return (roomA.giaThue ?? 0) - (roomB.giaThue ?? 0);
+    }
+    if (sortBy === 'PRICE_DESC') {
+      return (roomB.giaThue ?? 0) - (roomA.giaThue ?? 0);
+    }
+    const timeA = roomA.thoiGianDang ? new Date(roomA.thoiGianDang).getTime() : 0;
+    const timeB = roomB.thoiGianDang ? new Date(roomB.thoiGianDang).getTime() : 0;
+    return sortBy === 'OLDEST' ? timeA - timeB : timeB - timeA;
+  });
+}
+
 export interface NumericBracketOption {
   label: string;
   min?: number;

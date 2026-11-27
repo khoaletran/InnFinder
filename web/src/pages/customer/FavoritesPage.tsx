@@ -354,7 +354,6 @@ export const FavoritesPage: React.FC = () => {
     <PageContainer width="wide" className="space-y-6">
       <PageHeader
         title="Phòng yêu thích"
-        subtitle={`${rooms.length} phòng đã lưu · đồng bộ tự động giá và trạng thái còn trống`}
         action={
           <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
             Tìm thêm phòng
