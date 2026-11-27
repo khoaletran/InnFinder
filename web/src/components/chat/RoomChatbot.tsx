@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   ArrowRight,
   Check,
   ChevronDown,
+  History,
   Loader2,
   MessageCircle,
   Plus,
   Send,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -43,6 +46,73 @@ const NEARBY_PHRASES = [
   "o gan toi",
 ];
 
+const LAUNCHER_POS_KEY = "innfinder:chatbot-launcher-pos";
+const LAUNCHER_HEIGHT = 56;
+const LAUNCHER_MIN_Y = 72;
+const DRAG_THRESHOLD_PX = 6;
+
+interface LauncherDockPos {
+  side: "left" | "right";
+  yRatio: number;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function loadLauncherDockPos(): LauncherDockPos {
+  if (typeof window === "undefined") return { side: "right", yRatio: 1 };
+  try {
+    const raw = window.localStorage.getItem(LAUNCHER_POS_KEY);
+    if (!raw) return { side: "right", yRatio: 1 };
+    const parsed = JSON.parse(raw) as Partial<LauncherDockPos>;
+    const side = parsed.side === "left" ? "left" : "right";
+    const yRatio =
+      typeof parsed.yRatio === "number" && Number.isFinite(parsed.yRatio)
+        ? clamp(parsed.yRatio, 0, 1)
+        : 1;
+    return { side, yRatio };
+  } catch {
+    return { side: "right", yRatio: 1 };
+  }
+}
+
+function saveLauncherDockPos(pos: LauncherDockPos): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAUNCHER_POS_KEY, JSON.stringify(pos));
+  } catch {
+    // Bỏ qua nếu trình duyệt chặn storage
+  }
+}
+
+function getLauncherBounds(
+  viewportW: number,
+  viewportH: number,
+  buttonW: number,
+  buttonH: number,
+) {
+  const edgeInset = viewportW >= 1024 ? 24 : 16;
+  const bottomSafe = viewportW >= 1024 ? 24 : 84;
+  const minX = edgeInset;
+  const maxX = Math.max(minX, viewportW - buttonW - edgeInset);
+  const minY = LAUNCHER_MIN_Y;
+  const maxY = Math.max(minY, viewportH - buttonH - bottomSafe);
+  return { edgeInset, minX, maxX, minY, maxY };
+}
+
+function formatSessionTime(timestamp: number): string {
+  const diffMinutes = Math.floor((Date.now() - timestamp) / 60_000);
+  if (diffMinutes < 1) return "Vừa xong";
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  return new Date(timestamp).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 function isNearbyLocationPrompt(text: string): boolean {
   const normalized = text
     .toLowerCase()
@@ -62,6 +132,25 @@ export function RoomChatbot() {
   const [error, setError] = useState<string | null>(null);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [dockPos, setDockPos] = useState<LauncherDockPos>(() => loadLauncherDockPos());
+  const [dragCoords, setDragCoords] = useState<{ x: number; y: number } | null>(null);
+  const [viewport, setViewport] = useState(() =>
+    typeof window === "undefined"
+      ? { w: 1280, h: 720 }
+      : { w: window.innerWidth, h: window.innerHeight },
+  );
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origLeft: number;
+    origTop: number;
+    width: number;
+    height: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -244,6 +333,83 @@ export function RoomChatbot() {
     }
   }
 
+  useEffect(() => {
+    const onResize = () => {
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const handleLauncherPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      origLeft: rect.left,
+      origTop: rect.top,
+      width: rect.width,
+      height: rect.height,
+      moved: false,
+    };
+    suppressClickRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleLauncherPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    const dx = event.clientX - state.startX;
+    const dy = event.clientY - state.startY;
+    if (!state.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+
+    state.moved = true;
+    suppressClickRef.current = true;
+    const bounds = getLauncherBounds(
+      window.innerWidth,
+      window.innerHeight,
+      state.width,
+      state.height,
+    );
+    setDragCoords({
+      x: clamp(state.origLeft + dx, bounds.minX, bounds.maxX),
+      y: clamp(state.origTop + dy, bounds.minY, bounds.maxY),
+    });
+  };
+
+  const finishLauncherDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const state = dragStateRef.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (state.moved) {
+      const dx = event.clientX - state.startX;
+      const dy = event.clientY - state.startY;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const bounds = getLauncherBounds(vw, vh, state.width, state.height);
+      const finalLeft = clamp(state.origLeft + dx, bounds.minX, bounds.maxX);
+      const finalTop = clamp(state.origTop + dy, bounds.minY, bounds.maxY);
+      const centerX = finalLeft + state.width / 2;
+      const side: "left" | "right" = centerX < vw / 2 ? "left" : "right";
+      const ySpan = Math.max(1, bounds.maxY - bounds.minY);
+      const nextPos: LauncherDockPos = {
+        side,
+        yRatio: clamp((finalTop - bounds.minY) / ySpan, 0, 1),
+      };
+      setDockPos(nextPos);
+      saveLauncherDockPos(nextPos);
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+    dragStateRef.current = null;
+    setDragCoords(null);
+  };
+
   const latestAssistant = [...chat.messages]
     .reverse()
     .find((m) => m.role === "assistant");
@@ -253,6 +419,18 @@ export function RoomChatbot() {
       ? `Đang hỏi: ${chat.selectedRoom.tenLoaiPhong || "phòng đã chọn"}`
       : "Tìm phòng theo cách của bạn";
 
+  const approxBtnW = viewport.w >= 640 ? 132 : LAUNCHER_HEIGHT;
+  const launcherBounds = getLauncherBounds(viewport.w, viewport.h, approxBtnW, LAUNCHER_HEIGHT);
+  const dockedTop = Math.round(
+    launcherBounds.minY + dockPos.yRatio * (launcherBounds.maxY - launcherBounds.minY),
+  );
+  const isDragging = dragCoords !== null;
+  const launcherStyle = isDragging
+    ? { left: dragCoords.x, top: dragCoords.y }
+    : dockPos.side === "left"
+      ? { left: launcherBounds.edgeInset, top: dockedTop }
+      : { right: launcherBounds.edgeInset, top: dockedTop };
+
   return (
     <>
       {!chat.isOpen && (
@@ -260,10 +438,26 @@ export function RoomChatbot() {
           ref={launcherRef}
           type="button"
           aria-label="Mở InnAi"
+          title="Kéo để di chuyển vị trí, bấm để mở InnAi"
           aria-expanded={false}
           aria-controls="innfinder-chat"
-          onClick={() => chat.setOpen(true)}
-          className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 items-center gap-2.5 rounded-full border border-teal-400/40 bg-teal-700 px-4 text-white shadow-xl shadow-teal-950/20 transition-all hover:-translate-y-0.5 hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-600 lg:right-6 lg:bottom-6 cursor-pointer"
+          style={launcherStyle}
+          onPointerDown={handleLauncherPointerDown}
+          onPointerMove={handleLauncherPointerMove}
+          onPointerUp={finishLauncherDrag}
+          onPointerCancel={finishLauncherDrag}
+          onClick={() => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
+            chat.setOpen(true);
+          }}
+          className={`fixed z-[1100] flex h-14 items-center gap-2.5 rounded-full border border-teal-400/40 bg-teal-700 px-4 text-white shadow-xl shadow-teal-950/20 hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-600 touch-none select-none ${
+            isDragging
+              ? "cursor-grabbing scale-105 transition-none"
+              : "cursor-grab transition-[top,left,right,transform,background-color] duration-200 ease-out"
+          }`}
         >
           <span className="relative">
             <MessageCircle className="h-6 w-6" />
@@ -282,7 +476,11 @@ export function RoomChatbot() {
           role="dialog"
           aria-modal="false"
           aria-labelledby="innfinder-chat-title"
-          className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 flex h-[min(460px,calc(100dvh-170px))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 sm:left-auto sm:right-5 sm:w-[340px] lg:right-6 lg:bottom-6 lg:h-[min(500px,calc(100dvh-100px))]"
+          className={`fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1200] flex h-[min(460px,calc(100dvh-170px))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 sm:w-[340px] lg:bottom-6 lg:h-[min(500px,calc(100dvh-100px))] ${
+            dockPos.side === "left"
+              ? "sm:right-auto sm:left-5 lg:left-6"
+              : "sm:left-auto sm:right-5 lg:right-6"
+          }`}
         >
           <header className="relative shrink-0 overflow-hidden bg-teal-800 px-4 py-3 text-white">
             <div className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full border-[20px] border-white/5" />
@@ -300,6 +498,23 @@ export function RoomChatbot() {
               </div>
               <button
                 type="button"
+                title="Lịch sử trò chuyện"
+                aria-label="Lịch sử trò chuyện"
+                aria-pressed={showHistory}
+                onClick={() => setShowHistory((prev) => !prev)}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-xl transition-colors cursor-pointer ${
+                  showHistory
+                    ? "bg-white/20 text-white"
+                    : "text-teal-100 hover:bg-white/10"
+                }`}
+              >
+                <History className="h-4 w-4" />
+                {chat.sessions.length > 0 && !showHistory && (
+                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                )}
+              </button>
+              <button
+                type="button"
                 title="Cuộc trò chuyện mới"
                 aria-label="Bắt đầu cuộc trò chuyện mới"
                 onClick={() => {
@@ -307,6 +522,7 @@ export function RoomChatbot() {
                   requestRef.current = null;
                   resetMutation();
                   chat.reset();
+                  setShowHistory(false);
                   setError(null);
                   setDraft("");
                   setWaitingSeconds(0);
@@ -320,6 +536,7 @@ export function RoomChatbot() {
                 type="button"
                 aria-label="Thu nhỏ trợ lý"
                 onClick={() => {
+                  setShowHistory(false);
                   chat.setOpen(false);
                   window.setTimeout(() => launcherRef.current?.focus(), 0);
                 }}
@@ -335,10 +552,96 @@ export function RoomChatbot() {
             trên InnFinder
           </div>
 
-          <div
-            ref={scrollRef}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-slate-50/80 px-3 py-3"
-          >
+          {showHistory ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/80 p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <h3 className="text-xs font-bold text-slate-800">
+                  Lịch sử trò chuyện ({chat.sessions.length})
+                </h3>
+                {chat.sessions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => chat.clearHistory()}
+                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 cursor-pointer"
+                  >
+                    Xóa tất cả
+                  </button>
+                )}
+              </div>
+
+              {chat.sessions.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center space-y-2">
+                  <History className="h-6 w-6 text-slate-400 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-700">
+                    Chưa có cuộc trò chuyện nào được lưu
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Mỗi cuộc trò chuyện với InnAi sẽ tự động được lưu lại tại đây.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(false)}
+                    className="mt-1 inline-flex items-center justify-center rounded-xl bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800 cursor-pointer"
+                  >
+                    Quay lại trò chuyện
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {chat.sessions.map((session) => {
+                    const isActive = session.id === chat.activeSessionId;
+                    return (
+                      <div
+                        key={session.id}
+                        className={`group flex items-center gap-2 rounded-xl border p-2.5 transition-colors ${
+                          isActive
+                            ? "border-teal-500 bg-teal-50/70"
+                            : "border-slate-200 bg-white hover:border-teal-300"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            requestRef.current?.abort();
+                            requestRef.current = null;
+                            resetMutation();
+                            chat.openSession(session.id);
+                            setShowHistory(false);
+                            setError(null);
+                            setDraft("");
+                            setWaitingSeconds(0);
+                            window.setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                          className="min-w-0 flex-1 text-left cursor-pointer"
+                        >
+                          <p className="truncate text-xs font-bold text-slate-900">
+                            {session.title}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-slate-500">
+                            {session.messages.length} tin nhắn · {formatSessionTime(session.updatedAt)}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Xóa cuộc trò chuyện ${session.title}`}
+                          title="Xóa cuộc trò chuyện"
+                          onClick={() => chat.deleteSession(session.id)}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div
+                ref={scrollRef}
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-slate-50/80 px-3 py-3"
+              >
             {chat.messages.length === 0 && (
               <div className="space-y-3">
                 <div className="px-1">
@@ -552,6 +855,8 @@ export function RoomChatbot() {
               {draft.length > 1200 ? ` ${draft.length}/1500` : ""}
             </p>
           </footer>
+            </>
+          )}
         </section>
       )}
     </>

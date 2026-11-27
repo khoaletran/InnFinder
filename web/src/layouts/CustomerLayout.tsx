@@ -438,6 +438,7 @@ export const CustomerLayout: React.FC = () => {
       {/* Mobile Bottom Tab Bar (4 mục) */}
       <BottomTabBar />
       {(location.pathname === '/' || location.pathname === '/search' ||
+        location.pathname === '/search/map' ||
         /^\/room\/[^/]+\/?$/.test(location.pathname) || location.pathname === '/favorites') && <RoomChatbot />}
     </div>
   );

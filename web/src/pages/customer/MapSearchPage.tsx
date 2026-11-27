@@ -16,6 +16,7 @@ import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomMap } from '@/components/map/RoomMap';
 import { MapRoomDetailCard } from '@/components/room/MapRoomDetailCard';
 import {
+  buildCapacityOptions,
   buildNumericBrackets,
   formatMillions,
   getDistanceInKm,
@@ -29,7 +30,7 @@ import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { getValidCoords } from '@/utils/formatters';
 
-type ActivePopover = 'price' | 'category' | 'area' | 'amenities' | 'sort' | null;
+type ActivePopover = 'price' | 'category' | 'area' | 'capacity' | 'amenities' | 'sort' | null;
 
 const PICKED_SCAN_RADIUS_KM = 15;
 
@@ -138,6 +139,8 @@ export const MapSearchPage: React.FC = () => {
       ),
     [catalogRooms],
   );
+
+  const capacityOptions = useMemo(() => buildCapacityOptions(catalogRooms), [catalogRooms]);
 
   const {
     data: rooms = [],
@@ -313,6 +316,7 @@ export const MapSearchPage: React.FC = () => {
     ? `${filterStore.minArea ?? 0} – ${filterStore.maxArea ?? 'Max'} m²`
     : 'Diện tích';
 
+  const capacityLabel = filterStore.capacity ? `Từ ${filterStore.capacity} người` : 'Số người';
   const amenityCount = filterStore.selectedAmenities.length;
   const hasAnyActiveFilter = filterStore.getActiveFilterCount() > 0 || pickedCoords !== null;
 
@@ -470,6 +474,50 @@ export const MapSearchPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* 3b. Chip Số người */}
+            {capacityOptions.length > 1 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
+                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                    filterStore.capacity !== undefined || activePopover === 'capacity'
+                      ? 'bg-teal-50 text-teal-800 border-teal-500'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{capacityLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+
+                {activePopover === 'capacity' && (
+                  <div className="absolute left-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-lg p-3 z-50 space-y-1">
+                    {capacityOptions.map((option) => {
+                      const selected = filterStore.capacity === option.value;
+                      return (
+                        <button
+                          key={option.label}
+                          type="button"
+                          onClick={() => {
+                            filterStore.setCapacity(option.value);
+                            setActivePopover(null);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer ${
+                            selected
+                              ? 'bg-teal-50 text-teal-800 font-semibold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="truncate">{option.label}</span>
+                          {selected && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 4. Chip Tiện ích */}
             <div className="relative">
