@@ -70,6 +70,8 @@ const initialStep1: CreateRoomStep1Data = {
   maLPT: 'LPT002',
   giaThue: 3500000,
   cocPhong: 3500000,
+  giaDien: 0,
+  giaNuoc: { gia: 0, theoNguoi: false },
   dienTich: 24,
   soNguoi: 2,
   diaChi: '',

@@ -12,6 +12,7 @@ package com.innfinder.backend.dto.room;
  * @version: 1.0
  * @created: 11/5/2026 9:51 PM
  */
+import com.innfinder.backend.entity.GiaNuoc;
 import com.innfinder.backend.entity.HinhAnh;
 import com.innfinder.backend.entity.PhongTro;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
@@ -29,6 +30,8 @@ public class RoomSummaryResponse {
     private boolean tamAn;
     private Long giaThue;
     private Long cocPhong;
+    private Long giaDien;
+    private GiaNuoc giaNuoc;
     private Integer dienTich;
     private Integer soNguoi;
     private String maLpt;
@@ -60,6 +63,8 @@ public class RoomSummaryResponse {
                 .tamAn(entity.isTamAn())
                 .giaThue(entity.getGiaThue())
                 .cocPhong(entity.getCocPhong())
+                .giaDien(entity.getGiaDien() != null ? entity.getGiaDien() : 0L)
+                .giaNuoc(entity.getGiaNuoc() != null ? entity.getGiaNuoc() : new GiaNuoc())
                 .dienTich(entity.getDienTich())
                 .soNguoi(entity.getSoNguoi())
                 .maLpt(maLptStr)

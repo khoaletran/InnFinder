@@ -46,6 +46,23 @@ function resolveRouteBreadcrumb(pathname: string): BreadcrumbItem[] | null {
       { label: 'Thanh toán cọc' },
     ];
   }
+  if (/^\/appointments\/[^/]+\/roommates$/.test(path)) {
+    return [
+      { label: 'Trang chủ', to: '/' },
+      { label: 'Lịch xem phòng', to: '/appointments' },
+      { label: 'Đăng bài ở ghép' },
+    ];
+  }
+  if (path === '/roommates') {
+    return [{ label: 'Trang chủ', to: '/' }, { label: 'Ở ghép' }];
+  }
+  if (path.startsWith('/roommates/')) {
+    return [
+      { label: 'Trang chủ', to: '/' },
+      { label: 'Ở ghép', to: '/roommates' },
+      { label: 'Chi tiết bài ở ghép' },
+    ];
+  }
   if (
     path.startsWith('/appointments/') ||
     path.startsWith('/booking/rental/') ||
@@ -100,11 +117,13 @@ export const AppBreadcrumb: React.FC<AppBreadcrumbProps> = ({
   if (!resolvedItems || resolvedItems.length === 0) return null;
 
   return (
-    <div className={`bg-white border-b border-slate-200/80 shrink-0 ${className}`.trim()}>
+    <div
+      className={`bg-white/95 backdrop-blur-md border-b border-slate-200/80 shrink-0 sticky top-16 z-[35] ${className}`.trim()}
+    >
       <div
         className={`${
           fullWidth ? 'w-full px-4 sm:px-6' : 'max-w-[1200px] w-full mx-auto px-4 sm:px-6'
-        } py-2.5 flex items-center text-xs font-medium text-slate-500 min-w-0`}
+        } h-9 flex items-center text-xs font-medium text-slate-500 min-w-0`}
       >
 
         <nav aria-label="Đường dẫn trang" className="flex items-center gap-2 min-w-0 overflow-hidden">

@@ -13,6 +13,7 @@ import {
   Search,
   Shield,
   User,
+  Users,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -104,7 +105,7 @@ export const Header: React.FC = () => {
 
           {/* 2. Menu Điều hướng trung tâm */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-            {PUBLIC_NAV_ITEMS.map((item) => {
+            {PUBLIC_NAV_ITEMS.filter((item) => !(isChuTro && item.path === '/roommates')).map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
               const isFav = item.path === '/favorites';
@@ -176,6 +177,12 @@ export const Header: React.FC = () => {
 
           {/* 3. Hành động Xác thực & Mở LeftTab */}
           <div className="flex items-center gap-2.5">
+            {!isChuTro && (
+              <Link to="/roommates" aria-label="Ở ghép"
+                className="rounded-[var(--radius-control)] p-2 text-text-muted hover:bg-surface-muted md:hidden">
+                <Users className="h-5 w-5" aria-hidden />
+              </Link>
+            )}
             <Link
               to="/search"
               className="md:hidden p-2 rounded-[var(--radius-control)] text-text-muted hover:bg-surface-muted"

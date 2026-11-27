@@ -66,6 +66,14 @@ public class PhongTro {
     @Builder.Default
     private Long cocPhong = 0L;
 
+    @Column(name = "gia_dien", nullable = false)
+    @Builder.Default
+    private Long giaDien = 0L;
+
+    @Embedded
+    @Builder.Default
+    private GiaNuoc giaNuoc = new GiaNuoc();
+
     @OneToMany(mappedBy = "phongTro", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 50)
     private List<HinhAnh> hinhAnh;

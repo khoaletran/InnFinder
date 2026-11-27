@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '@heroui/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -12,17 +12,20 @@ import {
   Home,
   Mail,
   MapPin,
+  MessageCircle,
   Phone,
   RefreshCw,
   Sparkles,
   XCircle,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { RoommateBookingLink } from '@/components/roommate/RoommateCards';
 import { DeclineReasonModal } from '@/components/booking/DeclineReasonModal';
 import { CancelConfirmModal, type BankInfoInput } from '@/components/booking/CancelConfirmModal';
 import { RefundSuccessModal } from '@/components/booking/RefundSuccessModal';
 import { RentalTimeline } from '@/components/booking/RentalTimeline';
 import { EmptyState } from '@/components/common/EmptyState';
+import { ChatDrawer } from '@/components/chat/ChatDrawer';
 import { LinkBankAccountModal, type LinkBankAccountPayload } from '@/components/common/LinkBankAccountModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useDepositCountdown } from '@/hooks/useDepositCountdown';
@@ -31,32 +34,11 @@ import { transactionService } from '@/services/transaction.service';
 import { useBookingStore } from '@/store/useBookingStore';
 import { formatDateTime, formatVND } from '@/utils/formatters';
 
-export const MAX_CONFIRM_DEPOSIT_DISTANCE_METERS = 50;
-
-function calculateDistanceMeters(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const earthRadiusMeters = 6_371_000;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusMeters * c;
-}
-
 export const AppointmentDetailPage: React.FC = () => {
   const { id, appointmentId } = useParams<{ id?: string; appointmentId?: string }>();
   const targetId = id || appointmentId || '';
   const navigate = useNavigate();
+  const [chatOpen, setChatOpen] = useState(false);
 
   const {
     appointments,
@@ -74,13 +56,6 @@ export const AppointmentDetailPage: React.FC = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showConfirmRentalModal, setShowConfirmRentalModal] = useState(false);
   const [showConfirmRefundModal, setShowConfirmRefundModal] = useState(false);
-  const [locationState, setLocationState] = useState<{
-    status: 'idle' | 'checking' | 'ready' | 'error';
-    viDo?: number;
-    kinhDo?: number;
-    distanceMeters?: number | null;
-    error?: string;
-  }>({ status: 'idle' });
   const [showContactModal, setShowContactModal] = useState(false);
   const [showRefundSuccessModal, setShowRefundSuccessModal] = useState(false);
   const [showReportLandlordNoShowModal, setShowReportLandlordNoShowModal] = useState(false);
@@ -148,72 +123,10 @@ export const AppointmentDetailPage: React.FC = () => {
     item.trangThai === 'HUY' && isDepositPaid && !item.daNhanLaiCoc && (item.coc ?? 0) > 0 && Boolean(item.trangThaiHoanCoc);
   const refundStatus = item.trangThaiHoanCoc;
 
-  const checkUserLocation = useCallback(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocationState({
-        status: 'error',
-        error: 'Trình duyệt không hỗ trợ định vị GPS.',
-      });
-      return;
-    }
-    setLocationState({ status: 'checking' });
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const viDo = pos.coords.latitude;
-        const kinhDo = pos.coords.longitude;
-        const hasRoomCoords =
-          typeof item?.viDoPhong === 'number' &&
-          typeof item?.kinhDoPhong === 'number' &&
-          !(item.viDoPhong === 0 && item.kinhDoPhong === 0);
-        const distanceMeters = hasRoomCoords
-          ? calculateDistanceMeters(viDo, kinhDo, item!.viDoPhong!, item!.kinhDoPhong!)
-          : null;
-        setLocationState({
-          status: 'ready',
-          viDo,
-          kinhDo,
-          distanceMeters,
-        });
-      },
-      (err) => {
-        const msg =
-          err.code === err.PERMISSION_DENIED
-            ? 'Bạn đã từ chối quyền vị trí. Vui lòng bật quyền Location trên trình duyệt để xác nhận.'
-            : 'Không thể lấy vị trí GPS hiện tại. Vui lòng thử lại.';
-        setLocationState({ status: 'error', error: msg });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
-  }, [item?.viDoPhong, item?.kinhDoPhong]);
-
-  useEffect(() => {
-    if (showConfirmRefundModal) {
-      checkUserLocation();
-    } else {
-      setLocationState({ status: 'idle' });
-    }
-  }, [showConfirmRefundModal, checkUserLocation]);
-
-  const isWithin50m =
-    locationState.status === 'ready' &&
-    (locationState.distanceMeters === null ||
-      (locationState.distanceMeters !== undefined &&
-        locationState.distanceMeters <= MAX_CONFIRM_DEPOSIT_DISTANCE_METERS));
-
   const handleConfirmReceivedDeposit = async () => {
-    if (
-      locationState.status !== 'ready' ||
-      locationState.viDo === undefined ||
-      locationState.kinhDo === undefined
-    ) {
-      return;
-    }
     setIsActionLoading(true);
     setActionErrorMessage(null);
-    const res = await confirmReceivedDeposit(item.maDatLich, {
-      viDo: locationState.viDo,
-      kinhDo: locationState.kinhDo,
-    });
+    const res = await confirmReceivedDeposit(item.maDatLich);
     setIsActionLoading(false);
     setShowConfirmRefundModal(false);
 
@@ -349,18 +262,38 @@ export const AppointmentDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {shouldShowRefundProgress && (
-          <button
-            type="button"
-            onClick={() =>
-              document.getElementById('refund-progress')?.scrollIntoView({ behavior: 'smooth' })
-            }
-            className="text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-colors self-start sm:self-auto cursor-pointer"
-          >
-            Tiến độ hoàn tiền ↓
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {(item.trangThai === 'XAC_NHAN' || item.trangThai === 'HOAN_THANH') && (
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 px-3.5 py-1.5 rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>Nhắn tin với Chủ trọ</span>
+            </button>
+          )}
+          {shouldShowRefundProgress && (
+            <button
+              type="button"
+              onClick={() =>
+                document.getElementById('refund-progress')?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className="text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-colors cursor-pointer"
+            >
+              Tiến độ hoàn tiền ↓
+            </button>
+          )}
+        </div>
       </div>
+
+      <ChatDrawer
+        open={chatOpen}
+        channelType="BOOKING"
+        contextId={item.maDatLich}
+        onClose={() => setChatOpen(false)}
+        fallbackTitle={item.tieuDePhong}
+      />
 
       {actionSuccessMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-medium">
@@ -752,7 +685,8 @@ export const AppointmentDetailPage: React.FC = () => {
       )}
 
       {item.trangThai === 'HOAN_THANH' && (
-        <div className="pt-1">
+        <div className="grid gap-2 pt-1 sm:grid-cols-2">
+          <RoommateBookingLink id={item.maDatLich} />
           <Link
             to={`/reviews/create/${item.maPhongTro}?roomTitle=${encodeURIComponent(
               item.tieuDePhong || '',
@@ -870,61 +804,6 @@ export const AppointmentDetailPage: React.FC = () => {
               <strong className="text-emerald-700">{formatVND(item.coc)}</strong> cho bạn tại buổi
               xem phòng?
             </p>
-
-            {/* Trạng thái xác thực vị trí trong phạm vi 50m */}
-            <div className="rounded-xl border p-2.5 text-left text-xs">
-              {locationState.status === 'checking' && (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-600 shrink-0" />
-                  <span>Đang kiểm tra vị trí GPS của bạn...</span>
-                </div>
-              )}
-              {locationState.status === 'error' && (
-                <div className="space-y-1.5 text-rose-700">
-                  <div className="flex items-start gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <span>{locationState.error}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={checkUserLocation}
-                    className="text-[11px] font-bold text-teal-700 hover:underline cursor-pointer"
-                  >
-                    Kiểm tra lại vị trí
-                  </button>
-                </div>
-              )}
-              {locationState.status === 'ready' && (
-                isWithin50m ? (
-                  <div className="flex items-start gap-1.5 text-emerald-700">
-                    <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <span>
-                      {locationState.distanceMeters !== null && locationState.distanceMeters !== undefined
-                        ? `Vị trí hợp lệ (cách phòng trọ ~${Math.round(locationState.distanceMeters)}m ≤ 50m).`
-                        : 'Đã lấy được tọa độ GPS hiện tại.'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 text-rose-700">
-                    <div className="flex items-start gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span>
-                        Bạn đang cách phòng trọ ~{Math.round(locationState.distanceMeters || 0)}m
-                        (yêu cầu trong phạm vi 50m).
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={checkUserLocation}
-                      className="text-[11px] font-bold text-teal-700 hover:underline cursor-pointer"
-                    >
-                      Kiểm tra lại vị trí
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-
             <div className="flex items-center gap-2.5 pt-2">
               <button
                 type="button"
@@ -937,8 +816,8 @@ export const AppointmentDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleConfirmReceivedDeposit}
-                disabled={isActionLoading || !isWithin50m}
-                className="flex-1 py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl cursor-pointer"
+                disabled={isActionLoading}
+                className="flex-1 py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl cursor-pointer"
               >
                 {isActionLoading ? 'Đang xử lý...' : 'Đã nhận đủ'}
               </button>

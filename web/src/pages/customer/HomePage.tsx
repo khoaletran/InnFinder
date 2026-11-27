@@ -7,6 +7,7 @@ import { PopularAreaCard } from "@/components/room/PopularAreaCard";
 import { DepositMechanismSection } from "@/components/room/landing/DepositMechanismSection";
 import { FaqSection } from "@/components/room/landing/FaqSection";
 import { FeaturedRoomsSection } from "@/components/room/landing/FeaturedRoomsSection";
+import { RoommateLanding } from "@/components/roommate/RoommateCards";
 import { HeroSection } from "@/components/room/landing/HeroSection";
 import { roomService } from "@/services/room.service";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -45,6 +46,7 @@ export const HomePage: React.FC = () => {
       {/* 1. Hero Section + Tìm kiếm thường / AI */}
       <HeroSection />
       <FeaturedRoomsSection />
+      {!isChuTro && <RoommateLanding />}
 
       {/* 2. Khu vực phổ biến */}
       <PageContainer width="wide" className="py-10 space-y-6">

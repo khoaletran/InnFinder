@@ -5,6 +5,7 @@ export interface AddressSuggestion {
   fullAddress: string;
   lat: number;
   lng: number;
+  distanceMeters?: number;
 }
 
 interface PhotonFeature {
@@ -19,6 +20,7 @@ interface PhotonFeature {
     city?: string;
     state?: string;
     country?: string;
+    countrycode?: string;
   };
   geometry: {
     type: 'Point';
@@ -28,19 +30,44 @@ interface PhotonFeature {
 
 const geocodeCache = new Map<string, AddressSuggestion[]>();
 
-export const getCachedAddressSuggestions = (rawQuery: string): AddressSuggestion[] | undefined => {
-  const cacheKey = rawQuery.trim().toLowerCase();
+function calcDistanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const sinA =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(sinA), Math.sqrt(1 - sinA));
+}
+
+function buildCacheKey(rawQuery: string, biasCoords?: { lat: number; lng: number }): string {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) return '';
+  if (!biasCoords) return q;
+  return `${q}@${biasCoords.lat.toFixed(2)},${biasCoords.lng.toFixed(2)}`;
+}
+
+export const getCachedAddressSuggestions = (
+  rawQuery: string,
+  biasCoords?: { lat: number; lng: number },
+): AddressSuggestion[] | undefined => {
+  const cacheKey = buildCacheKey(rawQuery, biasCoords);
   return cacheKey ? geocodeCache.get(cacheKey) : undefined;
 };
 
 export const searchAddressSuggestions = async (
   rawQuery: string,
   signal?: AbortSignal,
+  biasCoords?: { lat: number; lng: number },
 ): Promise<AddressSuggestion[]> => {
   const query = rawQuery.trim();
   if (query.length < 2) return [];
 
-  const cacheKey = query.toLowerCase();
+  const cacheKey = buildCacheKey(query, biasCoords);
   if (geocodeCache.has(cacheKey)) {
     return geocodeCache.get(cacheKey)!;
   }
@@ -52,10 +79,13 @@ export const searchAddressSuggestions = async (
   const results: AddressSuggestion[] = [];
   const seen = new Set<string>();
 
-  // 1. Tìm kiếm qua Photon (hỗ trợ tiếng Việt rất tốt cho số nhà, ngõ, hẻm, tên đường)
+  // 1. Tìm kiếm qua Photon (giới hạn Việt Nam, ưu tiên gần biasCoords nếu có)
   try {
+    const biasParam = biasCoords
+      ? `&lat=${encodeURIComponent(biasCoords.lat)}&lon=${encodeURIComponent(biasCoords.lng)}&location_bias_scale=0.3`
+      : '';
     const photonRes = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6`,
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8&bbox=102.14,8.18,109.46,23.39${biasParam}`,
       { signal },
     );
     if (photonRes.ok) {
@@ -64,6 +94,7 @@ export const searchAddressSuggestions = async (
 
       for (const f of features) {
         const props = f.properties;
+        if (props.countrycode && props.countrycode.toUpperCase() !== 'VN') continue;
         const coords = f.geometry.coordinates;
         if (!coords || coords.length < 2) continue;
 
@@ -101,13 +132,16 @@ export const searchAddressSuggestions = async (
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
   }
 
-  // 2. Fallback Nominatim nếu Photon không có kết quả
-  if (results.length === 0 && !signal?.aborted) {
+  // 2. Bổ sung kết quả từ Nominatim (Việt Nam, ưu tiên quanh biasCoords) nếu Photon ít/không có kết quả
+  if (results.length < 3 && !signal?.aborted) {
     try {
+      const viewboxParam = biasCoords
+        ? `&viewbox=${(biasCoords.lng - 0.25).toFixed(4)},${(biasCoords.lat + 0.25).toFixed(4)},${(biasCoords.lng + 0.25).toFixed(4)},${(biasCoords.lat - 0.25).toFixed(4)}&bounded=0`
+        : '';
       const nomRes = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
           query,
-        )}&countrycodes=vn&limit=5&addressdetails=1`,
+        )}&countrycodes=vn&limit=5&addressdetails=1${viewboxParam}`,
         { headers: { 'Accept-Language': 'vi' }, signal },
       );
       if (nomRes.ok) {
@@ -142,20 +176,31 @@ export const searchAddressSuggestions = async (
           const subtitle =
             subParts.join(', ') || item.display_name.split(',').slice(1, 4).join(',').trim();
           const fullAddress = subtitle ? `${title}, ${subtitle}` : title;
+          const key = `${title.toLowerCase()}|${subtitle.toLowerCase()}`;
 
-          results.push({
-            id: `nom-${item.place_id}`,
-            title,
-            subtitle,
-            fullAddress,
-            lat: Number(Number(item.lat).toFixed(6)),
-            lng: Number(Number(item.lon).toFixed(6)),
-          });
+          if (!seen.has(key)) {
+            seen.add(key);
+            results.push({
+              id: `nom-${item.place_id}`,
+              title,
+              subtitle,
+              fullAddress,
+              lat: Number(Number(item.lat).toFixed(6)),
+              lng: Number(Number(item.lon).toFixed(6)),
+            });
+          }
         }
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') throw e;
     }
+  }
+
+  if (biasCoords && results.length > 0) {
+    for (const item of results) {
+      item.distanceMeters = calcDistanceMeters(biasCoords, { lat: item.lat, lng: item.lng });
+    }
+    results.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
   }
 
   if (results.length > 0) {
@@ -167,4 +212,90 @@ export const searchAddressSuggestions = async (
   }
 
   return results;
+};
+
+/**
+ * Lấy ngược địa chỉ (Reverse Geocoding) từ tọa độ (lat, lng).
+ * Ưu tiên Nominatim (tiếng Việt), fallback sang Photon nếu không có kết quả.
+ */
+export const reverseGeocode = async (
+  lat: number,
+  lng: number,
+  signal?: AbortSignal,
+): Promise<string | null> => {
+  try {
+    const nomRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(
+        lat,
+      )}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`,
+      { headers: { 'Accept-Language': 'vi' }, signal },
+    );
+    if (nomRes.ok) {
+      const data = (await nomRes.json()) as {
+        display_name?: string;
+        address?: {
+          house_number?: string;
+          road?: string;
+          suburb?: string;
+          quarter?: string;
+          city_district?: string;
+          district?: string;
+          city?: string;
+          town?: string;
+          state?: string;
+        };
+      };
+      const addr = data.address;
+      if (addr) {
+        const street = [addr.house_number, addr.road].filter(Boolean).join(' ').trim();
+        const ward = addr.quarter || addr.suburb;
+        const district = addr.city_district || addr.district;
+        const city = addr.city || addr.town || addr.state;
+        const parts = [street, ward, district, city].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(', ');
+        }
+      }
+      if (data.display_name) {
+        return data.display_name.split(',').slice(0, 4).join(',').trim();
+      }
+    }
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+  }
+
+  if (signal?.aborted) return null;
+
+  try {
+    const photonRes = await fetch(
+      `https://photon.komoot.io/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`,
+      { signal },
+    );
+    if (photonRes.ok) {
+      const data = (await photonRes.json()) as {
+        features?: Array<{
+          properties: {
+            housenumber?: string;
+            street?: string;
+            name?: string;
+            district?: string;
+            city?: string;
+            state?: string;
+          };
+        }>;
+      };
+      const props = data.features?.[0]?.properties;
+      if (props) {
+        const street = [props.housenumber, props.street || props.name].filter(Boolean).join(' ').trim();
+        const parts = [street, props.district, props.city || props.state].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(', ');
+        }
+      }
+    }
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+  }
+
+  return null;
 };

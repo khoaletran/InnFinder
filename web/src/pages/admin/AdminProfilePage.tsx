@@ -126,15 +126,6 @@ export const AdminProfilePage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-text tracking-[-0.01em]">
-          Hồ sơ Quản trị viên
-        </h1>
-        <p className="text-xs sm:text-sm text-text-muted mt-1">
-          Quản lý thông tin tài khoản và thiết lập bảo mật cho phiên Quản trị
-        </p>
-      </div>
-
       {/* Header Card (phẳng, Teal/Slate) */}
       <Card className="bg-surface rounded-xl border border-border p-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">

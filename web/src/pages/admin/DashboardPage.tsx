@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from '@/components/charts/PlatformRevenueChart';
-import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { AdminErrorState } from '@/components/common/AdminStates';
 import { MoneyText } from '@/components/common/MoneyText';
 import { formatVND } from '@/utils/formatters';
 
@@ -22,7 +22,6 @@ export const DashboardPage: React.FC = () => {
   const {
     data: stats,
     isLoading: isLoadingStats,
-    isFetching: isFetchingStats,
     isError: isErrorStats,
     error: errorStats,
     refetch: refetchStats,
@@ -34,7 +33,6 @@ export const DashboardPage: React.FC = () => {
   const {
     data: treasury,
     isLoading: isLoadingTreasury,
-    isFetching: isFetchingTreasury,
     isError: isErrorTreasury,
     error: errorTreasury,
     refetch: refetchTreasury,
@@ -80,12 +78,6 @@ export const DashboardPage: React.FC = () => {
       'Không thể tải số liệu tổng quan và ngân khố sàn.';
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h1 className="text-[1.75rem] font-bold text-text tracking-[-0.02em]">
-            Tổng quan vận hành sàn
-          </h1>
-          <AdminRefreshButton onClick={handleRefresh} isRefreshing={isFetchingStats || isFetchingTreasury} />
-        </div>
         <AdminErrorState
           title="Không thể tải dữ liệu bảng điều khiển"
           message={errMsg}
@@ -95,7 +87,6 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
-  const isRefreshing = isFetchingStats || isFetchingTreasury;
   const pending = [
     { label: 'Tin đăng chờ duyệt', count: stats?.hangDoi.tinMoi ?? 0, to: '/admin/posts' },
     { label: 'Hồ sơ CCCD chờ duyệt', count: stats?.hangDoi.xacMinhChuTro ?? 0, to: '/admin/users?tab=landlord-requests' },
@@ -105,13 +96,6 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="@container space-y-3.5">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold tracking-[-0.02em] text-text">
-          Tổng quan vận hành sàn
-        </h1>
-        <AdminRefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} label="Làm mới số liệu" />
-      </header>
-
       <div className="grid gap-3.5 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card className="min-w-0 rounded-xl border border-border border-t-[3px] border-t-tone-teal-base bg-surface p-4 shadow-[var(--shadow-card)]">
           <Card.Header className="flex flex-wrap items-start justify-between gap-3 p-0">

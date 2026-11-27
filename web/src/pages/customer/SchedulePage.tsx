@@ -72,7 +72,6 @@ export const SchedulePage: React.FC = () => {
     queryKey: ['booked-slots', roomId, selectedDate],
     queryFn: () => appointmentService.getBookedSlots(roomId, selectedDate),
     enabled: !!roomId && !!selectedDate,
-    refetchInterval: 30_000,
   });
 
   const { data: myAppointments = [] } = useQuery({

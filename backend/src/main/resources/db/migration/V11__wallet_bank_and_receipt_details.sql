@@ -32,4 +32,7 @@ ALTER TABLE giao_dich
     ADD COLUMN IF NOT EXISTS phi_hoa_hong BIGINT NULL;
 
 ALTER TABLE giao_dich
+    DROP FOREIGN KEY IF EXISTS fk_giao_dich_dat_lich;
+
+ALTER TABLE giao_dich
     ADD CONSTRAINT fk_giao_dich_dat_lich FOREIGN KEY (ma_dat_lich) REFERENCES phieu_dat_lich(ma_dat_lich);

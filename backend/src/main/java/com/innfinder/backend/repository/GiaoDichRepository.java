@@ -100,6 +100,18 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
            "AND g.loaiGiaoDich = 'HOAN_COC' AND g.noiDung LIKE CONCAT('%', :maDatLich, '%') ORDER BY g.ngayGiaoDich DESC")
     List<GiaoDich> findRefundTransactions(@Param("maNguoiDung") String maNguoiDung, @Param("maDatLich") String maDatLich);
 
+    @Query("SELECT g.noiDung FROM GiaoDich g WHERE g.nguoiDung.maNguoiDung = :maNguoiDung " +
+           "AND g.loaiGiaoDich = 'COC_XEM_PHONG' AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG")
+    List<String> findSuccessfulDepositContentsByUserId(@Param("maNguoiDung") String maNguoiDung);
+
+    @Query("SELECT g FROM GiaoDich g JOIN FETCH g.nguoiDung WHERE g.nguoiDung.maNguoiDung IN :userIds " +
+           "AND g.loaiGiaoDich = 'COC_XEM_PHONG' AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG")
+    List<GiaoDich> findSuccessfulDepositsByUserIds(@Param("userIds") List<String> userIds);
+
+    @Query("SELECT g FROM GiaoDich g WHERE g.nguoiDung.maNguoiDung = :maNguoiDung " +
+           "AND g.loaiGiaoDich = 'HOAN_COC' ORDER BY g.ngayGiaoDich DESC")
+    List<GiaoDich> findAllRefundTransactionsByUserId(@Param("maNguoiDung") String maNguoiDung);
+
     @Query("SELECT COUNT(g) > 0 FROM GiaoDich g WHERE g.noiDung LIKE CONCAT('%', :candidateId, '%')")
     boolean existsByCandidateId(@Param("candidateId") String candidateId);
 

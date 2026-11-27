@@ -1,28 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Card, Chip } from '@heroui/react';
 import {
   AlertCircle,
   ArrowUpDown,
   Calendar,
   CheckCircle2,
   Clock,
+  CreditCard,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  Star,
   XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AppointmentCard } from '@/components/booking/AppointmentCard';
 import { CancelConfirmModal, type BankInfoInput } from '@/components/booking/CancelConfirmModal';
 import { RefundSuccessModal } from '@/components/booking/RefundSuccessModal';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
-import { PageContainer, PageHeader } from '@/components/common/PageContainer';
+import { PageContainer } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
+import { RoommateBookingLink } from '@/components/roommate/RoommateCards';
 import { useBookingStore } from '@/store/useBookingStore';
-import type { AppointmentResponse, TrangThaiDatLich } from '@/types/booking.types';
-import { formatVND } from '@/utils/formatters';
+import type { TrangThaiDatLich } from '@/types/booking.types';
+import { formatDateTime, formatVND } from '@/utils/formatters';
 
 type StatusFilter = 'ALL' | TrangThaiDatLich;
 
@@ -114,24 +117,6 @@ export const AppointmentsPage: React.FC = () => {
     });
   }, [appointments, statusTab, searchKeyword, sortOrder]);
 
-  const { upcomingAppointments, pastAppointments } = useMemo(() => {
-    const upcoming: AppointmentResponse[] = [];
-    const past: AppointmentResponse[] = [];
-
-    for (const apt of filteredAppointments) {
-      if (apt.trangThai === 'CHO_XAC_NHAN' || apt.trangThai === 'XAC_NHAN') {
-        upcoming.push(apt);
-      } else {
-        past.push(apt);
-      }
-    }
-
-    return {
-      upcomingAppointments: upcoming,
-      pastAppointments: past,
-    };
-  }, [filteredAppointments]);
-
   const handleOpenCancel = (maDatLich: string) => {
     setSelectedAppointmentId(maDatLich);
     setCancelModalVisible(true);
@@ -170,104 +155,41 @@ export const AppointmentsPage: React.FC = () => {
     }
   };
 
+  const renderStatusChip = (status: TrangThaiDatLich) => {
+    switch (status) {
+      case 'CHO_XAC_NHAN':
+        return (
+          <Chip size="sm" variant="soft" color="warning" className="font-bold">
+            Chờ xác nhận
+          </Chip>
+        );
+      case 'XAC_NHAN':
+        return (
+          <Chip size="sm" variant="soft" color="accent" className="font-bold">
+            Đã xác nhận
+          </Chip>
+        );
+      case 'HOAN_THANH':
+        return (
+          <Chip size="sm" variant="soft" color="success" className="font-bold">
+            Hoàn tất
+          </Chip>
+        );
+      case 'HUY':
+        return (
+          <Chip size="sm" variant="soft" color="danger" className="font-bold">
+            Đã hủy
+          </Chip>
+        );
+    }
+  };
+
   return (
-    <PageContainer width="wide" className="space-y-6">
-      <PageHeader
-        title="Lịch xem phòng"
-        subtitle="Theo dõi lịch hẹn sắp tới, cọc giữ chân và tiến trình thuê phòng"
-        action={
-          <>
-            <AppButton
-              variant="secondary"
-              size="md"
-              onClick={() => fetchAppointments(true)}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-teal-600' : ''}`} />
-              <span className="hidden sm:inline">Làm mới</span>
-            </AppButton>
-
-            <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
-              <Plus className="w-4 h-4" />
-              <span>Đặt lịch mới</span>
-            </AppButton>
-          </>
-        }
-      />
-
-      {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-slate-100">
-          {STATUS_TABS.map((tab) => {
-            const isActive = statusTab === tab.key;
-            const count = statusCounts[tab.key] ?? 0;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setStatusTab(tab.key)}
-                className={`flex-1 min-w-[130px] sm:min-w-0 py-3.5 px-3 sm:px-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'text-teal-700 font-bold bg-teal-50/40'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive ? 'text-teal-600' : 'text-slate-400'
-                  }`}
-                />
-                <span>{tab.label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
-                    isActive
-                      ? 'bg-teal-600 text-white'
-                      : count > 0
-                        ? 'bg-slate-100 text-slate-700'
-                        : 'bg-slate-50 text-slate-400'
-                  }`}
-                >
-                  {count}
-                </span>
-                {/* Active indicator bar like Shopee */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 shadow-xs" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Thanh tìm kiếm & sắp xếp */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên phòng, địa chỉ, mã lịch..."
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full h-10 pl-10 pr-4 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 text-slate-900 placeholder:text-slate-500"
-          />
-        </div>
-
-        <AppButton
-          variant="secondary"
-          size="md"
-          onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-        >
-          <ArrowUpDown className="w-4 h-4 text-slate-600" />
-          <span>{sortOrder === 'asc' ? 'Sắp diễn ra trước ↑' : 'Mới nhất trước ↓'}</span>
-        </AppButton>
-      </div>
-
-      {/* Error state */}
+    <PageContainer width="wide" className="space-y-5">
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-sm flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
           <AppButton variant="secondary" size="sm" onClick={() => fetchAppointments(true)}>
@@ -276,115 +198,271 @@ export const AppointmentsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Loading / Empty / Content */}
-      {isLoading && appointments.length === 0 ? (
-        <SkeletonList variant="horizontal" count={3} />
-      ) : filteredAppointments.length === 0 ? (
-        <EmptyState
-          title={
-            statusTab !== 'ALL'
-              ? `Không có lịch hẹn "${STATUS_TABS.find((t) => t.key === statusTab)?.label}"`
-              : 'Chưa có lịch hẹn xem phòng'
-          }
-          description={
-            searchKeyword
-              ? `Không tìm thấy lịch hẹn nào khớp với từ khóa "${searchKeyword}".`
-              : statusTab !== 'ALL'
-                ? `Hiện tại bạn không có lịch hẹn nào đang ở trạng thái này.`
-                : 'Chọn một phòng ưng ý trên bản đồ tìm kiếm để đặt lịch hẹn gặp chủ trọ.'
-          }
-          icon={<Calendar className="w-6 h-6" />}
-          action={
-            searchKeyword ? (
-              <AppButton variant="primary" size="md" onClick={() => setSearchKeyword('')}>
-                Xóa từ khóa tìm kiếm
-              </AppButton>
-            ) : statusTab !== 'ALL' ? (
-              <AppButton variant="secondary" size="md" onClick={() => setStatusTab('ALL')}>
-                Xem tất cả lịch hẹn
-              </AppButton>
-            ) : (
-              <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
-                Khám phá phòng trọ
-              </AppButton>
-            )
-          }
-        />
-      ) : statusTab !== 'ALL' ? (
-        /* Khi đang chọn một tab cụ thể: Hiển thị danh sách lọc theo tab đó */
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">
-              {STATUS_TABS.find((t) => t.key === statusTab)?.label} ({filteredAppointments.length})
-            </h2>
-          </div>
+      <Card className="bg-surface rounded-xl border border-border overflow-x-clip p-0">
+        <Card.Header className="p-0 border-b border-border sticky top-[100px] z-30 bg-white/95 backdrop-blur-md rounded-t-xl">
+          {/* Hàng 1: Tìm kiếm + Sắp xếp + Làm mới + Đặt lịch mới (chung 1 dòng) */}
+          <div className="p-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="w-4 h-4 text-text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên phòng, địa chỉ, mã lịch..."
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-lg bg-surface-subtle border border-border text-xs text-text placeholder:text-text-subtle focus:outline-none focus:bg-surface focus:border-accent"
+                />
+              </div>
 
-          <div className="space-y-4">
-            {filteredAppointments.map((item) => (
-              <AppointmentCard
-                key={item.maDatLich}
-                item={item}
-                onCancel={handleOpenCancel}
-                isDepositPaid={
-                  !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich)
-                }
-                muted={item.trangThai === 'HUY'}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        /* Danh sách chia 2 nhóm: Sắp tới (nổi bật) & Đã qua (mờ hơn) */
-        <div className="space-y-8">
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
-                Sắp tới ({upcomingAppointments.length})
-              </h2>
+              <button
+                type="button"
+                onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                className="px-3 py-2 rounded-lg border border-border bg-surface text-xs font-semibold text-slate-700 hover:bg-surface-subtle inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+                <span>{sortOrder === 'asc' ? 'Sắp diễn ra trước ↑' : 'Mới nhất trước ↓'}</span>
+              </button>
+
+              {(searchKeyword || statusTab !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchKeyword('');
+                    setStatusTab('ALL');
+                  }}
+                  className="px-3 py-2 rounded-lg border border-border bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600 cursor-pointer whitespace-nowrap"
+                >
+                  Đặt lại
+                </button>
+              )}
             </div>
 
-            {upcomingAppointments.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingAppointments.map((item) => (
-                  <AppointmentCard
-                    key={item.maDatLich}
-                    item={item}
-                    onCancel={handleOpenCancel}
-                    isDepositPaid={
-                      !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich)
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-sm text-slate-600 shadow-xs">
-                Bạn chưa có lịch xem phòng nào sắp diễn ra.
-              </div>
-            )}
-          </section>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => fetchAppointments(true)}
+                disabled={isLoading}
+                className="px-3 py-2 rounded-lg bg-white border border-border hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Làm mới</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/search')}
+                className="px-3.5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Đặt lịch mới</span>
+              </button>
+            </div>
+          </div>
 
-          {pastAppointments.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-lg font-bold text-slate-700">
-                Đã qua ({pastAppointments.length})
-              </h2>
-              <div className="space-y-4">
-                {pastAppointments.map((item) => (
-                  <AppointmentCard
-                    key={item.maDatLich}
-                    item={item}
-                    onCancel={handleOpenCancel}
-                    isDepositPaid={
-                      !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich)
-                    }
-                    muted={true}
-                  />
-                ))}
-              </div>
-            </section>
+          {/* Hàng 2: Tabs trạng thái gạch chân chia đều chuẩn Admin */}
+          <div className="flex items-center border-t border-slate-100 overflow-x-auto bg-white">
+            {STATUS_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = statusTab === tab.key;
+              const count = statusCounts[tab.key] ?? 0;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusTab(tab.key)}
+                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'border-teal-700 text-teal-800'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/70'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold leading-none ${
+                      isActive ? 'bg-teal-50 text-teal-800' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card.Header>
+
+        <Card.Content className="p-0 overflow-x-auto">
+          {isLoading && appointments.length === 0 ? (
+            <div className="p-4">
+              <SkeletonList variant="horizontal" count={3} />
+            </div>
+          ) : filteredAppointments.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                title={
+                  statusTab !== 'ALL'
+                    ? `Không có lịch hẹn "${STATUS_TABS.find((t) => t.key === statusTab)?.label}"`
+                    : 'Chưa có lịch hẹn xem phòng'
+                }
+                description={
+                  searchKeyword
+                    ? `Không tìm thấy lịch hẹn nào khớp với từ khóa "${searchKeyword}".`
+                    : statusTab !== 'ALL'
+                      ? 'Hiện tại bạn không có lịch hẹn nào đang ở trạng thái này.'
+                      : 'Chọn một phòng ưng ý trên bản đồ tìm kiếm để đặt lịch hẹn gặp chủ trọ.'
+                }
+                icon={<Calendar className="w-6 h-6" />}
+                action={
+                  searchKeyword ? (
+                    <AppButton variant="primary" size="md" onClick={() => setSearchKeyword('')}>
+                      Xóa từ khóa tìm kiếm
+                    </AppButton>
+                  ) : statusTab !== 'ALL' ? (
+                    <AppButton variant="secondary" size="md" onClick={() => setStatusTab('ALL')}>
+                      Xem tất cả lịch hẹn
+                    </AppButton>
+                  ) : (
+                    <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
+                      Khám phá phòng trọ
+                    </AppButton>
+                  )
+                }
+              />
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4">Mã lịch hẹn</th>
+                  <th className="py-3 px-4">Phòng trọ</th>
+                  <th className="py-3 px-4">Chủ trọ</th>
+                  <th className="py-3 px-4">Thời gian hẹn</th>
+                  <th className="py-3 px-4">Cọc giữ chân</th>
+                  <th className="py-3 px-4">Trạng thái</th>
+                  <th className="py-3 px-4 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredAppointments.map((item) => {
+                  const isPaid = Boolean(item.daNopCoc) || paidAppointmentIds.includes(item.maDatLich);
+                  const hasUnpaidDeposit = (item.coc ?? 0) > 0 && !isPaid;
+                  const canCancel =
+                    (item.trangThai === 'CHO_XAC_NHAN' || item.trangThai === 'XAC_NHAN') &&
+                    !item.daNhanLaiCoc;
+                  const detailRoute = `/appointments/${item.maDatLich}`;
+                  const depositRoute = `/appointments/deposit/${item.maDatLich}`;
+                  const reviewRoute = `/reviews/create/${item.maPhongTro}?roomTitle=${encodeURIComponent(
+                    item.tieuDePhong || '',
+                  )}&roomAddress=${encodeURIComponent(
+                    item.diaChiPhong || '',
+                  )}&roomImage=${encodeURIComponent(item.hinhAnh || '')}`;
+
+                  return (
+                    <tr
+                      key={item.maDatLich}
+                      onClick={() => navigate(detailRoute)}
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    >
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
+                        #{item.maDatLich}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5 min-w-[200px] max-w-[280px]">
+                          <img
+                            src={
+                              item.hinhAnh ||
+                              'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=200'
+                            }
+                            alt={item.tieuDePhong || 'Phòng trọ'}
+                            className="w-12 h-9 rounded-lg object-cover bg-slate-100 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 truncate">
+                              {item.tieuDePhong || `Phòng #${item.maPhongTro}`}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate">{item.diaChiPhong}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <p className="font-semibold text-slate-800">{item.tenChuTro || 'Chủ trọ'}</p>
+                        <p className="text-[11px] text-slate-500">{item.sdtChuTro || '--'}</p>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap font-medium text-slate-700">
+                        {formatDateTime(item.ngayHen)}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <p className="font-bold text-slate-900">{formatVND(item.coc)}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {item.coc > 0 ? (isPaid ? 'Đã nộp' : 'Chưa nộp') : 'Miễn cọc'}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {renderStatusChip(item.trangThai)}
+                      </td>
+                      <td
+                        className="py-3.5 px-4 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          {hasUnpaidDeposit && canCancel && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(depositRoute, {
+                                  state: {
+                                    roomId: item.maPhongTro,
+                                    roomTitle: item.tieuDePhong,
+                                    roomImage: item.hinhAnh,
+                                    depositAmount: item.coc,
+                                    ngayHen: item.ngayHen,
+                                  },
+                                })
+                              }
+                              className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              Nộp cọc
+                            </button>
+                          )}
+                          {item.trangThai === 'HOAN_THANH' && (
+                            <>
+                              <RoommateBookingLink id={item.maDatLich} />
+                              <button
+                                type="button"
+                                onClick={() => navigate(reviewRoute)}
+                                className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Star className="w-3 h-3" />
+                                Đánh giá
+                              </button>
+                            </>
+                          )}
+                          {canCancel && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCancel(item.maDatLich)}
+                              className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => navigate(detailRoute)}
+                            className="px-2.5 py-1.5 rounded-lg border border-border bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                          >
+                            Chi tiết
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
-        </div>
-      )}
+        </Card.Content>
+      </Card>
 
       {(() => {
         const selectedAppt = appointments.find((a) => a.maDatLich === selectedAppointmentId);

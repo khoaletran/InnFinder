@@ -10,6 +10,7 @@ import {
   Eye,
   Handshake,
   Loader2,
+  MessageCircle,
   Phone,
   Search,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { DeclineReasonModal } from '@/components/booking/DeclineReasonModal';
 import { Modal } from '@/components/common/Modal';
+import { ChatDrawer } from '@/components/chat/ChatDrawer';
 import { AppointmentDetailModal } from '@/components/landlord/AppointmentDetailModal';
 import { ApproveAppointmentModal } from '@/components/landlord/ApproveAppointmentModal';
 import { CancelAppointmentModal } from '@/components/landlord/CancelAppointmentModal';
@@ -62,6 +64,7 @@ export const AppointmentsPage: React.FC = () => {
   const [selectedApprove, setSelectedApprove] = useState<LandlordAppointmentItem | null>(null);
   const [selectedCancel, setSelectedCancel] = useState<LandlordAppointmentItem | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<LandlordAppointmentItem | null>(null);
+  const [chatTarget, setChatTarget] = useState<LandlordAppointmentItem | null>(null);
   const [decisionAgreeTarget, setDecisionAgreeTarget] = useState<LandlordAppointmentItem | null>(
     null,
   );
@@ -77,7 +80,6 @@ export const AppointmentsPage: React.FC = () => {
   const { data: appointments = [], isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['landlord', 'appointments'],
     queryFn: landlordService.getAppointments,
-    refetchInterval: 15000,
   });
 
   const invalidateRelated = () => {
@@ -207,23 +209,23 @@ export const AppointmentsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* THANH TÌM KIẾM & LỌC NGÀY ĐẶT TRÊN THANH BỘ LỌC */}
-      <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Content className="p-0">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            <div className="relative w-full md:w-72">
+      <Card className="bg-surface rounded-xl border border-border overflow-x-clip p-0">
+        <Card.Header className="p-0 border-b border-border sticky top-16 z-30 bg-white/95 backdrop-blur-md rounded-t-xl">
+          {/* Hàng 1: Ô tìm kiếm + Chọn ngày + Hôm nay / Ngày mai / Ngày kia */}
+          <div className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+            <div className="relative w-full lg:w-80">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm theo tên khách, SĐT, phòng..."
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 placeholder-slate-400"
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-lg bg-surface-subtle border border-border focus:outline-none focus:bg-surface focus:border-accent text-slate-800 placeholder-slate-400"
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-surface-subtle border border-border px-3 py-1.5 rounded-lg">
                 <CalendarIcon className="w-4 h-4 text-teal-600" />
                 <input
                   type="date"
@@ -248,9 +250,9 @@ export const AppointmentsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDate(today)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     selectedDate === today
-                      ? 'bg-teal-600 text-white shadow-xs'
+                      ? 'bg-accent text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
                   }`}
                 >
@@ -259,9 +261,9 @@ export const AppointmentsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDate(tomorrow)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     selectedDate === tomorrow
-                      ? 'bg-teal-600 text-white shadow-xs'
+                      ? 'bg-accent text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
                   }`}
                 >
@@ -270,76 +272,69 @@ export const AppointmentsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDate(dayAfterTomorrow)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     selectedDate === dayAfterTomorrow
-                      ? 'bg-teal-600 text-white shadow-xs'
+                      ? 'bg-accent text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/60'
                   }`}
                 >
                   Ngày kia
                 </button>
-                {selectedDate && (
+                {(selectedDate || searchTerm || filter !== 'ALL') && (
                   <button
                     type="button"
-                    onClick={() => setSelectedDate('')}
-                    className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedDate('');
+                      setSearchTerm('');
+                      setFilter('ALL');
+                    }}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-border hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
                   >
-                    Xóa lọc
+                    Đặt lại
                   </button>
                 )}
               </div>
             </div>
           </div>
-        </Card.Content>
-      </Card>
 
-      {/* THANH TRẠNG THÁI TIẾN TRÌNH THEO PHONG CÁCH SHOPEE */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="flex items-center overflow-x-auto no-scrollbar divide-x sm:divide-x-0 divide-slate-100">
-          {STATUS_TABS.map((tab) => {
-            const isActive = filter === tab.key;
-            const count = statusCounts[tab.key] ?? 0;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                className={`flex-1 min-w-[130px] sm:min-w-0 py-3.5 px-3 sm:px-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'text-teal-700 font-bold bg-teal-50/40'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive ? 'text-teal-600' : 'text-slate-400'
-                  }`}
-                />
-                <span>{tab.label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+          {/* Hàng 2: Thanh trạng thái gạch chân chia đều */}
+          <div className="flex items-center border-t border-slate-100 overflow-x-auto bg-white">
+            {STATUS_TABS.map((tab) => {
+              const isActive = filter === tab.key;
+              const count = statusCounts[tab.key] ?? 0;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setFilter(tab.key)}
+                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? 'bg-teal-600 text-white'
-                      : count > 0
-                        ? 'bg-slate-100 text-slate-700'
-                        : 'bg-slate-50 text-slate-400'
+                      ? 'border-teal-700 text-teal-800'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/70'
                   }`}
                 >
-                  {count}
-                </span>
-                {/* Active indicator bar like Shopee */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-600 shadow-xs" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${
+                      isActive ? 'text-teal-700' : 'text-slate-400'
+                    }`}
+                  />
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold leading-none ${
+                      isActive
+                        ? 'bg-teal-50 text-teal-800'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Card.Header>
 
-      {/* Appointments Table */}
-      <Card className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs p-0">
         <Card.Content className="p-0 overflow-x-auto">
           {isLoading ? (
             <div className="py-16 flex flex-col items-center justify-center text-slate-400">
@@ -347,15 +342,15 @@ export const AppointmentsPage: React.FC = () => {
               <span className="text-xs">Đang tải danh sách lịch hẹn xem phòng...</span>
             </div>
           ) : (
-            <table className="w-full min-w-[980px] text-left border-collapse">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-[180px] whitespace-nowrap">Khách Hẹn Xem</th>
-                  <th className="py-3.5 px-4 min-w-[260px]">Phòng Trọ</th>
-                  <th className="py-3.5 px-4 w-[140px] whitespace-nowrap">Thời Gian Hẹn</th>
-                  <th className="py-3.5 px-4 w-[150px] whitespace-nowrap">Cọc & Phí Sàn</th>
-                  <th className="py-3.5 px-4 w-[140px] whitespace-nowrap">Trạng Thái</th>
-                  <th className="py-3.5 px-4 w-[240px] text-right whitespace-nowrap">Hành Động Nghiệp Vụ</th>
+                  <th className="py-3.5 px-3.5 whitespace-nowrap">Khách Hẹn Xem</th>
+                  <th className="py-3.5 px-3.5">Phòng Trọ</th>
+                  <th className="py-3.5 px-3.5 whitespace-nowrap">Thời Gian Hẹn</th>
+                  <th className="py-3.5 px-3.5 whitespace-nowrap">Cọc &amp; Phí Sàn</th>
+                  <th className="py-3.5 px-3.5 whitespace-nowrap">Trạng Thái</th>
+                  <th className="py-3.5 px-3.5 text-right whitespace-nowrap">Hành Động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -390,8 +385,8 @@ export const AppointmentsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
+                        <td className="py-3.5 px-3.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <img
                               src={
                                 item.hinhAnh ||
@@ -400,7 +395,7 @@ export const AppointmentsPage: React.FC = () => {
                               alt={item.phongTen}
                               className="w-10 h-10 rounded-xl object-cover shrink-0 ring-1 ring-slate-100 bg-slate-100"
                             />
-                            <div className="min-w-0 max-w-xs">
+                            <div className="min-w-0 max-w-[210px]">
                               <span className="font-bold text-slate-800 block truncate">
                                 {item.phongTen}
                               </span>
@@ -489,13 +484,24 @@ export const AppointmentsPage: React.FC = () => {
                               : false;
                             return (
                               <div className="flex flex-col items-end gap-1.5">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 text-right">
                                   <Clock className="w-3 h-3 shrink-0" />
                                   {isNoShowEligible
-                                    ? 'Quá giờ hẹn 30 phút - Khách chưa xác nhận'
-                                    : 'Chờ khách xác nhận đã nhận lại cọc trực tiếp'}
+                                    ? 'Quá 30p - Khách chưa xác nhận'
+                                    : 'Chờ khách xác nhận nhận lại cọc'}
                                 </span>
                                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setChatTarget(item);
+                                    }}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>Nhắn tin</span>
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => setSelectedCancel(item)}
@@ -596,6 +602,18 @@ export const AppointmentsPage: React.FC = () => {
                               <span className="text-[11px] text-emerald-600 font-semibold">
                                 Thực nhận: {formatVND(Math.max(0, (item.coc ?? 0) - (item.phiThu ?? 0)))}
                               </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChatTarget(item);
+                                }}
+                                className="px-2 py-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
+                                title="Nhắn tin với khách"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                <span>Nhắn tin</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setSelectedDetail(item)}
@@ -819,6 +837,14 @@ export const AppointmentsPage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <ChatDrawer
+        open={Boolean(chatTarget)}
+        channelType="BOOKING"
+        contextId={chatTarget?.id || ''}
+        onClose={() => setChatTarget(null)}
+        fallbackTitle={chatTarget?.phongTen}
+      />
     </div>
   );
 };

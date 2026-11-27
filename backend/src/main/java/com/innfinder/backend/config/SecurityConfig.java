@@ -64,6 +64,8 @@ public class SecurityConfig {
                         // 1. Cho phép truy cập tự do:
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/chat").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/roommates/mine").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/roommates", "/api/roommates/*", "/api/roommates/*/comments").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/categories/**", "/api/appointments/*/deposit-status", "/api/tours-360/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

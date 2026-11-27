@@ -6,7 +6,6 @@ import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.appointment.BookedSlotsResponse;
-import com.innfinder.backend.dto.appointment.ConfirmReceivedDepositRequest;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
 import com.innfinder.backend.exception.AppException;
@@ -102,12 +101,10 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{id}/confirm-received-deposit")
-    @Operation(summary = "Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực (yêu cầu trong phạm vi 50m quanh phòng trọ)")
-    public ApiResponse<AppointmentResponse> khachHangXacNhanDaNhanCoc(
-            @PathVariable("id") String maDatLich,
-            @Valid @RequestBody ConfirmReceivedDepositRequest request) {
+    @Operation(summary = "Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực")
+    public ApiResponse<AppointmentResponse> khachHangXacNhanDaNhanCoc(@PathVariable("id") String maDatLich) {
         String username = getCurrentUsername();
-        AppointmentResponse res = appointmentService.khachHangXacNhanDaNhanCoc(maDatLich, username, request);
+        AppointmentResponse res = appointmentService.khachHangXacNhanDaNhanCoc(maDatLich, username);
         return ApiResponse.ok(res, "Xác nhận đã nhận lại cọc thành công");
     }
 

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="Electron" agent="Antigravity InnFinder" version="21.6.8" type="device">
+  <diagram id="innfinder-rtdb-arch-v1" name="Kiến trúc Firebase Realtime Database">
+    <mxGraphModel dx="1600" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- TITLE -->
+        <mxCell id="title_box" value="&lt;b style='font-size:20px;color:#1e293b'&gt;KIẾN TRÚC FIREBASE REALTIME DATABASE (RTDB) — INNFINDER&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px;color:#475569'&gt;Phạm vi: Tính năng Ở ghép (Roommates) &amp;amp; Chat 1-1 (Direct Chat) | Spring Boot REST Proxy + MariaDB 11.2 + Firebase RTDB&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#cbd5e1;strokeWidth=1.5;align=center;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1520" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- LAYER 1: CLIENTS -->
+        <mxCell id="layer_clients" value="&lt;b style='font-size:14px;color:#1e40af'&gt;1. CLIENT APPLICATIONS&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#60a5fa;strokeWidth=2;verticalAlign=top;spacingTop=10;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="280" height="940" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="client_web" value="&lt;b style='font-size:13px'&gt;Web Frontend (SPA)&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• React 19 + Vite 8 + HeroUI v3&lt;br&gt;• Axios + TanStack Query v5&lt;br&gt;• Routes: &lt;code&gt;/roommates&lt;/code&gt;, &lt;code&gt;/chats&lt;/code&gt;&lt;br&gt;• &lt;code&gt;useRealtimeEvents.ts&lt;/code&gt; (SSE)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="65" y="160" width="230" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="client_mobile" value="&lt;b style='font-size:13px'&gt;Mobile App&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• React Native 0.88 + Expo SDK 58&lt;br&gt;• HeroUI Native + Uniwind&lt;br&gt;• Zustand + Expo SecureStore&lt;br&gt;• Screens: &lt;code&gt;roommates&lt;/code&gt;, &lt;code&gt;chats&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#3b82f6;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="65" y="340" width="230" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="client_note" value="&lt;b style='font-size:12px;color:#92400e'&gt;Nguyên tắc Truy cập&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Clients &lt;b&gt;KHÔNG&lt;/b&gt; kết nối trực tiếp Firebase RTDB.&lt;br&gt;• Mọi thao tác đi qua Spring Boot API kèm &lt;b&gt;Bearer JWT&lt;/b&gt;.&lt;br&gt;• SSE &lt;code&gt;/api/realtime/stream&lt;/code&gt; đẩy thông báo cập nhật UI.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="65" y="530" width="230" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- LAYER 2: SPRING BOOT BACKEND -->
+        <mxCell id="layer_backend" value="&lt;b style='font-size:14px;color:#166534'&gt;2. SPRING BOOT BACKEND (com.innfinder.backend)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#4ade80;strokeWidth=2;verticalAlign=top;spacingTop=10;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="370" y="100" width="560" height="940" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_security" value="&lt;b style='font-size:12px'&gt;Security &amp;amp; JWT Guard&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• &lt;code&gt;JwtAuthenticationFilter&lt;/code&gt;&lt;br&gt;• &lt;code&gt;SecurityUtils.getCurrentUsername()&lt;/code&gt;&lt;br&gt;• Xác định &lt;code&gt;maNguoiDung&lt;/code&gt; &amp;amp; vai trò&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="395" y="160" width="240" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_roommate_ctrl" value="&lt;b style='font-size:12px'&gt;RoommateController&lt;/b&gt;&lt;br&gt;&lt;code style='font-size:10px'&gt;/api/roommates/**&lt;/code&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• GET list, detail, mine, comments&lt;br&gt;• POST tạo bài theo &lt;code&gt;bookingId&lt;/code&gt;&lt;br&gt;• PUT sửa / PATCH đóng bài&lt;br&gt;• POST apply / PATCH approve, reject, cancel&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="395" y="295" width="240" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_chat_ctrl" value="&lt;b style='font-size:12px'&gt;ChatController&lt;/b&gt;&lt;br&gt;&lt;code style='font-size:10px'&gt;/api/chats/**&lt;/code&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• GET &lt;code&gt;/conversations&lt;/code&gt; (ALL/CUSTOMER/LANDLORD)&lt;br&gt;• GET &lt;code&gt;/{channelType}/{contextId}/messages&lt;/code&gt;&lt;br&gt;• POST &lt;code&gt;/{channelType}/{contextId}/messages&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="395" y="460" width="240" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_sse_ctrl" value="&lt;b style='font-size:12px'&gt;RealtimeController (SSE)&lt;/b&gt;&lt;br&gt;&lt;code style='font-size:10px'&gt;/api/realtime/stream&lt;/code&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• &lt;code&gt;SseNotificationService&lt;/code&gt;&lt;br&gt;• &lt;code&gt;RealtimePublisher&lt;/code&gt; (Spring Events)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="395" y="600" width="240" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_roommate_svc" value="&lt;b style='font-size:12px'&gt;RoommateService&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Kiểm tra phiếu &lt;code&gt;HOAN_THANH&lt;/code&gt;&lt;br&gt;• Chống tạo trùng bài đang mở&lt;br&gt;• Lọc khu vực, giới tính, giá &amp;amp; phân trang&lt;br&gt;• Đồng bộ &lt;code&gt;dangKyOGhep&lt;/code&gt; &amp;amp; &lt;code&gt;dangKyCuaToi&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bbf7d0;strokeColor=#16a34a;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="665" y="210" width="240" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_chat_svc" value="&lt;b style='font-size:12px'&gt;DirectChatService&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Kênh &lt;code&gt;BOOKING&lt;/code&gt;: &lt;code&gt;booking_pair_&amp;lt;u1&amp;gt;_&amp;lt;u2&amp;gt;&lt;/code&gt;&lt;br&gt;• Kênh &lt;code&gt;ROOMMATE&lt;/code&gt;: &lt;code&gt;roommate_&amp;lt;post&amp;gt;_&amp;lt;app&amp;gt;&lt;/code&gt;&lt;br&gt;• Ghi tin nhắn + cập nhật &lt;code&gt;meta&lt;/code&gt; (lastMessage, updatedAtMs)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bbf7d0;strokeColor=#16a34a;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="665" y="380" width="240" height="135" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_rtdb_client" value="&lt;b style='font-size:12px;color:#14532d'&gt;RoommateRealtimeDbClient&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Java &lt;code&gt;HttpClient&lt;/code&gt; (timeout 10s)&lt;br&gt;• REST: &lt;code&gt;GET, POST, PUT, PATCH, DELETE&lt;/code&gt;&lt;br&gt;• URL: &lt;code&gt;&amp;lt;baseUrl&amp;gt;/&amp;lt;path&amp;gt;.json&lt;/code&gt;&lt;br&gt;&lt;b&gt;Xác thực (&lt;code&gt;resolveAuthQuery&lt;/code&gt;):&lt;/b&gt;&lt;br&gt;1. Service Account OAuth2 (&lt;code&gt;?access_token=&lt;/code&gt;)&lt;br&gt;2. RTDB Secret (&lt;code&gt;?auth=&lt;/code&gt;)&lt;br&gt;3. Public Rules (fallback)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#86efac;strokeColor=#15803d;strokeWidth=2;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="665" y="545" width="240" height="175" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="be_mariadb" value="&lt;b style='font-size:13px;color:#9a3412'&gt;MariaDB 11.2 (Relational Database - Port 3307)&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 8px'&gt;• &lt;code&gt;NguoiDungRepository&lt;/code&gt;: Lấy thông tin tác giả, người ứng tuyển, đối tác chat (&lt;code&gt;hoVaTen&lt;/code&gt;, &lt;code&gt;hinhDaiDien&lt;/code&gt;).&lt;br&gt;• &lt;code&gt;PhieuDatLichRepository&lt;/code&gt;: Xác minh quyền tạo bài ở ghép (&lt;code&gt;HOAN_THANH&lt;/code&gt;) và quyền chat lịch hẹn (&lt;code&gt;XAC_NHAN&lt;/code&gt; / &lt;code&gt;HOAN_THANH&lt;/code&gt;).&lt;br&gt;• &lt;code&gt;PhongTro&lt;/code&gt;: Cung cấp địa chỉ, thông tin phòng liên quan.&lt;/div&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#ffedd5;strokeColor=#ea580c;strokeWidth=2;verticalAlign=top;spacingTop=18;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="395" y="755" width="510" height="165" as="geometry"/>
+        </mxCell>
+
+        <!-- LAYER 3: FIREBASE RTDB -->
+        <mxCell id="layer_rtdb" value="&lt;b style='font-size:14px;color:#9a3412'&gt;3. FIREBASE REALTIME DATABASE (JSON TREE)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#f59e0b;strokeWidth=2;verticalAlign=top;spacingTop=10;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="980" y="100" width="580" height="940" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_endpoint" value="&lt;b style='font-size:12px'&gt;Cloud Instance &amp;amp; Security Rules&lt;/b&gt;&lt;br&gt;&lt;code style='font-size:10px'&gt;https://innfinder-70261-default-rtdb.asia-southeast1.firebasedatabase.app&lt;/code&gt;&lt;br&gt;&lt;font style='font-size:11px'&gt;Cấu hình Rules &amp;amp; Indexes: &lt;b&gt;database.rules.json&lt;/b&gt; | &lt;b&gt;firebase.json&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="150" width="530" height="65" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_baioghep" value="&lt;b style='font-size:12px'&gt;/baiOGhep/{postId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Bài đăng tìm bạn ở ghép&lt;br&gt;• &lt;code&gt;.indexOn&lt;/code&gt;: &lt;code&gt;trangThai, taoLuc, maNguoiDung&lt;/code&gt;&lt;br&gt;• &lt;code&gt;trangThai&lt;/code&gt;: &lt;code&gt;DANG_TIM&lt;/code&gt; | &lt;code&gt;DA_DU_NGUOI&lt;/code&gt;&lt;br&gt;• &lt;code&gt;khuVucTim, chiPhiMoiNguoi, gioiTinhUuTien, soSlotDaDuyet&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="240" width="255" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_dangmo" value="&lt;b style='font-size:12px'&gt;/baiOGhepDangMo/{bookingId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Khóa duy nhất theo phiếu đặt lịch&lt;br&gt;• Value: &lt;code&gt;{ baiDangId }&lt;/code&gt;&lt;br&gt;• Chống tạo 2 bài đang mở cho cùng 1 phiếu thuê&lt;br&gt;• Tự động &lt;code&gt;DELETE&lt;/code&gt; khi đóng bài&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="240" width="255" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_binhluan" value="&lt;b style='font-size:12px'&gt;/binhLuanOGhep/{postId}/{commentId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Hỏi đáp công khai dưới bài ở ghép&lt;br&gt;• Hỗ trợ bình luận lồng (&lt;code&gt;parentId&lt;/code&gt;)&lt;br&gt;• Đánh dấu bình luận của Chủ bài&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="415" width="255" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_dangky" value="&lt;b style='font-size:12px'&gt;/dangKyOGhep/{postId}/{appId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Đơn xin ở ghép theo từng bài đăng&lt;br&gt;• Trạng thái: &lt;code&gt;CHO_DUYET&lt;/code&gt;, &lt;code&gt;DA_DUYET&lt;/code&gt;, &lt;code&gt;TU_CHOI&lt;/code&gt;, &lt;code&gt;DA_HUY&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="415" width="255" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_dangkycuatoi" value="&lt;b style='font-size:12px'&gt;/dangKyCuaToi/{userId}/{appId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Chỉ mục ngược (Denormalized Index)&lt;br&gt;• Truy vấn nhanh đơn của tôi (&lt;code&gt;/my-applications&lt;/code&gt;)&lt;br&gt;• Đồng bộ &lt;code&gt;PATCH&lt;/code&gt; trạng thái với &lt;code&gt;dangKyOGhep&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="565" width="255" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_chats" value="&lt;b style='font-size:12px'&gt;/chats/{channelId}&lt;/b&gt;&lt;hr size='1'/&gt;&lt;div style='text-align:left;font-size:11px;padding:0 6px'&gt;• Kênh &lt;code&gt;booking_pair_*&lt;/code&gt; &amp;amp; &lt;code&gt;roommate_*&lt;/code&gt;&lt;br&gt;• &lt;b&gt;meta/&lt;/b&gt;: &lt;code&gt;.indexOn&lt;/code&gt; (&lt;code&gt;updatedAtMs, authorId, applicantId&lt;/code&gt;), &lt;code&gt;lastMessage&lt;/code&gt;&lt;br&gt;• &lt;b&gt;messages/{msgId}/&lt;/b&gt;: &lt;code&gt;.indexOn&lt;/code&gt; (&lt;code&gt;createdAtMs&lt;/code&gt;)&lt;br&gt;• &lt;code&gt;.validate&lt;/code&gt;: bắt buộc &lt;code&gt;senderId, content (&amp;lt;=1000), createdAtMs&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;verticalAlign=top;spacingTop=8;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="565" width="255" height="185" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rtdb_note" value="&lt;b style='font-size:11px;color:#475569'&gt;Ghi chú Kiến trúc&lt;/b&gt;&lt;div style='text-align:left;font-size:11px;padding:4px 8px'&gt;• Dự án cũng khai báo &lt;code&gt;firestore.rules&lt;/code&gt; &amp;amp; &lt;code&gt;RoommateFirestoreConfig&lt;/code&gt;, nhưng luồng Ở ghép và Chat 1-1 thực tế đang vận hành qua &lt;b&gt;Firebase RTDB&lt;/b&gt; thông qua &lt;code&gt;RoommateRealtimeDbClient&lt;/code&gt;.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=1;verticalAlign=top;spacingTop=6;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="790" width="530" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- EDGES: CLIENT -> BACKEND -->
+        <mxCell id="edge_web_ctrl" value="HTTPS + JWT" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563eb;strokeWidth=1.5;fontSize=10;fontFamily=Helvetica;" edge="1" parent="1" source="client_web" target="be_roommate_ctrl">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="345" y="232"/>
+              <mxPoint x="345" y="340"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_mobile_ctrl" value="HTTPS + JWT" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563eb;strokeWidth=1.5;fontSize=10;fontFamily=Helvetica;" edge="1" parent="1" source="client_mobile" target="be_chat_ctrl">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="345" y="412"/>
+              <mxPoint x="345" y="520"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_sse_web" value="SSE Stream" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0284c7;strokeWidth=1.5;dashed=1;fontSize=10;fontFamily=Helvetica;" edge="1" parent="1" source="be_sse_ctrl" target="client_web">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="330" y="648"/>
+              <mxPoint x="330" y="275"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- EDGES: BACKEND INTERNAL -->
+        <mxCell id="edge_sec_roommate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16a34a;strokeWidth=1.2;" edge="1" parent="1" source="be_security" target="be_roommate_ctrl">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge_ctrl_roommate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16a34a;strokeWidth=1.5;" edge="1" parent="1" source="be_roommate_ctrl" target="be_roommate_svc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge_ctrl_chat" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16a34a;strokeWidth=1.5;" edge="1" parent="1" source="be_chat_ctrl" target="be_chat_svc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge_rsvc_rtdb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#15803d;strokeWidth=1.5;" edge="1" parent="1" source="be_roommate_svc" target="be_rtdb_client">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="915" y="282"/>
+              <mxPoint x="915" y="610"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_csvc_rtdb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#15803d;strokeWidth=1.5;" edge="1" parent="1" source="be_chat_svc" target="be_rtdb_client">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge_rsvc_db" value="JPA / SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ea580c;strokeWidth=1.5;fontSize=10;fontFamily=Helvetica;" edge="1" parent="1" source="be_roommate_svc" target="be_mariadb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="330"/>
+              <mxPoint x="650" y="755"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_csvc_db" value="JPA / SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ea580c;strokeWidth=1.5;fontSize=10;fontFamily=Helvetica;" edge="1" parent="1" source="be_chat_svc" target="be_mariadb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="450"/>
+              <mxPoint x="650" y="755"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- EDGES: RTDB CLIENT -> FIREBASE RTDB -->
+        <mxCell id="edge_client_rtdb_1" value="REST JSON + OAuth2 / Secret" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d97706;strokeWidth=2;fontSize=10;fontStyle=1;fontFamily=Helvetica;" edge="1" parent="1" source="be_rtdb_client" target="rtdb_baioghep">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="955" y="610"/>
+              <mxPoint x="955" y="315"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_client_rtdb_2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d97706;strokeWidth=1.5;" edge="1" parent="1" source="be_rtdb_client" target="rtdb_binhluan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="955" y="610"/>
+              <mxPoint x="955" y="478"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_client_rtdb_3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d97706;strokeWidth=1.5;" edge="1" parent="1" source="be_rtdb_client" target="rtdb_dangkycuatoi">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="955" y="610"/>
+              <mxPoint x="955" y="638"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_client_rtdb_4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d97706;strokeWidth=1.5;" edge="1" parent="1" source="be_rtdb_client" target="rtdb_chats">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="955" y="655"/>
+              <mxPoint x="955" y="755"/>
+              <mxPoint x="1408" y="755"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

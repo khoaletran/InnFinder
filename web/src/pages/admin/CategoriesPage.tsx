@@ -8,9 +8,9 @@ import { roomService } from '@/services/room.service';
 import { Modal } from '@/components/common/Modal';
 import {
   AdminErrorState,
-  AdminRefreshButton,
   AdminTableSkeleton,
 } from '@/components/common/AdminStates';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
 import { formatVND } from '@/utils/formatters';
 import { categoryDepositFeeSchema } from '@/utils/validators';
 import type { RoomTypeDepositFee } from '@/types/admin.types';
@@ -43,7 +43,6 @@ export const CategoriesPage: React.FC = () => {
   const {
     data: apiDepositFees = [],
     isLoading: isLoadingFees,
-    isFetching: isFetchingFees,
     isError: isErrorFees,
     error: errorFees,
     refetch: refetchFees,
@@ -55,7 +54,6 @@ export const CategoriesPage: React.FC = () => {
   const {
     data: apiRoomTypes = [],
     isLoading: isLoadingRoomTypes,
-    isFetching: isFetchingRoomTypes,
     isError: isErrorRoomTypes,
     error: errorRoomTypes,
     refetch: refetchRoomTypes,
@@ -67,7 +65,6 @@ export const CategoriesPage: React.FC = () => {
   const {
     data: apiAmenities = [],
     isLoading: isLoadingAmenities,
-    isFetching: isFetchingAmenities,
     isError: isErrorAmenities,
     error: errorAmenities,
     refetch: refetchAmenities,
@@ -75,12 +72,6 @@ export const CategoriesPage: React.FC = () => {
     queryKey: ['categories', 'amenities'],
     queryFn: () => roomService.getAmenities(),
   });
-
-  const handleRefresh = () => {
-    void refetchFees();
-    void refetchRoomTypes();
-    void refetchAmenities();
-  };
 
   const updateDepositFeeMutation = useMutation({
     mutationFn: ({
@@ -197,17 +188,10 @@ export const CategoriesPage: React.FC = () => {
     });
   };
 
-  const isRefreshing = isFetchingFees || isFetchingRoomTypes || isFetchingAmenities;
-
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
-      {/* Title & Tabs */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Quản lý Danh mục & Biểu phí Sàn
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Tabs */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex flex-wrap rounded-lg bg-surface-muted p-1 gap-1 text-xs">
             <button
               type="button"
@@ -246,9 +230,6 @@ export const CategoriesPage: React.FC = () => {
               Tiện ích ({apiAmenities.length})
             </button>
           </div>
-
-          <AdminRefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
-        </div>
       </div>
 
       {activeTab === 'DEPOSIT_FEES' &&
@@ -464,34 +445,40 @@ export const CategoriesPage: React.FC = () => {
               <label className="block text-xs font-medium text-text-secondary mb-1">
                 Mức tiền cọc giữ chân xem phòng (VNĐ)
               </label>
-              <input
-                type="number"
-                step={10000}
-                min={10000}
-                value={editCoc}
-                onChange={(e) => {
-                  setEditCoc(Number(e.target.value));
-                  setFeeError('');
-                }}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent font-semibold tabular-nums"
-              />
+              <div className="relative">
+                <CurrencyInput
+                  value={editCoc}
+                  onValueChange={(digits) => {
+                    setEditCoc(digits ? Number(digits) : 0);
+                    setFeeError('');
+                  }}
+                  placeholder="VD: 200.000"
+                  className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-surface text-xs text-text focus:outline-none focus:border-accent font-semibold tabular-nums"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                  ₫
+                </span>
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">
                 Mức phí hoa hồng trích thu sàn (nhỏ hơn tiền cọc)
               </label>
-              <input
-                type="number"
-                step={5000}
-                min={0}
-                value={editPhi}
-                onChange={(e) => {
-                  setEditPhi(Number(e.target.value));
-                  setFeeError('');
-                }}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-xs focus:outline-none focus:border-accent font-semibold text-accent tabular-nums"
-              />
+              <div className="relative">
+                <CurrencyInput
+                  value={editPhi}
+                  onValueChange={(digits) => {
+                    setEditPhi(digits ? Number(digits) : 0);
+                    setFeeError('');
+                  }}
+                  placeholder="VD: 20.000"
+                  className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-surface text-xs focus:outline-none focus:border-accent font-semibold text-accent tabular-nums"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                  ₫
+                </span>
+              </div>
             </div>
 
             {feeError && (

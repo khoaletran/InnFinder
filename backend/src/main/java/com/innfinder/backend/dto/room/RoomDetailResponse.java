@@ -14,6 +14,7 @@ package com.innfinder.backend.dto.room;
  * @created: 11/5/2026 9:54 PM
  */
 import com.innfinder.backend.entity.DanhGia;
+import com.innfinder.backend.entity.GiaNuoc;
 import com.innfinder.backend.entity.HinhAnh;
 import com.innfinder.backend.entity.PhongTro;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
@@ -39,6 +40,8 @@ public class RoomDetailResponse {
     private String kinhDo;
     private String viDo;
     private Long coc;
+    private Long giaDien;
+    private GiaNuoc giaNuoc;
     // Thông tin phân loại & tiện ích
     private CategoryResponse loaiPhong;
     private List<AmenityResponse> dsTienIch;
@@ -99,7 +102,9 @@ public class RoomDetailResponse {
                 .tamAn(entity.isTamAn())
                 .kinhDo(entity.getKinhDo())
                 .viDo(entity.getViDo())
-                .coc(entity.getCocPhong()) //ban dau de getCoc(), co the bug
+                .coc(entity.getCocPhong())
+                .giaDien(entity.getGiaDien() != null ? entity.getGiaDien() : 0L)
+                .giaNuoc(entity.getGiaNuoc() != null ? entity.getGiaNuoc() : new GiaNuoc()) //ban dau de getCoc(), co the bug
                 .loaiPhong(CategoryResponse.fromEntity(entity.getLoaiPhong()))
                 .dsTienIch(amenities)
                 .dsHinhAnh(images)

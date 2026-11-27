@@ -3,6 +3,11 @@
 // 1. Trạng thái phòng trọ (Khớp Enum TrangThaiPhongTro trong AGENTS.md)
 export type TrangThaiPhongTro = "CHO_DUYET" | "DA_DUYET" | "HOAN_THANH" | "HUY";
 
+export interface GiaNuoc {
+  gia: number;
+  theoNguoi: boolean;
+}
+
 // 2. DTO Danh mục Loại phòng trọ & Tiện ích
 export interface CategoryResponse {
   maLpt: string;
@@ -57,6 +62,8 @@ export interface RoomSummaryResponse {
   maPhongTro: string;
   diaChi: string;
   giaThue: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   soNguoi: number;
   maLpt: string;
@@ -73,6 +80,8 @@ export interface RoomSummaryResponse {
 export interface RoomDetailResponse {
   maPhongTro: string;
   giaThue: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   moTa?: string;
   soNguoi: number;

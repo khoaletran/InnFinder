@@ -1,0 +1,40 @@
+{
+  "rules": {
+    "baiOGhep": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["trangThai", "taoLuc", "maNguoiDung"]
+    },
+    "baiOGhepDangMo": {
+      ".read": true,
+      ".write": true
+    },
+    "binhLuanOGhep": {
+      ".read": true,
+      ".write": true
+    },
+    "dangKyOGhep": {
+      ".read": true,
+      ".write": true
+    },
+    "dangKyCuaToi": {
+      ".read": true,
+      ".write": true
+    },
+    "chats": {
+      ".read": true,
+      ".write": true,
+      "$channelId": {
+        "meta": {
+          ".indexOn": ["updatedAtMs", "authorId", "applicantId"]
+        },
+        "messages": {
+          ".indexOn": ["createdAtMs"],
+          "$messageId": {
+            ".validate": "newData.hasChildren(['senderId', 'content', 'createdAtMs']) && newData.child('content').isString() && newData.child('content').val().length <= 1000"
+          }
+        }
+      }
+    }
+  }
+}

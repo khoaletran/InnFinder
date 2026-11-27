@@ -263,6 +263,28 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
                 {activeRoom.soNguoi || 1} người
               </span>
             </div>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+              <span className="text-[11px] font-semibold text-slate-500 block uppercase">
+                Giá điện
+              </span>
+              <span className="text-base font-bold text-slate-800 block mt-0.5">
+                {activeRoom.giaDien && activeRoom.giaDien > 0
+                  ? `${formatVND(activeRoom.giaDien)} / kWh`
+                  : 'Thỏa thuận'}
+              </span>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+              <span className="text-[11px] font-semibold text-slate-500 block uppercase">
+                Giá nước
+              </span>
+              <span className="text-base font-bold text-slate-800 block mt-0.5">
+                {activeRoom.giaNuoc && activeRoom.giaNuoc.gia > 0
+                  ? `${formatVND(activeRoom.giaNuoc.gia)} / ${activeRoom.giaNuoc.theoNguoi ? 'người' : 'm³'}`
+                  : 'Thỏa thuận'}
+              </span>
+            </div>
           </div>
 
           {/* Phân loại & địa chỉ */}

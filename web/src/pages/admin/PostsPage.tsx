@@ -10,7 +10,6 @@ import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import {
   AdminErrorState,
-  AdminRefreshButton,
   AdminTableSkeleton,
 } from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
@@ -36,7 +35,6 @@ export const PostsPage: React.FC = () => {
   const {
     data: allRooms = [],
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -134,15 +132,6 @@ export const PostsPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
-      {/* Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Kiểm duyệt Bài đăng Phòng trọ
-        </h1>
-
-        <AdminRefreshButton onClick={handleRefresh} isRefreshing={isFetching} />
-      </div>
-
       {/* Status Tab Bar (giống mẫu tab Lịch xem phòng) */}
       <StatusTabBar
         ariaLabel="Lọc bài đăng theo trạng thái"

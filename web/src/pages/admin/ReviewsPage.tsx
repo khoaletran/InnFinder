@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import { StatusBadge } from '@/components/common/TableParts';
-import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { AdminErrorState } from '@/components/common/AdminStates';
 import { formatDateTime } from '@/utils/formatters';
 import type { AdminReviewItem } from '@/types/admin.types';
 
@@ -23,7 +23,6 @@ export const ReviewsPage: React.FC = () => {
   const {
     data: reviews = [],
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -65,19 +64,6 @@ export const ReviewsPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Kiểm duyệt Đánh giá & Nhận xét
-        </h1>
-
-        <AdminRefreshButton
-          onClick={() => void refetch()}
-          isRefreshing={isFetching}
-          label="Làm mới đánh giá"
-        />
-      </div>
-
       {/* Star Rating Filter */}
       <StatusTabBar
         ariaLabel="Lọc đánh giá theo số sao"

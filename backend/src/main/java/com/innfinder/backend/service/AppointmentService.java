@@ -5,7 +5,6 @@ import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.appointment.BookedSlotsResponse;
-import com.innfinder.backend.dto.appointment.ConfirmReceivedDepositRequest;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.GiaoDich;
@@ -22,6 +21,7 @@ import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +37,6 @@ public class AppointmentService {
 
     public static final int PAYMENT_TIMEOUT_MINUTES = 15;
     public static final int SLOT_BUFFER_MINUTES = 120;
-    public static final double MAX_CONFIRM_DEPOSIT_DISTANCE_METERS = 50.0;
 
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final NguoiDungRepository nguoiDungRepository;
@@ -359,25 +358,50 @@ public class AppointmentService {
     }
 
     /**
-     * 3. Khách hàng xem danh sách lịch hẹn của mình (kèm cờ đã nộp cọc)
+     * Tác vụ nền định kỳ kiểm tra & tự động hủy các phiếu CHO_XAC_NHAN đã quá hạn
+     * (thay vì ghi DB mỗi lần client gọi API GET danh sách).
      */
+    @Scheduled(fixedDelay = 60_000)
     @Transactional
+    public void autoCancelExpiredPendingAppointments() {
+        List<PhieuDatLich> pending = phieuDatLichRepository.findByTrangThai(TrangThaiDatLich.CHO_XAC_NHAN);
+        for (PhieuDatLich phieu : pending) {
+            kiemTraVaTuDongHuyQuaHan(phieu);
+        }
+    }
+
+    /**
+     * 3. Khách hàng xem danh sách lịch hẹn của mình (kèm cờ đã nộp cọc, tối ưu batch query tránh N+1)
+     */
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> layLichHenCuaToi(String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
+        List<PhieuDatLich> list = phieuDatLichRepository
+                .findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(khachHang.getMaNguoiDung());
+        if (list.isEmpty()) {
+            return List.of();
+        }
 
-        return phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(khachHang.getMaNguoiDung())
-                .stream()
-                .map(this::kiemTraVaTuDongHuyQuaHan)
+        List<String> depositContents = giaoDichRepository.findSuccessfulDepositContentsByUserId(khachHang.getMaNguoiDung());
+        boolean hasCancelledWithDeposit = list.stream().anyMatch(p ->
+                p.getTrangThai() == TrangThaiDatLich.HUY && !Boolean.TRUE.equals(p.getDaNhanLaiCoc())
+                        && p.getCoc() != null && p.getCoc() > 0);
+        List<GiaoDich> refundList = hasCancelledWithDeposit
+                ? giaoDichRepository.findAllRefundTransactionsByUserId(khachHang.getMaNguoiDung())
+                : List.of();
+
+        return list.stream()
                 .map(phieu -> {
+                    String maDatLich = phieu.getMaDatLich();
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
-                            || daNopCocChoLichHen(khachHang.getMaNguoiDung(), phieu.getMaDatLich());
+                            || depositContents.stream().anyMatch(c -> c != null && c.contains(maDatLich));
                     AppointmentResponse resp = AppointmentResponse.fromEntity(phieu, daNop);
                     if (phieu.getTrangThai() == TrangThaiDatLich.HUY && daNop && !Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())
                             && phieu.getCoc() != null && phieu.getCoc() > 0) {
-                        List<GiaoDich> refunds = giaoDichRepository.findRefundTransactions(khachHang.getMaNguoiDung(), phieu.getMaDatLich());
-                        if (!refunds.isEmpty()) {
-                            resp.setThongTinHoanCoc(refunds.get(0));
-                        }
+                        refundList.stream()
+                                .filter(g -> g.getNoiDung() != null && g.getNoiDung().contains(maDatLich))
+                                .findFirst()
+                                .ifPresent(resp::setThongTinHoanCoc);
                     }
                     return resp;
                 })
@@ -385,17 +409,34 @@ public class AppointmentService {
     }
 
     /**
-     * 4. Chủ trọ xem danh sách khách hẹn xem các phòng của mình (kèm cờ đã nộp cọc)
+     * 4. Chủ trọ xem danh sách khách hẹn xem các phòng của mình (kèm cờ đã nộp cọc, tối ưu batch query tránh N+1)
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> layLichHenChoChuTro(String username) {
         NguoiDung chuTro = getNguoiDungByUsername(username);
-        return phieuDatLichRepository.findAppointmentsByLandlordId(chuTro.getMaNguoiDung())
-                .stream()
-                .map(this::kiemTraVaTuDongHuyQuaHan)
+        List<PhieuDatLich> list = phieuDatLichRepository.findAppointmentsByLandlordId(chuTro.getMaNguoiDung());
+        if (list.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> customerIds = list.stream()
+                .map(PhieuDatLich::getKhachHang)
+                .filter(java.util.Objects::nonNull)
+                .map(NguoiDung::getMaNguoiDung)
+                .distinct()
+                .toList();
+        List<GiaoDich> deposits = customerIds.isEmpty()
+                ? List.of()
+                : giaoDichRepository.findSuccessfulDepositsByUserIds(customerIds);
+
+        return list.stream()
                 .map(phieu -> {
                     boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
-                            || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), phieu.getMaDatLich()));
+                            || (phieu.getKhachHang() != null && deposits.stream().anyMatch(g ->
+                                    g.getNguoiDung() != null
+                                            && phieu.getKhachHang().getMaNguoiDung().equals(g.getNguoiDung().getMaNguoiDung())
+                                            && g.getNoiDung() != null
+                                            && g.getNoiDung().contains(phieu.getMaDatLich())));
                     return java.util.Map.entry(phieu, daNop);
                 })
                 .filter(entry -> {
@@ -487,35 +528,11 @@ public class AppointmentService {
     }
 
     /**
-     * Tính khoảng cách đường chim bay (mét) giữa 2 tọa độ theo công thức Haversine.
-     */
-    public static double calculateDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
-        final double earthRadiusMeters = 6_371_000.0;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return earthRadiusMeters * c;
-    }
-
-    private Double parseRoomCoordinate(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-        try {
-            return Double.parseDouble(raw.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /**
      * 7. BƯỚC 4 SWIMLANE MỚI: Khách hàng bấm xác nhận "Đã nhận lại cọc từ Chủ trọ ngoài đời thực"
      * Quyền thụ hưởng số tiền cọc tại Hệ thống chính thức chuyển sang cho Chủ trọ ("thế chân").
-     * Ràng buộc: Khách hàng phải đứng trong phạm vi tối đa 50m quanh tọa độ phòng trọ.
      */
     @Transactional
-    public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username, ConfirmReceivedDepositRequest request) {
+    public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
         PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
@@ -530,23 +547,6 @@ public class AppointmentService {
 
         if (Boolean.TRUE.equals(phieu.getDaNhanLaiCoc())) {
             throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
-        }
-
-        // Bắt buộc kiểm tra tọa độ khách hàng nằm trong phạm vi 50m quanh tọa độ phòng trọ
-        PhongTro phongTro = phieu.getPhongTro();
-        Double roomLat = phongTro != null ? parseRoomCoordinate(phongTro.getViDo()) : null;
-        Double roomLng = phongTro != null ? parseRoomCoordinate(phongTro.getKinhDo()) : null;
-        if (roomLat == null || roomLng == null || (roomLat == 0.0 && roomLng == 0.0)) {
-            throw new AppException(ErrorCode.ROOM_LOCATION_MISSING);
-        }
-
-        if (request == null || request.getViDo() == null || request.getKinhDo() == null) {
-            throw new AppException(ErrorCode.OUTSIDE_ALLOWED_RADIUS);
-        }
-
-        double distanceMeters = calculateDistanceMeters(request.getViDo(), request.getKinhDo(), roomLat, roomLng);
-        if (distanceMeters > MAX_CONFIRM_DEPOSIT_DISTANCE_METERS) {
-            throw new AppException(ErrorCode.OUTSIDE_ALLOWED_RADIUS);
         }
 
         // Nếu có cọc thì bắt buộc khách phải nộp cọc trước đó

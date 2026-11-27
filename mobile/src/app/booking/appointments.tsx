@@ -55,22 +55,11 @@ export default function AppointmentsScreen() {
     }
   }, [tab]);
 
-  // Tự động tải lại khi vào màn hình (Focus) và thiết lập Smart Polling mỗi 8 giây
+  // Tự động tải lại khi vào màn hình (Focus)
   useFocusEffect(
     useCallback(() => {
       if (!isAuthenticated) return;
-
-      // 1. Tải mới ngay lập tức
       fetchAppointments(false);
-
-      // 2. Chạy polling ngầm mỗi 3 giây
-      const interval = setInterval(() => {
-        fetchAppointments(true);
-      }, 8000);
-
-      return () => {
-        clearInterval(interval);
-      };
     }, [isAuthenticated, fetchAppointments])
   );
 

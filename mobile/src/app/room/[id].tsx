@@ -437,6 +437,26 @@ export default function RoomDetailScreen() {
               </Text>
             </Card>
           </View>
+
+          {/* Chi phí điện nước */}
+          <View className="flex-row justify-between mt-2.5 gap-2.5">
+            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 items-center justify-center">
+              <Text className="text-xs text-slate-500">Giá điện</Text>
+              <Text className="text-sm font-bold text-slate-800 mt-0.5">
+                {room.giaDien && room.giaDien > 0
+                  ? `${room.giaDien.toLocaleString("vi-VN")} đ/kWh`
+                  : "Thỏa thuận"}
+              </Text>
+            </Card>
+            <Card className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100 items-center justify-center">
+              <Text className="text-xs text-slate-500">Giá nước</Text>
+              <Text className="text-sm font-bold text-slate-800 mt-0.5">
+                {room.giaNuoc && room.giaNuoc.gia > 0
+                  ? `${room.giaNuoc.gia.toLocaleString("vi-VN")} đ/${room.giaNuoc.theoNguoi ? "người" : "m³"}`
+                  : "Thỏa thuận"}
+              </Text>
+            </Card>
+          </View>
         </View>
 
         {/* 3. Tiện ích */}

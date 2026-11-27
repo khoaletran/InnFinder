@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { BASE_URL, tokenStorage } from '@/api/axiosClient';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useBookingStore } from '@/store/useBookingStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 
 const RECONNECT_DELAYS_MS = [2000, 5000, 15000];
@@ -28,9 +29,11 @@ export function useRealtimeEvents() {
       switch (eventName) {
         case 'APPOINTMENT_UPDATED':
           void queryClient.invalidateQueries({ queryKey: ['appointments'] });
+          void queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
           void queryClient.invalidateQueries({ queryKey: ['landlord', 'appointments'] });
           void queryClient.invalidateQueries({ queryKey: ['landlord', 'notifications'] });
           void queryClient.invalidateQueries({ queryKey: ['landlord', 'dashboard'] });
+          void useBookingStore.getState().fetchAppointments(true);
           void useNotificationStore.getState().fetchNotifications(true);
           break;
         case 'WALLET_UPDATED':

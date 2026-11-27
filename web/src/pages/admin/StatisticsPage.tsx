@@ -30,7 +30,7 @@ import { toast } from 'sonner';
 import type { AdminRevenueInsightResponse, AdminStatisticsFilter } from '@/types/admin.types';
 import { adminService } from '@/services/admin.service';
 import { PlatformRevenueChart } from './StatisticsRevenueChart';
-import { AdminErrorState, AdminRefreshButton } from '@/components/common/AdminStates';
+import { AdminErrorState } from '@/components/common/AdminStates';
 import { formatVND } from '@/utils/formatters';
 
 const PIE_COLORS = ['#0d9488', '#0f766e', '#10b981', '#f59e0b', '#64748b', '#06b6d4'];
@@ -560,12 +560,6 @@ export const StatisticsPage: React.FC = () => {
       'Không thể tải báo cáo thống kê doanh thu và ngân khố sàn.';
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Thống kê doanh thu & ngân khố
-          </h1>
-          <AdminRefreshButton onClick={() => void refetch()} isRefreshing={isFetching} />
-        </div>
         <AdminErrorState
           title="Không thể tải dữ liệu thống kê"
           message={errMsg}
@@ -579,23 +573,8 @@ export const StatisticsPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Thống kê doanh thu & ngân khố
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi doanh thu hoa hồng, cơ cấu phòng trọ và tình hình quỹ hệ thống
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <AdminRefreshButton
-            onClick={() => void refetch()}
-            isRefreshing={isFetching}
-            label="Đồng bộ dữ liệu"
-          />
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={handleExportReport}
@@ -604,7 +583,6 @@ export const StatisticsPage: React.FC = () => {
             <Download className="w-3.5 h-3.5" />
             Xuất báo cáo
           </button>
-        </div>
       </div>
 
       {/* Compact Single-Row Filter Toolbar */}

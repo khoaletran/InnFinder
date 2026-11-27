@@ -2,6 +2,10 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import:
+      - "optional:file:./.env[.properties]"
+      - "optional:file:./backend/.env[.properties]"
   application:
     name: innfinder-backend
   servlet:
@@ -28,6 +32,12 @@ app:
 
 # Cấu hình DataSource Failover: Mặc định AUTO (Ưu tiên TiDB Cloud, tự động fallback sang Docker Local port 3307 khi mất mạng; hoặc đặt LOCAL/CLOUD)
 innfinder:
+  firestore:
+    project-id: ${INNFINDER_FIRESTORE_PROJECT_ID:innfinder-70261}
+    credentials-file: ${INNFINDER_FIRESTORE_CREDENTIALS_FILE:}
+  firebase:
+    rtdb-url: ${INNFINDER_FIREBASE_RTDB_URL:https://innfinder-70261-default-rtdb.asia-southeast1.firebasedatabase.app}
+    rtdb-secret: ${INNFINDER_FIREBASE_RTDB_SECRET:}
   datasource:
     mode: ${INNFINDER_DB_MODE:AUTO}
     cloud:

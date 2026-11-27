@@ -60,18 +60,10 @@ const formatDate = (isoDate: string): string => {
 export default function RentalRequestsScreen() {
   const { appointments, isLoading, fetchAppointments } = useBookingStore();
 
-  // Tự động tải lại khi màn hình được Focus và thiết lập Smart Polling mỗi 8 giây
+  // Tự động tải lại khi màn hình được Focus
   useFocusEffect(
     useCallback(() => {
       fetchAppointments(false);
-
-      const interval = setInterval(() => {
-        fetchAppointments(true);
-      }, 3000);
-
-      return () => {
-        clearInterval(interval);
-      };
     }, [fetchAppointments])
   );
 

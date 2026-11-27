@@ -1,9 +1,10 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, Home, UserCircle } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
+import { AdminRefreshButton } from '@/components/common/AdminStates';
 import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { ADMIN_NAV_ITEMS } from '@/constants/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -13,6 +14,8 @@ export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const isFetching = useIsFetching();
   const { data: dashboard } = useQuery({
     queryKey: ['admin', 'dashboard-stats'],
     queryFn: () => adminService.getDashboardStats(),
@@ -176,6 +179,10 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <AdminRefreshButton
+              onClick={() => void queryClient.invalidateQueries({ type: 'active' })}
+              isRefreshing={isFetching > 0}
+            />
             <AdminNotificationBell />
           </div>
         </header>

@@ -18,6 +18,7 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
     @Query("SELECT MAX(p.maDatLich) FROM PhieuDatLich p WHERE p.maDatLich LIKE CONCAT(:prefix, '%')")
     String findMaxMaDatLichByPrefix(@Param("prefix") String prefix);
 
+    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.hinhAnh", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
     List<PhieuDatLich> findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(String khachHangMaNguoiDung);
 
     /**
@@ -36,6 +37,18 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
     /**
      * 3. (Phụ trợ) Lọc lịch hẹn của khách hàng theo trạng thái cụ thể
      */
+    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.hinhAnh", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
+    List<PhieuDatLich> findByKhachHang_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(
+            String maNguoiDung,
+            List<TrangThaiDatLich> trangThais
+    );
+
+    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.hinhAnh", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
+    List<PhieuDatLich> findByPhongTro_ChuPhongTro_NguoiDung_MaNguoiDungAndTrangThaiInOrderByNgayHenDesc(
+            String maNguoiDung,
+            List<TrangThaiDatLich> trangThais
+    );
+
     List<PhieuDatLich> findByKhachHang_MaNguoiDungAndTrangThai(String maNguoiDung, TrangThaiDatLich trangThai);
 
     /**

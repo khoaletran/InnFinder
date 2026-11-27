@@ -5,6 +5,10 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public enum ErrorCode {
+    ROOMMATE_NOT_FOUND("Không tìm thấy bài ở ghép", HttpStatus.NOT_FOUND),
+    ROOMMATE_CLOSED("Bài ở ghép đã đủ người", HttpStatus.CONFLICT),
+    ROOMMATE_EXISTS("Phiếu này đã có bài đang tìm người ở ghép", HttpStatus.CONFLICT),
+    ROOMMATE_UNAVAILABLE("Tính năng ở ghép tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
     UNCATEGORIZED_EXCEPTION("Lỗi hệ thống không xác định", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_EXISTED("Tên đăng nhập đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED("Email này đã được sử dụng", HttpStatus.BAD_REQUEST),
@@ -63,8 +67,6 @@ public enum ErrorCode {
     DEPOSIT_NOT_REFUNDED_YET("Khách hàng cần xác nhận đã nhận lại cọc từ Chủ trọ trước khi đưa ra quyết định thuê", HttpStatus.BAD_REQUEST),
     DEPOSIT_ALREADY_REFUNDED("Khách hàng đã xác nhận nhận lại cọc cho lịch hẹn này rồi", HttpStatus.BAD_REQUEST),
     DEPOSIT_NOT_PAID_YET("Khách hàng chưa nộp tiền cọc giữ chân cho lịch hẹn này", HttpStatus.BAD_REQUEST),
-    OUTSIDE_ALLOWED_RADIUS("Bạn cần đứng trong phạm vi 50m quanh phòng trọ để xác nhận đã nhận lại cọc", HttpStatus.BAD_REQUEST),
-    ROOM_LOCATION_MISSING("Phòng trọ chưa có tọa độ hợp lệ trên bản đồ để xác thực vị trí", HttpStatus.BAD_REQUEST),
     NO_SHOW_TOO_EARLY("Chỉ có thể báo cáo khách không đến sau giờ hẹn tối thiểu 30 phút", HttpStatus.BAD_REQUEST),
 
     // --- GIAO DỊCH & KHO TIỀN HỆ THỐNG ---

@@ -23,6 +23,15 @@ export const formatVND = (
   return showUnit ? `${formatted} ${unit}` : formatted;
 };
 
+export const formatCurrencyInput = (
+  val: string | number | undefined | null,
+): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const digits = String(val).replace(/\D/g, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('vi-VN');
+};
+
 export const formatVNDShort = (
   amount: number | string | null | undefined,
   suffix: string = '/tháng',

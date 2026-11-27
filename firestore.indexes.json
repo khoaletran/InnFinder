@@ -1,0 +1,91 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "baiOGhep",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trangThai",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taoLuc",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "baiOGhep",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trangThai",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "chiPhiMoiNguoi",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taoLuc",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "baiOGhep",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trangThai",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "khuVucTim",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taoLuc",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "baiOGhep",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trangThai",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "khuVucTim",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "chiPhiMoiNguoi",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taoLuc",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "baiOGhep",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "maNguoiDang",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "taoLuc",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

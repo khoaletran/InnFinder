@@ -30,6 +30,12 @@ import { UsersPage } from '@/pages/admin/UsersPage';
 // Customer Discovery & Details Pages (Thành viên 2)
 import { FavoritesPage } from '@/pages/customer/FavoritesPage';
 import { HomePage } from '@/pages/customer/HomePage';
+import {
+  RoommateCreatePage,
+  RoommateDetailPage,
+  RoommateListPage,
+  RoommateMyApplicationsPage,
+} from '@/pages/customer/RoommatePages';
 import { MapSearchPage } from '@/pages/customer/MapSearchPage';
 import { RoomDetailPage } from '@/pages/customer/RoomDetailPage';
 import { SearchPage } from '@/pages/customer/SearchPage';
@@ -52,6 +58,7 @@ import { WalletPage as CustomerWalletPage } from '@/pages/customer/WalletPage';
 
 // Landlord Portal Pages (Thành viên 4)
 import { AppointmentsPage as LandlordAppointmentsPage } from '@/pages/landlord/AppointmentsPage';
+import { LandlordChatPage } from '@/pages/landlord/ChatPage';
 import { CreateRoomPage } from '@/pages/landlord/CreateRoomPage';
 import { DashboardPage as LandlordDashboardPage } from '@/pages/landlord/DashboardPage';
 import { ProfilePage as LandlordProfilePage } from '@/pages/landlord/ProfilePage';
@@ -85,6 +92,14 @@ const NonAdminFavoritesRoute: React.FC = () => {
   return <FavoritesPage />;
 };
 
+const NonLandlordRoommateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const isChuTro = useAuthStore((s) => s.isChuTro);
+  if (isChuTro) {
+    return <Navigate to="/landlord/dashboard" replace />;
+  }
+  return children;
+};
+
 export const AppRoutes: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -101,6 +116,8 @@ export const AppRoutes: React.FC = () => {
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/roommates" element={<NonLandlordRoommateRoute><RoommateListPage /></NonLandlordRoommateRoute>} />
+        <Route path="/roommates/:id" element={<NonLandlordRoommateRoute><RoommateDetailPage /></NonLandlordRoommateRoute>} />
         <Route path="/search/map" element={<MapSearchPage />} />
         <Route path="/room/:id" element={<RoomDetailPage />} />
         <Route path="/favorites" element={<NonAdminFavoritesRoute />} />
@@ -134,6 +151,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/appointments/deposit" element={<DepositPaymentPage />} />
         <Route path="/appointments/deposit/:appointmentId" element={<DepositPaymentPage />} />
         <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+        <Route path="/appointments/:appointmentId/roommates" element={<NonLandlordRoommateRoute><RoommateCreatePage /></NonLandlordRoommateRoute>} />
+        <Route path="/roommates/my-applications" element={<NonLandlordRoommateRoute><RoommateMyApplicationsPage /></NonLandlordRoommateRoute>} />
         <Route path="/rentals" element={<Navigate to="/appointments" replace />} />
         <Route path="/rentals/:appointmentId" element={<LegacyRentalRedirect />} />
         <Route path="/wallet" element={<CustomerWalletPage />} />
@@ -171,6 +190,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="rooms/create" element={<CreateRoomPage />} />
         <Route path="rooms/edit/:id" element={<CreateRoomPage isEdit={true} />} />
         <Route path="appointments" element={<LandlordAppointmentsPage />} />
+        <Route path="chat" element={<LandlordChatPage />} />
         <Route path="wallet" element={<LandlordWalletPage />} />
         <Route path="reviews" element={<ReviewsComplaintsPage />} />
         <Route path="profile" element={<LandlordProfilePage />} />

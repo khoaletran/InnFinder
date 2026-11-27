@@ -4,6 +4,11 @@ export type { ReviewResponseDTO };
 
 export type TrangThaiPhongTro = 'CHO_DUYET' | 'DA_DUYET' | 'HOAN_THANH' | 'HUY';
 
+export interface GiaNuoc {
+  gia: number;
+  theoNguoi: boolean;
+}
+
 export interface PopularAreaResponse {
   name: string;
   keyword: string;
@@ -48,6 +53,8 @@ export interface RoomSummaryResponse {
   maPhongTro: string;
   diaChi: string;
   giaThue: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   soNguoi: number;
   maLpt?: string;
@@ -67,6 +74,8 @@ export interface RoomDetailResponse {
   maPhongTro: string;
   diaChi: string;
   giaThue: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   soNguoi: number;
   moTa?: string;

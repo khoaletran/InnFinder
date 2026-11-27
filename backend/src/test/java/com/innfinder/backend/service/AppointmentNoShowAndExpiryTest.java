@@ -425,16 +425,13 @@ class AppointmentNoShowAndExpiryTest {
         phieu.setNgayHen(LocalDateTime.now().plusHours(5)); // Còn 5 tiếng nữa mới đến giờ hẹn
         phieu.setDaNhanLaiCoc(false);
         phieu.setCoc(200_000L);
-        phongTro.setViDo("10.7769");
-        phongTro.setKinhDo("106.7009");
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(true);
         when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
 
-        var locationReq = new com.innfinder.backend.dto.appointment.ConfirmReceivedDepositRequest(10.7769, 106.7009);
-        var response = appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang", locationReq);
+        var response = appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang");
 
         assertTrue(phieu.getDaNhanLaiCoc());
         assertTrue(response.getDaNhanLaiCoc());
@@ -893,11 +890,17 @@ class AppointmentNoShowAndExpiryTest {
                 .liDoHuy("Khách hủy hợp lệ")
                 .build();
 
+        GiaoDich gdDaCoc = GiaoDich.builder()
+                .maGiaoDich("GD_COC_102")
+                .nguoiDung(khachHang)
+                .noiDung("Nop coc lich hen DL20261125102")
+                .build();
+
         when(nguoiDungRepository.findByTenDangNhap("chu_tro")).thenReturn(Optional.of(chuTroUser));
         when(phieuDatLichRepository.findAppointmentsByLandlordId(chuTroUser.getMaNguoiDung()))
                 .thenReturn(List.of(phieuHuyChuaCoc, phieuHuyDaCoc));
-        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), "DL20261125101")).thenReturn(false);
-        when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), "DL20261125102")).thenReturn(true);
+        when(giaoDichRepository.findSuccessfulDepositsByUserIds(List.of(khachHang.getMaNguoiDung())))
+                .thenReturn(List.of(gdDaCoc));
 
         var result = appointmentService.layLichHenChoChuTro("chu_tro");
 

@@ -105,6 +105,9 @@ export default function CreateRoomScreen() {
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [giaThue, setGiaThue] = useState(step1.giaThue ? step1.giaThue.toString() : '3500000');
   const [cocPhong, setCocPhong] = useState(step1.cocPhong ? step1.cocPhong.toString() : '3500000');
+  const [giaDien, setGiaDien] = useState(step1.giaDien ? step1.giaDien.toString() : '0');
+  const [giaNuocGia, setGiaNuocGia] = useState(step1.giaNuoc?.gia ? step1.giaNuoc.gia.toString() : '0');
+  const [giaNuocTheoNguoi, setGiaNuocTheoNguoi] = useState<boolean>(Boolean(step1.giaNuoc?.theoNguoi ?? false));
   const [dienTich, setDienTich] = useState(step1.dienTich ? step1.dienTich.toString() : '24');
   const [soNguoi, setSoNguoi] = useState(step1.soNguoi || 2);
   const [diaChi, setDiaChi] = useState(step1.diaChi || step2.diaChi || '');
@@ -142,6 +145,9 @@ export default function CreateRoomScreen() {
     setSelectedRoomType(ROOM_TYPES.find((t) => t.id === step1.maLPT) || ROOM_TYPES[0]);
     setGiaThue(step1.giaThue ? step1.giaThue.toString() : '3500000');
     setCocPhong(step1.cocPhong !== undefined ? step1.cocPhong.toString() : '3500000');
+    setGiaDien(step1.giaDien !== undefined ? step1.giaDien.toString() : '0');
+    setGiaNuocGia(step1.giaNuoc?.gia !== undefined ? step1.giaNuoc.gia.toString() : '0');
+    setGiaNuocTheoNguoi(Boolean(step1.giaNuoc?.theoNguoi ?? false));
     setDienTich(step1.dienTich ? step1.dienTich.toString() : '24');
     setSoNguoi(step1.soNguoi || 2);
     setDiaChi(step1.diaChi || step2.diaChi || '');
@@ -170,6 +176,8 @@ export default function CreateRoomScreen() {
       maLPT: selectedRoomType.id,
       giaThue: Number(giaThue) || 3500000,
       cocPhong: Number(cocPhong) || 0,
+      giaDien: Number(giaDien) || 0,
+      giaNuoc: { gia: Number(giaNuocGia) || 0, theoNguoi: giaNuocTheoNguoi },
       dienTich: Number(dienTich) || 24,
       soNguoi,
       diaChi: diaChi.trim(),
@@ -286,6 +294,8 @@ export default function CreateRoomScreen() {
       maLPT: selectedRoomType.id,
       giaThue: Number(giaThue) || 3500000,
       cocPhong: Number(cocPhong) || 0,
+      giaDien: Number(giaDien) || 0,
+      giaNuoc: { gia: Number(giaNuocGia) || 0, theoNguoi: giaNuocTheoNguoi },
       dienTich: Number(dienTich) || 24,
       soNguoi,
       diaChi: diaChi.trim(),
@@ -401,6 +411,11 @@ export default function CreateRoomScreen() {
         maLpt: selectedRoomType.id,
         giaThue: Number(giaThue) || 3500000,
         coc: Number(cocPhong) || 0,
+        giaDien: Number(giaDien) || 0,
+        giaNuoc: {
+          gia: Number(giaNuocGia) || 0,
+          theoNguoi: giaNuocTheoNguoi,
+        },
         dienTich: Number(dienTich) || 24,
         soNguoi,
         diaChi: diaChi.trim(),
@@ -587,6 +602,77 @@ export default function CreateRoomScreen() {
                       );
                     })}
                   </View>
+                </View>
+
+                {/* Giá điện & Giá nước */}
+                <View className="flex-row gap-3 mb-3.5">
+                  <View className="flex-1">
+                    <Text className="text-xs font-semibold text-gray-700 mb-1.5">Giá điện</Text>
+                    <View className="flex-row items-center border border-gray-200 rounded-xl px-3 bg-gray-50/70">
+                      <TextInput
+                        keyboardType="numeric"
+                        placeholder="3500"
+                        placeholderTextColor="#9ca3af"
+                        value={giaDien}
+                        onChangeText={(val) => setGiaDien(val.replace(/\D/g, ''))}
+                        className="flex-1 py-2.5 text-sm font-semibold text-gray-900"
+                      />
+                      <Text className="text-[11px] text-gray-500 font-medium">đ/kWh</Text>
+                    </View>
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-xs font-semibold text-gray-700 mb-1.5">Giá nước</Text>
+                    <View className="flex-row items-center border border-gray-200 rounded-xl px-3 bg-gray-50/70">
+                      <TextInput
+                        keyboardType="numeric"
+                        placeholder={giaNuocTheoNguoi ? '100000' : '15000'}
+                        placeholderTextColor="#9ca3af"
+                        value={giaNuocGia}
+                        onChangeText={(val) => setGiaNuocGia(val.replace(/\D/g, ''))}
+                        className="flex-1 py-2.5 text-sm font-semibold text-gray-900"
+                      />
+                      <Text className="text-[11px] text-gray-500 font-medium">
+                        {giaNuocTheoNguoi ? 'đ/người' : 'đ/m³'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View className="flex-row items-center gap-2 mb-3.5">
+                  <Text className="text-xs text-gray-600 font-medium">Tính nước:</Text>
+                  <Pressable
+                    onPress={() => setGiaNuocTheoNguoi(false)}
+                    className={`px-3 py-1 rounded-full border ${
+                      !giaNuocTheoNguoi
+                        ? 'bg-teal-50 border-teal-600'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <Text
+                      className={`text-[11px] font-medium ${
+                        !giaNuocTheoNguoi ? 'text-teal-800 font-bold' : 'text-gray-600'
+                      }`}
+                    >
+                      Theo số khối (m³)
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setGiaNuocTheoNguoi(true)}
+                    className={`px-3 py-1 rounded-full border ${
+                      giaNuocTheoNguoi
+                        ? 'bg-teal-50 border-teal-600'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <Text
+                      className={`text-[11px] font-medium ${
+                        giaNuocTheoNguoi ? 'text-teal-800 font-bold' : 'text-gray-600'
+                      }`}
+                    >
+                      Theo người
+                    </Text>
+                  </Pressable>
                 </View>
 
                 <View className="flex-row gap-3">

@@ -11,6 +11,7 @@ import {
   Home,
   LayoutDashboard,
   Layers,
+  MessageCircle,
   MessageSquare,
   Receipt,
   Search,
@@ -31,12 +32,14 @@ export interface NavItemConfig {
 export const PUBLIC_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Trang chủ', path: '/', icon: Home, end: true },
   { label: 'Tìm phòng', path: '/search', icon: Search },
+  { label: 'Ở ghép', path: '/roommates', icon: Users },
   { label: 'Yêu thích', path: '/favorites', icon: Heart },
 ];
 
 export const CUSTOMER_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Trang chủ', path: '/', icon: Home, end: true, group: 'Khám phá & Đặt lịch' },
   { label: 'Tìm phòng & Bản đồ', path: '/search', icon: Search, group: 'Khám phá & Đặt lịch' },
+  { label: 'Ở ghép', path: '/roommates', icon: Users, group: 'Khám phá & Đặt lịch' },
   { label: 'Phòng yêu thích', path: '/favorites', icon: Heart, group: 'Khám phá & Đặt lịch' },
   { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar, group: 'Khám phá & Đặt lịch' },
   { label: 'Lịch sử giao dịch', path: '/transactions', icon: Receipt, group: 'Tài khoản & Giao dịch' },
@@ -49,6 +52,7 @@ export const LANDLORD_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Tổng quan Chủ trọ', path: '/landlord/dashboard', icon: LayoutDashboard, end: true },
   { label: 'Quản lý phòng trọ', path: '/landlord/rooms', icon: Building2 },
   { label: 'Lịch hẹn xem phòng', path: '/landlord/appointments', icon: CalendarCheck },
+  { label: 'Tin nhắn', path: '/landlord/chat', icon: MessageCircle },
   { label: 'Ví & Rút tiền', path: '/landlord/wallet', icon: Wallet },
   { label: 'Đánh giá & Khiếu nại', path: '/landlord/reviews', icon: MessageSquare },
 ];

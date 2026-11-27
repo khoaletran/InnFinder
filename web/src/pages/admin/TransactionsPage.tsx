@@ -23,7 +23,6 @@ import { StatusTabBar } from '@/components/common/StatusTabBar';
 import { MoneyText } from '@/components/common/MoneyText';
 import {
   AdminErrorState,
-  AdminRefreshButton,
   AdminTableSkeleton,
 } from '@/components/common/AdminStates';
 import {
@@ -104,7 +103,6 @@ export const TransactionsPage: React.FC = () => {
   const {
     data: transactions = [],
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -116,8 +114,6 @@ export const TransactionsPage: React.FC = () => {
   const {
     data: treasury,
     isLoading: isTreasuryLoading,
-    isFetching: isTreasuryFetching,
-    refetch: refetchTreasury,
   } = useQuery({
     queryKey: ['admin', 'treasury-stats'],
     queryFn: () => adminService.getTreasuryStats(),
@@ -224,22 +220,6 @@ export const TransactionsPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-7">
-      {/* Title & Refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Sổ cái Giao dịch & Ngân khố
-        </h1>
-
-        <AdminRefreshButton
-          onClick={() => {
-            void refetch();
-            void refetchTreasury();
-          }}
-          isRefreshing={isFetching || isTreasuryFetching}
-          label="Làm mới sổ cái"
-        />
-      </div>
-
       <Card className="rounded-xl border border-border border-t-[3px] border-t-tone-teal-base bg-surface p-4 sm:p-5">
         <Card.Header className="p-0">
           <Card.Title className="flex items-center gap-2 text-[13px] font-semibold text-text-muted">

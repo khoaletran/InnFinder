@@ -13,6 +13,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { RoommateBookingLink } from '@/components/roommate/RoommateCards';
 import { useDepositCountdown } from '@/hooks/useDepositCountdown';
 import { useBookingStore } from '@/store/useBookingStore';
 import type { AppointmentResponse } from '@/types/booking.types';
@@ -225,14 +226,17 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <span>Nộp cọc</span>
             </AppButton>
           ) : item.trangThai === 'HOAN_THANH' ? (
-            <AppButton
-              variant="primary"
-              size="md"
-              onClick={() => navigate(reviewRoute)}
-            >
-              <Star className="w-4 h-4" />
-              <span>Đánh giá</span>
-            </AppButton>
+            <>
+              <RoommateBookingLink id={item.maDatLich} />
+              <AppButton
+                variant="primary"
+                size="md"
+                onClick={() => navigate(reviewRoute)}
+              >
+                <Star className="w-4 h-4" />
+                <span>Đánh giá</span>
+              </AppButton>
+            </>
           ) : item.trangThai === 'XAC_NHAN' || item.trangThai === 'CHO_XAC_NHAN' ? (
             <AppButton
               variant="primary"

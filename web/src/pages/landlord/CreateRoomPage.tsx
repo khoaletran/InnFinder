@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/store/useAuthStore';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
 import { LandlordQueryError } from '@/components/landlord/LandlordQueryError';
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, Chip } from '@heroui/react';
@@ -6,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Check,
-  CheckCircle2,
   Image as ImageIcon,
   Info,
   Link2,
@@ -32,6 +32,7 @@ import type {
 import { formatVND } from '@/utils/formatters';
 import {
   getCachedAddressSuggestions,
+  reverseGeocode,
   searchAddressSuggestions,
   type AddressSuggestion,
 } from '@/utils/geocoding';
@@ -48,6 +49,8 @@ const roomFormSchema = z.object({
   maxPeople: z.number().int('Số người phải là số nguyên').min(1, 'Số người tối thiểu là 1').max(20, 'Số người tối đa là 20'),
   price: z.number().int().positive('Vui lòng nhập giá thuê lớn hơn 0').max(Number.MAX_SAFE_INTEGER, 'Giá thuê quá lớn'),
   contractDeposit: z.number().int().min(0, 'Tiền cọc không được âm').max(Number.MAX_SAFE_INTEGER, 'Tiền cọc quá lớn'),
+  electricityPrice: z.number().int().min(0, 'Giá điện không được âm').max(Number.MAX_SAFE_INTEGER, 'Giá điện quá lớn'),
+  waterPrice: z.number().int().min(0, 'Giá nước không được âm').max(Number.MAX_SAFE_INTEGER, 'Giá nước quá lớn'),
   address: z.string().trim().min(5, 'Vui lòng nhập địa chỉ cụ thể (ít nhất 5 ký tự)'),
   lat: z.number().min(-90, 'Vĩ độ phải từ -90 đến 90').max(90, 'Vĩ độ phải từ -90 đến 90'),
   lng: z.number().min(-180, 'Kinh độ phải từ -180 đến 180').max(180, 'Kinh độ phải từ -180 đến 180'),
@@ -61,6 +64,9 @@ const draftSchema = z.object({
   address: z.string(), lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180),
   selectedAmenityCodes: z.array(z.string()), imageUrls: z.array(z.url()).max(10),
   price: z.string(), contractDeposit: z.string(),
+  electricityPrice: z.string().optional(),
+  waterPrice: z.string().optional(),
+  waterByPerson: z.boolean().optional(),
 });
 
 interface CreateRoomFormProps {
@@ -115,11 +121,16 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
   const [geocodeSuggestions, setGeocodeSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
-  const [geocodedNotice, setGeocodedNotice] = useState<string | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const skipNextForwardGeocodeRef = useRef<boolean>(false);
+  const reverseGeocodeAbortRef = useRef<AbortController | null>(null);
 
   // Tự động tìm kiếm tọa độ thực tế khi gõ địa chỉ
   useEffect(() => {
+    if (skipNextForwardGeocodeRef.current) {
+      skipNextForwardGeocodeRef.current = false;
+      return;
+    }
     const trimmed = address.trim();
     if (trimmed.length < 2) {
       return;
@@ -171,12 +182,12 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   }, []);
 
   const handleSelectAddressSuggestion = (item: AddressSuggestion) => {
+    skipNextForwardGeocodeRef.current = true;
     setAddress(item.fullAddress);
     setLat(item.lat);
     setLng(item.lng);
     setGeocodeSuggestions([]);
     setShowSuggestions(false);
-    setGeocodedNotice(`Đã định vị: ${item.title}`);
     toast.success('Đã cập nhật vị trí trên bản đồ');
   };
 
@@ -210,15 +221,24 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [activeTourId, setActiveTourId] = useState<string | null>(null);
 
-  // Price & Contract Deposit
+  // Price, Contract Deposit & Utilities
   const [price, setPrice] = useState<string>(() => draft?.price ?? String(existingRoom?.giaThue ?? ''));
   const [contractDeposit, setContractDeposit] = useState<string>(() =>
     draft?.contractDeposit ?? String(existingRoom?.cocPhong ?? ''),
   );
+  const [electricityPrice, setElectricityPrice] = useState<string>(() =>
+    draft?.electricityPrice ?? String(existingRoom?.giaDien ?? ''),
+  );
+  const [waterPrice, setWaterPrice] = useState<string>(() =>
+    draft?.waterPrice ?? String(existingRoom?.giaNuoc?.gia ?? ''),
+  );
+  const [waterByPerson, setWaterByPerson] = useState<boolean>(() =>
+    draft?.waterByPerson ?? Boolean(existingRoom?.giaNuoc?.theoNguoi ?? false),
+  );
 
   const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(Boolean(draft));
   const formSnapshot = JSON.stringify({ categoryId, area, maxPeople, description, address, lat, lng,
-    selectedAmenityCodes, imageUrls, price, contractDeposit });
+    selectedAmenityCodes, imageUrls, price, contractDeposit, electricityPrice, waterPrice, waterByPerson });
   const dirty = formSnapshot !== JSON.stringify({
     categoryId: existingRoom?.maLpt ?? categories[0]?.maLpt ?? '',
     area: String(existingRoom?.dienTich ?? 25),
@@ -231,6 +251,9 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
     imageUrls: existingRoom?.danhSachAnh ?? (existingRoom?.hinhAnhUrl ? [existingRoom.hinhAnhUrl] : []),
     price: String(existingRoom?.giaThue ?? ''),
     contractDeposit: String(existingRoom?.cocPhong ?? ''),
+    electricityPrice: String(existingRoom?.giaDien ?? ''),
+    waterPrice: String(existingRoom?.giaNuoc?.gia ?? ''),
+    waterByPerson: Boolean(existingRoom?.giaNuoc?.theoNguoi ?? false),
   });
 
   // Tự động lưu bản nháp ngầm khi người dùng đang nhập
@@ -328,13 +351,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
     },
   });
 
-  const formatCurrencyInput = (val: string) => {
-    if (!val) return '';
-    const digits = val.replace(/\D/g, '');
-    if (!digits) return '';
-    return Number(digits).toLocaleString('vi-VN');
-  };
-
   const handleToggleAmenity = (maTienIch: string) => {
     setSelectedAmenityCodes((prev) =>
       prev.includes(maTienIch)
@@ -399,12 +415,16 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
     const numPrice = Number(price.replace(/\D/g, ''));
     const rawDeposit = contractDeposit.replace(/\D/g, '');
     const numDeposit = rawDeposit !== '' ? Number(rawDeposit) : numPrice;
+    const numElectricity = electricityPrice.replace(/\D/g, '') !== '' ? Number(electricityPrice.replace(/\D/g, '')) : 0;
+    const numWater = waterPrice.replace(/\D/g, '') !== '' ? Number(waterPrice.replace(/\D/g, '')) : 0;
     const result = roomFormSchema.safeParse({
       categoryId,
       area: area.trim() ? Number(area) : 0,
       maxPeople: maxPeople.trim() ? Number(maxPeople) : 0,
       price: numPrice,
       contractDeposit: numDeposit,
+      electricityPrice: numElectricity,
+      waterPrice: numWater,
       address,
       lat,
       lng,
@@ -436,6 +456,11 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
       kinhDo: String(lng),
       viDo: String(lat),
       coc: numDeposit,
+      giaDien: numElectricity,
+      giaNuoc: {
+        gia: numWater,
+        theoNguoi: waterByPerson,
+      },
       dsTienIch: selectedAmenityCodes,
       hinhAnhUrls: imageUrls,
     };
@@ -568,14 +593,12 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     Giá thuê hàng tháng (VNĐ) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <input
-                      type="text"
+                    <CurrencyInput
                       id="room-price"
-                      inputMode="numeric"
                       aria-invalid={Boolean(errors.price)}
                       aria-describedby={errors.price ? 'room-price-error' : undefined}
-                      value={formatCurrencyInput(price)}
-                      onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))}
+                      value={price}
+                      onValueChange={setPrice}
                       placeholder="VD: 3.500.000"
                       className="w-full text-sm p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
                     />
@@ -591,14 +614,12 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     Tiền cọc hợp đồng phòng (VNĐ)
                   </label>
                   <div className="relative">
-                    <input
-                      type="text"
+                    <CurrencyInput
                       id="room-contractDeposit"
-                      inputMode="numeric"
                       aria-invalid={Boolean(errors.contractDeposit)}
                       aria-describedby={errors.contractDeposit ? 'room-contractDeposit-error' : undefined}
-                      value={formatCurrencyInput(contractDeposit)}
-                      onChange={(e) => setContractDeposit(e.target.value.replace(/\D/g, ''))}
+                      value={contractDeposit}
+                      onValueChange={setContractDeposit}
                       placeholder="Mặc định bằng 1 tháng tiền thuê"
                       className="w-full text-sm p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
                     />
@@ -623,6 +644,72 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     ))}
                   </div>
                   {fieldError('contractDeposit')}
+                </div>
+
+                <div>
+                  <label htmlFor="room-electricityPrice" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Giá điện (VNĐ / kWh)
+                  </label>
+                  <div className="relative">
+                    <CurrencyInput
+                      id="room-electricityPrice"
+                      aria-invalid={Boolean(errors.electricityPrice)}
+                      aria-describedby={errors.electricityPrice ? 'room-electricityPrice-error' : undefined}
+                      value={electricityPrice}
+                      onValueChange={setElectricityPrice}
+                      placeholder="VD: 3.500 (0 nếu miễn phí)"
+                      className="w-full text-sm p-3 pr-14 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                      ₫/kWh
+                    </span>
+                  </div>
+                  {fieldError('electricityPrice')}
+                </div>
+
+                <div>
+                  <label htmlFor="room-waterPrice" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Giá nước (VNĐ)
+                  </label>
+                  <div className="relative">
+                    <CurrencyInput
+                      id="room-waterPrice"
+                      aria-invalid={Boolean(errors.waterPrice)}
+                      aria-describedby={errors.waterPrice ? 'room-waterPrice-error' : undefined}
+                      value={waterPrice}
+                      onValueChange={setWaterPrice}
+                      placeholder={waterByPerson ? 'VD: 100.000' : 'VD: 15.000'}
+                      className="w-full text-sm p-3 pr-16 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                      {waterByPerson ? '₫/người' : '₫/m³'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setWaterByPerson(false)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+                        !waterByPerson
+                          ? 'bg-teal-700 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                      }`}
+                    >
+                      Theo số khối (m³)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWaterByPerson(true)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+                        waterByPerson
+                          ? 'bg-teal-700 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                      }`}
+                    >
+                      Theo người
+                    </button>
+                  </div>
+                  {fieldError('waterPrice')}
                 </div>
               </div>
             </Card.Content>
@@ -654,7 +741,6 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     onChange={(e) => {
                       const val = e.target.value;
                       setAddress(val);
-                      setGeocodedNotice(null);
                       if (val.trim().length < 2) {
                         setGeocodeSuggestions([]);
                         setShowSuggestions(false);
@@ -705,22 +791,30 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     ))}
                   </div>
                 )}
-
-                {geocodedNotice && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium mt-2">
-                    <CheckCircle2 className="w-4 h-4 text-teal-700 shrink-0" />
-                    <span>{geocodedNotice}. Bạn có thể kéo ghim trên bản đồ để tinh chỉnh.</span>
-                  </div>
-                )}
               </div>
 
               <MapPicker
                 lat={Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : 10.8012}
                 lng={Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : 106.7145}
-                onChange={(newLat, newLng) => {
+                onChange={async (newLat, newLng) => {
                   setLat(newLat);
                   setLng(newLng);
-                  setGeocodedNotice('Đã ghim vị trí tùy chỉnh trên bản đồ');
+
+                  reverseGeocodeAbortRef.current?.abort();
+                  const controller = new AbortController();
+                  reverseGeocodeAbortRef.current = controller;
+
+                  try {
+                    const resolvedAddress = await reverseGeocode(newLat, newLng, controller.signal);
+                    if (controller.signal.aborted) return;
+                    if (resolvedAddress) {
+                      skipNextForwardGeocodeRef.current = true;
+                      setAddress(resolvedAddress);
+                      setShowSuggestions(false);
+                    }
+                  } catch (err: unknown) {
+                    if (err instanceof DOMException && err.name === 'AbortError') return;
+                  }
                 }}
                 height="280px"
               />

@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Web và mobile truy cập qua Spring Boot. Backend dùng Firestore IAM.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

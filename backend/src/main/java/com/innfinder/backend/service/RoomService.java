@@ -183,6 +183,8 @@ public class RoomService {
                 .kinhDo(request.getKinhDo() != null && !request.getKinhDo().isBlank() ? request.getKinhDo() : "106.6297")
                 .viDo(request.getViDo() != null && !request.getViDo().isBlank() ? request.getViDo() : "10.8231")
                 .cocPhong(request.getCoc() != null ? request.getCoc() : 0L)
+                .giaDien(request.getGiaDien() != null ? request.getGiaDien() : 0L)
+                .giaNuoc(normalizeGiaNuoc(request.getGiaNuoc()))
                 .dsTienIch(dsTienIch)
                 .build();
         // 6. Upload ảnh lên Cloudinary và liên kết với phòng
@@ -241,6 +243,8 @@ public class RoomService {
                 .kinhDo(request.getKinhDo() != null && !request.getKinhDo().isBlank() ? request.getKinhDo() : "106.6297")
                 .viDo(request.getViDo() != null && !request.getViDo().isBlank() ? request.getViDo() : "10.8231")
                 .cocPhong(request.getCoc() != null ? request.getCoc() : 0L)
+                .giaDien(request.getGiaDien() != null ? request.getGiaDien() : 0L)
+                .giaNuoc(normalizeGiaNuoc(request.getGiaNuoc()))
                 .dsTienIch(dsTienIch)
                 .build();
 
@@ -294,6 +298,12 @@ public class RoomService {
         phongTro.setViDo(request.getViDo());
         if (request.getCoc() != null) {
             phongTro.setCocPhong(request.getCoc());
+        }
+        if (request.getGiaDien() != null) {
+            phongTro.setGiaDien(request.getGiaDien());
+        }
+        if (request.getGiaNuoc() != null) {
+            phongTro.setGiaNuoc(normalizeGiaNuoc(request.getGiaNuoc()));
         }
         // Cập nhật danh sách tiện ích
         if (request.getDsTienIch() != null) {
@@ -376,6 +386,19 @@ public class RoomService {
     /* ==============================================================
      * CÁC HÀM TIỆN ÍCH RIÊNG (PRIVATE HELPERS)
      * ============================================================== */
+    /**
+     * Chuẩn hóa giá nước (mặc định 0 VNĐ, tính theo số khối nếu null)
+     */
+    private GiaNuoc normalizeGiaNuoc(GiaNuoc input) {
+        if (input == null) {
+            return GiaNuoc.builder().gia(0L).theoNguoi(false).build();
+        }
+        return GiaNuoc.builder()
+                .gia(input.getGia() != null ? input.getGia() : 0L)
+                .theoNguoi(Boolean.TRUE.equals(input.getTheoNguoi()))
+                .build();
+    }
+
     /**
      * Lấy entity ChuTro từ tài khoản người dùng đang đăng nhập
      */

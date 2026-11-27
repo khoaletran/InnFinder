@@ -20,6 +20,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import { InnFinderLogo } from "../../components/common/InnFinderLogo";
 import { FilterModal } from "../../components/room/FilterModal";
+import { RoommateLanding } from "../../components/roommate/RoommateUI";
 
 const PAGE_SIZE = 10;
 // Danh sách các khu vực trọng điểm tìm trọ
@@ -298,6 +299,7 @@ export default function TenantHomeScreen() {
         </ScrollView>
       </View>
 
+      {!user?.chuTro && <RoommateLanding />}
       {/* 6. Tiêu đề section Phòng gần bạn */}
       <View className="mt-6 px-4 mb-3 flex-row items-center justify-between">
         <Text className="text-lg font-bold text-slate-900">Phòng gần bạn</Text>

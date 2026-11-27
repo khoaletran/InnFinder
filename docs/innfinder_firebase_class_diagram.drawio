@@ -1,0 +1,222 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="Electron" agent="Antigravity InnFinder" version="21.6.8" type="device">
+  <diagram id="innfinder-firebase-class-diagram" name="Class Diagram Firebase RTDB">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1750" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- TITLE -->
+        <mxCell id="title" value="&lt;b style='font-size:16px'&gt;CLASS DIAGRAM — FIREBASE REALTIME DATABASE (INNFINDER)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="610" y="20" width="530" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ENUMS -->
+
+        <!-- TrangThaiBaiOGhep -->
+        <mxCell id="enum_trangthai_bai" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;TrangThaiBaiOGhep&lt;/b&gt;&lt;br&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;DANG_TIM&lt;br&gt;DA_DU_NGUOI&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="250" y="80" width="160" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- GioiTinhUuTien -->
+        <mxCell id="enum_gioitinh_ut" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;GioiTinhUuTien&lt;/b&gt;&lt;br&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;NAM&lt;br&gt;NU&lt;br&gt;KHONG_YEU_CAU&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="250" y="210" width="160" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- TrangThaiDangKy -->
+        <mxCell id="enum_trangthai_dk" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;TrangThaiDangKy&lt;/b&gt;&lt;br&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;CHO_DUYET&lt;br&gt;DA_DUYET&lt;br&gt;TU_CHOI&lt;br&gt;DA_HUY&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="80" width="160" height="115" as="geometry"/>
+        </mxCell>
+
+        <!-- GioiTinhUngVien -->
+        <mxCell id="enum_gioitinh_uv" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;GioiTinhUngVien&lt;/b&gt;&lt;br&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;NAM&lt;br&gt;NU&lt;br&gt;KHAC&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="80" width="150" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- LoaiKenhChat -->
+        <mxCell id="enum_loai_kenh" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;LoaiKenhChat&lt;/b&gt;&lt;br&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;BOOKING&lt;br&gt;ROOMMATE&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="210" width="150" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- CLASSES (CHI HIEN THI FIELD CO TREN FIREBASE RTDB) -->
+
+        <!-- BaiOGhep -->
+        <mxCell id="cls_baioghep" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;BaiOGhep&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- maDatLich: String&lt;br&gt;- maPhongTro: String&lt;br&gt;- loaiPhong: String&lt;br&gt;- anhPhong: String&lt;br&gt;- maNguoiDang: String&lt;br&gt;- tenNguoiDang: String&lt;br&gt;- khuVuc: String&lt;br&gt;- khuVucTim: String&lt;br&gt;- soNguoiCanTim: long&lt;br&gt;- soSlotDaDuyet: long&lt;br&gt;- chiPhiMoiNguoi: long&lt;br&gt;- ngayVaoO: String&lt;br&gt;- moTa: String&lt;br&gt;- gioiTinhUuTien: GioiTinhUuTien&lt;br&gt;- tieuChi: List&amp;lt;String&amp;gt;&lt;br&gt;- giaDien: long&lt;br&gt;- giaNuoc: long&lt;br&gt;- giaNuocTheoNguoi: boolean&lt;br&gt;- viDo: double&lt;br&gt;- kinhDo: double&lt;br&gt;- trangThai: TrangThaiBaiOGhep&lt;br&gt;- taoLuc: long&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ create(bookingId, input): String&lt;br&gt;+ edit(postId, input): void&lt;br&gt;+ close(postId): void&lt;br&gt;+ toString(): String&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="80" width="250" height="415" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhepDangMo -->
+        <mxCell id="cls_dangmo" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;BaiOGhepDangMo&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- baiDangId: String&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ put(bookingId, baiDangId): void&lt;br&gt;+ delete(bookingId): void&lt;br&gt;+ toString(): String&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="380" width="230" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- BinhLuanOGhep -->
+        <mxCell id="cls_binhluan" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;BinhLuanOGhep&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- tenNguoiViet: String&lt;br&gt;- maNguoiViet: String&lt;br&gt;- noiDung: String&lt;br&gt;- guiLuc: long&lt;br&gt;- chuBai: boolean&lt;br&gt;- parentId: String&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ comment(postId, noiDung, parentId): void&lt;br&gt;+ toString(): String&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="590" width="250" height="175" as="geometry"/>
+        </mxCell>
+
+        <!-- DangKyOGhep -->
+        <mxCell id="cls_dangky" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;DangKyOGhep&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- postId: String&lt;br&gt;- maNguoiDangKy: String&lt;br&gt;- tenNguoiDangKy: String&lt;br&gt;- sdtLienHe: String&lt;br&gt;- gioiTinh: GioiTinhUngVien&lt;br&gt;- ngheNghiep: String&lt;br&gt;- loiNhan: String&lt;br&gt;- trangThai: TrangThaiDangKy&lt;br&gt;- lyDoTuChoi: String&lt;br&gt;- guiLuc: long&lt;br&gt;- xuLyLuc: long&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ apply(postId, input): Application&lt;br&gt;+ approve(postId, appId): Application&lt;br&gt;+ reject(postId, appId, lyDo): Application&lt;br&gt;+ cancel(postId, appId): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="810" y="250" width="260" height="260" as="geometry"/>
+        </mxCell>
+
+        <!-- DangKyCuaToi -->
+        <mxCell id="cls_dangkycuatoi" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;DangKyCuaToi&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- postId: String&lt;br&gt;- khuVuc: String&lt;br&gt;- loaiPhong: String&lt;br&gt;- anhPhong: String&lt;br&gt;- chiPhiMoiNguoi: long&lt;br&gt;- trangThai: TrangThaiDangKy&lt;br&gt;- lyDoTuChoi: String&lt;br&gt;- guiLuc: long&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ myApplications(userId): List&amp;lt;MyApplication&amp;gt;&lt;br&gt;+ toString(): String&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="810" y="610" width="260" height="205" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatChannel -->
+        <mxCell id="cls_chatchannel" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;ChatChannel&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- meta: ChatMeta&lt;br&gt;- messages: Map&amp;lt;String, ChatMessage&amp;gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ getConversations(scope): List&lt;br&gt;+ getThread(type, contextId): ChatThreadDto&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="210" width="230" height="125" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatMeta -->
+        <mxCell id="cls_chatmeta" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;ChatMeta&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- contextType: LoaiKenhChat&lt;br&gt;- contextId: String&lt;br&gt;- title: String&lt;br&gt;- authorId: String&lt;br&gt;- applicantId: String&lt;br&gt;- lastMessage: String&lt;br&gt;- lastSenderName: String&lt;br&gt;- updatedAt: String&lt;br&gt;- updatedAtMs: long&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ patchMeta(channelId, meta): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="380" width="230" height="205" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatMessage -->
+        <mxCell id="cls_chatmsg" value="&lt;p style='margin:0px;margin-top:4px;text-align:center;'&gt;&lt;b&gt;ChatMessage&lt;/b&gt;&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;- senderId: String&lt;br&gt;- senderName: String&lt;br&gt;- senderAvatar: String&lt;br&gt;- content: String&lt;br&gt;- createdAt: String&lt;br&gt;- createdAtMs: long&lt;/p&gt;&lt;hr size='1'/&gt;&lt;p style='margin:0px;margin-left:6px;text-align:left;'&gt;+ sendMessage(type, contextId, content): ChatMessageDto&lt;br&gt;+ toString(): String&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=11;fontFamily=Times New Roman;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="610" width="275" height="175" as="geometry"/>
+        </mxCell>
+
+        <!-- ASSOCIATIONS & MULTIPLICITIES -->
+
+        <!-- BaiOGhep to TrangThaiBaiOGhep -->
+        <mxCell id="rel_bai_tt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="enum_trangthai_bai" target="cls_baioghep">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhep to GioiTinhUuTien -->
+        <mxCell id="rel_bai_gt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="enum_gioitinh_ut" target="cls_baioghep">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhep 1 to 0..1 BaiOGhepDangMo -->
+        <mxCell id="rel_bai_dangmo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_dangmo" target="cls_baioghep">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_dangmo_1" value="0..1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="355" y="418" width="30" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_bai_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="448" y="418" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhep 1 to 0..* BinhLuanOGhep -->
+        <mxCell id="rel_bai_bl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_binhluan" target="cls_baioghep">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="530" y="677"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m_bl_many" value="0..*" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="375" y="655" width="30" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_bai_bl_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="510" y="498" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- BinhLuanOGhep self-reply 0..1 to 0..* -->
+        <mxCell id="rel_bl_self" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_binhluan" target="cls_binhluan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="640"/>
+              <mxPoint x="80" y="715"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m_bl_parent" value="0..1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="92" y="620" width="30" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_bl_replies" value="0..*" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="92" y="717" width="30" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhep 1 to 0..* DangKyOGhep -->
+        <mxCell id="rel_bai_dk" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_baioghep" target="cls_dangky">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_bai_dk_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="722" y="348" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_dk_many" value="0..*" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="782" y="348" width="30" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- DangKyOGhep to TrangThaiDangKy -->
+        <mxCell id="rel_dk_tt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="enum_trangthai_dk" target="cls_dangky">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- DangKyOGhep to GioiTinhUngVien -->
+        <mxCell id="rel_dk_gt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="enum_gioitinh_uv" target="cls_dangky">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- DangKyOGhep 1 to 1 DangKyCuaToi -->
+        <mxCell id="rel_dk_dkct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_dangky" target="cls_dangkycuatoi">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_dk_1a" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="945" y="513" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_dk_1b" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="945" y="588" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- BaiOGhep 1 to 0..* ChatChannel (ROOMMATE context) -->
+        <mxCell id="rel_bai_chat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;dashed=1;" edge="1" parent="1" source="cls_baioghep" target="cls_chatchannel">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="750" y="210"/>
+              <mxPoint x="750" y="55"/>
+              <mxPoint x="1285" y="55"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m_chat_ctx" value="0..*" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="185" width="30" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatChannel 1 to 1 ChatMeta -->
+        <mxCell id="rel_chat_meta" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_chatchannel" target="cls_chatmeta">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1285" y="450"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m_ch_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="338" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_meta_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="430" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatMeta to LoaiKenhChat -->
+        <mxCell id="rel_meta_loai" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="enum_loai_kenh" target="cls_chatmeta">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatChannel 1 to 0..* ChatMessage -->
+        <mxCell id="rel_chat_msg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1" source="cls_chatchannel" target="cls_chatmsg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1240" y="550"/>
+              <mxPoint x="1240" y="550"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m_ch_msg_1" value="1" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="338" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m_msg_many" value="0..*" style="text;html=1;fontSize=10;fontFamily=Times New Roman;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1245" y="585" width="30" height="20" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

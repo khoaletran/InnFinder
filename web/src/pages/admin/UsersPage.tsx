@@ -26,7 +26,6 @@ import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import {
   AdminErrorState,
-  AdminRefreshButton,
   AdminTableSkeleton,
 } from '@/components/common/AdminStates';
 import { formatDateTime } from '@/utils/formatters';
@@ -103,7 +102,6 @@ export const UsersPage: React.FC = () => {
   const {
     data: usersPage,
     isLoading: isLoadingUsers,
-    isFetching: isFetchingUsers,
     isError: isErrorUsers,
     error: errorUsers,
     refetch: refetchUsers,
@@ -116,7 +114,6 @@ export const UsersPage: React.FC = () => {
   const {
     data: landlordRequests = [],
     isLoading: isLoadingRequests,
-    isFetching: isFetchingRequests,
     isError: isErrorRequests,
     error: errorRequests,
     refetch: refetchRequests,
@@ -124,13 +121,6 @@ export const UsersPage: React.FC = () => {
     queryKey: ['admin', 'landlord-requests'],
     queryFn: () => adminService.getLandlordRequests(),
   });
-
-  const handleRefresh = () => {
-    if (hasSearchQuery) {
-      void refetchUsers();
-    }
-    void refetchRequests();
-  };
 
   const toggleLockMutation = useMutation({
     mutationFn: (userItem: AdminUserItem) => adminService.toggleLockUser(userItem.maNguoiDung),
@@ -270,13 +260,8 @@ export const UsersPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
-      {/* Title & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Quản lý Tài khoản & Phân quyền
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Tab Switcher & Actions */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex rounded-lg bg-surface-muted p-1 text-xs gap-1">
             <button
               type="button"
@@ -307,11 +292,6 @@ export const UsersPage: React.FC = () => {
             </button>
           </div>
 
-          <AdminRefreshButton
-            onClick={handleRefresh}
-            isRefreshing={isFetchingUsers || isFetchingRequests}
-          />
-
           <button
             type="button"
             onClick={() => {
@@ -323,7 +303,6 @@ export const UsersPage: React.FC = () => {
             <UserPlus className="w-3.5 h-3.5" />
             Thêm Quản trị viên
           </button>
-        </div>
       </div>
 
       {activeTab === 'USERS' ? (

@@ -31,6 +31,7 @@ export type AuthMode = 'login' | 'register';
 
 interface AuthMapPortalProps {
   initialMode?: AuthMode;
+  roommatePostId?: string;
 }
 
 // Chiều cao mặc định khi thu gọn về kích thước Box Login / Bản đồ
@@ -69,6 +70,7 @@ const InnFinderPinIcon: React.FC<{ size?: number }> = ({ size = 48 }) => (
 
 export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
   initialMode = 'login',
+  roommatePostId,
 }) => {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -413,6 +415,8 @@ export const AuthMapPortal: React.FC<AuthMapPortalProps> = ({
 
       if (profile.vaiTro === 'QUAN_TRI' || authRes.vaiTro === 'QUAN_TRI') {
         router.replace('/(admin)');
+      } else if (roommatePostId) {
+        router.replace({ pathname: '/roommates/[id]', params: { id: roommatePostId } });
       } else if (profile.chuTro) {
         router.replace('/(landlord)');
       } else {

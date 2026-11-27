@@ -13,6 +13,8 @@ package com.innfinder.backend.dto.room;
  * @version: 1.0
  * @created: 11/5/2026 10:28 PM
  */
+import com.innfinder.backend.entity.GiaNuoc;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -42,6 +44,10 @@ public class RoomUpdateRequest {
     private String viDo;
     @Min(value = 0, message = "Tiền cọc phòng phải lớn hơn hoặc bằng 0")
     private Long coc;
+    @Min(value = 0, message = "Giá điện phải lớn hơn hoặc bằng 0")
+    private Long giaDien;
+    @Valid
+    private GiaNuoc giaNuoc;
     @com.fasterxml.jackson.annotation.JsonAlias("dsMaTienIch")
     private List<String> dsTienIch;
     private List<String> hinhAnhUrls;

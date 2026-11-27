@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, Chip, Spinner } from '@heroui/react';
-import { Eye, Clock, MapPin, RefreshCw, CalendarCheck, Search } from 'lucide-react';
+import { Eye, Clock, MapPin, CalendarCheck, Search } from 'lucide-react';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { formatVND, formatDateTime } from '@/utils/formatters';
@@ -27,8 +27,6 @@ export const ViewingsPage: React.FC = () => {
   const {
     data: appointments = [],
     isLoading,
-    isFetching,
-    refetch,
   } = useQuery({
     queryKey: ['admin', 'monitored-viewings', submittedKeyword],
     queryFn: () => adminService.getMonitoredViewings(submittedKeyword),
@@ -81,30 +79,6 @@ export const ViewingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Giám sát Lịch xem & Cọc giữ chân
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Tra cứu phiếu đặt lịch theo mã hẹn, mã phòng, mã người thuê, mã chủ trọ hoặc SĐT 2 bên
-          </p>
-        </div>
-
-        {hasSearchQuery && (
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isFetching ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
-        )}
-      </div>
-
       {/* Search & Filter */}
       <Card className="bg-surface rounded-xl border border-border overflow-hidden p-0">
         <Card.Header className="p-4 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-3">

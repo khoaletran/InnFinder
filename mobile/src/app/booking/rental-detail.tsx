@@ -16,12 +16,9 @@ import { Chip } from "heroui-native";
 
 import { RentalTimeline } from "../../components/booking/RentalTimeline";
 import { CancelReasonModal } from "../../components/booking/CancelReasonModal";
+import { RoommateBookingButton } from "../../components/roommate/RoommateUI";
 import { useBookingStore } from "../../store/useBookingStore";
 import { landlordService } from "../../services/landlord.service";
-import {
-  getCurrentLocationWithDistance,
-  MAX_CONFIRM_DEPOSIT_DISTANCE_METERS,
-} from "../../utils/location";
 
 const formatCurrency = (amount?: number): string => {
   if (!amount) return "0 đ";
@@ -57,22 +54,11 @@ export default function RentalDetailScreen() {
   const [isCanceling, setIsCanceling] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isConfirmingRental, setIsConfirmingRental] = useState(false);
-  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
 
-  // Tự động tải lại khi vào màn hình và thiết lập Smart Polling mỗi 8 giây
+  // Tự động tải lại khi vào màn hình (Focus)
   useFocusEffect(
     useCallback(() => {
-      // 1. Tải mới dữ liệu khi vào màn hình
       fetchAppointments(false);
-
-      // 2. Polling ngầm mỗi 3 giây để cập nhật trạng thái nếu chủ trọ phê duyệt hoặc có biến động
-      const interval = setInterval(() => {
-        fetchAppointments(true);
-      }, 8000);
-
-      return () => {
-        clearInterval(interval);
-      };
     }, [fetchAppointments])
   );
 
@@ -394,62 +380,30 @@ export default function RentalDetailScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                disabled={isCheckingLocation}
-                onPress={async () => {
-                  setIsCheckingLocation(true);
-                  try {
-                    const loc = await getCurrentLocationWithDistance(
-                      item.viDoPhong,
-                      item.kinhDoPhong,
-                    );
-                    if (
-                      loc.distanceMeters !== null &&
-                      loc.distanceMeters > MAX_CONFIRM_DEPOSIT_DISTANCE_METERS
-                    ) {
-                      Alert.alert(
-                        "Ngoài phạm vi cho phép",
-                        `Bạn đang cách phòng trọ khoảng ${Math.round(loc.distanceMeters)}m. Vui lòng di chuyển vào phạm vi ${MAX_CONFIRM_DEPOSIT_DISTANCE_METERS}m quanh phòng trọ để xác nhận nhận lại cọc.`,
-                      );
-                      return;
-                    }
-                    const distanceNote =
-                      loc.distanceMeters !== null
-                        ? `\n\n(Đã xác thực vị trí: cách phòng ~${Math.round(loc.distanceMeters)}m)`
-                        : "";
-                    Alert.alert(
-                      "Xác nhận nhận lại cọc",
-                      `Chủ trọ đã hoàn trả 100% tiền cọc trực tiếp cho bạn khi gặp xem phòng chưa?${distanceNote}`,
-                      [
-                        { text: "Chưa nhận", style: "cancel" },
-                        {
-                          text: "Đã nhận đủ",
-                          onPress: async () => {
-                            const res = await confirmReceivedDeposit(item.maDatLich, {
-                              viDo: loc.viDo,
-                              kinhDo: loc.kinhDo,
-                            });
-                            if (res.success) {
-                              Alert.alert("Thành công", "Bạn đã xác nhận nhận lại cọc! Bây giờ bạn có thể quyết định thuê hoặc không thuê.");
-                            } else {
-                              Alert.alert("Lỗi", res.message || "Xác nhận thất bại");
-                            }
-                          },
+                onPress={() => {
+                  Alert.alert(
+                    "Xác nhận nhận lại cọc",
+                    "Chủ trọ đã hoàn trả 100% tiền cọc trực tiếp cho bạn khi gặp xem phòng chưa?",
+                    [
+                      { text: "Chưa nhận", style: "cancel" },
+                      {
+                        text: "Đã nhận đủ",
+                        onPress: async () => {
+                          const res = await confirmReceivedDeposit(item.maDatLich);
+                          if (res.success) {
+                            Alert.alert("Thành công", "Bạn đã xác nhận nhận lại cọc! Bây giờ bạn có thể quyết định thuê hoặc không thuê.");
+                          } else {
+                            Alert.alert("Lỗi", res.message || "Xác nhận thất bại");
+                          }
                         },
-                      ],
-                    );
-                  } catch (err: any) {
-                    Alert.alert(
-                      "Không thể xác thực vị trí",
-                      err?.message || "Vui lòng bật GPS để xác nhận nhận lại cọc.",
-                    );
-                  } finally {
-                    setIsCheckingLocation(false);
-                  }
+                      },
+                    ]
+                  );
                 }}
                 className="flex-1 py-3 rounded-xl bg-emerald-600 items-center justify-center"
               >
                 <Text className="text-sm font-bold text-white">
-                  {isCheckingLocation ? "Đang kiểm tra vị trí..." : "Đã nhận lại cọc từ Chủ trọ"}
+                  Đã nhận lại cọc từ Chủ trọ
                 </Text>
               </TouchableOpacity>
             </>
@@ -527,7 +481,9 @@ export default function RentalDetailScreen() {
           </>
         ) : item.trangThai === "HOAN_THANH" ? (
           /* Nếu đã hoàn tất: Nút Đánh giá phòng hoặc Xem đánh giá */
-          <>
+          <View className="flex-1 gap-2">
+            <RoommateBookingButton id={item.maDatLich} />
+            <View className="flex-row gap-2">
             <TouchableOpacity
               onPress={handleCallLandlord}
               className="flex-1 py-3 rounded-xl border border-slate-300 bg-white items-center justify-center"
@@ -555,7 +511,8 @@ export default function RentalDetailScreen() {
                 {isReviewed ? "Xem đánh giá" : "Đánh giá phòng"}
               </Text>
             </TouchableOpacity>
-          </>
+            </View>
+          </View>
         ) : (
           /* Trạng thái CHO_XAC_NHAN hoặc HUY */
           <>

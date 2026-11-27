@@ -1,3 +1,5 @@
+import type { GiaNuoc } from './room.types';
+
 export interface LandlordDashboardStats {
   tongPhong: number;
   phongChoDuyet: number;
@@ -110,6 +112,8 @@ export interface CreateRoomStep1Data {
   maLPT: string;
   giaThue: number;
   cocPhong: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   soNguoi: number;
   diaChi?: string;

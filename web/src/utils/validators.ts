@@ -206,3 +206,27 @@ export const createAdminSchema = z
     message: 'Mật khẩu xác nhận không trùng khớp',
     path: ['xacNhanMatKhau'],
   });
+
+export const roommateFormSchema = z.object({
+  khuVuc: z.string().trim().min(1, 'Vui lòng nhập khu vực').max(100),
+  soNguoiCanTim: z.number().int().min(1, 'Cần ít nhất 1 người').max(20),
+  chiPhiMoiNguoi: z.number().int().min(0, 'Chi phí không hợp lệ').max(100000000),
+  ngayVaoO: z.iso.date('Vui lòng chọn ngày có thể vào ở'),
+  moTa: z.string().trim().min(1, 'Vui lòng nhập mô tả').max(1500),
+  gioiTinhUuTien: z.enum(['NAM', 'NU', 'KHONG_YEU_CAU']).default('KHONG_YEU_CAU'),
+  tieuChi: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+  giaDien: z.number().int().min(0, 'Giá điện không hợp lệ').max(1000000).optional(),
+  giaNuoc: z.number().int().min(0, 'Giá nước không hợp lệ').max(1000000).optional(),
+  giaNuocTheoNguoi: z.boolean().optional(),
+});
+
+export const roommateApplySchema = z.object({
+  sdtLienHe: z.string().trim().regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 số, bắt đầu bằng 0'),
+  gioiTinh: z.enum(['NAM', 'NU', 'KHAC']),
+  ngheNghiep: z.string().trim().min(1, 'Vui lòng nhập nghề nghiệp hoặc trường học').max(80),
+  loiNhan: z.string().trim().min(1, 'Vui lòng giới thiệu ngắn về bản thân').max(500),
+});
+
+export const roommateCommentSchema = z.string().trim().min(1, 'Vui lòng nhập bình luận').max(1000);
+export type RoommateInput = z.infer<typeof roommateFormSchema>;
+export type RoommateApplyInput = z.infer<typeof roommateApplySchema>;

@@ -1,6 +1,6 @@
 import type { MucDoViPham, TrangThaiKhieuNai } from './auth-user.types';
 import type { TrangThaiDatLich } from './booking.types';
-import type { TrangThaiPhongTro } from './room.types';
+import type { GiaNuoc, TrangThaiPhongTro } from './room.types';
 import type { TransactionResponse } from './transaction.types';
 
 export type { TrangThaiPhongTro };
@@ -24,6 +24,8 @@ export interface LandlordRoomItem {
   tenPhong: string;
   giaThue: number;
   cocPhong?: number;
+  giaDien?: number;
+  giaNuoc?: GiaNuoc;
   dienTich: number;
   soNguoi?: number;
   trangThai: TrangThaiPhongTro;
@@ -52,6 +54,8 @@ export interface RoomCreatePayload {
   kinhDo: string;
   viDo: string;
   coc: number;
+  giaDien: number;
+  giaNuoc: GiaNuoc;
   dsTienIch: string[];
   hinhAnhUrls: string[];
 }

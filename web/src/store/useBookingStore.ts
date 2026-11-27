@@ -30,7 +30,6 @@ interface BookingState {
   ) => Promise<{ success: boolean; message?: string }>;
   confirmReceivedDeposit: (
     maDatLich: string,
-    coords: { viDo: number; kinhDo: number },
   ) => Promise<{ success: boolean; message?: string }>;
   submitCustomerDecision: (
     maDatLich: string,
@@ -151,12 +150,9 @@ export const useBookingStore = create<BookingState>()(
         }
       },
 
-      confirmReceivedDeposit: async (
-        maDatLich: string,
-        coords: { viDo: number; kinhDo: number },
-      ) => {
+      confirmReceivedDeposit: async (maDatLich: string) => {
         try {
-          const updated = await appointmentService.confirmReceivedDeposit(maDatLich, coords);
+          const updated = await appointmentService.confirmReceivedDeposit(maDatLich);
           set((state) => ({
             appointments: state.appointments.map((item) =>
               item.maDatLich === maDatLich

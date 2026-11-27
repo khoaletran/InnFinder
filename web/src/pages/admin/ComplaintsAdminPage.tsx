@@ -8,7 +8,6 @@ import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import {
   AdminErrorState,
-  AdminRefreshButton,
   AdminTableSkeleton,
 } from '@/components/common/AdminStates';
 import { formatDateTime, formatVND } from '@/utils/formatters';
@@ -37,7 +36,6 @@ export const ComplaintsAdminPage: React.FC = () => {
   const {
     data: complaints = [],
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -174,19 +172,6 @@ export const ComplaintsAdminPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-text tracking-[-0.01em]">
-          Xử lý Khiếu nại & Vi phạm
-        </h1>
-
-        <AdminRefreshButton
-          onClick={() => void refetch()}
-          isRefreshing={isFetching}
-          label="Làm mới danh sách"
-        />
-      </div>
-
       {/* Filter Tabs */}
       <StatusTabBar
         ariaLabel="Lọc khiếu nại theo trạng thái"

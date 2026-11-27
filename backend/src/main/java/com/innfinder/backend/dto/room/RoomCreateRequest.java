@@ -13,6 +13,8 @@ package com.innfinder.backend.dto.room;
  * @version: 1.0
  * @created: 11/5/2026 10:28 PM
  */
+import com.innfinder.backend.entity.GiaNuoc;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.util.List;
@@ -41,6 +43,12 @@ public class RoomCreateRequest {
     @Min(value = 0, message = "Tiền cọc phòng phải lớn hơn hoặc bằng 0")
     @Builder.Default
     private Long coc = 0L;
+    @Min(value = 0, message = "Giá điện phải lớn hơn hoặc bằng 0")
+    @Builder.Default
+    private Long giaDien = 0L;
+    @Valid
+    @Builder.Default
+    private GiaNuoc giaNuoc = new GiaNuoc();
     // Danh sách mã tiện ích (ví dụ: ["TI0001", "TI0002"])
     @com.fasterxml.jackson.annotation.JsonAlias("dsMaTienIch")
     private List<String> dsTienIch;

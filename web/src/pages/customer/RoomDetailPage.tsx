@@ -18,7 +18,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { RoomMap } from '@/components/map/RoomMap';
+import { CommuteDistancePanel } from '@/components/room/CommuteDistancePanel';
 import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
 import { roomService } from '@/services/room.service';
 import { tour360Service } from '@/services/tour360.service';
@@ -397,16 +397,7 @@ export const RoomDetailPage: React.FC = () => {
               </div>
 
               {roomCoords ? (
-                <div className="h-72 rounded-2xl overflow-hidden border border-slate-200">
-                  <RoomMap
-                    key={room.maPhongTro}
-                    rooms={[roomMapSummary]}
-                    selectedRoom={roomMapSummary}
-                    interactivePreview={false}
-                    markerStyle="brand"
-                    showRadiusBadge={false}
-                  />
-                </div>
+                <CommuteDistancePanel roomCoords={roomCoords} roomMapSummary={roomMapSummary} />
               ) : (
                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
                   Phòng này chưa cập nhật tọa độ bản đồ.
@@ -471,6 +462,22 @@ export const RoomDetailPage: React.FC = () => {
                   <div className="flex justify-between text-slate-600">
                     <span>Cọc hợp đồng:</span>
                     <strong className="text-slate-900">{formatVND(contractDeposit)}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Giá điện:</span>
+                    <strong className="text-slate-900">
+                      {room.giaDien && room.giaDien > 0
+                        ? `${formatVND(room.giaDien)} / kWh`
+                        : 'Thỏa thuận'}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Giá nước:</span>
+                    <strong className="text-slate-900">
+                      {room.giaNuoc && room.giaNuoc.gia > 0
+                        ? `${formatVND(room.giaNuoc.gia)} / ${room.giaNuoc.theoNguoi ? 'người' : 'm³'}`
+                        : 'Thỏa thuận'}
+                    </strong>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Phí dịch vụ khách thuê:</span>

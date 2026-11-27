@@ -13,6 +13,15 @@ export interface MapBounds {
   west: number;
 }
 
+export interface MapDestination {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  color?: string;
+  routeCoords?: [number, number][];
+}
+
 export interface RoomMapProps {
   rooms: RoomSummaryResponse[];
   selectedRoom?: RoomSummaryResponse | null;
@@ -37,6 +46,9 @@ export interface RoomMapProps {
   onViewportChange?: (viewport: { lat: number; lng: number; zoom: number }) => void;
   onBoundsChange?: (bounds: MapBounds) => void;
   focusTarget?: { lat: number; lng: number; zoom?: number; seq: number } | null;
+  destinations?: MapDestination[];
+  activeDestinationId?: string | null;
+  onSelectDestination?: (id: string) => void;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -63,10 +75,14 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   onViewportChange,
   onBoundsChange,
   focusTarget = null,
+  destinations = [],
+  activeDestinationId = null,
+  onSelectDestination,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const routesLayerRef = useRef<L.LayerGroup | null>(null);
   const circleLayerRef = useRef<L.Circle | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const pickedCircleRef = useRef<L.Circle | null>(null);
@@ -127,6 +143,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
+    const routesLayer = L.layerGroup().addTo(map);
+    routesLayerRef.current = routesLayer;
     mapInstanceRef.current = map;
 
     map.on('click', (e: L.LeafletMouseEvent) => {
@@ -491,12 +509,91 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   // 7. Lướt bản đồ khi người dùng chọn phòng từ danh sách
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !selectedRoom) return;
+    if (!map || !selectedRoom || destinations.length > 0) return;
     const coords = getValidCoords(selectedRoom);
     if (coords) {
       map.panTo([coords.lat, coords.lng], { animate: true, duration: 0.6 });
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, destinations.length]);
+
+  // 8. Hiển thị các điểm đến & tuyến đường thực tế từ phòng trọ
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const routesLayer = routesLayerRef.current;
+    if (!map || !routesLayer) return;
+
+    routesLayer.clearLayers();
+    if (destinations.length === 0) return;
+
+    const boundsPoints: L.LatLngExpression[] = [];
+    const roomCoords = selectedRoom ? getValidCoords(selectedRoom) : null;
+    if (roomCoords) {
+      boundsPoints.push([roomCoords.lat, roomCoords.lng]);
+    }
+
+    destinations.forEach((dest, index) => {
+      const color = dest.color || '#2563eb';
+      const isActive = dest.id === activeDestinationId || destinations.length === 1;
+
+      if (dest.routeCoords && dest.routeCoords.length >= 2) {
+        const line = L.polyline(dest.routeCoords, {
+          color,
+          weight: isActive ? 5 : 3,
+          opacity: isActive ? 0.9 : 0.35,
+          dashArray: isActive ? undefined : '6 6',
+        });
+        routesLayer.addLayer(line);
+        if (isActive) {
+          dest.routeCoords.forEach((pt) => boundsPoints.push(pt));
+        }
+      }
+
+      const iconHtml = `
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 9999px;
+          background: ${color};
+          color: #ffffff;
+          border: 2.5px solid #ffffff;
+          box-shadow: 0 4px 10px rgba(15, 23, 42, 0.28);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 800;
+          transform: ${isActive ? 'scale(1.12)' : 'scale(0.95)'};
+        ">${index + 1}</div>
+      `;
+
+      const destMarker = L.marker([dest.lat, dest.lng], {
+        icon: L.divIcon({
+          className: 'innfinder-dest-pin',
+          html: iconHtml,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        }),
+        zIndexOffset: isActive ? 600 : 300,
+      }).bindTooltip(dest.label, { direction: 'top', offset: [0, -14] });
+
+      if (onSelectDestination) {
+        destMarker.on('click', () => onSelectDestination(dest.id));
+      }
+
+      routesLayer.addLayer(destMarker);
+      if (isActive || !activeDestinationId) {
+        boundsPoints.push([dest.lat, dest.lng]);
+      }
+    });
+
+    if (boundsPoints.length >= 2) {
+      map.fitBounds(L.latLngBounds(boundsPoints), {
+        padding: [36, 36],
+        maxZoom: 15,
+        animate: true,
+      });
+    }
+  }, [destinations, activeDestinationId, selectedRoom, onSelectDestination]);
 
   const previewImage =
     selectedRoom?.anhDaiDien ||

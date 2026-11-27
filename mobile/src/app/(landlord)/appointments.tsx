@@ -65,18 +65,10 @@ export default function AppointmentsScreen() {
     }
   }, []);
 
-  // Tự động tải lại mỗi khi màn hình được Focus / hiển thị lại và polling ngầm 8s
+  // Tự động tải lại mỗi khi màn hình được Focus / hiển thị lại
   useFocusEffect(
     useCallback(() => {
       loadAppointments(false, false);
-
-      const interval = setInterval(() => {
-        loadAppointments(false, true);
-      }, 8000);
-
-      return () => {
-        clearInterval(interval);
-      };
     }, [loadAppointments])
   );
 

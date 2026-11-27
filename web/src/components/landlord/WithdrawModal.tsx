@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
 import { AlertCircle, ArrowRight, Landmark, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/common/Modal';
@@ -157,11 +158,9 @@ const WithdrawModalContent: React.FC<Omit<WithdrawModalProps, 'isOpen'>> = ({
             Số tiền muốn rút (VNĐ) <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <input
-              type="text"
-              value={amount ? Number(amount.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/\D/g, '');
+            <CurrencyInput
+              value={amount}
+              onValueChange={(raw) => {
                 setAmount(raw);
                 if (error) setError('');
               }}

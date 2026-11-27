@@ -5,16 +5,19 @@ import {
   Building2,
   Calendar,
   ChevronDown,
+  ClipboardList,
   Heart,
   Home,
   LogIn,
   LogOut,
+  MessageCircle,
   PlusCircle,
   Receipt,
   Search,
   Shield,
   User,
   UserPlus,
+  Users,
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -25,6 +28,9 @@ import { Footer } from '@/components/common/Footer';
 import { InnFinderLogo } from '@/components/common/InnFinderLogo';
 import { RouteLoadingOverlay } from '@/components/common/RouteLoadingOverlay';
 import { NotificationModal } from '@/components/notification/NotificationModal';
+import { ChatDrawer } from '@/components/chat/ChatDrawer';
+import { ChatInboxModal } from '@/components/chat/ChatInboxModal';
+import type { ChatConversationSummary } from '@/services/directChat.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -42,6 +48,8 @@ export const CustomerLayout: React.FC = () => {
 
   const [navSearch, setNavSearch] = useState('');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isChatInboxOpen, setIsChatInboxOpen] = useState(false);
+  const [activeHeaderChat, setActiveHeaderChat] = useState<ChatConversationSummary | null>(null);
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +87,10 @@ export const CustomerLayout: React.FC = () => {
   const isSearchPage = location.pathname.startsWith('/search');
   const isMapSearchPage = location.pathname.startsWith('/search/map');
   const isDiscoveryRoute =
-    isHomePage || isSearchPage || location.pathname.startsWith('/room/');
+    isHomePage ||
+    isSearchPage ||
+    location.pathname.startsWith('/room/') ||
+    location.pathname === '/roommates';
 
   const showHeaderSearch = !isSearchPage && !isHomePage;
 
@@ -96,11 +107,13 @@ export const CustomerLayout: React.FC = () => {
     ? [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
         { label: 'Tìm phòng', path: searchPath, icon: Search },
+        { label: 'Tìm người ở ghép', path: '/roommates', icon: Users },
         { label: 'Yêu thích', path: '/favorites', icon: Heart },
       ]
     : [
         { label: 'Trang chủ', path: '/', icon: Home, end: true },
         { label: 'Tìm phòng', path: searchPath, icon: Search },
+        ...(!isChuTro ? [{ label: 'Tìm người ở ghép', path: '/roommates', icon: Users }] : []),
         { label: 'Yêu thích', path: '/favorites', icon: Heart },
         { label: 'Lịch xem phòng', path: '/appointments', icon: Calendar },
       ];
@@ -200,15 +213,7 @@ export const CustomerLayout: React.FC = () => {
                       <span>Đăng phòng</span>
                     </Link>
                   </div>
-                ) : (
-                  <Link
-                    to="/profile?tab=upgrade"
-                    className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 text-xs font-semibold transition-colors whitespace-nowrap"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Trở thành Chủ trọ</span>
-                  </Link>
-                )}
+                ) : null}
                 <div className="relative">
                   <button
                     type="button"
@@ -230,6 +235,32 @@ export const CustomerLayout: React.FC = () => {
                   <NotificationModal
                     isOpen={isNotificationModalOpen}
                     onClose={() => setIsNotificationModalOpen(false)}
+                  />
+                </div>
+
+                {/* Icon Chat giữa Thông báo và Avatar */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNotificationModalOpen(false);
+                      setIsChatInboxOpen((prev) => !prev);
+                    }}
+                    className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                      isChatInboxOpen
+                        ? 'bg-teal-50 text-teal-700'
+                        : 'text-slate-600 hover:text-teal-700 hover:bg-slate-100'
+                    }`}
+                    title="Tin nhắn"
+                    aria-label="Xem tin nhắn mới nhất"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                  </button>
+
+                  <ChatInboxModal
+                    isOpen={isChatInboxOpen}
+                    onClose={() => setIsChatInboxOpen(false)}
+                    onSelectConversation={(conv) => setActiveHeaderChat(conv)}
                   />
                 </div>
 
@@ -303,6 +334,16 @@ export const CustomerLayout: React.FC = () => {
                               <Receipt className="w-4 h-4 text-slate-500" />
                               <span>Lịch sử giao dịch</span>
                             </Link>
+                            {!isChuTro && (
+                              <Link
+                                to="/roommates/my-applications"
+                                onClick={() => setIsAvatarMenuOpen(false)}
+                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                              >
+                                <ClipboardList className="w-4 h-4 text-slate-500" />
+                                <span>Đơn ở ghép của tôi</span>
+                              </Link>
+                            )}
                             <Link
                               to="/profile"
                               onClick={() => setIsAvatarMenuOpen(false)}
@@ -418,6 +459,14 @@ export const CustomerLayout: React.FC = () => {
       {(location.pathname === '/' || location.pathname === '/search' ||
         location.pathname === '/search/map' ||
         /^\/room\/[^/]+\/?$/.test(location.pathname) || location.pathname === '/favorites') && <RoomChatbot />}
+
+      <ChatDrawer
+        open={Boolean(activeHeaderChat)}
+        channelType={activeHeaderChat?.contextType || 'BOOKING'}
+        contextId={activeHeaderChat?.contextId || ''}
+        onClose={() => setActiveHeaderChat(null)}
+        fallbackTitle={activeHeaderChat?.title}
+      />
     </div>
   );
 };
