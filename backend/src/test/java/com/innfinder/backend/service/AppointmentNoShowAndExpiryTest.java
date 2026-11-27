@@ -633,6 +633,48 @@ class AppointmentNoShowAndExpiryTest {
     // =========================================================================
     // TRƯỜNG HỢP 17: CASSO WEBHOOK ĐỐI SOÁT CỌC THÀNH CÔNG VỚI ĐỊNH DẠNG CASSO FLOW
     // =========================================================================
+    @Test
+    void simulateDepositRecordsBookingAmountAndDoesNotRepeat() {
+        String id = phieu.getMaDatLich();
+        String ownerId = khachHang.getMaNguoiDung();
+        phieu.setCoc(250_000L);
+        when(phieuDatLichRepository.findByIdForUpdate(id)).thenReturn(Optional.of(phieu));
+        when(giaoDichRepository.existsDepositByMaDatLich(ownerId, id)).thenReturn(false, false, true);
+
+        bankingWebhookService.xuLyCocThuNghiem(id, khachHang.getTenDangNhap());
+        bankingWebhookService.xuLyCocThuNghiem(id, khachHang.getTenDangNhap());
+
+        ArgumentCaptor<GiaoDich> transaction = ArgumentCaptor.forClass(GiaoDich.class);
+        verify(giaoDichRepository).save(transaction.capture());
+        assertEquals("TEST_" + id, transaction.getValue().getMaGiaoDich());
+        assertEquals(250_000L, transaction.getValue().getSoTien());
+        assertEquals("COC_XEM_PHONG", transaction.getValue().getLoaiGiaoDich());
+        assertEquals(TrangThaiGD.THANH_CONG, transaction.getValue().getTrangThai());
+        assertSame(phieu, transaction.getValue().getPhieuDatLich());
+    }
+
+    @Test
+    void simulateDepositRejectsOtherCustomers() {
+        String id = phieu.getMaDatLich();
+        when(phieuDatLichRepository.findByIdForUpdate(id)).thenReturn(Optional.of(phieu));
+
+        AppException error = assertThrows(AppException.class,
+                () -> bankingWebhookService.xuLyCocThuNghiem(id, chuTroUser.getTenDangNhap()));
+
+        assertEquals(ErrorCode.ACCESS_DENIED, error.getErrorCode());
+        verifyNoInteractions(giaoDichRepository);
+    }
+
+    @Test
+    void simulateDepositRejectsExpiredBooking() {
+        String id = phieu.getMaDatLich();
+        phieu.setThoiGianDat(LocalDateTime.now().minusMinutes(16));
+        when(phieuDatLichRepository.findByIdForUpdate(id)).thenReturn(Optional.of(phieu));
+
+        assertThrows(AppException.class, () -> bankingWebhookService.xuLyCocThuNghiem(id, khachHang.getTenDangNhap()));
+        verify(giaoDichRepository, never()).save(any());
+    }
+
     private static final String CASSO_BODY = """
             {"error":0,"data":[{"id":888999,"tid":"FT24TEST999","description":"IFCOC20261123001",
             "amount":200000,"subAccId":"0383838383"}]}

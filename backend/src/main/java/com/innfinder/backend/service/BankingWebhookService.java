@@ -7,6 +7,8 @@ import com.innfinder.backend.entity.GiaoDich;
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiGD;
+import com.innfinder.backend.exception.AppException;
+import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.PhieuDatLichRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -67,7 +70,7 @@ public class BankingWebhookService {
     /**
      * Xử lý webhook từ SePay khi có biến động số dư tài khoản
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> xuLySePayWebhook(String authHeader, SePayWebhookPayload payload) {
         log.info("[SePay Webhook] Nhận request: referenceCode={}, transferType={}, amount={}, content={}",
                 payload.getReferenceCode(), payload.getTransferType(), payload.getTransferAmount(), payload.getContent());
@@ -154,7 +157,7 @@ public class BankingWebhookService {
     /**
      * Xử lý webhook từ Casso khi có biến động số dư tài khoản ngân hàng
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> xuLyCassoWebhook(String secureTokenHeader, CassoWebhookPayload payload) {
         log.info("[Casso Webhook] Nhận request: secure-token={}, error={}, dataCount={}",
                 secureTokenHeader != null ? "***" : "null",
@@ -229,6 +232,30 @@ public class BankingWebhookService {
         return xuLyTienVao("SePay", sepayMaGD, String.valueOf(payload.getId()), transferAmount, rawContent, refCode);
     }
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void xuLyCocThuNghiem(String maDatLich, String username) {
+        PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
+                .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
+        if (username == null || phieu.getKhachHang() == null
+                || !username.equals(phieu.getKhachHang().getTenDangNhap())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+        if (phieu.getCoc() == null || phieu.getCoc() <= 0) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+
+        String maPhieu = phieu.getMaDatLich();
+        if (giaoDichRepository.existsDepositByMaDatLich(phieu.getKhachHang().getMaNguoiDung(), maPhieu)) {
+            return;
+        }
+
+        String maGiaoDich = "TEST_" + maPhieu;
+        Map<String, Object> result = ghiNhanTienVao("thử nghiệm", maGiaoDich, null, phieu.getCoc(), maGiaoDich, phieu);
+        if (!result.containsKey("amount")) {
+            throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+    }
+
     /**
      * Hàm đối soát tiền vào cốt lõi dùng chung cho cả SePay và Casso
      */
@@ -259,6 +286,13 @@ public class BankingWebhookService {
             return Map.of("success", false, "message", "Lịch hẹn không tồn tại: " + maDatLich);
         }
 
+        return ghiNhanTienVao(providerName, maGiaoDich, rawId, transferAmount, refCode, phieu);
+    }
+
+    // Cả webhook và thao tác local đều giữ khóa trên phiếu trước khi ghi nhận.
+    private Map<String, Object> ghiNhanTienVao(String providerName, String maGiaoDich, String rawId,
+            Long transferAmount, String refCode, PhieuDatLich phieu) {
+        String maDatLich = phieu.getMaDatLich();
         // Chỉ tiếp nhận cọc khi phiếu ở trạng thái CHO_XAC_NHAN
         if (phieu.getTrangThai() != TrangThaiDatLich.CHO_XAC_NHAN) {
             log.warn("[{} Webhook] Phiếu {} ở trạng thái {} (không phải CHO_XAC_NHAN). Bỏ qua, không xử lý.",

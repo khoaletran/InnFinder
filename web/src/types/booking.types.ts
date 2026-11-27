@@ -64,6 +64,7 @@ export interface DepositStatusResponse {
   hanDuyet?: string;
   hanNopCoc?: string;
   conHieuLuc?: boolean;
+  choPhepGiaLap?: boolean;
 }
 
 export interface BookedSlotsResponse {

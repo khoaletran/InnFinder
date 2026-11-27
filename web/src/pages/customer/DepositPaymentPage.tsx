@@ -47,6 +47,7 @@ export const DepositPaymentPage: React.FC = () => {
 
   const [selectedMethod, setSelectedMethod] = useState<'VIETQR' | 'MOMO'>('VIETQR');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
@@ -69,7 +70,7 @@ export const DepositPaymentPage: React.FC = () => {
   });
 
   // Truy vấn trạng thái cọc từ backend với cơ chế polling tự động 3 giây/lần
-  const { data: depositStatus } = useQuery({
+  const { data: depositStatus, refetch: refetchDepositStatus } = useQuery({
     queryKey: ['deposit-status', appointmentId],
     queryFn: () => appointmentService.getDepositStatus(appointmentId!),
     enabled: !!appointmentId,
@@ -87,7 +88,7 @@ export const DepositPaymentPage: React.FC = () => {
     if (depositStatus?.daNopCoc) {
       fetchAppointments(true);
       setShowSuccessModal(true);
-      toast.success('Hệ thống đã tự động nhận diện tiền cọc chuyển khoản thành công!');
+      toast.success('Hệ thống đã ghi nhận tiền cọc thành công!');
     }
   }, [depositStatus?.daNopCoc, fetchAppointments]);
 
@@ -201,6 +202,21 @@ export const DepositPaymentPage: React.FC = () => {
     } catch (err: unknown) {
       setIsSubmitting(false);
       toast.error(err instanceof Error ? err.message : 'Lỗi khi kiểm tra đối soát tiền cọc');
+    }
+  };
+
+  const handleSimulateDeposit = async () => {
+    if (!appointmentId) return;
+
+    setErrorMessage(null);
+    setIsSimulating(true);
+    try {
+      await appointmentService.simulateDeposit(appointmentId);
+      await refetchDepositStatus({ throwOnError: true });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Không thể ghi nhận cọc thử nghiệm');
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -548,7 +564,7 @@ export const DepositPaymentPage: React.FC = () => {
               Về danh sách lịch hẹn
             </button>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={handleExit}
@@ -556,10 +572,21 @@ export const DepositPaymentPage: React.FC = () => {
               >
                 Đóng
               </button>
+              {canShowQr && appointmentData && depositStatus?.choPhepGiaLap && (
+                <button
+                  type="button"
+                  disabled={isSubmitting || isSimulating}
+                  onClick={handleSimulateDeposit}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-200 text-teal-800 hover:bg-teal-50 font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isSimulating && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSimulating ? 'Đang giả lập...' : 'Giả lập chuyển tiền thành công'}
+                </button>
+              )}
               {canShowQr && (
                 <button
                   type="button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSimulating}
                   onClick={handleCheckPaymentStatus}
                   className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
                 >

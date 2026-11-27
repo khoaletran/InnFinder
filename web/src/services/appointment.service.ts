@@ -25,6 +25,10 @@ export const appointmentService = {
     );
   },
 
+  simulateDeposit: async (maDatLich: string): Promise<void> => {
+    await axiosClient.post(`/api/appointments/${maDatLich}/test-deposit`);
+  },
+
   createAppointment: async (request: AppointmentCreateRequest): Promise<AppointmentResponse> => {
     return axiosClient.post<unknown, AppointmentResponse>('/api/appointments', request);
   },

@@ -1,5 +1,6 @@
 package com.innfinder.backend.controller;
 
+import com.innfinder.backend.config.TestDepositAccess;
 import com.innfinder.backend.dto.appointment.AppointmentCancelRequest;
 import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
@@ -7,10 +8,14 @@ import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.appointment.BookedSlotsResponse;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.dto.response.ApiResponse;
+import com.innfinder.backend.exception.AppException;
+import com.innfinder.backend.exception.ErrorCode;
 import com.innfinder.backend.security.SecurityUtils;
 import com.innfinder.backend.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.innfinder.backend.service.BankingWebhookService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,6 +31,8 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final BankingWebhookService bankingWebhookService;
+    private final TestDepositAccess testDepositAccess;
 
     private String getCurrentUsername() {
         return SecurityUtils.getCurrentUsername();
@@ -74,10 +81,22 @@ public class AppointmentController {
         return ApiResponse.ok(null, "Nộp tiền cọc giữ chân thành công");
     }
 
+    @PostMapping("/{id}/test-deposit")
+    @Operation(summary = "Ghi nhận cọc thử nghiệm từ môi trường local")
+    public ApiResponse<String> giaLapNopCoc(@PathVariable("id") String maDatLich, HttpServletRequest request) {
+        if (!testDepositAccess.isAllowed(request)) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+        bankingWebhookService.xuLyCocThuNghiem(maDatLich, getCurrentUsername());
+        return ApiResponse.ok(null, "Đã ghi nhận cọc thử nghiệm");
+    }
+
     @GetMapping("/{id}/deposit-status")
     @Operation(summary = "Kiểm tra nhanh trạng thái cọc của lịch hẹn (Polling realtime)")
-    public ApiResponse<DepositStatusResponse> kiemTraTrangThaiCoc(@PathVariable("id") String maDatLich) {
+    public ApiResponse<DepositStatusResponse> kiemTraTrangThaiCoc(
+            @PathVariable("id") String maDatLich, HttpServletRequest request) {
         DepositStatusResponse res = appointmentService.kiemTraTrangThaiCoc(maDatLich);
+        res.setChoPhepGiaLap(testDepositAccess.isAllowed(request));
         return ApiResponse.ok(res, "Lấy trạng thái nộp cọc thành công");
     }
 
