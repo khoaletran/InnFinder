@@ -29,7 +29,7 @@ public class RecommendationInteractionService {
         rates.put(rateKey, new Window(previous.start, previous.count + 1));
         if (ids == null || ids.isEmpty() || ids.size() > 24 || source == null || !Set.of("home_personalized", "detail_similar").contains(source))
             throw new AppException(ErrorCode.INVALID_KEY);
-        List<String> safe = ids.stream().distinct().filter(id -> id != null && id.matches("PT\\d{12}")).toList();
+        List<String> safe = ids.stream().distinct().filter(id -> id != null && id.matches("PT(?:\\d{10}|\\d{12})")).toList();
         Set<String> valid = new HashSet<>();
         discovery.findByIds(safe).forEach(d -> valid.add(d.summary().getMaPhongTro()));
         String token = UUID.randomUUID().toString();

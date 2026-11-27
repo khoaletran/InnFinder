@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 import { getRecentRoomIds, recordViewedRoom } from '@/services/recommendationHistory';
 
+const VIEW_DWELL_MS = 5_000;
+
 interface RecommendedRoomsSectionProps {
   /** Nếu truyền roomId -> hiển thị "Phòng tương tự phù hợp với bạn". Nếu không -> hiển thị "Gợi ý dành riêng cho bạn". */
   roomId?: string;
@@ -32,9 +34,11 @@ export const RecommendedRoomsSection: React.FC<RecommendedRoomsSectionProps> = (
   const recentIds = useMemo(() => (roomId ? [] : getRecentRoomIds(userId)), [roomId, userId]);
 
   useEffect(() => {
-    if (roomId) {
+    if (!roomId) return;
+    const timer = window.setTimeout(() => {
       recordViewedRoom(roomId);
-    }
+    }, VIEW_DWELL_MS);
+    return () => window.clearTimeout(timer);
   }, [roomId, userId]);
 
   const { data: rooms = [], isLoading } = useQuery({

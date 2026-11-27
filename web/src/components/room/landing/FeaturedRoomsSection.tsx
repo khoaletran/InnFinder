@@ -8,7 +8,10 @@ import { PageContainer } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomCard } from '@/components/room/RoomCard';
 import { getDistanceInKm } from '@/components/room/searchHelpers';
+import { recommendationService } from '@/services/aiTracking.service';
+import { getRecentRoomIds } from '@/services/recommendationHistory';
 import { roomService } from '@/services/room.service';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { getValidCoords } from '@/utils/formatters';
@@ -18,8 +21,10 @@ type FeaturedTab = 'recommended' | 'new' | 'price';
 export const FeaturedRoomsSection: React.FC = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<FeaturedTab>('recommended');
+  const userId = useAuthStore((s) => s.user?.maNguoiDung ?? 'guest');
   const userLat = useRoomFilterStore((s) => s.userLat);
   const userLng = useRoomFilterStore((s) => s.userLng);
+  const recentIds = useMemo(() => getRecentRoomIds(userId), [userId]);
 
   const {
     data: roomsPage,
@@ -39,12 +44,24 @@ export const FeaturedRoomsSection: React.FC = () => {
       }),
   });
 
+  const { data: personalizedRooms } = useQuery({
+    queryKey: ['rooms', 'recommendations', 'personalized', userId, recentIds.join(','), 24],
+    queryFn: () => recommendationService.getPersonalized(recentIds, 24),
+    enabled: tab === 'recommended',
+    staleTime: 60_000,
+  });
+
   const rooms = useMemo(() => {
     const rawRooms = roomsPage?.content || [];
     const baseRooms =
       tab === 'recommended'
         ? rawRooms.filter((room) => (room.diemUyTinChuTro ?? 0) > 80)
         : rawRooms;
+
+    const recommendedRank = new Map<string, number>();
+    personalizedRooms?.forEach((room, index) => {
+      recommendedRank.set(room.maPhongTro, index);
+    });
 
     const getRoomDistance = (room: RoomSummaryResponse): number => {
       if (userLat === undefined || userLng === undefined) return Number.POSITIVE_INFINITY;
@@ -79,18 +96,30 @@ export const FeaturedRoomsSection: React.FC = () => {
           return compareDistance(a, b);
         }
 
-        const distDiff = compareDistance(a, b);
-        if (distDiff !== 0) return distDiff;
+        const distA = getRoomDistance(a);
+        const distB = getRoomDistance(b);
+        const zoneA = Number.isFinite(distA) ? Math.floor(distA / 5) : Number.POSITIVE_INFINITY;
+        const zoneB = Number.isFinite(distB) ? Math.floor(distB / 5) : Number.POSITIVE_INFINITY;
+        if (zoneA !== zoneB) {
+          return zoneA - zoneB;
+        }
 
-        // TODO: Ưu tiên điểm recommend từ userTracking khi hệ thống bổ sung
+        const rankA = recommendedRank.get(a.maPhongTro) ?? Number.POSITIVE_INFINITY;
+        const rankB = recommendedRank.get(b.maPhongTro) ?? Number.POSITIVE_INFINITY;
+        if (rankA !== rankB) {
+          return rankA - rankB;
+        }
 
         const repDiff = (b.diemUyTinChuTro ?? 0) - (a.diemUyTinChuTro ?? 0);
         if (repDiff !== 0) return repDiff;
 
+        const distDiff = compareDistance(a, b);
+        if (distDiff !== 0) return distDiff;
+
         return getRoomTime(b) - getRoomTime(a);
       })
       .slice(0, 30);
-  }, [roomsPage?.content, tab, userLat, userLng]);
+  }, [roomsPage?.content, personalizedRooms, tab, userLat, userLng]);
 
   return (
     <PageContainer width="wide" className="space-y-4 py-6">
