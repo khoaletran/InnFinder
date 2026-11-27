@@ -82,7 +82,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/test-deposit")
-    @Operation(summary = "Ghi nhận cọc thử nghiệm từ môi trường local")
+    @Operation(summary = "Ghi nhận cọc thử nghiệm khi bật chế độ test")
     public ApiResponse<String> giaLapNopCoc(@PathVariable("id") String maDatLich, HttpServletRequest request) {
         if (!testDepositAccess.isAllowed(request)) {
             throw new AppException(ErrorCode.ACCESS_DENIED);
