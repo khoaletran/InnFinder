@@ -88,7 +88,7 @@ public class BankingWebhookService {
                 log.warn("[SePay Webhook] Header Authorization không khớp: {}. Dự kiến: {}", authHeader, expected);
             }
         }
-
+    
         String rawContent = payload.getContent() != null ? payload.getContent() : payload.getDescription();
         if (rawContent == null || rawContent.isBlank()) {
             log.warn("[SePay Webhook] Không có nội dung chuyển khoản để đối soát.");
@@ -193,13 +193,14 @@ public class BankingWebhookService {
 
             // Tiền vào (Nộp cọc xem phòng)
             if (amount > 0) {
-                String cassoMaGD = item.getId() != null ? "CASSO_" + item.getId() : transactionService.generateMaGiaoDich();
-                String refCode = item.getTid() != null ? item.getTid() : String.valueOf(item.getId());
+                String externalKey = item.getId() != null ? "CASSO_" + item.getId() : null;
+                String rawId = item.getId() != null ? String.valueOf(item.getId()) : null;
+                String refCode = item.getTid() != null ? item.getTid() : rawId;
 
                 Map<String, Object> res = xuLyTienVao(
                         "Casso",
-                        cassoMaGD,
-                        item.getId() != null ? String.valueOf(item.getId()) : null,
+                        externalKey,
+                        rawId,
                         amount,
                         rawContent,
                         refCode
@@ -224,12 +225,13 @@ public class BankingWebhookService {
      * Xử lý giao dịch tiền vào tài khoản Sàn (Khách hàng nộp cọc giữ chân lịch xem phòng)
      */
     private Map<String, Object> xuLySePayTienVao(SePayWebhookPayload payload, String rawContent) {
-        String sepayMaGD = payload.getId() != null ? "SEPAY_" + payload.getId() : transactionService.generateMaGiaoDich();
-        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : String.valueOf(payload.getId());
+        String externalKey = payload.getId() != null ? "SEPAY_" + payload.getId() : null;
+        String rawId = payload.getId() != null ? String.valueOf(payload.getId()) : null;
+        String refCode = payload.getReferenceCode() != null ? payload.getReferenceCode() : rawId;
         Long transferAmount = payload.getTransferAmount() != null && payload.getTransferAmount() > 0
                 ? payload.getTransferAmount()
                 : 0L;
-        return xuLyTienVao("SePay", sepayMaGD, String.valueOf(payload.getId()), transferAmount, rawContent, refCode);
+        return xuLyTienVao("SePay", externalKey, rawId, transferAmount, rawContent, refCode);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -249,8 +251,8 @@ public class BankingWebhookService {
             return;
         }
 
-        String maGiaoDich = "TEST_" + maPhieu;
-        Map<String, Object> result = ghiNhanTienVao("thử nghiệm", maGiaoDich, null, phieu.getCoc(), maGiaoDich, phieu);
+        String testRef = "TEST_" + maPhieu;
+        Map<String, Object> result = ghiNhanTienVao("thử nghiệm", null, phieu.getCoc(), testRef, phieu);
         if (!result.containsKey("amount")) {
             throw new AppException(ErrorCode.INVALID_APPOINTMENT_STATUS);
         }
@@ -261,15 +263,16 @@ public class BankingWebhookService {
      */
     private Map<String, Object> xuLyTienVao(
             String providerName,
-            String maGiaoDich,
+            String externalKey,
             String rawId,
             Long transferAmount,
             String rawContent,
             String refCode) {
 
         // 1. Kiểm tra chống xử lý lặp lại giao dịch (Idempotency ở cấp DB)
-        if (giaoDichRepository.existsById(maGiaoDich)) {
-            log.info("[{} Webhook] Giao dịch ID {} đã được xử lý trước đó. Bỏ qua ghi nhận trùng.", providerName, maGiaoDich);
+        if (isDuplicateExternalTransaction(externalKey, rawId, refCode)) {
+            log.info("[{} Webhook] Giao dịch {} (Ref: {}) đã được xử lý trước đó. Bỏ qua ghi nhận trùng.",
+                    providerName, externalKey != null ? externalKey : rawId, refCode);
             return Map.of("success", true, "message", "Giao dịch " + providerName + " đã được đối soát trước đó");
         }
 
@@ -286,11 +289,21 @@ public class BankingWebhookService {
             return Map.of("success", false, "message", "Lịch hẹn không tồn tại: " + maDatLich);
         }
 
-        return ghiNhanTienVao(providerName, maGiaoDich, rawId, transferAmount, refCode, phieu);
+        return ghiNhanTienVao(providerName, rawId, transferAmount, refCode, phieu);
+    }
+
+    private boolean isDuplicateExternalTransaction(String externalKey, String rawId, String refCode) {
+        if (externalKey != null && giaoDichRepository.existsById(externalKey)) {
+            return true;
+        }
+        if (rawId != null && !rawId.isBlank() && giaoDichRepository.existsByNoiDungContaining("ID: " + rawId + ",")) {
+            return true;
+        }
+        return refCode != null && !refCode.isBlank() && giaoDichRepository.existsByMaThamChieuNganHang(refCode);
     }
 
     // Cả webhook và thao tác local đều giữ khóa trên phiếu trước khi ghi nhận.
-    private Map<String, Object> ghiNhanTienVao(String providerName, String maGiaoDich, String rawId,
+    private Map<String, Object> ghiNhanTienVao(String providerName, String rawId,
             Long transferAmount, String refCode, PhieuDatLich phieu) {
         String maDatLich = phieu.getMaDatLich();
         // Chỉ tiếp nhận cọc khi phiếu ở trạng thái CHO_XAC_NHAN
@@ -337,6 +350,7 @@ public class BankingWebhookService {
         }
 
         // Chuyển đúng và đủ tiền -> Ghi nhận cọc hợp lệ để chủ trọ duyệt
+        String maGiaoDich = transactionService.generateMaGiaoDich();
         String displayRef = refCode != null ? refCode : (rawId != null ? rawId : "");
         GiaoDich gdVao = GiaoDich.builder()
                 .maGiaoDich(maGiaoDich)

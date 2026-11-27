@@ -115,6 +115,10 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
     @Query("SELECT COUNT(g) > 0 FROM GiaoDich g WHERE g.noiDung LIKE CONCAT('%', :candidateId, '%')")
     boolean existsByCandidateId(@Param("candidateId") String candidateId);
 
+    boolean existsByMaThamChieuNganHang(String maThamChieuNganHang);
+
+    boolean existsByNoiDungContaining(String marker);
+
     /**
      * Khóa bi quan (Pessimistic Lock) khi Admin phê duyệt giao dịch để chống race-condition / nhiều Admin duyệt trùng
      */
