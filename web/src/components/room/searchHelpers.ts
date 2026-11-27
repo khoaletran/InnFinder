@@ -205,6 +205,25 @@ function normalizeSearchText(value: string): string {
     .trim();
 }
 
+function extractProvinceSegment(address: string): string {
+  const parts = address
+    .split(',')
+    .map((p) => normalizeSearchText(p))
+    .filter(Boolean);
+  if (parts.length === 0) return '';
+  const last = parts[parts.length - 1];
+  if (parts.length >= 2 && (last === 'viet nam' || last === 'vietnam' || last === 'vn')) {
+    return parts[parts.length - 2];
+  }
+  return last;
+}
+
+function stripProvincePrefix(normalized: string): string {
+  return normalized
+    .replace(/^(?:thanh pho|tp|tinh)\s+/i, '')
+    .trim();
+}
+
 export function getProvinceSearchToken(province: string): string {
   if (province === 'TP. Hồ Chí Minh') return 'Hồ Chí Minh';
   return province;
@@ -212,14 +231,36 @@ export function getProvinceSearchToken(province: string): string {
 
 export function matchesProvinceAddress(address: string | undefined, province: string): boolean {
   if (!address || !province) return false;
-  const normAddress = normalizeSearchText(address);
-  if (province === 'TP. Hồ Chí Minh') {
+  const segment = extractProvinceSegment(address);
+  if (!segment) return false;
+  const cleanSegment = stripProvincePrefix(segment);
+  const cleanProvince = stripProvincePrefix(normalizeSearchText(province));
+
+  if (cleanProvince === 'ho chi minh' || cleanProvince === 'tphcm' || cleanProvince === 'hcm') {
     return (
-      normAddress.includes('ho chi minh') ||
-      normAddress.includes('tphcm') ||
-      normAddress.includes('tp hcm') ||
-      normAddress.includes('sai gon')
+      cleanSegment === 'ho chi minh' ||
+      cleanSegment === 'tphcm' ||
+      cleanSegment === 'hcm' ||
+      cleanSegment === 'sai gon' ||
+      segment === 'tp hcm' ||
+      segment.endsWith(' ho chi minh') ||
+      segment.endsWith(' tphcm') ||
+      segment.endsWith(' sai gon')
     );
   }
-  return normAddress.includes(normalizeSearchText(province));
+
+  if (cleanProvince === 'hue') {
+    return (
+      cleanSegment === 'hue' ||
+      cleanSegment === 'thua thien hue' ||
+      segment === 'tp hue' ||
+      segment === 'thanh pho hue'
+    );
+  }
+
+  return (
+    cleanSegment === cleanProvince ||
+    segment === cleanProvince ||
+    cleanSegment.endsWith(` ${cleanProvince}`)
+  );
 }

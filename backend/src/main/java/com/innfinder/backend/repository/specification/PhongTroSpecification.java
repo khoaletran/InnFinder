@@ -17,6 +17,8 @@ import com.innfinder.backend.dto.room.RoomFilterRequest;
 import com.innfinder.backend.entity.PhongTro;
 import com.innfinder.backend.entity.TienIch;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -27,6 +29,36 @@ import java.util.List;
 import java.util.Locale;
 
 public class PhongTroSpecification {
+    private static Predicate matchSingleProvince(CriteriaBuilder cb, Expression<String> segment, String rawArea) {
+        String lower = rawArea.trim().toLowerCase(Locale.ROOT);
+        String clean = lower
+                .replaceFirst("^(?:thành phố|thanh pho|tp\\.?|tỉnh|tinh)\\s+", "")
+                .trim();
+        if (clean.equals("hồ chí minh") || clean.equals("ho chi minh") || clean.equals("hcm") || clean.equals("tphcm")) {
+            return cb.or(
+                    cb.like(segment, "%hồ chí minh%"),
+                    cb.like(segment, "%ho chi minh%"),
+                    cb.like(segment, "%hcm%"),
+                    cb.like(segment, "%sài gòn%"),
+                    cb.like(segment, "%sai gon%"));
+        }
+        if (clean.equals("huế") || clean.equals("hue")) {
+            return cb.or(
+                    cb.equal(segment, "huế"),
+                    cb.equal(segment, "hue"),
+                    cb.like(segment, "%thừa thiên huế%"),
+                    cb.like(segment, "%thua thien hue%"),
+                    cb.like(segment, "%tp. huế%"),
+                    cb.like(segment, "%tp huế%"),
+                    cb.like(segment, "%thành phố huế%"),
+                    cb.like(segment, "%thanh pho hue%"));
+        }
+        return cb.or(
+                cb.equal(segment, clean),
+                cb.like(segment, "% " + clean),
+                cb.like(segment, "%." + clean));
+    }
+
     public static Specification<PhongTro> buildFilter(RoomFilterRequest filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -40,13 +72,31 @@ public class PhongTroSpecification {
             if (filter == null) {
                 return cb.and(predicates.toArray(new Predicate[0]));
             }
-            // 2. Lọc theo khu vực (suffix) hoặc từng từ khóa (keyword) trên địa chỉ, mô tả, loại phòng, mã phòng & tiện ích
+            // 2. Lọc theo khu vực (tỉnh/thành ở phần cuối địa chỉ hoặc suffix nhiều phần) và từ khóa (keyword)
             if (filter.getArea() != null && !filter.getArea().isBlank()) {
-                String suffix = filter.getArea().trim().toLowerCase(Locale.ROOT);
-                int components = suffix.split(",", -1).length;
-                var addressSuffix = cb.function("substring_index", String.class,
-                        cb.trim(root.get("diaChi")), cb.literal(","), cb.literal(-components));
-                predicates.add(cb.equal(cb.lower(cb.trim(addressSuffix)), suffix));
+                String rawArea = filter.getArea().trim();
+                var trimmedAddress = cb.trim(root.get("diaChi"));
+                if (rawArea.contains(",")) {
+                    String suffix = rawArea.toLowerCase(Locale.ROOT);
+                    int components = suffix.split(",", -1).length;
+                    var addressSuffix = cb.function("substring_index", String.class,
+                            trimmedAddress, cb.literal(","), cb.literal(-components));
+                    predicates.add(cb.equal(cb.lower(cb.trim(addressSuffix)), suffix));
+                } else {
+                    var lastSegment = cb.lower(cb.trim(cb.function("substring_index", String.class,
+                            trimmedAddress, cb.literal(","), cb.literal(-1))));
+                    var secondLastPrefix = cb.function("substring_index", String.class,
+                            trimmedAddress, cb.literal(","), cb.literal(-2));
+                    var prevSegment = cb.lower(cb.trim(cb.function("substring_index", String.class,
+                            secondLastPrefix, cb.literal(","), cb.literal(1))));
+                    Predicate trailingCountry = cb.or(
+                            cb.equal(lastSegment, "việt nam"),
+                            cb.equal(lastSegment, "viet nam"),
+                            cb.equal(lastSegment, "vietnam"));
+                    predicates.add(cb.or(
+                            matchSingleProvince(cb, lastSegment, rawArea),
+                            cb.and(trailingCountry, matchSingleProvince(cb, prevSegment, rawArea))));
+                }
             }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
                 String[] tokens = filter.getKeyword().trim().toLowerCase(Locale.ROOT).split("[\\s,;|]+");

@@ -36,4 +36,21 @@ class RecommendationInteractionServiceTest {
         for (int i = 0; i < 29; i++) service.impression(List.of("PT251126120001"), "detail_similar", "ip");
         assertThrows(AppException.class, () -> service.impression(List.of("PT251126120001"), "detail_similar", "ip"));
     }
+
+    @Test void acceptsLegacyTenDigitRoomIdsForImpressionAndClick() {
+        var discovery = mock(RoomDiscoveryService.class);
+        var tracking = mock(AiTrackingService.class);
+        String legacyRoom = "PT2511260001";
+        when(discovery.findByIds(List.of(legacyRoom))).thenReturn(List.of(new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(legacyRoom).build(), null, "legacy room")));
+        var service = new RecommendationInteractionService(discovery, tracking);
+
+        String ticket = service.impression(List.of(legacyRoom), "home_personalized", "127.0.0.1");
+        service.click(ticket, legacyRoom);
+
+        var events = ArgumentCaptor.forClass(AiUsageLog.class);
+        verify(tracking, times(2)).recordAsync(events.capture());
+        assertEquals(List.of("RECOMMEND_IMPRESSION", "RECOMMEND_CLICK"),
+                events.getAllValues().stream().map(AiUsageLog::getFeature).toList());
+    }
 }

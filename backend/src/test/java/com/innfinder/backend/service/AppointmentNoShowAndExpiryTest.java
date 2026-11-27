@@ -641,13 +641,15 @@ class AppointmentNoShowAndExpiryTest {
         phieu.setCoc(250_000L);
         when(phieuDatLichRepository.findByIdForUpdate(id)).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(ownerId, id)).thenReturn(false, false, true);
+        when(transactionService.generateMaGiaoDich()).thenReturn("GD20261123001");
 
         bankingWebhookService.xuLyCocThuNghiem(id, khachHang.getTenDangNhap());
         bankingWebhookService.xuLyCocThuNghiem(id, khachHang.getTenDangNhap());
 
         ArgumentCaptor<GiaoDich> transaction = ArgumentCaptor.forClass(GiaoDich.class);
         verify(giaoDichRepository).save(transaction.capture());
-        assertEquals("TEST_" + id, transaction.getValue().getMaGiaoDich());
+        assertEquals("GD20261123001", transaction.getValue().getMaGiaoDich());
+        assertEquals("TEST_" + id, transaction.getValue().getMaThamChieuNganHang());
         assertEquals(250_000L, transaction.getValue().getSoTien());
         assertEquals("COC_XEM_PHONG", transaction.getValue().getLoaiGiaoDich());
         assertEquals(TrangThaiGD.THANH_CONG, transaction.getValue().getTrangThai());
@@ -691,6 +693,7 @@ class AppointmentNoShowAndExpiryTest {
         when(giaoDichRepository.existsById("CASSO_888999")).thenReturn(false);
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(false);
+        when(transactionService.generateMaGiaoDich()).thenReturn("GD20261123002");
 
         WebhookController controller = new WebhookController(bankingWebhookService);
         ReflectionTestUtils.setField(controller, "cassoEnabled", true);
@@ -707,7 +710,7 @@ class AppointmentNoShowAndExpiryTest {
 
         ArgumentCaptor<GiaoDich> gdCaptor = ArgumentCaptor.forClass(GiaoDich.class);
         verify(giaoDichRepository).save(gdCaptor.capture());
-        assertEquals("CASSO_888999", gdCaptor.getValue().getMaGiaoDich());
+        assertEquals("GD20261123002", gdCaptor.getValue().getMaGiaoDich());
         assertEquals(200_000L, gdCaptor.getValue().getSoTien());
         assertEquals("FT24TEST999", gdCaptor.getValue().getMaThamChieuNganHang());
         assertEquals("COC_XEM_PHONG", gdCaptor.getValue().getLoaiGiaoDich());
