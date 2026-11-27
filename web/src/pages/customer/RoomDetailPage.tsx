@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RoomMap } from '@/components/map/RoomMap';
+import { RecommendedRoomsSection } from '@/components/room/RecommendedRoomsSection';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
@@ -505,6 +506,11 @@ export const RoomDetailPage: React.FC = () => {
               </Card.Footer>
             </Card>
           </div>
+        </div>
+
+        {/* Phòng tương tự phù hợp với bạn */}
+        <div className="mt-10">
+          <RecommendedRoomsSection roomId={room.maPhongTro} compact />
         </div>
       </main>
 

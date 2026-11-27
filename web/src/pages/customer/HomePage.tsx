@@ -4,6 +4,7 @@ import { ArrowRight, Building2, Search } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/common/PageContainer";
 import { PopularAreaCard } from "@/components/room/PopularAreaCard";
+import { RecommendedRoomsSection } from "@/components/room/RecommendedRoomsSection";
 import { DepositMechanismSection } from "@/components/room/landing/DepositMechanismSection";
 import { FaqSection } from "@/components/room/landing/FaqSection";
 import { FeaturedRoomsSection } from "@/components/room/landing/FeaturedRoomsSection";
@@ -115,6 +116,9 @@ export const HomePage: React.FC = () => {
           </div>
         )}
       </PageContainer>
+
+      {/* 4b. Gợi ý phòng cá nhân hóa (AI Hybrid Recommendation) */}
+      <RecommendedRoomsSection />
 
       {/* 5. Quy trình đặt lịch & Bảo chứng cọc 4 bước */}
       <div id="deposit-mechanism" className="scroll-mt-20">

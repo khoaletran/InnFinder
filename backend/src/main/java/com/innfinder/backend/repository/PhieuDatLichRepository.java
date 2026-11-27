@@ -135,4 +135,5 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
             String maChuTro,
             Long minCoc
     );
+    List<PhieuDatLich> findTop10ByKhachHang_MaNguoiDungOrderByNgayHenDesc(String userId);
 }

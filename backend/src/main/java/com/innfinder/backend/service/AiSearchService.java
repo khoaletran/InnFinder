@@ -32,6 +32,7 @@ public class AiSearchService {
     @Scheduled(initialDelay = 10000, fixedDelayString = "${gemini.index-delay-ms:60000}")
     public void indexAllApprovedRooms() {
         if (!gemini.isConfigured()) return;
+        AiTrackingContext.start("AI_INDEX_ROOM", "SYSTEM");
         try {
             Map<String, PhongTroVector> existing = vectors.findAll().stream()
                     .collect(Collectors.toMap(PhongTroVector::getMaPhongTro, v -> v));
@@ -51,6 +52,8 @@ public class AiSearchService {
             }
         } catch (Exception ex) {
             log.warn("Chưa thể cập nhật chỉ mục AI; sẽ thử lại ở lượt tiếp theo.");
+        } finally {
+            AiTrackingContext.clear();
         }
     }
 
@@ -77,6 +80,7 @@ public class AiSearchService {
             catch (com.innfinder.backend.exception.AppException ignored) { /* Explicit FILTERED mode below. */ }
         }
         boolean semantic = query != null && current.size() == candidates.size();
+        AiTrackingContext.setSearchMode(semantic ? "SEMANTIC" : "FILTERED");
         List<Scored> scored = new ArrayList<>();
         for (RoomDiscoveryService.Document room : candidates) {
             double score = semantic ? embedding.cosineSimilarity(query, current.get(room.summary().getMaPhongTro()))
@@ -125,7 +129,7 @@ public class AiSearchService {
                 .filter(normalized::contains).count();
     }
 
-    private String hash(String text) {
+    public static String hash(String text) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest((AiEmbeddingService.INDEX_VERSION + text).getBytes(StandardCharsets.UTF_8)));

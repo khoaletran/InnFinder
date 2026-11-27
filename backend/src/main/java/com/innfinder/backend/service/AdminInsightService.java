@@ -7,6 +7,7 @@ import com.innfinder.backend.dto.response.AdminRevenueInsightResponseDTO.Recomme
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO;
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO.RevenuePointDTO;
 import com.innfinder.backend.dto.response.AdminStatisticsResponseDTO.RoomTypeStatDTO;
+import com.innfinder.backend.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -64,6 +65,8 @@ public class AdminInsightService {
             return fallback;
         }
 
+        AiTrackingContext.start("ADMIN_INSIGHT", SecurityUtils.getCurrentUsername());
+        AiTrackingContext.setMetadataSummary("period=" + periodLabel);
         try {
             Map<String, Object> payload = buildPromptPayload(stats, periodLabel, trend);
             String dataJson = objectMapper.writeValueAsString(payload);
@@ -119,6 +122,8 @@ public class AdminInsightService {
         } catch (Exception ex) {
             log.warn("AI statistics insight unavailable ({}); returning rule-based insight", ex.getClass().getSimpleName());
             return fallback;
+        } finally {
+            AiTrackingContext.clear();
         }
     }
 

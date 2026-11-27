@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Bell,
@@ -63,4 +64,5 @@ export const ADMIN_NAV_ITEMS: NavItemConfig[] = [
   { label: 'Xử lý khiếu nại', path: '/admin/complaints', icon: AlertTriangle },
   { label: 'Danh mục & Phí sàn', path: '/admin/categories', icon: Layers },
   { label: 'Thống kê doanh thu', path: '/admin/statistics', icon: BarChart3 },
+  { label: 'Giám sát AI', path: '/admin/ai-tracking', icon: Activity },
 ];

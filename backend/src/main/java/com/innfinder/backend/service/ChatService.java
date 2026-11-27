@@ -3,11 +3,14 @@ package com.innfinder.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innfinder.backend.dto.chat.*;
 import com.innfinder.backend.dto.room.*;
+import com.innfinder.backend.entity.AiUsageLog;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.security.SecurityUtils;
 import jakarta.validation.Validator;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +25,9 @@ public class ChatService {
 
     private static final double NEARBY_RADIUS_KM = 15.0;
     private static final long CHEAP_ROOM_MAX_PRICE_VND = 4_000_000L;
+
+    @Autowired(required = false)
+    private AiTrackingService trackingService;
 
     public record Plan(String intent, String query, String roomId, SearchCriteria criteria, String reply) {
         public Plan(String intent, String query, String roomId, SearchCriteria criteria) {
@@ -69,12 +75,24 @@ public class ChatService {
             """;
 
     public ChatResponse chat(ChatRequest request) {
+        long start = System.nanoTime();
+        AiTrackingContext.State ctx = AiTrackingContext.start("CHATBOT", SecurityUtils.getCurrentUsername());
+        try {
+            return executeChat(request, start, ctx);
+        } finally {
+            AiTrackingContext.clear();
+        }
+    }
+
+    private ChatResponse executeChat(ChatRequest request, long start, AiTrackingContext.State ctx) {
         String greeting = AiSearchService.normalize(request.message()).replaceAll("[\\p{Punct}]+", "").trim();
         if (Set.of("xin chao", "chao", "hello", "hi", "alo").contains(greeting)) {
+            recordLocalBypass(ctx, "QUESTION", "greeting", start);
             return new ChatResponse("Chào bạn! Bạn muốn tìm phòng ở khu vực nào, ngân sách bao nhiêu và ở mấy người? Mình cũng có thể giải đáp về phòng đang xem và giúp bạn mở trang đặt lịch.",
                     List.of(), null, request.criteria(), List.of("Tìm phòng dưới 3 triệu", "Cọc xem phòng được hoàn thế nào?"), "CONTEXT");
         }
         if (Set.of("coc xem phong duoc hoan the nao", "coc xem phong co duoc hoan khong").contains(greeting)) {
+            recordLocalBypass(ctx, "QUESTION", "deposit_rule", start);
             return new ChatResponse("Tại buổi xem phòng, chủ trọ trả trực tiếp 100% cọc giữ chân cho bạn. Sau khi nhận tiền, bạn xác nhận đã nhận lại cọc trên ứng dụng. Khoản này khác với cọc hợp đồng thuê phòng, vốn do bạn và chủ trọ thỏa thuận trực tiếp.",
                     List.of(), null, request.criteria(), List.of("Tìm phòng dưới 3 triệu"), "CONTEXT");
         }
@@ -89,11 +107,13 @@ public class ChatService {
                 && !normalized.matches("(?s).*phong\\s+(thu|so)\\s+.*")
                 && !normalized.contains("phong khac") && !normalized.contains("phong kia")) {
             RoomDiscoveryService.Document target = resolveTarget(null, request, context);
+            recordLocalBypass(ctx, "BOOKING", "quick_booking", start);
             return bookingResponse(target, context, request.criteria());
         }
         RoomDiscoveryService.Document selected = resolveTarget(null, request, context);
         String factualReply = selected == null ? null : quickRoomAnswer(greeting, selected.detail());
         if (factualReply != null) {
+            recordLocalBypass(ctx, "DETAIL", "quick_room_answer", start);
             return new ChatResponse(factualReply, List.of(selected.summary()), null, request.criteria(),
                     List.of("Tôi muốn đặt lịch xem phòng này"), "CONTEXT");
         }
@@ -121,18 +141,22 @@ public class ChatService {
         if (pureNearbyRequest) {
             plan = new Plan("SEARCH", "", null,
                     new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+            recordLocalBypass(ctx, "SEARCH", "nearby_shortcut", start);
         } else if (allRoomsRequest) {
             plan = new Plan("SEARCH", "", null,
                     new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"),
                     "Đây là các phòng đang mở trên hệ thống để bạn tham khảo. Bạn muốn lọc thêm theo mức giá hay khu vực nào không?");
+            recordLocalBypass(ctx, "SEARCH", "all_rooms_shortcut", start);
         } else if (simpleCheapSearch) {
             String cheapQuery = AiSearchService.prefersPhongTro(request.message()) ? "trọ" : "";
             plan = new Plan("SEARCH", cheapQuery, null,
                     new SearchCriteria(null, null, CHEAP_ROOM_MAX_PRICE_VND, null, null, null, null, List.of(), "PRICE_ASC"),
                     "Dưới đây là các phòng giá rẻ dưới 4 triệu (sắp xếp từ thấp đến cao) để bạn tham khảo:");
+            recordLocalBypass(ctx, "SEARCH", "cheap_room_shortcut", start);
         } else {
             plan = plan(request, context);
         }
+        AiTrackingContext.setIntent(plan.intent());
         SearchCriteria criteria = plan.criteria() != null ? plan.criteria() : request.criteria();
 
         if ("BOOKING".equals(plan.intent()) && isBookingRequest(request.message())) {
@@ -309,24 +333,47 @@ public class ChatService {
 
     private String money(long amount) { return java.text.NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(amount) + " ₫"; }
 
+    private void recordLocalBypass(AiTrackingContext.State ctx, String intent, String rule, long startNanos) {
+        if (trackingService == null) return;
+        trackingService.recordAsync(AiUsageLog.builder()
+                .traceId(ctx.traceId)
+                .feature(ctx.feature)
+                .intent(intent)
+                .searchMode("LOCAL_FAST_PATH")
+                .model("local-rule")
+                .isFallback(false)
+                .cacheHit(true)
+                .maNguoiDung(ctx.userId)
+                .latencyMs((System.nanoTime() - startNanos) / 1_000_000)
+                .status("SUCCESS")
+                .metadataSummary("bypass=" + rule)
+                .build());
+    }
+
     public SearchResponse searchRooms(String prompt, RoomFilterRequest explicit, int limit) {
-        Plan plan = plan(new ChatRequest(prompt, List.of(), null, null, List.of(), null), List.of());
-        validateCriteria(plan.criteria());
-        SearchCriteria criteria = ChatCriteriaEnricher.enrich(
-                prompt, plan.criteria(), categories.getAllRoomTypes(), categories.getAllAmenities());
-        RoomFilterRequest filter = filter(criteria);
-        // Explicit filters are authoritative, including when a prompt suggests a different value.
-        if (explicit.getMinGia() != null) filter.setMinGia(explicit.getMinGia());
-        if (explicit.getMaxGia() != null) filter.setMaxGia(explicit.getMaxGia());
-        if (explicit.getMinDienTich() != null) filter.setMinDienTich(explicit.getMinDienTich());
-        if (explicit.getMaxDienTich() != null) filter.setMaxDienTich(explicit.getMaxDienTich());
-        if (explicit.getSoNguoi() != null) filter.setSoNguoi(explicit.getSoNguoi());
-        if (explicit.getMaLpt() != null) filter.setMaLpt(explicit.getMaLpt());
-        if (explicit.getDsTienIch() != null) filter.setDsTienIch(explicit.getDsTienIch());
-        String sort = criteria == null ? null : criteria.sort();
-        if ("giaThue".equals(explicit.getSortBy())) sort = "ASC".equalsIgnoreCase(explicit.getSortDirection()) ? "PRICE_ASC" : "PRICE_DESC";
-        AiSearchService.Result result = search.search(plan.query(), filter, limit, sort);
-        return new SearchResponse(result.rooms().stream().map(RoomDiscoveryService.Document::summary).toList(), criteria, result.mode());
+        AiTrackingContext.start("AI_SEARCH", SecurityUtils.getCurrentUsername());
+        try {
+            Plan plan = plan(new ChatRequest(prompt, List.of(), null, null, List.of(), null), List.of());
+            AiTrackingContext.setIntent(plan.intent());
+            validateCriteria(plan.criteria());
+            SearchCriteria criteria = ChatCriteriaEnricher.enrich(
+                    prompt, plan.criteria(), categories.getAllRoomTypes(), categories.getAllAmenities());
+            RoomFilterRequest filter = filter(criteria);
+            // Explicit filters are authoritative, including when a prompt suggests a different value.
+            if (explicit.getMinGia() != null) filter.setMinGia(explicit.getMinGia());
+            if (explicit.getMaxGia() != null) filter.setMaxGia(explicit.getMaxGia());
+            if (explicit.getMinDienTich() != null) filter.setMinDienTich(explicit.getMinDienTich());
+            if (explicit.getMaxDienTich() != null) filter.setMaxDienTich(explicit.getMaxDienTich());
+            if (explicit.getSoNguoi() != null) filter.setSoNguoi(explicit.getSoNguoi());
+            if (explicit.getMaLpt() != null) filter.setMaLpt(explicit.getMaLpt());
+            if (explicit.getDsTienIch() != null) filter.setDsTienIch(explicit.getDsTienIch());
+            String sort = criteria == null ? null : criteria.sort();
+            if ("giaThue".equals(explicit.getSortBy())) sort = "ASC".equalsIgnoreCase(explicit.getSortDirection()) ? "PRICE_ASC" : "PRICE_DESC";
+            AiSearchService.Result result = search.search(plan.query(), filter, limit, sort);
+            return new SearchResponse(result.rooms().stream().map(RoomDiscoveryService.Document::summary).toList(), criteria, result.mode());
+        } finally {
+            AiTrackingContext.clear();
+        }
     }
 
     private Plan plan(ChatRequest request, List<RoomDiscoveryService.Document> context) {
