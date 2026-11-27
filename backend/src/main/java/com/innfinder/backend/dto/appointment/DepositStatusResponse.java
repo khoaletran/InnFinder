@@ -19,4 +19,5 @@ public class DepositStatusResponse {
     private LocalDateTime hanDuyet;
     private LocalDateTime hanNopCoc;
     private boolean conHieuLuc;
+    private boolean choPhepGiaLap;
 }

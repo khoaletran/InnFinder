@@ -1,19 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowUpDown,
   Check,
   ChevronDown,
+  ExternalLink,
   List,
+  Loader2,
   Map as MapIcon,
+  MapPin,
+  Search,
   X,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/common/SkeletonList';
-import { RoomMap } from '@/components/map/RoomMap';
+import { RoomMap, type MapBounds } from '@/components/map/RoomMap';
 import { MapRoomDetailCard } from '@/components/room/MapRoomDetailCard';
 import {
   buildCapacityOptions,
@@ -28,19 +34,19 @@ import { SearchModeTabs } from '@/components/room/SearchModeTabs';
 import { roomService } from '@/services/room.service';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { getValidCoords } from '@/utils/formatters';
+import { formatVNDShort, getValidCoords } from '@/utils/formatters';
+import {
+  getCachedAddressSuggestions,
+  searchAddressSuggestions,
+  type AddressSuggestion,
+} from '@/utils/geocoding';
 
 type ActivePopover = 'price' | 'category' | 'area' | 'capacity' | 'amenities' | 'sort' | null;
 
-const PICKED_SCAN_RADIUS_KM = 15;
-
 export const MapSearchPage: React.FC = () => {
+  const navigate = useNavigate();
   const filterStore = useRoomFilterStore();
   const {
-    mapPickedCoords: pickedCoords,
-    setMapPickedCoords: setPickedCoords,
-    mapDynamicRadiusKm: dynamicRadiusKm,
-    setMapDynamicRadiusKm: setDynamicRadiusKm,
     mapSortBy: sortBy,
     setMapSortBy: setSortBy,
     mapSelectedRoomId: selectedRoomId,
@@ -59,6 +65,35 @@ export const MapSearchPage: React.FC = () => {
 
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+
+  const [locationQuery, setLocationQuery] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [focusTarget, setFocusTarget] = useState<{
+    lat: number;
+    lng: number;
+    zoom?: number;
+    seq: number;
+  } | null>(null);
+  const locationSearchRef = useRef<HTMLDivElement>(null);
+  const skipNextGeocodeRef = useRef(false);
+
+  const handleBoundsChange = useCallback((next: MapBounds) => {
+    setMapBounds((prev) => {
+      if (
+        prev &&
+        Math.abs(prev.north - next.north) < 1e-6 &&
+        Math.abs(prev.south - next.south) < 1e-6 &&
+        Math.abs(prev.east - next.east) < 1e-6 &&
+        Math.abs(prev.west - next.west) < 1e-6
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
 
   const popoverBarRef = useRef<HTMLDivElement>(null);
 
@@ -74,13 +109,99 @@ export const MapSearchPage: React.FC = () => {
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (popoverBarRef.current && !popoverBarRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (popoverBarRef.current && !popoverBarRef.current.contains(target)) {
         setActivePopover(null);
+      }
+      if (locationSearchRef.current && !locationSearchRef.current.contains(target)) {
+        setShowLocationSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
+
+  useEffect(() => {
+    if (skipNextGeocodeRef.current) {
+      skipNextGeocodeRef.current = false;
+      return;
+    }
+
+    const trimmed = locationQuery.trim();
+    if (trimmed.length < 2) {
+      return;
+    }
+
+    const cached = getCachedAddressSuggestions(trimmed);
+    if (cached) {
+      const cacheTimer = setTimeout(() => {
+        setLocationSuggestions(cached);
+        setShowLocationSuggestions(cached.length > 0);
+      }, 0);
+      return () => clearTimeout(cacheTimer);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setIsGeocoding(true);
+        const results = await searchAddressSuggestions(trimmed, controller.signal);
+        setLocationSuggestions(results);
+        setShowLocationSuggestions(results.length > 0);
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      } finally {
+        setIsGeocoding(false);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [locationQuery]);
+
+  const handleSelectLocationSuggestion = useCallback(
+    (item: AddressSuggestion) => {
+      skipNextGeocodeRef.current = true;
+      setLocationQuery(item.fullAddress);
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      setSelectedRoomId(null);
+      setFocusTarget((prev) => ({
+        lat: item.lat,
+        lng: item.lng,
+        zoom: 14,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+      toast.success(`Đã di chuyển bản đồ đến ${item.title}`);
+    },
+    [setSelectedRoomId],
+  );
+
+  const handleLocationSearchSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (locationSuggestions.length > 0) {
+        handleSelectLocationSuggestion(locationSuggestions[0]);
+        return;
+      }
+      const trimmed = locationQuery.trim();
+      if (trimmed.length < 2) return;
+      try {
+        setIsGeocoding(true);
+        const results = await searchAddressSuggestions(trimmed);
+        if (results.length > 0) {
+          handleSelectLocationSuggestion(results[0]);
+        } else {
+          toast.info('Không tìm thấy vị trí phù hợp, hãy thử tên đường hoặc quận/huyện khác.');
+        }
+      } finally {
+        setIsGeocoding(false);
+      }
+    },
+    [handleSelectLocationSuggestion, locationQuery, locationSuggestions],
+  );
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -173,7 +294,7 @@ export const MapSearchPage: React.FC = () => {
         maLpt: filterStore.categoryId,
         dsTienIch: filterStore.selectedAmenities,
         page: 0,
-        size: 50,
+        size: 100,
         sortBy: sortField,
         sortDirection,
       });
@@ -197,54 +318,46 @@ export const MapSearchPage: React.FC = () => {
       const distanceFromUserKm = coords
         ? getDistanceInKm(activeCenterCoords.lat, activeCenterCoords.lng, coords.lat, coords.lng)
         : null;
-      const distanceFromPickedKm =
-        pickedCoords && coords
-          ? getDistanceInKm(pickedCoords.lat, pickedCoords.lng, coords.lat, coords.lng)
-          : null;
-      return { room, distanceFromUserKm, distanceFromPickedKm };
+      return { room, coords, distanceFromUserKm };
     });
-  }, [rooms, activeCenterCoords, pickedCoords]);
-
-  const effectiveRadius = dynamicRadiusKm;
+  }, [rooms, activeCenterCoords]);
 
   const filteredRooms = useMemo(() => {
     const results: Array<{ room: RoomSummaryResponse; distanceInKm: number | null }> = [];
     for (const item of roomsWithDistance) {
-      const matchingDistances: number[] = [];
-      if (item.distanceFromUserKm !== null && item.distanceFromUserKm <= effectiveRadius) {
-        matchingDistances.push(item.distanceFromUserKm);
-      }
+      if (!item.coords) continue;
+
       if (
-        pickedCoords &&
-        item.distanceFromPickedKm !== null &&
-        item.distanceFromPickedKm <= PICKED_SCAN_RADIUS_KM
+        !mapBounds ||
+        (item.coords.lat >= mapBounds.south &&
+          item.coords.lat <= mapBounds.north &&
+          item.coords.lng >= mapBounds.west &&
+          item.coords.lng <= mapBounds.east)
       ) {
-        matchingDistances.push(item.distanceFromPickedKm);
-      }
-      if (matchingDistances.length > 0) {
         results.push({
           room: item.room,
-          distanceInKm: Math.min(...matchingDistances),
+          distanceInKm: item.distanceFromUserKm,
         });
       }
     }
     return sortRoomsByOption(results, (item) => item.room, sortBy);
-  }, [roomsWithDistance, effectiveRadius, pickedCoords, sortBy]);
+  }, [roomsWithDistance, mapBounds, sortBy]);
 
   const scannedRooms = useMemo(() => filteredRooms.map((item) => item.room), [filteredRooms]);
 
-  const detailQueries = useQueries({
-    queries: scannedRooms.map((room) => ({
-      queryKey: ['room', 'detail', room.maPhongTro],
-      queryFn: () => roomService.getRoomDetail(room.maPhongTro),
-      staleTime: 5 * 60 * 1000,
-    })),
-  });
-
-  const activeSelectedRoom = useMemo(() => {
+  const activeSelectedEntry = useMemo(() => {
     if (!selectedRoomId) return null;
-    return scannedRooms.find((r) => r.maPhongTro === selectedRoomId) ?? null;
-  }, [scannedRooms, selectedRoomId]);
+    return filteredRooms.find((item) => item.room.maPhongTro === selectedRoomId) ?? null;
+  }, [filteredRooms, selectedRoomId]);
+
+  const activeSelectedRoom = activeSelectedEntry?.room ?? null;
+
+  const { data: selectedRoomDetail, isLoading: isSelectedDetailLoading } = useQuery({
+    queryKey: ['room', 'detail', activeSelectedRoom?.maPhongTro],
+    queryFn: () => roomService.getRoomDetail(activeSelectedRoom!.maPhongTro),
+    enabled: Boolean(activeSelectedRoom?.maPhongTro),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleSelectRoom = useCallback(
     (room: RoomSummaryResponse) => {
@@ -253,17 +366,9 @@ export const MapSearchPage: React.FC = () => {
     [setSelectedRoomId],
   );
 
-  const handleMapClick = useCallback(
-    (coords: { lat: number; lng: number }) => {
-      setPickedCoords(coords);
-      setSelectedRoomId(null);
-    },
-    [setPickedCoords, setSelectedRoomId],
-  );
-
-  const handleClearPickedCoords = useCallback(() => {
-    setPickedCoords(null);
-  }, [setPickedCoords]);
+  const handleClearSelectedRoom = useCallback(() => {
+    setSelectedRoomId(null);
+  }, [setSelectedRoomId]);
 
   const handleLocateUser = useCallback(() => {
     setSelectedRoomId(null);
@@ -318,7 +423,7 @@ export const MapSearchPage: React.FC = () => {
 
   const capacityLabel = filterStore.capacity ? `Từ ${filterStore.capacity} người` : 'Số người';
   const amenityCount = filterStore.selectedAmenities.length;
-  const hasAnyActiveFilter = filterStore.getActiveFilterCount() > 0 || pickedCoords !== null;
+  const hasAnyActiveFilter = filterStore.getActiveFilterCount() > 0;
 
   return (
     <div className="flex-1 bg-slate-50 flex flex-col w-full h-full min-h-0 overflow-hidden">
@@ -329,6 +434,79 @@ export const MapSearchPage: React.FC = () => {
       >
         <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* 0. Thanh tìm kiếm vị trí theo nhu cầu */}
+            <div ref={locationSearchRef} className="relative w-full sm:w-64 lg:w-72 shrink-0">
+              <form onSubmit={handleLocationSearchSubmit} className="relative">
+                {isGeocoding ? (
+                  <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                ) : (
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                )}
+                <input
+                  type="text"
+                  value={locationQuery}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLocationQuery(val);
+                    if (val.trim().length < 2) {
+                      setLocationSuggestions([]);
+                      setShowLocationSuggestions(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    setActivePopover(null);
+                    if (locationSuggestions.length > 0) {
+                      setShowLocationSuggestions(true);
+                    }
+                  }}
+                  placeholder="Tìm vị trí (đường, quận, thành phố...)"
+                  aria-label="Tìm vị trí trên bản đồ"
+                  className="h-8 sm:h-9 w-full pl-9 pr-8 rounded-full border border-slate-300 bg-slate-50/70 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                />
+                {locationQuery && (
+                  <button
+                    type="button"
+                    aria-label="Xóa từ khóa tìm vị trí"
+                    onClick={() => {
+                      setLocationQuery('');
+                      setLocationSuggestions([]);
+                      setShowLocationSuggestions(false);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </form>
+
+              {showLocationSuggestions && locationSuggestions.length > 0 && (
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-80 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                  <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                    Gợi ý địa điểm (Bấm để di chuyển bản đồ)
+                  </div>
+                  {locationSuggestions.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleSelectLocationSuggestion(item)}
+                      className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-teal-50/70 hover:text-teal-900 transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 text-xs truncate">
+                          {item.title}
+                        </p>
+                        {item.subtitle && (
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            {item.subtitle}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* 1. Chip Giá */}
             <div className="relative">
@@ -653,16 +831,27 @@ export const MapSearchPage: React.FC = () => {
       {/* SPLIT 38/62 (DESKTOP) & LIST/MAP TOGGLE (MOBILE) */}
       <div className="flex-1 w-full max-w-[1360px] mx-auto min-h-0 lg:px-6 lg:py-4 overflow-hidden">
         <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,38fr)_minmax(0,62fr)] grid-rows-[minmax(0,1fr)] lg:gap-4 overflow-hidden">
-          {/* CỘT TRÁI (38%): DANH SÁCH THẺ CHI TIẾT ĐẦY ĐỦ TRONG VÙNG QUÉT */}
+          {/* CỘT TRÁI (38%): DANH SÁCH CARD NHỎ KHI QUÉT & CARD CHI TIẾT KHI CHỌN PHÒNG */}
           <div
             className={`${
               mobileView === 'map' ? 'hidden lg:flex' : 'flex'
             } flex-col h-full min-h-0 bg-slate-50 lg:rounded-2xl lg:border lg:border-slate-200 lg:shadow-xs overflow-hidden`}
           >
-            <div className="shrink-0 px-4 sm:px-5 py-3.5 bg-white border-b border-slate-200">
-              <h1 className="text-base font-bold text-slate-900">
-                Tìm thấy {filteredRooms.length} phòng trong khu vực
-              </h1>
+            <div className="shrink-0 px-4 sm:px-5 py-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
+              {activeSelectedEntry ? (
+                <button
+                  type="button"
+                  onClick={handleClearSelectedRoom}
+                  className="inline-flex items-center gap-2 text-sm font-bold text-slate-800 hover:text-teal-700 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 shrink-0" />
+                  <span>Quay lại danh sách ({filteredRooms.length})</span>
+                </button>
+              ) : (
+                <h1 className="text-base font-bold text-slate-900">
+                  Tìm thấy {filteredRooms.length} phòng trong khu vực
+                </h1>
+              )}
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-4 overscroll-contain">
@@ -681,29 +870,92 @@ export const MapSearchPage: React.FC = () => {
                 </div>
               ) : isLoading ? (
                 <SkeletonList variant="cards" count={3} columnsClassName="grid-cols-1" />
+              ) : activeSelectedEntry ? (
+                <MapRoomDetailCard
+                  key={activeSelectedEntry.room.maPhongTro}
+                  room={activeSelectedEntry.room}
+                  detail={selectedRoomDetail}
+                  isDetailLoading={isSelectedDetailLoading}
+                  distanceInKm={activeSelectedEntry.distanceInKm}
+                  isSelected
+                  isHighlighted={hoveredRoomId === activeSelectedEntry.room.maPhongTro}
+                  onSelect={handleSelectRoom}
+                  onHoverChange={setHoveredRoomId}
+                />
               ) : filteredRooms.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {filteredRooms.map(({ room, distanceInKm }, idx) => {
-                    const detailQuery = detailQueries[idx];
+                <div className="space-y-2.5">
+                  {filteredRooms.map(({ room, distanceInKm }) => {
+                    const thumb =
+                      room.anhDaiDien ||
+                      (room.hinhAnh && room.hinhAnh.length > 0 ? room.hinhAnh[0].duongDan : null) ||
+                      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500';
+                    const cardTitle =
+                      room.tieuDe ||
+                      `${room.tenLoaiPhong || 'Phòng trọ'} - ${room.diaChi.split(',')[0] || ''}`;
+                    const isHovered = hoveredRoomId === room.maPhongTro;
+
                     return (
-                      <MapRoomDetailCard
+                      <div
                         key={room.maPhongTro}
-                        room={room}
-                        detail={detailQuery?.data}
-                        isDetailLoading={Boolean(detailQuery?.isLoading)}
-                        distanceInKm={distanceInKm}
-                        isSelected={activeSelectedRoom?.maPhongTro === room.maPhongTro}
-                        isHighlighted={hoveredRoomId === room.maPhongTro}
-                        onSelect={handleSelectRoom}
-                        onHoverChange={setHoveredRoomId}
-                      />
+                        onClick={() => handleSelectRoom(room)}
+                        onMouseEnter={() => setHoveredRoomId(room.maPhongTro)}
+                        onMouseLeave={() => setHoveredRoomId(null)}
+                        className={`group bg-white rounded-2xl border p-2.5 flex items-center gap-3 cursor-pointer transition-all shadow-xs hover:shadow-md ${
+                          isHovered
+                            ? 'border-teal-500 ring-1 ring-teal-500/20'
+                            : 'border-slate-200/90 hover:border-teal-500'
+                        }`}
+                      >
+                        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+                          <img
+                            src={thumb}
+                            alt={cardTitle}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px] font-bold truncate">
+                              {distanceInKm !== null
+                                ? `Cách ${distanceInKm.toFixed(1)} km`
+                                : room.tenLoaiPhong || 'Phòng trọ'}
+                            </span>
+                            <span className="text-[11px] text-slate-400 shrink-0">
+                              {room.dienTich} m²
+                            </span>
+                          </div>
+
+                          <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-teal-700 transition-colors">
+                            {cardTitle}
+                          </h4>
+
+                          <p className="text-xs font-extrabold text-teal-700 mt-0.5">
+                            {formatVNDShort(room.giaThue)}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/room/${room.maPhongTro}`);
+                          }}
+                          title="Xem trang chi tiết"
+                          aria-label="Xem trang chi tiết"
+                          className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
               ) : (
                 <EmptyState
                   title="Chưa có phòng trong khu vực"
-                  description="Hãy kéo/thu nhỏ bản đồ hoặc nhấn trực tiếp lên khu vực khác để quét thêm."
+                  description="Hãy kéo/thu nhỏ bản đồ hoặc tìm kiếm vị trí khác để xem thêm phòng."
                   action={
                     <AppButton variant="primary" size="md" onClick={handleResetFilters}>
                       Xóa bộ lọc
@@ -727,17 +979,15 @@ export const MapSearchPage: React.FC = () => {
               onSelectRoom={handleSelectRoom}
               onHoverRoom={setHoveredRoomId}
               userCoords={activeCenterCoords}
-              radiusKm={effectiveRadius}
-              onRadiusChange={setDynamicRadiusKm}
               onLocateUser={handleLocateUser}
               isLocating={isLocating}
               locateTrigger={locateTrigger}
-              pickedCoords={pickedCoords}
-              pickedRadiusKm={PICKED_SCAN_RADIUS_KM}
-              onMapClick={handleMapClick}
-              onClearPickedCoords={handleClearPickedCoords}
+              interactivePreview={false}
+              onMapClick={handleClearSelectedRoom}
               initialViewport={mapViewport}
               onViewportChange={setMapViewport}
+              onBoundsChange={handleBoundsChange}
+              focusTarget={focusTarget}
             />
           </div>
         </div>
