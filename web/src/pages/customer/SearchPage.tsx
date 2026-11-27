@@ -19,7 +19,7 @@ import {
   buildCapacityOptions,
   buildNumericBrackets,
   formatMillions,
-  getProvinceSearchToken,
+  matchesProvinceAddress,
   ROOM_SORT_OPTIONS,
   resolveRoomSortParams,
   sortRoomsByOption,
@@ -170,16 +170,10 @@ export const SearchPage: React.FC = () => {
     ],
     queryFn: async () => {
       const trimmed = submittedKeyword.trim();
-      const provinceToken = filterStore.province
-        ? getProvinceSearchToken(filterStore.province)
-        : '';
-      const combinedKeyword = isAreaSearch
-        ? provinceToken || undefined
-        : [trimmed, provinceToken].filter(Boolean).join(' ') || undefined;
       const { sortBy: sortField, sortDirection } = resolveRoomSortParams(sortBy);
       return roomService.searchRooms({
-        keyword: combinedKeyword,
-        area: isAreaSearch && !filterStore.province ? trimmed : undefined,
+        keyword: isAreaSearch ? undefined : trimmed || undefined,
+        area: filterStore.province || (isAreaSearch ? trimmed : undefined),
         minGia: filterStore.minPrice,
         maxGia: filterStore.maxPrice,
         minDienTich: filterStore.minArea,
@@ -195,10 +189,13 @@ export const SearchPage: React.FC = () => {
     },
   });
 
-  const rooms = useMemo(
-    () => sortRoomsByOption(queryResult?.content ?? [], (r) => r, sortBy),
-    [queryResult?.content, sortBy],
-  );
+  const rooms = useMemo(() => {
+    const content = queryResult?.content ?? [];
+    const provinceFiltered = filterStore.province
+      ? content.filter((r) => matchesProvinceAddress(r.diaChi, filterStore.province!))
+      : content;
+    return sortRoomsByOption(provinceFiltered, (r) => r, sortBy);
+  }, [queryResult?.content, filterStore.province, sortBy]);
   const totalPages = queryResult?.totalPages ?? 1;
 
   const pageItems = useMemo<Array<number | 'ellipsis'>>(() => {
