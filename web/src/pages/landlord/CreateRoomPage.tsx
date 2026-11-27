@@ -20,7 +20,9 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MapPicker } from '@/components/map/MapPicker';
+import { LandlordTour360Section } from '@/components/tour360/LandlordTour360Section';
 import { landlordService } from '@/services/landlord.service';
+import { tour360Service } from '@/services/tour360.service';
 import type {
   AmenityItem,
   CategoryItem,
@@ -364,6 +366,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   });
   const [manualImageUrl, setManualImageUrl] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [activeTourId, setActiveTourId] = useState<string | null>(null);
 
   // Price & Contract Deposit
   const [price, setPrice] = useState<string>(() => draft?.price ?? String(existingRoom?.giaThue ?? ''));
@@ -371,42 +374,68 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
     draft?.contractDeposit ?? String(existingRoom?.cocPhong ?? ''),
   );
 
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(Boolean(draft));
   const formSnapshot = JSON.stringify({ categoryId, area, maxPeople, description, address, lat, lng,
     selectedAmenityCodes, imageUrls, price, contractDeposit });
-  const [savedSnapshot, setSavedSnapshot] = useState(formSnapshot);
-  const dirty = formSnapshot !== savedSnapshot;
+  const dirty = formSnapshot !== JSON.stringify({
+    categoryId: existingRoom?.maLpt ?? categories[0]?.maLpt ?? '',
+    area: String(existingRoom?.dienTich ?? 25),
+    maxPeople: String(existingRoom?.soNguoi ?? 2),
+    description: existingRoom?.moTa ?? '',
+    address: existingRoom?.diaChi ?? '',
+    lat: existingRoom?.viDo ? Number(existingRoom.viDo) : 10.8012,
+    lng: existingRoom?.kinhDo ? Number(existingRoom.kinhDo) : 106.7145,
+    selectedAmenityCodes: existingRoom?.dsMaTienIch ?? [],
+    imageUrls: existingRoom?.danhSachAnh ?? (existingRoom?.hinhAnhUrl ? [existingRoom.hinhAnhUrl] : []),
+    price: String(existingRoom?.giaThue ?? ''),
+    contractDeposit: String(existingRoom?.cocPhong ?? ''),
+  });
+
+  // Tự động lưu bản nháp ngầm khi người dùng đang nhập
   useEffect(() => {
-    if (!dirty) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (savedSuccessfully.current) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    const checkLink = (event: MouseEvent) => {
-      const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
-      if (!anchor || savedSuccessfully.current) return;
-      if (!window.confirm('Thông tin phòng chưa được lưu. Bạn muốn rời trang?')) {
-        event.preventDefault(); event.stopPropagation();
+    if (savedSuccessfully.current || !dirty) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const parsed = draftSchema.safeParse(JSON.parse(formSnapshot));
+        if (parsed.success) {
+          localStorage.setItem(draftKey, formSnapshot);
+        }
+      } catch {
+        // Bỏ qua nếu trình duyệt chặn localStorage
       }
-    };
-    window.addEventListener('beforeunload', beforeUnload);
-    document.addEventListener('click', checkLink, true);
-    return () => {
-      window.removeEventListener('beforeunload', beforeUnload);
-      document.removeEventListener('click', checkLink, true);
-    };
-  }, [dirty]);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [dirty, draftKey, formSnapshot]);
+
   const leaveForm = () => {
-    if (!dirty || window.confirm('Thông tin phòng chưa được lưu. Bạn muốn rời trang?')) navigate('/landlord/rooms');
+    navigate('/landlord/rooms');
   };
-  const saveDraft = () => {
+
+  const handleDiscardDraft = () => {
     try {
-      const parsed = draftSchema.safeParse(JSON.parse(formSnapshot));
-      if (!parsed.success) { toast.error('Kiểm tra tọa độ và hình ảnh trước khi lưu nháp'); return; }
-      localStorage.setItem(draftKey, formSnapshot);
-      setSavedSnapshot(formSnapshot);
-      toast.success('Đã lưu bản nháp trên trình duyệt cho tài khoản này');
-    } catch { toast.error('Không thể lưu bản nháp trên trình duyệt'); }
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+    setHasRestoredDraft(false);
+    setCategoryId(existingRoom?.maLpt ?? categories[0]?.maLpt ?? '');
+    setArea(String(existingRoom?.dienTich ?? 25));
+    setMaxPeople(String(existingRoom?.soNguoi ?? 2));
+    setDescription(existingRoom?.moTa ?? '');
+    setAddress(existingRoom?.diaChi ?? '');
+    setLat(existingRoom?.viDo ? Number(existingRoom.viDo) : 10.8012);
+    setLng(existingRoom?.kinhDo ? Number(existingRoom.kinhDo) : 106.7145);
+    setSelectedAmenityCodes(existingRoom?.dsMaTienIch ?? []);
+    setImageUrls(
+      existingRoom?.danhSachAnh && existingRoom.danhSachAnh.length > 0
+        ? existingRoom.danhSachAnh
+        : existingRoom?.hinhAnhUrl
+          ? [existingRoom.hinhAnhUrl]
+          : [],
+    );
+    setPrice(String(existingRoom?.giaThue ?? ''));
+    setContractDeposit(String(existingRoom?.cocPhong ?? ''));
+    toast.success('Đã xóa bản nháp');
   };
 
   const uploadImagesMutation = useMutation({
@@ -431,8 +460,15 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
       isEdit && id
         ? landlordService.updateRoom(id, payload)
         : landlordService.createRoom(payload),
-    onSuccess: (room) => {
+    onSuccess: async (room) => {
       savedSuccessfully.current = true;
+      if (activeTourId && room.maPhongTro) {
+        try {
+          await tour360Service.attachTourToRoom(room.maPhongTro, activeTourId);
+        } catch {
+          toast.warning('Đã lưu phòng, nhưng chưa gắn được Tour 360°. Bạn có thể gắn lại khi sửa phòng.');
+        }
+      }
       try { localStorage.removeItem(draftKey); } catch { /* Saving the room must still finish if storage is unavailable. */ }
       queryClient.setQueryData(['landlord', 'room-detail', room.maPhongTro], room);
       void queryClient.invalidateQueries({ queryKey: ['landlord', 'rooms'] });
@@ -569,47 +605,63 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
   const viewingDeposit = selectedCategory?.soTienCoc ?? 200_000;
   const platformFee = selectedCategory?.phiThu ?? 20_000;
   const landlordNetAdvance = Math.max(0, viewingDeposit - platformFee);
+  const numericPrice = Number(price.replace(/\D/g, '')) || 0;
+  const numericDeposit = contractDeposit.trim() !== '' ? Number(contractDeposit.replace(/\D/g, '')) || 0 : numericPrice;
 
   return (
-    <form ref={formRef} noValidate onSubmit={handleSubmit} className="space-y-6 mx-auto pb-6">
-      {/* Header */}
-      <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <Card.Header className="p-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+    <form ref={formRef} noValidate onSubmit={handleSubmit} className="space-y-5 mx-auto pb-8">
+      {/* Compact Top Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            aria-label="Quay về danh sách phòng"
+            onClick={leaveForm}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Quay lại danh sách</span>
+          </button>
+          <span className="text-xs text-slate-500 hidden sm:inline">
+            {isEdit ? `Đang chỉnh sửa phòng #${id}` : 'Hoàn thiện thông tin bên dưới để gửi duyệt bài đăng'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-500 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full">
+            Tự động lưu nháp
+          </span>
+          {hasRestoredDraft && (
             <button
               type="button"
-              aria-label="Quay về danh sách phòng"
-              onClick={leaveForm}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              onClick={handleDiscardDraft}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full cursor-pointer"
             >
-              <ArrowLeft className="w-5 h-5" />
+              Xóa nháp
             </button>
-            <div>
-              <Card.Title className="text-lg font-bold text-slate-900">
-                {isEdit ? `Chỉnh Sửa Phòng Trọ #${id}` : 'Đăng Tin Phòng Trọ Mới'}
-              </Card.Title>
-            </div>
-          </div>
-        </Card.Header>
-      </Card>
+          )}
+        </div>
+      </div>
 
-      {draft && <p className="rounded-xl bg-cyan-50 p-3 text-sm text-cyan-800">Đã khôi phục bản nháp của tài khoản này.</p>}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <div className="space-y-6">
+      {/* 8 / 4 Asymmetric Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        {/* CỘT TRÁI (8/12): FORM NHẬP LIỆU */}
+        <div className="xl:col-span-8 space-y-6">
+          {/* Card 1: Thông tin & Giá thuê */}
           <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
             <Card.Header className="p-0">
               <Card.Title className="text-base font-bold text-slate-900">
-                Thông tin cơ bản của phòng trọ
+                Thông tin cơ bản & Giá thuê
               </Card.Title>
               <Card.Description className="text-xs text-slate-500">
-                Chọn loại phòng, diện tích và số người ở tối đa.
+                Chọn loại hình, diện tích, sức chứa và chi phí thuê hàng tháng.
               </Card.Description>
             </Card.Header>
 
-            <Card.Content className="p-0 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card.Content className="p-0 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="sm:col-span-2">
-                  <label htmlFor="room-categoryId" className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label htmlFor="room-categoryId" className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Loại hình phòng trọ <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -618,7 +670,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     aria-describedby={errors.categoryId ? 'room-categoryId-error' : undefined}
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 bg-white font-semibold"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800 bg-white font-semibold"
                   >
                     {categories.map((c) => (
                       <option key={c.maLpt} value={c.maLpt}>
@@ -630,8 +682,8 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="room-area" className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Diện tích sử dụng (m²) <span className="text-red-500">*</span>
+                  <label htmlFor="room-area" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Diện tích (m²) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -643,14 +695,14 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="VD: 25"
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 font-bold"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800 font-semibold"
                   />
                   {fieldError('area')}
                 </div>
 
                 <div>
-                  <label htmlFor="room-maxPeople" className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Số người ở tối đa <span className="text-red-500">*</span>
+                  <label htmlFor="room-maxPeople" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Số người tối đa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -662,37 +714,15 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                     value={maxPeople}
                     onChange={(e) => setMaxPeople(e.target.value)}
                     placeholder="VD: 2"
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 font-bold"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800 font-semibold"
                   />
                   {fieldError('maxPeople')}
                 </div>
               </div>
 
-              {selectedCategory && (
-                <div className="p-3.5 rounded-xl bg-cyan-50/60 border border-cyan-100 flex flex-wrap items-center justify-between gap-2 text-xs text-cyan-900">
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-cyan-600 shrink-0" />
-                    <span>
-                      Loại phòng <strong>{selectedCategory.tenLoaiPhongTro}</strong> áp dụng mức cọc giữ chân lịch xem:{' '}
-                      <strong>{formatVND(viewingDeposit)}</strong>
-                    </span>
-                  </div>
-                </div>
-              )}
-
-            </Card.Content>
-          </Card>
-          <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-            <Card.Header className="p-0">
-              <Card.Title className="text-base font-bold text-slate-900">
-                Giá thuê & Tiền cọc hợp đồng
-              </Card.Title>
-            </Card.Header>
-
-            <Card.Content className="p-0 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border-t border-slate-100 pt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="room-price" className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label htmlFor="room-price" className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Giá thuê hàng tháng (VNĐ) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -705,9 +735,9 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                       value={formatCurrencyInput(price)}
                       onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))}
                       placeholder="VD: 3.500.000"
-                      className="w-full text-sm p-3.5 pr-12 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-900 font-extrabold"
+                      className="w-full text-sm p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
                     />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
                       ₫
                     </span>
                   </div>
@@ -715,7 +745,7 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="room-contractDeposit" className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label htmlFor="room-contractDeposit" className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Tiền cọc hợp đồng phòng (VNĐ)
                   </label>
                   <div className="relative">
@@ -728,384 +758,442 @@ const CreateRoomForm: React.FC<CreateRoomFormProps> = ({
                       value={formatCurrencyInput(contractDeposit)}
                       onChange={(e) => setContractDeposit(e.target.value.replace(/\D/g, ''))}
                       placeholder="Mặc định bằng 1 tháng tiền thuê"
-                      className="w-full text-sm p-3.5 pr-12 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-900 font-extrabold"
+                      className="w-full text-sm p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-900 font-bold"
                     />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
                       ₫
                     </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[
+                      { label: 'Bằng 1 tháng', val: numericPrice > 0 ? String(numericPrice) : '' },
+                      { label: 'Nửa tháng', val: numericPrice > 0 ? String(Math.round(numericPrice / 2)) : '' },
+                      { label: 'Không cọc', val: '0' },
+                    ].map((chip) => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        onClick={() => setContractDeposit(chip.val)}
+                        className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition-colors cursor-pointer"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
                   </div>
                   {fieldError('contractDeposit')}
                 </div>
               </div>
-
-              {/* Platform Viewing Deposit & Fee Info Box */}
-              <div className="p-4 rounded-2xl bg-cyan-50/70 border border-cyan-200/80 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h4 className="text-xs font-bold text-cyan-950 uppercase tracking-wider">
-                    Cọc lịch xem & Phí dịch vụ ({selectedCategory?.tenLoaiPhongTro || categoryId})
-                  </h4>
-                  <Chip size="sm" color="accent" variant="soft">
-                    <Chip.Label>Thu phí khi thuê thành công</Chip.Label>
-                  </Chip>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-cyan-100">
-                    <span className="text-[11px] text-slate-500 block">
-                      Cọc giữ chân lịch xem
-                    </span>
-                    <span className="text-base font-black text-cyan-700 mt-0.5 block">
-                      {formatVND(viewingDeposit)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Khách nộp cho Sàn khi đặt lịch hẹn
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-cyan-100">
-                    <span className="text-[11px] text-slate-500 block">
-                      Phí hoa hồng môi giới
-                    </span>
-                    <span className="text-base font-black text-amber-700 mt-0.5 block">
-                      {formatVND(platformFee)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Chỉ trích thu khi cả 2 bên đồng ý thuê
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-cyan-100">
-                    <span className="text-[11px] text-slate-500 block">
-                      Hoàn về Ví Chủ trọ khi chốt thuê
-                    </span>
-                    <span className="text-base font-black text-emerald-700 mt-0.5 block">
-                      {formatVND(landlordNetAdvance)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Hoàn 100% ({formatVND(viewingDeposit)}) nếu không thuê
-                    </span>
-                  </div>
-                </div>
-              </div>
-
             </Card.Content>
           </Card>
-        </div>
-        <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-          <Card.Header className="p-0">
-            <Card.Title className="text-base font-bold text-slate-900">
-              Vị trí địa chỉ & Tọa độ bản đồ
-            </Card.Title>
-          </Card.Header>
 
-          <Card.Content className="p-0 space-y-4">
-            <div className="relative z-20" ref={suggestionsRef}>
-              <label htmlFor="room-address" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Địa chỉ cụ thể <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  id="room-address"
-                  aria-invalid={Boolean(errors.address)}
-                  aria-describedby={errors.address ? 'room-address-error' : undefined}
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setGeocodedNotice(null);
-                  }}
-                  onFocus={() => {
-                    if (geocodeSuggestions.length > 0) setShowSuggestions(true);
-                  }}
-                  placeholder="Số nhà, ngõ/hẻm, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
-                  className="w-full text-xs p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 font-medium"
-                />
-                {isGeocoding ? (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+          {/* Card 2: Địa chỉ & Bản đồ */}
+          <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <Card.Header className="p-0">
+              <Card.Title className="text-base font-bold text-slate-900">
+                Địa chỉ & Vị trí bản đồ
+              </Card.Title>
+              <Card.Description className="text-xs text-slate-500">
+                Nhập địa chỉ để gợi ý vị trí tự động, hoặc kéo ghim trực tiếp trên bản đồ.
+              </Card.Description>
+            </Card.Header>
+
+            <Card.Content className="p-0 space-y-4">
+              <div className="relative z-20" ref={suggestionsRef}>
+                <label htmlFor="room-address" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Địa chỉ cụ thể <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="room-address"
+                    aria-invalid={Boolean(errors.address)}
+                    aria-describedby={errors.address ? 'room-address-error' : undefined}
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setGeocodedNotice(null);
+                    }}
+                    onFocus={() => {
+                      if (geocodeSuggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    placeholder="Số nhà, ngõ/hẻm, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
+                    className="w-full text-xs p-3 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800 font-medium"
+                  />
+                  {isGeocoding ? (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-4 h-4 text-teal-700 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                    </div>
+                  )}
+                </div>
+                {fieldError('address')}
+
+                {showSuggestions && geocodeSuggestions.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                      Gợi ý địa chỉ (Bấm để ghim lên bản đồ)
+                    </div>
+                    {geocodeSuggestions.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => handleSelectAddressSuggestion(item)}
+                        className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-start gap-3 cursor-pointer group"
+                      >
+                        <MapPin className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-900 text-xs truncate">
+                            {item.title}
+                          </p>
+                          {item.subtitle && (
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {item.subtitle}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <MapPin className="w-4 h-4 text-slate-400" />
+                )}
+
+                {geocodedNotice && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium mt-2">
+                    <CheckCircle2 className="w-4 h-4 text-teal-700 shrink-0" />
+                    <span>{geocodedNotice}. Bạn có thể kéo ghim trên bản đồ để tinh chỉnh.</span>
                   </div>
                 )}
               </div>
-              {fieldError('address')}
 
-              {/* Suggestions dropdown */}
-              {showSuggestions && geocodeSuggestions.length > 0 && (
-                <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                  <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-semibold text-slate-500">
-                    Gợi ý địa chỉ chi tiết (Bấm để ghim lên bản đồ)
-                  </div>
-                  {geocodeSuggestions.map((item) => (
+              <MapPicker
+                lat={Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : 10.8012}
+                lng={Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : 106.7145}
+                onChange={(newLat, newLng) => {
+                  setLat(newLat);
+                  setLng(newLng);
+                  setGeocodedNotice('Đã ghim vị trí tùy chỉnh trên bản đồ');
+                }}
+                height="280px"
+              />
+            </Card.Content>
+          </Card>
+
+          {/* Card 3: Tiện ích & Mô tả */}
+          <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+            <Card.Header className="p-0 flex flex-row items-center justify-between">
+              <div>
+                <Card.Title className="text-base font-bold text-slate-900">
+                  Tiện ích & Mô tả
+                </Card.Title>
+              </div>
+              <Chip size="sm" color="default" variant="soft">
+                <Chip.Label>Đã chọn {selectedAmenityCodes.length} tiện ích</Chip.Label>
+              </Chip>
+            </Card.Header>
+
+            <Card.Content className="p-0 space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {amenities.map((amenity) => {
+                  const isChecked = selectedAmenityCodes.includes(amenity.maTienIch);
+                  return (
                     <button
                       type="button"
-                      key={item.id}
-                      onClick={() => handleSelectAddressSuggestion(item)}
-                      className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-teal-50/70 hover:text-teal-900 transition-colors flex items-start gap-3 cursor-pointer group"
+                      key={amenity.maTienIch}
+                      onClick={() => handleToggleAmenity(amenity.maTienIch)}
+                      className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                        isChecked
+                          ? 'border-teal-700 bg-teal-50/40 text-slate-900'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
                     >
-                      <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 text-xs truncate">
-                          {item.title}
-                        </p>
-                        {item.subtitle && (
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                            {item.subtitle}
-                          </p>
-                        )}
+                      <div className="min-w-0">
+                        <span className="block truncate">{amenity.tenTienIch}</span>
+                      </div>
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                          isChecked ? 'bg-teal-700 text-white' : 'border border-slate-300'
+                        }`}
+                      >
+                        {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+              <div>
+                <label htmlFor="room-description" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mô tả chi tiết & Nội quy phòng trọ
+                </label>
+                <textarea
+                  rows={4}
+                  id="room-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Mô tả chi tiết tình trạng nội thất, giờ giấc ra vào, giá điện nước, chỗ để xe và nội quy chung..."
+                  className="w-full text-xs p-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800 leading-relaxed"
+                />
+              </div>
+            </Card.Content>
+          </Card>
+
+          {/* Card 4: Hình ảnh & Tour 360 */}
+          <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+            <Card.Header className="p-0 flex flex-row items-center justify-between">
+              <div>
+                <Card.Title className="text-base font-bold text-slate-900">
+                  Hình ảnh thực tế của phòng trọ
+                </Card.Title>
+                <Card.Description className="text-xs text-slate-500">
+                  Tối thiểu 1 ảnh rõ nét. Ảnh đầu tiên sẽ làm ảnh bìa hiển thị.
+                </Card.Description>
+              </div>
+              <Chip size="sm" color="default" variant="soft">
+                <Chip.Label>{imageUrls.length} hình ảnh</Chip.Label>
+              </Chip>
+            </Card.Header>
+
+            <Card.Content className="p-0 space-y-4">
+              {fieldError('imageUrls')}
+              <input
+                type="file"
+                ref={fileInputRef}
+                multiple
+                accept="image/*"
+                onChange={(e) => processFiles(e.target.files)}
+                className="hidden"
+              />
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  processFiles(e.dataTransfer.files);
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label="Thêm hình ảnh phòng trọ"
+                aria-invalid={Boolean(errors.imageUrls)}
+                aria-describedby={errors.imageUrls ? 'room-imageUrls-error' : undefined}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all ${
+                  isDragging
+                    ? 'border-teal-700 bg-slate-50 ring-2 ring-teal-700/15'
+                    : 'border-slate-300 hover:border-teal-700 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full bg-slate-100 text-teal-700 flex items-center justify-center mx-auto mb-2">
+                  {uploadImagesMutation.isPending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-5 h-5" />
+                  )}
                 </div>
-              )}
+                <p className="text-xs font-semibold text-slate-800">
+                  {uploadImagesMutation.isPending
+                    ? 'Đang tải ảnh lên...'
+                    : 'Kéo thả hình ảnh vào đây hoặc bấm để chọn tệp'}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Hỗ trợ PNG, JPG, JPEG, WEBP (tối đa 10MB/ảnh)
+                </p>
+              </div>
 
-              {/* Geocoded status hint */}
-              {geocodedNotice && (
-                <div className="flex items-center gap-1.5 text-xs text-teal-700 font-medium mt-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>{geocodedNotice}. Bạn có thể kéo ghim trên bản đồ để tinh chỉnh.</span>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Link2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    aria-label="Đường dẫn hình ảnh"
+                    value={manualImageUrl}
+                    onChange={(e) => setManualImageUrl(e.target.value)}
+                    placeholder="Hoặc dán trực tiếp URL hình ảnh (https://...)"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/15 focus:border-teal-700 text-slate-800"
+                  />
                 </div>
-              )}
-            </div>
-
-            <MapPicker
-              lat={Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : 10.8012}
-              lng={Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : 106.7145}
-              onChange={(newLat, newLng) => {
-                setLat(newLat);
-                setLng(newLng);
-                setGeocodedNotice('Đã ghim vị trí tùy chỉnh trên bản đồ');
-              }}
-              height="340px"
-            />
-          </Card.Content>
-        </Card>
-      </div>
-
-      <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-        <Card.Header className="p-0 flex flex-row items-center justify-between">
-          <div>
-            <Card.Title className="text-base font-bold text-slate-900">
-              Tiện ích & Mô tả
-            </Card.Title>
-          </div>
-          <Chip size="sm" color="success" variant="soft">
-            <Chip.Label>Đã chọn {selectedAmenityCodes.length} tiện ích</Chip.Label>
-          </Chip>
-        </Card.Header>
-
-        <Card.Content className="p-0 space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {amenities.map((amenity) => {
-              const isChecked = selectedAmenityCodes.includes(amenity.maTienIch);
-              return (
                 <button
                   type="button"
-                  key={amenity.maTienIch}
-                  onClick={() => handleToggleAmenity(amenity.maTienIch)}
-                  className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between gap-2 cursor-pointer transition-all ${
-                    isChecked
-                      ? 'border-cyan-500 bg-cyan-50/60 text-cyan-900 ring-1 ring-cyan-500/40'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  onClick={handleAddManualUrl}
+                  className="px-4 py-2.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors cursor-pointer shrink-0"
                 >
-                  <div className="min-w-0">
-                    <span className="block truncate">{amenity.tenTienIch}</span>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                      isChecked ? 'bg-cyan-600 text-white' : 'border border-slate-300'
-                    }`}
-                  >
-                    {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                  </div>
+                  Thêm URL
                 </button>
-              );
-            })}
-          </div>
-          <div>
-            <label htmlFor="room-description" className="block text-xs font-bold text-slate-700 mb-1.5">
-              Mô tả chi tiết & Nội quy phòng trọ
-            </label>
-            <textarea
-              rows={5}
-              id="room-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Mô tả chi tiết tình trạng nội thất, giờ giấc ra vào, giá điện nước, chỗ để xe và nội quy chung..."
-              className="w-full text-xs p-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800 leading-relaxed"
-            />
-          </div>
-        </Card.Content>
-      </Card>
-      <Card className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-        <Card.Header className="p-0 flex flex-row items-center justify-between">
-          <div>
-            <Card.Title className="text-base font-bold text-slate-900">
-              Hình ảnh thực tế của phòng trọ
-            </Card.Title>
-            <Card.Description className="text-xs text-slate-500">
-              Bắt buộc tối thiểu 1 ảnh đại diện rõ nét. Ảnh đầu tiên sẽ được chọn làm ảnh bìa hiển thị.
-            </Card.Description>
-          </div>
-          <Chip size="sm" color="accent" variant="soft">
-            <Chip.Label>{imageUrls.length} hình ảnh</Chip.Label>
-          </Chip>
-        </Card.Header>
+              </div>
 
-        <Card.Content className="p-0 space-y-4">
-          {fieldError('imageUrls')}
-          <input
-            type="file"
-            ref={fileInputRef}
-            multiple
-            accept="image/*"
-            onChange={(e) => processFiles(e.target.files)}
-            className="hidden"
-          />
+              {imageUrls.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                  {imageUrls.map((img, idx) => (
+                    <div
+                      key={`${img}-${idx}`}
+                      className="relative aspect-4/3 rounded-xl overflow-hidden ring-1 ring-slate-200 group bg-slate-100"
+                    >
+                      <img src={img} alt={`Ảnh phòng ${idx + 1}`} className="w-full h-full object-cover" />
+                      {idx === 0 ? (
+                        <span className="absolute top-2 left-2 bg-teal-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-white" />
+                          Ảnh đại diện
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetCoverImage(idx)}
+                          className="absolute top-2 left-2 bg-slate-900/75 hover:bg-teal-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          Đặt làm bìa
+                        </button>
+                      )}
 
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              processFiles(e.dataTransfer.files);
-            }}
-            tabIndex={0}
-            role="button"
-            aria-label="Thêm hình ảnh phòng trọ"
-            aria-invalid={Boolean(errors.imageUrls)}
-            aria-describedby={errors.imageUrls ? 'room-imageUrls-error' : undefined}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-              isDragging
-                ? 'border-cyan-500 bg-cyan-50/50 ring-2 ring-cyan-500/20'
-                : 'border-slate-300 hover:border-cyan-500 hover:bg-slate-50/60'
-            }`}
-          >
-            <div className="w-12 h-12 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center mx-auto mb-2">
-              {uploadImagesMutation.isPending ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-slate-900/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
+                        title="Xóa ảnh này"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <UploadCloud className="w-6 h-6" />
+                <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-slate-300" />
+                  <span>Chưa có hình ảnh nào. Vui lòng tải lên ít nhất 1 ảnh thực tế.</span>
+                </div>
+              )}
+            </Card.Content>
+          </Card>
+
+          <LandlordTour360Section
+            roomId={isEdit ? id : undefined}
+            tourId={activeTourId}
+            onTourIdChange={setActiveTourId}
+          />
+        </div>
+
+        {/* CỘT PHẢI (4/12): TÓM TẮT STICKY & GỬI DUYỆT */}
+        <div className="xl:col-span-4 xl:sticky xl:top-6 space-y-5">
+          {/* Xem trước tin đăng */}
+          <Card className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="aspect-16/9 bg-slate-100 relative overflow-hidden">
+              {imageUrls[0] ? (
+                <img src={imageUrls[0]} alt="Xem trước ảnh bìa" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1.5">
+                  <ImageIcon className="w-7 h-7 text-slate-300" />
+                  <span className="text-[11px]">Chưa có ảnh đại diện</span>
+                </div>
+              )}
+              {selectedCategory && (
+                <span className="absolute top-3 left-3 bg-white/95 text-slate-800 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-xs">
+                  {selectedCategory.tenLoaiPhongTro}
+                </span>
               )}
             </div>
-            <p className="text-xs font-bold text-slate-800">
-              {uploadImagesMutation.isPending
-                ? 'Đang tải ảnh lên...'
-                : 'Kéo thả hình ảnh vào đây hoặc bấm để chọn tệp từ máy tính'}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Hỗ trợ PNG, JPG, JPEG, WEBP (tối đa 10MB/ảnh)
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Link2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="url"
-                aria-label="Đường dẫn hình ảnh"
-                value={manualImageUrl}
-                onChange={(e) => setManualImageUrl(e.target.value)}
-                placeholder="Hoặc dán trực tiếp URL hình ảnh (https://...)"
-                className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-slate-800"
-              />
+            <div className="p-5 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-lg font-extrabold text-slate-900">
+                  {numericPrice > 0 ? formatVND(numericPrice) : 'Chưa nhập giá'}
+                </span>
+                {numericPrice > 0 && <span className="text-xs text-slate-500">/ tháng</span>}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span>{area || '—'} m²</span>
+                <span className="text-slate-300">•</span>
+                <span>Tối đa {maxPeople || '—'} người</span>
+                <span className="text-slate-300">•</span>
+                <span>Cọc HĐ: {numericDeposit > 0 ? formatVND(numericDeposit) : 'Không cọc'}</span>
+              </div>
+
+              <div className="flex items-start gap-1.5 text-xs text-slate-500 pt-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <span className="line-clamp-2">
+                  {address.trim() || 'Chưa nhập địa chỉ cụ thể'}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>{selectedAmenityCodes.length} tiện ích</span>
+                <span>{imageUrls.length}/10 hình ảnh</span>
+              </div>
             </div>
+          </Card>
+
+          {/* Minh bạch Cọc lịch xem & Phí sàn */}
+          <Card className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Phí dịch vụ & Cọc lịch xem
+              </h4>
+              <Info className="w-4 h-4 text-slate-400 shrink-0" />
+            </div>
+
+            <div className="divide-y divide-slate-100 text-xs">
+              <div className="py-2.5 flex items-center justify-between gap-2">
+                <span className="text-slate-500">Cọc giữ chân lịch xem</span>
+                <span className="font-bold text-slate-900">{formatVND(viewingDeposit)}</span>
+              </div>
+              <div className="py-2.5 flex items-center justify-between gap-2">
+                <span className="text-slate-500">Hoa hồng khi chốt thuê</span>
+                <span className="font-bold text-slate-900">{formatVND(platformFee)}</span>
+              </div>
+              <div className="py-2.5 flex items-center justify-between gap-2">
+                <span className="text-slate-500">Hoàn về ví chủ trọ</span>
+                <span className="font-bold text-teal-700">{formatVND(landlordNetAdvance)}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">
+              Chỉ trích thu phí hoa hồng khi cả hai bên xác nhận thuê thành công. Nếu không thuê, sàn hoàn lại 100% ({formatVND(viewingDeposit)}) về ví chủ trọ.
+            </p>
+          </Card>
+
+          {/* Nút hành động */}
+          <Card className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
+            <button
+              type="submit"
+              disabled={saveRoomMutation.isPending || uploadImagesMutation.isPending}
+              className="w-full px-5 py-3 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saveRoomMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              <span>
+                {saveRoomMutation.isPending
+                  ? 'Đang gửi...'
+                  : isEdit
+                    ? 'Lưu cập nhật phòng'
+                    : 'Gửi duyệt bài đăng'}
+              </span>
+            </button>
+
             <button
               type="button"
-              onClick={handleAddManualUrl}
-              className="px-4 py-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors cursor-pointer shrink-0"
+              onClick={leaveForm}
+              className="w-full px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
-              Thêm URL
+              Hủy
             </button>
-          </div>
-
-          {imageUrls.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              {imageUrls.map((img, idx) => (
-                <div
-                  key={`${img}-${idx}`}
-                  className="relative aspect-4/3 rounded-xl overflow-hidden ring-1 ring-slate-200 group bg-slate-100"
-                >
-                  <img src={img} alt={`Ảnh phòng ${idx + 1}`} className="w-full h-full object-cover" />
-                  {idx === 0 ? (
-                    <span className="absolute top-2 left-2 bg-cyan-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-white" />
-                      Ảnh đại diện
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSetCoverImage(idx)}
-                      className="absolute top-2 left-2 bg-slate-900/70 hover:bg-cyan-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      Đặt làm bìa
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-slate-900/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                    title="Xóa ảnh này"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-              <ImageIcon className="w-4 h-4 text-slate-300" />
-              <span>Chưa có hình ảnh nào. Vui lòng tải lên ít nhất 1 ảnh thực tế.</span>
-            </div>
-          )}
-        </Card.Content>
-      </Card>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <button
-          type="button"
-          onClick={leaveForm}
-          className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-        >
-          Hủy
-        </button>
-        <button type="button" onClick={saveDraft} disabled={saveRoomMutation.isPending || uploadImagesMutation.isPending}
-          className="px-4 py-2.5 text-sm font-semibold border border-slate-200 rounded-xl">Lưu bản nháp</button>
-        <button
-          type="submit"
-          disabled={saveRoomMutation.isPending || uploadImagesMutation.isPending}
-          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-        >
-          {saveRoomMutation.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4" />
-          )}
-          <span>
-            {saveRoomMutation.isPending
-              ? 'Đang gửi...'
-              : isEdit
-                ? 'Lưu cập nhật phòng'
-                : 'Gửi duyệt bài đăng'}
-          </span>
-        </button>
+          </Card>
+        </div>
       </div>
     </form>
   );
@@ -1137,7 +1225,7 @@ export const CreateRoomPage: React.FC<CreateRoomPageProps> = ({ isEdit = false }
   if (fetchingRoom || categoriesLoading || amenitiesLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-slate-400">
-        <Loader2 className="w-7 h-7 animate-spin text-cyan-600 mb-2" />
+        <Loader2 className="w-7 h-7 animate-spin text-teal-600 mb-2" />
         <span className="text-xs font-medium">Đang tải thông tin phòng trọ...</span>
       </div>
     );

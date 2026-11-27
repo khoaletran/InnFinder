@@ -33,9 +33,13 @@ export const appointmentService = {
     return axiosClient.post<unknown, string>(`/api/appointments/${maDatLich}/pay-deposit`);
   },
 
-  confirmReceivedDeposit: async (maDatLich: string): Promise<AppointmentResponse> => {
+  confirmReceivedDeposit: async (
+    maDatLich: string,
+    coords: { viDo: number; kinhDo: number },
+  ): Promise<AppointmentResponse> => {
     return axiosClient.patch<unknown, AppointmentResponse>(
       `/api/appointments/${maDatLich}/confirm-received-deposit`,
+      coords,
     );
   },
 

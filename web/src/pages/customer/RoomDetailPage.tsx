@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Compass,
   ExternalLink,
   Heart,
   Images,
@@ -18,7 +19,9 @@ import { toast } from 'sonner';
 import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RoomMap } from '@/components/map/RoomMap';
+import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
 import { roomService } from '@/services/room.service';
+import { tour360Service } from '@/services/tour360.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
@@ -32,6 +35,7 @@ export const RoomDetailPage: React.FC = () => {
   const { isFavorite, toggleFavorite } = useFavoriteStore();
   const lastSearchMode = useRoomFilterStore((s) => s.lastSearchMode);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [tourModalOpen, setTourModalOpen] = useState(false);
   const [carouselState, setCarouselState] = useState<{ roomId?: string; index: number }>({
     roomId: id,
     index: 0,
@@ -47,6 +51,12 @@ export const RoomDetailPage: React.FC = () => {
   const { data: reviews = [] } = useQuery({
     queryKey: ['rooms', 'reviews', id],
     queryFn: () => roomService.getRoomReviews(id || ''),
+    enabled: !!id,
+  });
+
+  const { data: roomTour } = useQuery({
+    queryKey: ['rooms', 'tour-360', id],
+    queryFn: () => tour360Service.getRoomTour(id || ''),
     enabled: !!id,
   });
 
@@ -231,6 +241,21 @@ export const RoomDetailPage: React.FC = () => {
 
           {images.length > 1 && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+          )}
+
+          {/* Nút Xem Tour 360° góc trái (nếu phòng có tour) */}
+          {roomTour && roomTour.nodes.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTourModalOpen(true);
+              }}
+              className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-teal-700/90 hover:bg-teal-700 backdrop-blur-xs px-3.5 py-1.5 text-xs font-bold text-white shadow-md transition-colors cursor-pointer"
+            >
+              <Compass className="w-3.5 h-3.5 text-teal-200" />
+              <span>Xem Tour 360° ({roomTour.nodes.length} góc)</span>
+            </button>
           )}
 
           {/* Badge tổng số ảnh góc phải */}
@@ -507,6 +532,14 @@ export const RoomDetailPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      <Tour360ViewerModal
+        isOpen={tourModalOpen}
+        tour={roomTour ?? null}
+        title={roomTitle}
+        subtitle={room.diaChi}
+        onClose={() => setTourModalOpen(false)}
+      />
 
       {lightboxOpen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4 sm:p-8 animate-in fade-in duration-200">

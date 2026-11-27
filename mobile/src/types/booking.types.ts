@@ -25,6 +25,8 @@ export interface AppointmentResponse {
   giaThue: number;
   tieuDePhong?: string;
   hinhAnh?: string;
+  viDoPhong?: number | null;
+  kinhDoPhong?: number | null;
 
   // Thong tin khach hang
   maKhachHang?: string;

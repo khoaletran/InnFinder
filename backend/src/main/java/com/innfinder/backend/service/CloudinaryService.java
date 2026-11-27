@@ -28,10 +28,11 @@ import java.util.*;
 @RequiredArgsConstructor
 public class CloudinaryService {
     private final Cloudinary cloudinary;
-    // Giới hạn dung lượng: 10MB theo đặc tả nghiệp vụ
+    // Giới hạn dung lượng: 10MB cho ảnh thường, 15MB cho ảnh toàn cảnh 360°
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_PANORAMA_FILE_SIZE = 15 * 1024 * 1024; // 15MB
     private static final String BASE_FOLDER = "innfinder";
-    private static final Set<String> ALLOWED_FOLDERS = Set.of("banks", "avatars", "rooms", "cccd", "reviews", "complaints");
+    private static final Set<String> ALLOWED_FOLDERS = Set.of("banks", "avatars", "rooms", "cccd", "reviews", "complaints", "tours360");
 
     /**
      * Xác định chính xác đường dẫn folder trên Cloudinary:
@@ -60,6 +61,7 @@ public class CloudinaryService {
         if (clean.startsWith("review")) return BASE_FOLDER + "/reviews";
         if (clean.startsWith("complaint")) return BASE_FOLDER + "/complaints";
         if (clean.startsWith("bank")) return BASE_FOLDER + "/banks";
+        if (clean.startsWith("tour")) return BASE_FOLDER + "/tours360";
 
         return BASE_FOLDER + "/rooms";
     }
@@ -72,7 +74,48 @@ public class CloudinaryService {
      * @return URL ảnh dạng HTTPS an toàn
      */
     public String uploadImage(MultipartFile file, String folder) {
-        validateImageFile(file);
+        return uploadImageInternal(file, folder, MAX_FILE_SIZE);
+    }
+
+    public record PanoramaUploadResult(String url, int width, int height) {}
+
+    /**
+     * Upload ảnh toàn cảnh 360° / Panorama (cho phép tối đa 15MB) vào innfinder/tours360.
+     */
+    public String uploadPanoramaImage(MultipartFile file) {
+        return uploadPanoramaImageWithMeta(file).url();
+    }
+
+    /**
+     * Upload ảnh toàn cảnh 360° / Panorama và đọc width/height trực tiếp từ metadata Cloudinary (không giải nén ảnh vào JVM heap).
+     */
+    public PanoramaUploadResult uploadPanoramaImageWithMeta(MultipartFile file) {
+        validateImageFile(file, MAX_PANORAMA_FILE_SIZE);
+        String targetFolder = resolveFolder("tours360");
+        try {
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", targetFolder,
+                            "resource_type", "image"
+                    )
+            );
+            String secureUrl = (String) uploadResult.get("secure_url");
+            int width = uploadResult.get("width") instanceof Number n ? n.intValue() : 0;
+            int height = uploadResult.get("height") instanceof Number n ? n.intValue() : 0;
+            log.info("Upload ảnh 360° thành công lên Cloudinary [{}]: {} ({}x{})", targetFolder, secureUrl, width, height);
+            return new PanoramaUploadResult(secureUrl, width, height);
+        } catch (IOException e) {
+            log.error("Lỗi I/O khi upload ảnh lên Cloudinary: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.UPLOAD_IMAGE_FAILED);
+        } catch (Exception e) {
+            log.error("Lỗi bất thường từ Cloudinary: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.UPLOAD_IMAGE_FAILED);
+        }
+    }
+
+    private String uploadImageInternal(MultipartFile file, String folder, long maxBytes) {
+        validateImageFile(file, maxBytes);
         String targetFolder = resolveFolder(folder);
         try {
             Map<?, ?> uploadResult = cloudinary.uploader().upload(
@@ -182,13 +225,13 @@ public class CloudinaryService {
     /**
      * Kiểm tra tính hợp lệ của file trước khi gửi sang Cloudinary.
      */
-    private void validateImageFile(MultipartFile file) {
+    private void validateImageFile(MultipartFile file, long maxBytes) {
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
         }
-        // Kiểm tra dung lượng (tối đa 10MB)
-        if (file.getSize() > MAX_FILE_SIZE) {
-            log.warn("File vượt quá kích thước 10MB cho phép: {} bytes", file.getSize());
+        // Kiểm tra dung lượng tối đa
+        if (file.getSize() > maxBytes) {
+            log.warn("File vượt quá kích thước {} bytes cho phép: {} bytes", maxBytes, file.getSize());
             throw new AppException(ErrorCode.INVALID_IMAGE_FILE);
         }
         // Kiểm tra Content-Type hoặc phần mở rộng của file

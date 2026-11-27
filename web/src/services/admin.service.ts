@@ -11,6 +11,7 @@ import type {
   AdminStatisticsResponse,
   AdminTransactionItem,
   AdminTreasuryStats,
+  AdminUserDetailResponse,
   AdminUserItem,
   RoomTypeDepositFee,
 } from '@/types/admin.types';
@@ -218,6 +219,55 @@ export const adminService = {
 
   getUserById: (id: string): Promise<AdminUserItem> => {
     return axiosClient.get<unknown, AdminUserItem>(`/api/admin/users/${id}`);
+  },
+
+  getUserDetail: async (id: string): Promise<AdminUserDetailResponse> => {
+    const raw = await axiosClient.get<unknown, {
+      user: AdminUserItem & { thoiGianMoTaiKhoan?: string };
+      soDu?: number;
+      taiKhoanNganHang?: AdminUserDetailResponse['taiKhoanNganHang'];
+      giaoDich?: Array<AdminTransactionItem & { ngayGiaoDich?: string; moTa?: string }>;
+      lichXemPhong?: Array<Record<string, unknown>>;
+      phongChoThue?: Array<Record<string, unknown>>;
+    }>(`/api/admin/users/${encodeURIComponent(id)}/detail`);
+
+    return {
+      user: {
+        ...raw.user,
+        ngayTao: raw.user.ngayTao || raw.user.thoiGianMoTaiKhoan || '',
+      },
+      soDu: Number(raw.soDu ?? 0),
+      taiKhoanNganHang: Array.isArray(raw.taiKhoanNganHang) ? raw.taiKhoanNganHang : [],
+      giaoDich: Array.isArray(raw.giaoDich)
+        ? raw.giaoDich.map((gd) => ({
+            ...gd,
+            thoiGian: gd.thoiGian || gd.ngayGiaoDich || '',
+            ghiChu: gd.ghiChu || gd.moTa || '',
+          }))
+        : [],
+      lichXemPhong: Array.isArray(raw.lichXemPhong)
+        ? raw.lichXemPhong.map((a) => ({
+            maDatLich: String(a.maDatLich ?? ''),
+            maPhongTro: a.maPhongTro ? String(a.maPhongTro) : undefined,
+            maKhachHang: a.maKhachHang ? String(a.maKhachHang) : undefined,
+            tenKhachHang: String(a.tenKhachHang || 'Khách hàng'),
+            sdtKhachHang: String(a.sdtKhachHang || '---'),
+            maChuTro: a.maChuTro ? String(a.maChuTro) : undefined,
+            tenChuTro: String(a.tenChuTro || 'Chủ trọ'),
+            sdtChuTro: String(a.sdtChuTro || '---'),
+            tenPhongTro: String(a.tenPhongTro || 'Phòng trọ'),
+            diaChiPhong: String(a.diaChiPhong || '---'),
+            ngayHen: String(a.ngayHen || a.thoiGianDat || ''),
+            trangThai: (a.trangThai as AdminAppointmentItem['trangThai']) || 'CHO_XAC_NHAN',
+            tienCoc: Number(a.tienCoc ?? 0),
+            phiThu: Number(a.phiThu ?? 0),
+            ghiChu: a.liDoHuy ? String(a.liDoHuy) : undefined,
+          }))
+        : [],
+      phongChoThue: Array.isArray(raw.phongChoThue)
+        ? raw.phongChoThue.map(mapRoomToAdminPost)
+        : [],
+    };
   },
 
   toggleLockUser: (id: string) => {
@@ -487,16 +537,22 @@ export const adminService = {
     return results.flat();
   },
 
-  // Lấy toàn bộ lịch xem phòng trực tiếp từ API giám sát lịch hẹn
-  getMonitoredViewings: async (): Promise<AdminAppointmentItem[]> => {
+  // Tra cứu lịch xem phòng theo mã hẹn, mã phòng, mã người thuê, mã chủ trọ hoặc SĐT 2 bên
+  getMonitoredViewings: async (keyword?: string): Promise<AdminAppointmentItem[]> => {
+    const trimmed = keyword?.trim() || '';
+    if (!trimmed) return [];
     const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
       '/api/admin/appointments',
+      { params: { keyword: trimmed } },
     );
     if (!Array.isArray(res)) return [];
     return res.map((a) => ({
       maDatLich: String(a.maDatLich ?? ''),
+      maPhongTro: a.maPhongTro ? String(a.maPhongTro) : undefined,
+      maKhachHang: a.maKhachHang ? String(a.maKhachHang) : undefined,
       tenKhachHang: String(a.tenKhachHang || 'Khách hàng'),
       sdtKhachHang: String(a.sdtKhachHang || '---'),
+      maChuTro: a.maChuTro ? String(a.maChuTro) : undefined,
       tenChuTro: String(a.tenChuTro || 'Chủ trọ'),
       sdtChuTro: String(a.sdtChuTro || '---'),
       tenPhongTro: String(a.tenPhongTro || 'Phòng trọ'),

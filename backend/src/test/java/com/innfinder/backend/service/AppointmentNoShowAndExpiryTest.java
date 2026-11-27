@@ -324,7 +324,8 @@ class AppointmentNoShowAndExpiryTest {
         when(chuTroRepository.save(any(ChuTro.class))).thenAnswer(i -> i.getArgument(0));
 
         // Lệnh bồi thường đang chờ xử lý vẫn là cọc giữ tại sàn.
-        when(giaoDichRepository.findAll()).thenReturn(List.of(gd));
+        lenient().when(giaoDichRepository.findAll()).thenReturn(List.of(gd));
+        lenient().when(giaoDichRepository.sumPendingRefundAndNoShow()).thenReturn(200_000L);
         lenient().when(chuTroRepository.sumTotalSoDu()).thenReturn(100_000L);
 
         adminService.approveTransaction(gd.getMaGiaoDich(), "admin_user", "FT123456");
@@ -424,13 +425,16 @@ class AppointmentNoShowAndExpiryTest {
         phieu.setNgayHen(LocalDateTime.now().plusHours(5)); // Còn 5 tiếng nữa mới đến giờ hẹn
         phieu.setDaNhanLaiCoc(false);
         phieu.setCoc(200_000L);
+        phongTro.setViDo("10.7769");
+        phongTro.setKinhDo("106.7009");
 
         when(nguoiDungRepository.findByTenDangNhap("khach_hang")).thenReturn(Optional.of(khachHang));
         when(phieuDatLichRepository.findByIdForUpdate(phieu.getMaDatLich())).thenReturn(Optional.of(phieu));
         when(giaoDichRepository.existsDepositByMaDatLich(khachHang.getMaNguoiDung(), phieu.getMaDatLich())).thenReturn(true);
         when(phieuDatLichRepository.save(any(PhieuDatLich.class))).thenAnswer(i -> i.getArgument(0));
 
-        var response = appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang");
+        var locationReq = new com.innfinder.backend.dto.appointment.ConfirmReceivedDepositRequest(10.7769, 106.7009);
+        var response = appointmentService.khachHangXacNhanDaNhanCoc(phieu.getMaDatLich(), "khach_hang", locationReq);
 
         assertTrue(phieu.getDaNhanLaiCoc());
         assertTrue(response.getDaNhanLaiCoc());

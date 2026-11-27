@@ -16,6 +16,7 @@ import com.innfinder.backend.entity.enums.TrangThaiYeuCauChuTro;
 import com.innfinder.backend.entity.enums.VaiTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.*;
 import com.innfinder.backend.security.SecurityUtils;
 import jakarta.persistence.EntityManager;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
@@ -58,6 +60,9 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RealtimePublisher realtimePublisher;
+
     @Transactional(readOnly = true)
     public List<RoomResponseDTO> getPendingRooms() {
         List<PhongTro> list = phongTroRepository.findByTrangThai(TrangThaiPhongTro.CHO_DUYET);
@@ -85,6 +90,7 @@ public class AdminService {
 
         room.setTrangThai(TrangThaiPhongTro.DA_DUYET);
         room = phongTroRepository.save(room);
+        if (realtimePublisher != null) realtimePublisher.roomUpdated(room, true);
 
         return toRoomResponseDTO(room);
     }
@@ -100,6 +106,7 @@ public class AdminService {
             room.setMoTa(moTaCu + " [LÝ DO TỪ CHỐI DUYỆT: " + request.getLyDo() + "]");
         }
         room = phongTroRepository.save(room);
+        if (realtimePublisher != null) realtimePublisher.roomUpdated(room, true);
         return toRoomResponseDTO(room);
     }
 
@@ -118,6 +125,66 @@ public class AdminService {
         NguoiDung u = nguoiDungRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         return toUserResponseDTO(u);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserDetailResponseDTO getUserDetail(String id) {
+        NguoiDung u = nguoiDungRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        UserResponseDTO userDto = toUserResponseDTO(u);
+        ChuTro landlord = chuTroRepository.findById(u.getMaNguoiDung()).orElse(null);
+
+        List<AdminUserDetailResponseDTO.BankAccountInfo> bankAccounts = taiKhoanNganHangRepository
+                .findByNguoiDung_MaNguoiDung(u.getMaNguoiDung())
+                .stream()
+                .map(b -> AdminUserDetailResponseDTO.BankAccountInfo.builder()
+                        .id(b.getId())
+                        .soTaiKhoan(b.getSoTaiKhoan())
+                        .tenNganHang(b.getTenNganHang())
+                        .tenChuTaiKhoan(b.getTenChuTaiKhoan())
+                        .macDinh(b.isMacDinh())
+                        .build())
+                .toList();
+
+        List<AdminTransactionResponseDTO> transactions = giaoDichRepository
+                .findTop50ByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(u.getMaNguoiDung())
+                .stream()
+                .map(this::toAdminTransactionDTO)
+                .toList();
+
+        java.util.Map<String, AdminAppointmentResponseDTO> appointmentMap = new java.util.LinkedHashMap<>();
+        phieuDatLichRepository.findByKhachHang_MaNguoiDungOrderByThoiGianDatDesc(u.getMaNguoiDung())
+                .forEach(p -> appointmentMap.put(p.getMaDatLich(), AdminAppointmentResponseDTO.fromEntity(p)));
+        if (landlord != null) {
+            phieuDatLichRepository.findAppointmentsByLandlordId(landlord.getMaChuTro())
+                    .forEach(p -> appointmentMap.putIfAbsent(p.getMaDatLich(), AdminAppointmentResponseDTO.fromEntity(p)));
+        }
+        List<AdminAppointmentResponseDTO> appointments = appointmentMap.values().stream()
+                .sorted((a, b) -> {
+                    if (a.getNgayHen() == null && b.getNgayHen() == null) return 0;
+                    if (a.getNgayHen() == null) return 1;
+                    if (b.getNgayHen() == null) return -1;
+                    return b.getNgayHen().compareTo(a.getNgayHen());
+                })
+                .limit(50)
+                .toList();
+
+        List<RoomResponseDTO> rooms = landlord != null
+                ? phongTroRepository.findByChuPhongTro_MaChuTro(landlord.getMaChuTro())
+                        .stream()
+                        .map(this::toRoomResponseDTO)
+                        .toList()
+                : List.of();
+
+        return AdminUserDetailResponseDTO.builder()
+                .user(userDto)
+                .soDu(landlord != null && landlord.getSoDu() != null ? landlord.getSoDu() : 0L)
+                .taiKhoanNganHang(bankAccounts)
+                .giaoDich(transactions)
+                .lichXemPhong(appointments)
+                .phongChoThue(rooms)
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -296,6 +363,7 @@ public class AdminService {
 
         // 3. Doanh thu hoa hồng sàn: SUM(phiThu) từ PhieuDatLich trạng thái HOAN_THANH (tuyệt đối không tính từ GiaoDich)
         List<PhieuDatLich> completedAppointments = new ArrayList<>();
+        List<String> paidDepositNotes = giaoDichRepository.findPaidDepositNotes();
         long tongDoanhThu = 0L;
         long quyTamGiuCoc = 0L;
 
@@ -307,8 +375,8 @@ public class AdminService {
                 completedAppointments.add(p);
                 tongDoanhThu += (p.getPhiThu() != null ? p.getPhiThu() : 0L);
             } else if ((p.getTrangThai() == TrangThaiDatLich.XAC_NHAN || p.getTrangThai() == TrangThaiDatLich.CHO_XAC_NHAN)
-                    && p.getCoc() != null && p.getCoc() > 0 && p.getKhachHang() != null
-                    && giaoDichRepository.existsDepositByMaDatLich(p.getKhachHang().getMaNguoiDung(), p.getMaDatLich())) {
+                    && p.getCoc() != null && p.getCoc() > 0 && p.getMaDatLich() != null
+                    && paidDepositNotes.stream().anyMatch(note -> note.contains(p.getMaDatLich()))) {
                 quyTamGiuCoc += p.getCoc();
             }
         }
@@ -597,8 +665,11 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
-    public List<AdminAppointmentResponseDTO> getAllAppointments() {
-        return phieuDatLichRepository.findAllByOrderByNgayHenDesc()
+    public List<AdminAppointmentResponseDTO> getAllAppointments(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+        return phieuDatLichRepository.searchByCodeOrPhone(keyword.trim(), PageRequest.of(0, 100))
                 .stream()
                 .map(AdminAppointmentResponseDTO::fromEntity)
                 .toList();
@@ -649,10 +720,10 @@ public class AdminService {
             throw new AppException(ErrorCode.TRANSACTION_ALREADY_PROCESSED);
         }
 
-        // 2. Kiểm tra ngân khố hệ thống
-        AdminStatisticsResponseDTO stats = getStatistics();
+        // 2. Kiểm tra ngân khố hệ thống bằng aggregate SQL (không quét 4 bảng khi đang giữ lock)
+        long tongQuyThucTe = calculateTotalActualTreasury();
         long soTienDuyet = gd.getSoTien() != null ? gd.getSoTien() : 0L;
-        if (stats.getTongQuyThucTe() < soTienDuyet) {
+        if (tongQuyThucTe < soTienDuyet) {
             throw new AppException(ErrorCode.INSUFFICIENT_SYSTEM_TREASURY);
         }
 
@@ -675,7 +746,21 @@ public class AdminService {
             }
         }
 
+        if (realtimePublisher != null) realtimePublisher.walletUpdated(gd.getNguoiDung() != null ? gd.getNguoiDung().getMaNguoiDung() : null, true);
         return AdminTransactionResponseDTO.fromEntity(gd);
+    }
+
+    private long calculateTotalActualTreasury() {
+        long soDuViChuTro = safeLong(chuTroRepository.sumTotalSoDu());
+        long tongDoanhThu = safeLong(phieuDatLichRepository.sumPhiThuByTrangThai(TrangThaiDatLich.HOAN_THANH));
+        long cocTamGiu = safeLong(phieuDatLichRepository.sumActiveHeldDeposit())
+                + safeLong(giaoDichRepository.sumPendingRefundAndNoShow());
+        long quyChoRut = safeLong(giaoDichRepository.sumSoTienByLoaiAndTrangThai("RUT_TIEN", TrangThaiGD.CHO_THANH_TOAN));
+        return cocTamGiu + soDuViChuTro + quyChoRut + tongDoanhThu;
+    }
+
+    private long safeLong(Long value) {
+        return value != null ? value : 0L;
     }
 
     @Transactional
@@ -723,6 +808,7 @@ public class AdminService {
             }
         }
 
+        if (realtimePublisher != null) realtimePublisher.walletUpdated(gd.getNguoiDung() != null ? gd.getNguoiDung().getMaNguoiDung() : null, true);
         return AdminTransactionResponseDTO.fromEntity(gd);
     }
 
@@ -849,6 +935,7 @@ public class AdminService {
             taiKhoanNganHangRepository.save(tk);
         }
 
+        if (realtimePublisher != null) realtimePublisher.adminQueueUpdated(user.getMaNguoiDung(), "LANDLORD_REQUEST");
         return LandlordRequestResponseDTO.fromEntity(yc);
     }
 
@@ -869,6 +956,7 @@ public class AdminService {
                 : "Hồ sơ không đáp ứng tiêu chuẩn xét duyệt");
 
         yc = yeuCauChuTroRepository.save(yc);
+        if (realtimePublisher != null) realtimePublisher.adminQueueUpdated(yc.getNguoiDung() != null ? yc.getNguoiDung().getMaNguoiDung() : null, "LANDLORD_REQUEST");
         return LandlordRequestResponseDTO.fromEntity(yc);
     }
 

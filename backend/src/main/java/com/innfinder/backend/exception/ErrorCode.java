@@ -63,6 +63,8 @@ public enum ErrorCode {
     DEPOSIT_NOT_REFUNDED_YET("Khách hàng cần xác nhận đã nhận lại cọc từ Chủ trọ trước khi đưa ra quyết định thuê", HttpStatus.BAD_REQUEST),
     DEPOSIT_ALREADY_REFUNDED("Khách hàng đã xác nhận nhận lại cọc cho lịch hẹn này rồi", HttpStatus.BAD_REQUEST),
     DEPOSIT_NOT_PAID_YET("Khách hàng chưa nộp tiền cọc giữ chân cho lịch hẹn này", HttpStatus.BAD_REQUEST),
+    OUTSIDE_ALLOWED_RADIUS("Bạn cần đứng trong phạm vi 50m quanh phòng trọ để xác nhận đã nhận lại cọc", HttpStatus.BAD_REQUEST),
+    ROOM_LOCATION_MISSING("Phòng trọ chưa có tọa độ hợp lệ trên bản đồ để xác thực vị trí", HttpStatus.BAD_REQUEST),
     NO_SHOW_TOO_EARLY("Chỉ có thể báo cáo khách không đến sau giờ hẹn tối thiểu 30 phút", HttpStatus.BAD_REQUEST),
 
     // --- GIAO DỊCH & KHO TIỀN HỆ THỐNG ---
@@ -83,7 +85,12 @@ public enum ErrorCode {
     LANDLORD_REQUEST_PENDING("Bạn đã có hồ sơ đăng ký Chủ trọ đang chờ Quản trị viên xét duyệt", HttpStatus.BAD_REQUEST),
     INVALID_LANDLORD_REQUEST_STATUS("Đơn đăng ký chủ trọ không ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST),
     CANNOT_LOCK_SELF("Bạn không thể tự khóa tài khoản của chính mình", HttpStatus.BAD_REQUEST),
-    CANNOT_LOCK_LAST_ADMIN("Không thể khóa tài khoản Quản trị viên hoạt động cuối cùng của hệ thống", HttpStatus.BAD_REQUEST);
+    CANNOT_LOCK_LAST_ADMIN("Không thể khóa tài khoản Quản trị viên hoạt động cuối cùng của hệ thống", HttpStatus.BAD_REQUEST),
+
+    // --- TOUR THAM QUAN 360° ĐA ĐIỂM ---
+    TOUR_360_NOT_FOUND("Không tìm thấy tour 360° yêu cầu", HttpStatus.NOT_FOUND),
+    TOUR_360_NOT_OWNED("Bạn không có quyền thao tác trên tour 360° này", HttpStatus.FORBIDDEN),
+    INVALID_TOUR_360_NODES("Tour 360° phải có từ 1 đến 10 điểm góc nhìn hợp lệ", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus statusCode;

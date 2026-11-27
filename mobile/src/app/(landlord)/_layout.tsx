@@ -8,6 +8,7 @@ export default function LandlordTabLayout() {
   const unreadCount = useLandlordNotificationStore((s) => s.unreadCount);
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
@@ -139,6 +140,13 @@ export default function LandlordTabLayout() {
       />
       <Tabs.Screen
         name="reviews"
+        options={{
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="tour-360"
         options={{
           tabBarItemStyle: { display: 'none' },
           tabBarStyle: { display: 'none' },

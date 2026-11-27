@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Image, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, Button } from "heroui-native";
@@ -8,6 +8,10 @@ import {
   TrangThaiDatLich,
 } from "../../types/booking.types";
 import { useBookingStore } from "../../store/useBookingStore";
+import {
+  getCurrentLocationWithDistance,
+  MAX_CONFIRM_DEPOSIT_DISTANCE_METERS,
+} from "../../utils/location";
 
 interface AppointmentCardProps {
   item: AppointmentResponse;
@@ -89,6 +93,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const paidAppointmentIds = useBookingStore((s) => s.paidAppointmentIds);
   const confirmReceivedDeposit = useBookingStore((s) => s.confirmReceivedDeposit);
   const submitCustomerDecision = useBookingStore((s) => s.submitCustomerDecision);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const isDepositPaid = !!item.daNopCoc || paidAppointmentIds.includes(item.maDatLich);
 
   const canCancel =
@@ -247,30 +252,62 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <Button
                 variant="primary"
                 size="sm"
+                isDisabled={isCheckingLocation}
                 className="bg-emerald-600 rounded-xl px-3 py-1.5"
-                onPress={() => {
-                  Alert.alert(
-                    "Xác nhận nhận lại cọc",
-                    "Chủ trọ đã trả lại đủ tiền cọc trực tiếp cho bạn tại buổi xem phòng chưa?",
-                    [
-                      { text: "Chưa nhận", style: "cancel" },
-                      {
-                        text: "Đã nhận đủ",
-                        onPress: async () => {
-                          const res = await confirmReceivedDeposit(item.maDatLich);
-                          if (res.success) {
-                            Alert.alert("Thành công", "Đã xác nhận nhận lại cọc! Hãy đưa ra quyết định thuê phòng.");
-                          } else {
-                            Alert.alert("Lỗi", res.message || "Xác nhận không thành công");
-                          }
+                onPress={async () => {
+                  setIsCheckingLocation(true);
+                  try {
+                    const loc = await getCurrentLocationWithDistance(
+                      item.viDoPhong,
+                      item.kinhDoPhong,
+                    );
+                    if (
+                      loc.distanceMeters !== null &&
+                      loc.distanceMeters > MAX_CONFIRM_DEPOSIT_DISTANCE_METERS
+                    ) {
+                      Alert.alert(
+                        "Ngoài phạm vi cho phép",
+                        `Bạn đang cách phòng trọ khoảng ${Math.round(loc.distanceMeters)}m. Vui lòng đứng trong phạm vi ${MAX_CONFIRM_DEPOSIT_DISTANCE_METERS}m quanh phòng trọ để xác nhận.`,
+                      );
+                      return;
+                    }
+                    const distanceNote =
+                      loc.distanceMeters !== null
+                        ? `\n\n(Đã xác thực vị trí: cách phòng ~${Math.round(loc.distanceMeters)}m)`
+                        : "";
+                    Alert.alert(
+                      "Xác nhận nhận lại cọc",
+                      `Chủ trọ đã trả lại đủ tiền cọc trực tiếp cho bạn tại buổi xem phòng chưa?${distanceNote}`,
+                      [
+                        { text: "Chưa nhận", style: "cancel" },
+                        {
+                          text: "Đã nhận đủ",
+                          onPress: async () => {
+                            const res = await confirmReceivedDeposit(item.maDatLich, {
+                              viDo: loc.viDo,
+                              kinhDo: loc.kinhDo,
+                            });
+                            if (res.success) {
+                              Alert.alert("Thành công", "Đã xác nhận nhận lại cọc! Hãy đưa ra quyết định thuê phòng.");
+                            } else {
+                              Alert.alert("Lỗi", res.message || "Xác nhận không thành công");
+                            }
+                          },
                         },
-                      },
-                    ]
-                  );
+                      ],
+                    );
+                  } catch (err: any) {
+                    Alert.alert(
+                      "Không thể xác thực vị trí",
+                      err?.message || "Vui lòng bật GPS để xác nhận nhận lại cọc.",
+                    );
+                  } finally {
+                    setIsCheckingLocation(false);
+                  }
                 }}
               >
                 <Button.Label className="text-xs font-bold text-white">
-                  Đã nhận cọc
+                  {isCheckingLocation ? "Đang định vị..." : "Đã nhận cọc"}
                 </Button.Label>
               </Button>
             )}

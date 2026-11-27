@@ -22,10 +22,13 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { roomService } from "../../services/room.service";
 import { landlordService } from "../../services/landlord.service";
+import { tour360Service } from "../../services/tour360.service";
 import { RoomDetailResponse } from "../../types/room.types";
+import { Tour360Response } from "../../types/tour360.types";
 import { useFilterStore } from "../../store/useFilterStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { AmenityGrid } from "../../components/room/AmenityGrid";
+import { Tour360Modal } from "../../components/room/Tour360Modal";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -38,6 +41,8 @@ export default function RoomDetailScreen() {
   // States cho modal xem ảnh toàn màn hình
   const [viewerVisible, setViewerVisible] = useState<boolean>(false);
   const [viewerIndex, setViewerIndex] = useState<number>(0);
+  const [roomTour360, setRoomTour360] = useState<Tour360Response | null>(null);
+  const [tour360Open, setTour360Open] = useState<boolean>(false);
   const bannerRef = useRef<FlatList>(null);
   const viewerRef = useRef<FlatList>(null);
 
@@ -207,6 +212,7 @@ export default function RoomDetailScreen() {
   useEffect(() => {
     if (id) {
       loadDetail(id);
+      tour360Service.getRoomTour(id).then(setRoomTour360).catch(() => {});
     }
   }, [id]);
 
@@ -364,16 +370,29 @@ export default function RoomDetailScreen() {
             </View>
           </View>
 
-          {/* Badge đếm số ảnh - Bấm vào sẽ mở xem full ảnh */}
-          <Pressable
-            onPress={() => openViewer(activeImageIndex)}
-            className="absolute bottom-3 right-3 bg-black/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 active:bg-black/80"
-          >
-            <Ionicons name="images-outline" size={14} color="#ffffff" />
-            <Text className="text-white text-xs font-semibold">
-              {activeImageIndex + 1}/{images.length}
-            </Text>
-          </Pressable>
+          {/* Badge đếm số ảnh & nút Tham quan 360° */}
+          <View className="absolute bottom-3 right-3 flex-row items-center gap-2">
+            {roomTour360 && roomTour360.nodes.length > 0 && (
+              <Pressable
+                onPress={() => setTour360Open(true)}
+                className="bg-teal-700/95 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 active:bg-teal-800"
+              >
+                <Ionicons name="compass-outline" size={14} color="#ffffff" />
+                <Text className="text-white text-xs font-bold">
+                  Tham quan 360°{roomTour360.nodeCount > 1 ? ` (${roomTour360.nodeCount})` : ""}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => openViewer(activeImageIndex)}
+              className="bg-black/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 active:bg-black/80"
+            >
+              <Ionicons name="images-outline" size={14} color="#ffffff" />
+              <Text className="text-white text-xs font-semibold">
+                {activeImageIndex + 1}/{images.length}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* 2. Tiêu đề, Giá & Đặt cọc */}
@@ -685,6 +704,13 @@ export default function RoomDetailScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      <Tour360Modal
+        visible={tour360Open}
+        tourId={roomTour360?.maTour ?? null}
+        title={room.loaiPhong?.tenLoaiPhongTro ? `${room.loaiPhong.tenLoaiPhongTro} · ${room.diaChi}` : room.diaChi}
+        onClose={() => setTour360Open(false)}
+      />
     </View>
   );
 }

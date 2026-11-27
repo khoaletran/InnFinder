@@ -18,6 +18,7 @@ import com.innfinder.backend.entity.*;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.*;
 import com.innfinder.backend.repository.specification.NaturalQueryParser;
 import com.innfinder.backend.repository.specification.PhongTroSpecification;
@@ -44,6 +45,9 @@ public class RoomService {
     private final TienIchRepository tienIchRepository;
     private final ChuTroRepository chuTroRepository;
     private final CloudinaryService cloudinaryService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RealtimePublisher realtimePublisher;
     // Định dạng sinh mã phòng: PTDDMMYYHHmmSS (14 ký tự)
     private static final DateTimeFormatter ROOM_CODE_FORMATTER = DateTimeFormatter.ofPattern("ddMMyyHHmmss");
 
@@ -197,6 +201,7 @@ public class RoomService {
         phongTro.setHinhAnh(listHinhAnh);
         PhongTro savedRoom = phongTroRepository.save(phongTro);
         log.info("Chủ trọ {} đã tạo phòng trọ thành công: {}", currentLandlord.getMaChuTro(), savedRoom.getMaPhongTro());
+        if (realtimePublisher != null) realtimePublisher.roomUpdated(savedRoom, true);
         return RoomDetailResponse.fromEntity(savedRoom);
     }
 
@@ -260,6 +265,7 @@ public class RoomService {
         phongTro.setHinhAnh(listHinhAnh);
         PhongTro savedRoom = phongTroRepository.save(phongTro);
         log.info("Chủ trọ {} đã tạo phòng trọ thành công (JSON): {}", currentLandlord.getMaChuTro(), savedRoom.getMaPhongTro());
+        if (realtimePublisher != null) realtimePublisher.roomUpdated(savedRoom, true);
         return RoomDetailResponse.fromEntity(savedRoom);
     }
     /**

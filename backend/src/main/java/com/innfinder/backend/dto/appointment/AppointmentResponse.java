@@ -43,6 +43,8 @@ public class AppointmentResponse {
     private Long giaThue;
     private String tieuDePhong;
     private String hinhAnh;
+    private Double viDoPhong;
+    private Double kinhDoPhong;
 
     // Thông tin khách hàng
     private String maKhachHang;
@@ -95,7 +97,9 @@ public class AppointmentResponse {
         if (entity.getPhongTro() != null) {
             builder.maPhongTro(entity.getPhongTro().getMaPhongTro())
                     .diaChiPhong(entity.getPhongTro().getDiaChi())
-                    .giaThue(entity.getPhongTro().getGiaThue());
+                    .giaThue(entity.getPhongTro().getGiaThue())
+                    .viDoPhong(parseCoordinate(entity.getPhongTro().getViDo()))
+                    .kinhDoPhong(parseCoordinate(entity.getPhongTro().getKinhDo()));
 
             // Tóm tắt tiêu đề phòng
             if (entity.getPhongTro().getMoTa() != null && !entity.getPhongTro().getMoTa().isBlank()) {
@@ -125,6 +129,15 @@ public class AppointmentResponse {
             }
         }
         return builder.build();
+    }
+
+    private static Double parseCoordinate(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Double.parseDouble(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public void setThongTinHoanCoc(com.innfinder.backend.entity.GiaoDich gd) {

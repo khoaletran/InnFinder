@@ -83,6 +83,13 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy thông tin người dùng thành công"));
     }
 
+    @GetMapping("/users/{id}/detail")
+    @Operation(summary = "Xem toàn bộ hồ sơ chi tiết người dùng (thông tin, ngân hàng, giao dịch, lịch hẹn/hóa đơn, phòng cho thuê)")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponseDTO>> getUserDetail(@PathVariable String id) {
+        AdminUserDetailResponseDTO result = adminService.getUserDetail(id);
+        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy hồ sơ chi tiết người dùng thành công"));
+    }
+
     @PatchMapping("/users/{id}/toggle-lock")
     @Operation(summary = "Khóa hoặc mở khóa tài khoản người dùng")
     public ResponseEntity<ApiResponse<UserResponseDTO>> toggleLockUser(@PathVariable String id) {
@@ -154,9 +161,10 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/appointments")
-    @Operation(summary = "Admin giám sát toàn bộ phiếu đặt lịch xem phòng trên sàn")
-    public ResponseEntity<ApiResponse<List<AdminAppointmentResponseDTO>>> getAllAppointments() {
-        List<AdminAppointmentResponseDTO> result = adminService.getAllAppointments();
+    @Operation(summary = "Admin tra cứu lịch xem phòng theo mã hẹn, mã phòng, mã người thuê, mã chủ trọ hoặc SĐT 2 bên")
+    public ResponseEntity<ApiResponse<List<AdminAppointmentResponseDTO>>> getAllAppointments(
+            @RequestParam(required = false) String keyword) {
+        List<AdminAppointmentResponseDTO> result = adminService.getAllAppointments(keyword);
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách lịch xem phòng thành công"));
     }
 

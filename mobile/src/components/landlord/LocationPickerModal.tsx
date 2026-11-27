@@ -225,15 +225,15 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
 
         {/* Bottom Panel */}
         <View className="bg-white p-4 border-t border-gray-100 shadow-xl">
-          {/* Tọa độ hiện tại */}
+          {/* Trạng thái ghim vị trí */}
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-1.5">
-              <Ionicons name="navigate-circle-outline" size={18} color="#0f766e" />
-              <Text className="text-xs font-bold text-gray-800">Tọa độ đã chọn:</Text>
+              <Ionicons name="checkmark-circle" size={18} color="#0f766e" />
+              <Text className="text-xs font-bold text-gray-800">Đã ghim vị trí trên bản đồ</Text>
             </View>
-            <Text className="text-xs font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-              {selectedCoords.latitude.toFixed(6)}, {selectedCoords.longitude.toFixed(6)}
-            </Text>
+            <View className="bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+              <Text className="text-[11px] font-semibold text-teal-800">Chính xác</Text>
+            </View>
           </View>
 
           {/* Gợi ý địa chỉ từ tọa độ */}

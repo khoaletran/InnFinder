@@ -24,6 +24,7 @@ import { ReviewsPage } from '@/pages/admin/ReviewsPage';
 import { ViewingsPage } from '@/pages/admin/ViewingsPage';
 import { StatisticsPage } from '@/pages/admin/StatisticsPage';
 import { TransactionsPage } from '@/pages/admin/TransactionsPage';
+import { UserDetailPage } from '@/pages/admin/UserDetailPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
 
 // Customer Discovery & Details Pages (Thành viên 2)
@@ -32,6 +33,7 @@ import { HomePage } from '@/pages/customer/HomePage';
 import { MapSearchPage } from '@/pages/customer/MapSearchPage';
 import { RoomDetailPage } from '@/pages/customer/RoomDetailPage';
 import { SearchPage } from '@/pages/customer/SearchPage';
+import { RoomTour360Page } from '@/pages/public/RoomTour360Page';
 
 // Customer Profile, Notifications & Complaints Pages (Thành viên 1)
 import { ComplaintsPage } from '@/pages/customer/ComplaintsPage';
@@ -92,6 +94,8 @@ export const AppRoutes: React.FC = () => {
   return (
     <>
     <Routes location={mode ? background ?? { pathname: '/' } : location}>
+      {/* Standalone Full-Screen 360° Tour Viewer (for direct share & Mobile WebView) */}
+      <Route path="/tour-360/:tourId" element={<RoomTour360Page />} />
 
       {/* 1. CUSTOMER PUBLIC & DISCOVERY ROUTES */}
       <Route element={<CustomerLayout />}>
@@ -184,6 +188,7 @@ export const AppRoutes: React.FC = () => {
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/:id" element={<UserDetailPage />} />
         <Route path="posts" element={<PostsPage />} />
         <Route path="viewings" element={<ViewingsPage />} />
         <Route path="transactions" element={<TransactionsPage />} />

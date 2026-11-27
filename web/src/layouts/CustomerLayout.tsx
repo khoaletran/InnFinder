@@ -119,14 +119,6 @@ export const CustomerLayout: React.FC = () => {
             <Link to="/" className="shrink-0 flex items-center">
               <InnFinderLogo variant="horizontal" size="sm" />
             </Link>
-            {isHomePage && isChuTro && !isAdmin && !showHeaderSearch && (
-              <details className="relative hidden md:block">
-                <summary className="cursor-pointer whitespace-nowrap rounded-lg px-2 py-1 text-xs font-semibold text-teal-900">Dành cho chủ trọ</summary>
-                <div className="absolute left-0 top-full mt-2 min-w-40 rounded-lg border border-teal-100 bg-white p-2 shadow-sm">
-                  <Link to="/landlord/dashboard" className="block rounded px-2 py-2 text-sm text-slate-800 hover:bg-teal-50">Cổng Chủ trọ</Link>
-                </div>
-              </details>
-            )}
 
             {showHeaderSearch && (
               <form

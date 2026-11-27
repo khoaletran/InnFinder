@@ -45,9 +45,13 @@ export const bookingService = {
    * Khách hàng xác nhận đã nhận lại cọc từ Chủ trọ ngoài đời thực
    * Endpoint: PATCH /api/appointments/{id}/confirm-received-deposit
    */
-  confirmReceivedDeposit: async (maDatLich: string): Promise<AppointmentResponse> => {
+  confirmReceivedDeposit: async (
+    maDatLich: string,
+    coords: { viDo: number; kinhDo: number },
+  ): Promise<AppointmentResponse> => {
     return axiosClient.patch<any, AppointmentResponse>(
-      `/api/appointments/${maDatLich}/confirm-received-deposit`
+      `/api/appointments/${maDatLich}/confirm-received-deposit`,
+      coords,
     );
   },
 

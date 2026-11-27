@@ -227,8 +227,11 @@ export interface AdminReviewItem {
 
 export interface AdminAppointmentItem {
   maDatLich: string;
+  maPhongTro?: string;
+  maKhachHang?: string;
   tenKhachHang: string;
   sdtKhachHang: string;
+  maChuTro?: string;
   tenChuTro: string;
   sdtChuTro: string;
   tenPhongTro: string;
@@ -238,6 +241,23 @@ export interface AdminAppointmentItem {
   phiThu?: number;
   ghiChu?: string;
   tienCoc?: number;
+}
+
+export interface AdminUserBankAccount {
+  id: number;
+  soTaiKhoan: string;
+  tenNganHang: string;
+  tenChuTaiKhoan?: string;
+  macDinh: boolean;
+}
+
+export interface AdminUserDetailResponse {
+  user: AdminUserItem;
+  soDu: number;
+  taiKhoanNganHang: AdminUserBankAccount[];
+  giaoDich: AdminTransactionItem[];
+  lichXemPhong: AdminAppointmentItem[];
+  phongChoThue: AdminPostItem[];
 }
 
 export interface RoomTypeDepositFee {

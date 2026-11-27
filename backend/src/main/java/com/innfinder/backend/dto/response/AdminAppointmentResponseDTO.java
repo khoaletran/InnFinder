@@ -18,8 +18,10 @@ public class AdminAppointmentResponseDTO {
     private String maPhongTro;
     private String tenPhongTro;
     private String diaChiPhong;
+    private String maKhachHang;
     private String tenKhachHang;
     private String sdtKhachHang;
+    private String maChuTro;
     private String tenChuTro;
     private String sdtChuTro;
     private LocalDateTime ngayHen;
@@ -47,11 +49,15 @@ public class AdminAppointmentResponseDTO {
                         : "Phòng #" + pt.getMaPhongTro())
                 : "Phòng trọ";
 
+        String maKhachHang = kh != null ? kh.getMaNguoiDung() : null;
         String tenKhachHang = kh != null
                 ? (kh.getHoVaTen() != null && !kh.getHoVaTen().isBlank() ? kh.getHoVaTen() : kh.getTenDangNhap())
                 : "Khách hàng";
         String sdtKhachHang = kh != null && kh.getSdt() != null ? kh.getSdt() : "---";
 
+        String maChuTro = (pt != null && pt.getChuPhongTro() != null)
+                ? pt.getChuPhongTro().getMaChuTro()
+                : null;
         String tenChuTro = ctUser != null
                 ? (ctUser.getHoVaTen() != null && !ctUser.getHoVaTen().isBlank() ? ctUser.getHoVaTen() : ctUser.getTenDangNhap())
                 : "Chủ trọ";
@@ -62,8 +68,10 @@ public class AdminAppointmentResponseDTO {
                 .maPhongTro(maPhongTro)
                 .tenPhongTro(tenPhongTro)
                 .diaChiPhong(diaChiPhong)
+                .maKhachHang(maKhachHang)
                 .tenKhachHang(tenKhachHang)
                 .sdtKhachHang(sdtKhachHang)
+                .maChuTro(maChuTro)
                 .tenChuTro(tenChuTro)
                 .sdtChuTro(sdtChuTro)
                 .ngayHen(p.getNgayHen())

@@ -13,6 +13,7 @@ import com.innfinder.backend.entity.enums.TrangThaiKhieuNai;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.ChuTroRepository;
 import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
@@ -41,6 +42,9 @@ public class ComplaintService {
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final GiaoDichRepository giaoDichRepository;
     private final AppointmentService appointmentService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RealtimePublisher realtimePublisher;
 
     @Transactional
     public ComplaintResponseDTO createComplaint(ComplaintRequestDTO request) {
@@ -75,6 +79,7 @@ public class ComplaintService {
                 .build();
 
         kn = phieuKhieuNaiRepository.save(kn);
+        if (realtimePublisher != null) realtimePublisher.complaintUpdated(kn);
 
         return toResponseDTO(kn, false);
     }
@@ -174,6 +179,7 @@ public class ComplaintService {
         }
 
         kn = phieuKhieuNaiRepository.save(kn);
+        if (realtimePublisher != null) realtimePublisher.complaintUpdated(kn);
 
         return toResponseDTO(kn, true);
     }

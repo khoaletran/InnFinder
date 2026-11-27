@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, ScrollView, Pressable, Image, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Card } from 'heroui-native';
 import { landlordService } from '../../services/landlord.service';
+import { useCreateRoomStore } from '../../store/useCreateRoomStore';
 import { LandlordRoomItem } from '../../types/landlord.types';
 import { formatVNDShort } from '../../utils/formatVND';
 
@@ -28,6 +29,14 @@ export default function MyRoomsScreen() {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  const { drafts, loadDrafts, loadDraftIntoWizard, deleteDraft, resetWizard } = useCreateRoomStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDrafts();
+    }, [loadDrafts])
+  );
+
   useEffect(() => {
     setVisibleLimit(PAGE_SIZE);
     loadRooms();
@@ -40,8 +49,25 @@ export default function MyRoomsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadRooms();
+    await Promise.all([loadRooms(), loadDrafts()]);
     setRefreshing(false);
+  };
+
+  const handleResumeDraft = (draftId: string) => {
+    if (loadDraftIntoWizard(draftId)) {
+      router.push('/(landlord)/create-room');
+    }
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    Alert.alert('Xóa bản nháp?', 'Bản nháp này sẽ bị xóa vĩnh viễn khỏi thiết bị.', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa',
+        style: 'destructive',
+        onPress: () => deleteDraft(draftId),
+      },
+    ]);
   };
 
   const handleToggleRoomStatus = (room: LandlordRoomItem) => {
@@ -253,6 +279,64 @@ export default function MyRoomsScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={
+          filter === 'ALL' && drafts.length > 0 ? (
+            <View className="mb-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center gap-1.5">
+                  <Ionicons name="document-text-outline" size={14} color="#b45309" />
+                  <Text className="text-xs font-bold text-amber-900">
+                    Bản nháp ({drafts.length})
+                  </Text>
+                </View>
+                <Text className="text-[11px] text-gray-400">Tự động lưu khi đang nhập</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {drafts.map((draft) => {
+                  const thumb =
+                    draft.images.find((img) => img.isCover)?.uri || draft.images[0]?.uri;
+                  return (
+                    <Pressable
+                      key={draft.id}
+                      onPress={() => handleResumeDraft(draft.id)}
+                      className="w-60 bg-white rounded-xl border border-amber-200 p-2.5 flex-row items-center gap-2.5 active:bg-amber-50/50"
+                    >
+                      <View className="w-12 h-12 rounded-lg overflow-hidden bg-amber-50 items-center justify-center">
+                        {thumb ? (
+                          <Image source={{ uri: thumb }} className="w-full h-full" resizeMode="cover" />
+                        ) : (
+                          <Ionicons name="document-text-outline" size={20} color="#d97706" />
+                        )}
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs font-bold text-gray-900" numberOfLines={1}>
+                          {draft.step1.tenPhong?.trim() || 'Phòng chưa đặt tên'}
+                        </Text>
+                        <Text className="text-[11px] text-amber-700 font-medium mt-0.5">
+                          Bước {draft.currentStep || 1}/3 • {formatVNDShort(draft.step1.giaThue)}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDraft(draft.id);
+                        }}
+                        hitSlop={8}
+                        className="p-1"
+                      >
+                        <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                      </Pressable>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : undefined
+        }
         ListEmptyComponent={
           <Card className="p-8 bg-white rounded-2xl items-center justify-center my-6 border border-gray-100 shadow-sm">
             <Ionicons name="business-outline" size={44} color="#94A3B8" />
@@ -292,7 +376,10 @@ export default function MyRoomsScreen() {
 
       {/* Nút Floating Action Button (+) */}
       <Pressable
-        onPress={() => router.push('/(landlord)/create-room')}
+        onPress={() => {
+          resetWizard();
+          router.push('/(landlord)/create-room');
+        }}
         className="absolute bottom-6 right-5 w-14 h-14 rounded-full bg-teal-700 items-center justify-center shadow-lg active:bg-teal-800"
       >
         <Ionicons name="add" size={30} color="#ffffff" />

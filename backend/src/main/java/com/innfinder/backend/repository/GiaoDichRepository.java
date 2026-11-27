@@ -115,6 +115,20 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
            "com.innfinder.backend.entity.enums.TrangThaiGD.HOAN_TIEN)")
     Long sumWalletCredits(@Param("userId") String userId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"nguoiDung"})
+    List<GiaoDich> findTop50ByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String nguoiDungMaNguoiDung);
+
+    @Query("SELECT COALESCE(SUM(g.soTien), 0L) FROM GiaoDich g " +
+           "WHERE g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.CHO_THANH_TOAN " +
+           "AND g.loaiGiaoDich IN ('HOAN_COC', 'BOI_THUONG_NO_SHOW')")
+    Long sumPendingRefundAndNoShow();
+
+    @Query("SELECT g.noiDung FROM GiaoDich g " +
+           "WHERE g.loaiGiaoDich = 'COC_XEM_PHONG' " +
+           "AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG " +
+           "AND g.noiDung IS NOT NULL")
+    List<String> findPaidDepositNotes();
+
     List<GiaoDich> findTop20ByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String id);
 
 }

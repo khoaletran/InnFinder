@@ -17,9 +17,12 @@ import { Button, Card } from 'heroui-native';
 import * as ImagePicker from 'expo-image-picker';
 import { landlordService } from '../../services/landlord.service';
 import { roomService } from '../../services/room.service';
+import { tour360Service } from '../../services/tour360.service';
 import { RoomDetailResponse } from '../../types/room.types';
+import { Tour360Response } from '../../types/tour360.types';
 import { formatVND } from '../../utils/formatVND';
 import { LocationPickerModal } from '../../components/landlord/LocationPickerModal';
+import { Tour360Modal } from '../../components/room/Tour360Modal';
 
 const ROOM_TYPES = [
   { id: 'LPT002', name: 'Phòng trọ khép kín' },
@@ -73,6 +76,8 @@ export default function EditRoomScreen() {
     longitude: 106.6874,
   });
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [roomTour360, setRoomTour360] = useState<Tour360Response | null>(null);
+  const [tour360Open, setTour360Open] = useState(false);
 
   const handleSelectLocation = (
     coords: { latitude: number; longitude: number },
@@ -90,6 +95,7 @@ export default function EditRoomScreen() {
   useEffect(() => {
     if (id) {
       loadRoomDetail(id);
+      tour360Service.getRoomTour(id).then(setRoomTour360).catch(() => {});
     }
   }, [id]);
 
@@ -549,6 +555,51 @@ export default function EditRoomScreen() {
             ))}
           </View>
         </Card>
+
+        {/* Tour 360° đa điểm */}
+        <Card className="p-4 rounded-2xl border border-gray-100 bg-white mb-4">
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="compass-outline" size={18} color="#0f766e" />
+              <Text className="text-sm font-bold text-gray-900">Tour 360° đa điểm</Text>
+            </View>
+            {roomTour360 && roomTour360.nodes.length > 0 && (
+              <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
+                <Text className="text-[10px] font-bold text-emerald-800">
+                  {roomTour360.nodeCount} góc phòng
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text className="text-xs text-gray-500 mb-3">
+            {roomTour360
+              ? `Tour #${roomTour360.maTour} đã sẵn sàng cho khách tham quan.`
+              : 'Chưa có Tour 360°. Chọn ảnh Panorama/360° từ máy để tạo tour cho phòng này.'}
+          </Text>
+          <View className="flex-row gap-2">
+            {roomTour360 && roomTour360.nodes.length > 0 && (
+              <Pressable
+                onPress={() => setTour360Open(true)}
+                className="flex-1 bg-slate-100 rounded-xl py-2.5 px-3 items-center justify-center active:bg-slate-200"
+              >
+                <Text className="text-xs font-bold text-slate-800">Xem thử 360°</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/(landlord)/tour-360',
+                  params: { roomId: id, tourId: roomTour360?.maTour ?? '' },
+                })
+              }
+              className="flex-1 bg-teal-700 rounded-xl py-2.5 px-3 items-center justify-center active:bg-teal-800"
+            >
+              <Text className="text-xs font-bold text-white">
+                {roomTour360 ? 'Chỉnh sửa Tour 360°' : 'Tạo Tour 360°'}
+              </Text>
+            </Pressable>
+          </View>
+        </Card>
       </ScrollView>
 
       {/* FOOTER NÚT BẤM */}
@@ -733,6 +784,13 @@ export default function EditRoomScreen() {
         initialCoords={coordinates}
         onClose={() => setShowLocationModal(false)}
         onSelectLocation={handleSelectLocation}
+      />
+
+      <Tour360Modal
+        visible={tour360Open}
+        tourId={roomTour360?.maTour ?? null}
+        title={tenPhong}
+        onClose={() => setTour360Open(false)}
       />
     </SafeAreaView>
   );

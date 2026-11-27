@@ -3,6 +3,7 @@ package com.innfinder.backend.repository;
 import com.innfinder.backend.entity.PhieuDatLich;
 import com.innfinder.backend.entity.enums.TrangThaiDatLich;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -120,6 +121,26 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
      */
     @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.loaiPhong", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
     List<PhieuDatLich> findAllByOrderByNgayHenDesc();
+
+    @EntityGraph(attributePaths = {"khachHang", "phongTro", "phongTro.loaiPhong", "phongTro.chuPhongTro", "phongTro.chuPhongTro.nguoiDung"})
+    @Query("SELECT p FROM PhieuDatLich p WHERE " +
+           "LOWER(p.maDatLich) LIKE LOWER(CONCAT('%', :kw, '%')) OR " +
+           "LOWER(p.phongTro.maPhongTro) LIKE LOWER(CONCAT('%', :kw, '%')) OR " +
+           "LOWER(p.khachHang.maNguoiDung) LIKE LOWER(CONCAT('%', :kw, '%')) OR " +
+           "p.khachHang.sdt LIKE CONCAT('%', :kw, '%') OR " +
+           "LOWER(p.phongTro.chuPhongTro.maChuTro) LIKE LOWER(CONCAT('%', :kw, '%')) OR " +
+           "p.phongTro.chuPhongTro.nguoiDung.sdt LIKE CONCAT('%', :kw, '%') " +
+           "ORDER BY p.ngayHen DESC")
+    List<PhieuDatLich> searchByCodeOrPhone(@Param("kw") String kw, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(p.coc), 0L) FROM PhieuDatLich p " +
+           "WHERE p.trangThai IN (com.innfinder.backend.entity.enums.TrangThaiDatLich.CHO_XAC_NHAN, com.innfinder.backend.entity.enums.TrangThaiDatLich.XAC_NHAN) " +
+           "AND p.coc > 0 AND EXISTS (" +
+           "  SELECT 1 FROM GiaoDich g WHERE g.nguoiDung = p.khachHang " +
+           "  AND g.loaiGiaoDich = 'COC_XEM_PHONG' " +
+           "  AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG " +
+           "  AND g.noiDung LIKE CONCAT('%', p.maDatLich, '%'))")
+    Long sumActiveHeldDeposit();
 
     /**
      * 8. Lấy danh sách phiếu đặt lịch theo trạng thái (phục vụ thống kê doanh thu theo tháng)

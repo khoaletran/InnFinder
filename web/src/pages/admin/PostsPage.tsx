@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
-import { CheckCircle2, Clock, XCircle, Eye, MapPin, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock, Compass, XCircle, Eye, MapPin, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services/admin.service';
+import { tour360Service } from '@/services/tour360.service';
 import { Modal } from '@/components/common/Modal';
+import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
 import {
   AdminErrorState,
@@ -19,9 +21,17 @@ export const PostsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<TrangThaiPhongTro>('CHO_DUYET');
   const [previewRoom, setPreviewRoom] = useState<AdminPostItem | null>(null);
+  const [tour360Open, setTour360Open] = useState(false);
 
   const [rejectingRoomId, setRejectingRoomId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+
+  const { data: previewRoomTour } = useQuery({
+    queryKey: ['rooms', 'tour-360', previewRoom?.maPhongTro],
+    queryFn: () => tour360Service.getRoomTour(previewRoom!.maPhongTro),
+    enabled: Boolean(previewRoom?.maPhongTro),
+    retry: false,
+  });
 
   const {
     data: allRooms = [],
@@ -332,9 +342,21 @@ export const PostsPage: React.FC = () => {
           <div className="space-y-4">
             {/* Photo Gallery */}
             <div>
-              <span className="block text-xs font-medium text-text-secondary mb-2">
-                Hình ảnh chụp thực tế ({previewRoom.hinhAnh?.length || 0} ảnh)
-              </span>
+              <div className="flex items-center justify-between mb-2">
+                <span className="block text-xs font-medium text-text-secondary">
+                  Hình ảnh chụp thực tế ({previewRoom.hinhAnh?.length || 0} ảnh)
+                </span>
+                {previewRoomTour && previewRoomTour.nodes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTour360Open(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent-hover cursor-pointer transition-colors"
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>Xem Tour 360° ({previewRoomTour.nodeCount} góc)</span>
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {previewRoom.hinhAnh?.map((img, i) => (
                   <div
@@ -445,6 +467,14 @@ export const PostsPage: React.FC = () => {
           className="w-full p-2.5 rounded-lg border border-border bg-surface text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-danger-text"
         />
       </Modal>
+
+      <Tour360ViewerModal
+        isOpen={tour360Open}
+        tour={previewRoomTour ?? null}
+        title={previewRoom ? previewRoom.tieuDe || `Phòng #${previewRoom.maPhongTro}` : 'Tour 360°'}
+        subtitle={previewRoom?.diaChi}
+        onClose={() => setTour360Open(false)}
+      />
     </div>
   );
 };

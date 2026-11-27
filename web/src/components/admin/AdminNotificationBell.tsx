@@ -94,7 +94,7 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
     refetchInterval: 60_000,
     queryFn: async (): Promise<AdminNotificationItem[]> => {
       const [roomsRes, landlordsRes, complaintsRes, transactionsRes] = await Promise.allSettled([
-        adminService.getAllRooms(),
+        adminService.getPendingRooms(),
         adminService.getLandlordRequests(),
         adminService.getAllComplaints(),
         adminService.getTransactions(),

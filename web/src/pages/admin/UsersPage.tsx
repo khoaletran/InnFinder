@@ -20,7 +20,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { adminService } from '@/services/admin.service';
 import { Modal } from '@/components/common/Modal';
 import { StatusTabBar } from '@/components/common/StatusTabBar';
@@ -49,6 +49,7 @@ const maskSensitive = (value?: string, visibleDigits = 4): string => {
 
 export const UsersPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'landlord-requests' ? 'LANDLORD_REQUESTS' : 'USERS';
@@ -472,8 +473,8 @@ export const UsersPage: React.FC = () => {
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
-                                onClick={() => setSelectedUser(u)}
-                                title="Xem chi tiết"
+                                onClick={() => navigate(`/admin/users/${u.maNguoiDung}`)}
+                                title="Xem trang chi tiết"
                                 className="p-1.5 text-text-muted hover:text-accent hover:bg-accent-soft rounded-lg transition-colors cursor-pointer"
                               >
                                 <Eye className="w-4 h-4" />

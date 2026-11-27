@@ -12,6 +12,7 @@ import com.innfinder.backend.entity.TaiKhoanNganHang;
 import com.innfinder.backend.entity.enums.TrangThaiGD;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.ChuTroRepository;
 import com.innfinder.backend.repository.GiaoDichRepository;
 import com.innfinder.backend.repository.NguoiDungRepository;
@@ -33,6 +34,9 @@ public class TransactionService {
     private final NguoiDungRepository nguoiDungRepository;
     private final ChuTroRepository chuTroRepository;
     private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RealtimePublisher realtimePublisher;
 
     public synchronized String generateMaGiaoDich() {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -172,7 +176,11 @@ public class TransactionService {
         gd.setNganHangNhan(bank.getTenNganHang());
         gd.setTaiKhoanNhan(bank.getSoTaiKhoan());
         gd.setTenNguoiNhan(bank.getTenChuTaiKhoan());
-        return TransactionResponse.fromEntity(giaoDichRepository.save(gd));
+        GiaoDich saved = giaoDichRepository.save(gd);
+        if (realtimePublisher != null) {
+            realtimePublisher.walletUpdated(user.getMaNguoiDung(), true);
+        }
+        return TransactionResponse.fromEntity(saved);
     }
 
     /**
@@ -246,7 +254,12 @@ public class TransactionService {
         transaction.setPhieuDatLich(appointment);
         transaction.setCocGoc(appointment.getCoc());
         transaction.setPhiHoaHong("CONG_TIEN_COC".equals(type) ? appointment.getPhiThu() : 0L);
-        return giaoDichRepository.save(transaction);
+        GiaoDich saved = giaoDichRepository.save(transaction);
+        if (realtimePublisher != null) {
+            realtimePublisher.walletUpdated(user != null ? user.getMaNguoiDung() : null, true);
+            realtimePublisher.appointmentUpdated(appointment);
+        }
+        return saved;
     }
 
 }

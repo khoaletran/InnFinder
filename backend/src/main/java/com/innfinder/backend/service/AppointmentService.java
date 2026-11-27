@@ -5,6 +5,7 @@ import com.innfinder.backend.dto.appointment.AppointmentCreateRequest;
 import com.innfinder.backend.dto.appointment.AppointmentDecisionRequest;
 import com.innfinder.backend.dto.appointment.AppointmentResponse;
 import com.innfinder.backend.dto.appointment.BookedSlotsResponse;
+import com.innfinder.backend.dto.appointment.ConfirmReceivedDepositRequest;
 import com.innfinder.backend.dto.appointment.DepositStatusResponse;
 import com.innfinder.backend.entity.ChuTro;
 import com.innfinder.backend.entity.GiaoDich;
@@ -17,6 +18,7 @@ import com.innfinder.backend.entity.enums.TrangThaiGD;
 import com.innfinder.backend.entity.enums.TrangThaiPhongTro;
 import com.innfinder.backend.exception.AppException;
 import com.innfinder.backend.exception.ErrorCode;
+import com.innfinder.backend.realtime.RealtimePublisher;
 import com.innfinder.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -35,6 +37,7 @@ public class AppointmentService {
 
     public static final int PAYMENT_TIMEOUT_MINUTES = 15;
     public static final int SLOT_BUFFER_MINUTES = 120;
+    public static final double MAX_CONFIRM_DEPOSIT_DISTANCE_METERS = 50.0;
 
     private final PhieuDatLichRepository phieuDatLichRepository;
     private final NguoiDungRepository nguoiDungRepository;
@@ -43,6 +46,9 @@ public class AppointmentService {
     private final TransactionService transactionService;
     private final GiaoDichRepository giaoDichRepository;
     private final TaiKhoanNganHangRepository taiKhoanNganHangRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RealtimePublisher realtimePublisher;
 
     /**
      * Sinh mã phiếu đặt lịch theo chuẩn ISO: ĐL + yyyyMMdd + sequence 3 số
@@ -174,6 +180,7 @@ public class AppointmentService {
                 .build();
 
         PhieuDatLich savedPhieu = phieuDatLichRepository.save(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(savedPhieu);
 
         return AppointmentResponse.fromEntity(savedPhieu, false);
     }
@@ -436,6 +443,7 @@ public class AppointmentService {
             if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
                 taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ quá hạn duyệt lịch", null);
             }
+            if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
             return false; // Hết hạn, transaction đã commit HUY và hoàn cọc an toàn
         }
 
@@ -450,6 +458,7 @@ public class AppointmentService {
 
         phieu.setTrangThai(TrangThaiDatLich.XAC_NHAN);
         phieuDatLichRepository.save(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
         return true;
     }
 
@@ -468,6 +477,7 @@ public class AppointmentService {
         phieu.setTrangThai(TrangThaiDatLich.HUY);
         phieu.setLiDoHuy("Chủ trọ từ chối: " + request.getLiDoHuy());
         phieuDatLichRepository.save(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
 
         // Chỉ hoàn cọc nếu khách hàng đã thực sự nộp cọc trước đó
         boolean daNop = daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich);
@@ -477,11 +487,35 @@ public class AppointmentService {
     }
 
     /**
+     * Tính khoảng cách đường chim bay (mét) giữa 2 tọa độ theo công thức Haversine.
+     */
+    public static double calculateDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
+        final double earthRadiusMeters = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusMeters * c;
+    }
+
+    private Double parseRoomCoordinate(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Double.parseDouble(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
      * 7. BƯỚC 4 SWIMLANE MỚI: Khách hàng bấm xác nhận "Đã nhận lại cọc từ Chủ trọ ngoài đời thực"
      * Quyền thụ hưởng số tiền cọc tại Hệ thống chính thức chuyển sang cho Chủ trọ ("thế chân").
+     * Ràng buộc: Khách hàng phải đứng trong phạm vi tối đa 50m quanh tọa độ phòng trọ.
      */
     @Transactional
-    public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username) {
+    public AppointmentResponse khachHangXacNhanDaNhanCoc(String maDatLich, String username, ConfirmReceivedDepositRequest request) {
         NguoiDung khachHang = getNguoiDungByUsername(username);
         PhieuDatLich phieu = phieuDatLichRepository.findByIdForUpdate(maDatLich)
                 .orElseThrow(() -> new AppException(ErrorCode.APPOINTMENT_NOT_FOUND));
@@ -498,6 +532,23 @@ public class AppointmentService {
             throw new AppException(ErrorCode.DEPOSIT_ALREADY_REFUNDED);
         }
 
+        // Bắt buộc kiểm tra tọa độ khách hàng nằm trong phạm vi 50m quanh tọa độ phòng trọ
+        PhongTro phongTro = phieu.getPhongTro();
+        Double roomLat = phongTro != null ? parseRoomCoordinate(phongTro.getViDo()) : null;
+        Double roomLng = phongTro != null ? parseRoomCoordinate(phongTro.getKinhDo()) : null;
+        if (roomLat == null || roomLng == null || (roomLat == 0.0 && roomLng == 0.0)) {
+            throw new AppException(ErrorCode.ROOM_LOCATION_MISSING);
+        }
+
+        if (request == null || request.getViDo() == null || request.getKinhDo() == null) {
+            throw new AppException(ErrorCode.OUTSIDE_ALLOWED_RADIUS);
+        }
+
+        double distanceMeters = calculateDistanceMeters(request.getViDo(), request.getKinhDo(), roomLat, roomLng);
+        if (distanceMeters > MAX_CONFIRM_DEPOSIT_DISTANCE_METERS) {
+            throw new AppException(ErrorCode.OUTSIDE_ALLOWED_RADIUS);
+        }
+
         // Nếu có cọc thì bắt buộc khách phải nộp cọc trước đó
         if (phieu.getCoc() != null && phieu.getCoc() > 0) {
             boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
@@ -508,6 +559,7 @@ public class AppointmentService {
 
         phieu.setDaNhanLaiCoc(true);
         PhieuDatLich saved = phieuDatLichRepository.save(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(saved);
 
         boolean daNop = daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
         return AppointmentResponse.fromEntity(saved, daNop);
@@ -548,6 +600,7 @@ public class AppointmentService {
         }
 
         xuLyKetQuaLichHen(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
 
         boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0) || daNopCocChoLichHen(khachHang.getMaNguoiDung(), maDatLich);
         return AppointmentResponse.fromEntity(phieu, daNop);
@@ -582,6 +635,7 @@ public class AppointmentService {
         }
 
         xuLyKetQuaLichHen(phieu);
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
 
         boolean daNop = (phieu.getCoc() == null || phieu.getCoc() == 0)
                 || (phieu.getKhachHang() != null && daNopCocChoLichHen(phieu.getKhachHang().getMaNguoiDung(), maDatLich));
@@ -1012,6 +1066,8 @@ public class AppointmentService {
         if (daNop && phieu.getCoc() != null && phieu.getCoc() > 0) {
             taoGiaoDichHoanCocChoKhach(phieu, "Hoàn cọc do chủ trọ vắng mặt (No-show)", null);
         }
+        if (realtimePublisher != null) realtimePublisher.appointmentUpdated(phieu);
+        if (realtimePublisher != null) realtimePublisher.adminQueueUpdated(null, "NO_SHOW");
     }
 
     /**
