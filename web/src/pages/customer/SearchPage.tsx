@@ -173,8 +173,26 @@ export const SearchPage: React.FC = () => {
     () => sortRoomsByOption(queryResult?.content ?? [], (r) => r, sortBy),
     [queryResult?.content, sortBy],
   );
-  const totalElements = queryResult?.totalElements ?? 0;
   const totalPages = queryResult?.totalPages ?? 1;
+
+  const pageItems = useMemo<Array<number | 'ellipsis'>>(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i);
+    }
+    const items: Array<number | 'ellipsis'> = [0];
+    const start = Math.max(1, currentPage - 1);
+    const end = Math.min(totalPages - 2, currentPage + 1);
+    if (start > 1) items.push('ellipsis');
+    for (let i = start; i <= end; i += 1) items.push(i);
+    if (end < totalPages - 2) items.push('ellipsis');
+    items.push(totalPages - 1);
+    return items;
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (nextPage: number) => {
+    setCurrentPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -594,31 +612,56 @@ export const SearchPage: React.FC = () => {
         )}
 
         {/* Phân trang */}
-        {rooms.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between text-xs text-slate-700 shadow-xs">
-            <span className="font-medium">
-              Trang {currentPage + 1}/{totalPages} ({totalElements} phòng)
-            </span>
+        {rooms.length > 0 && totalPages > 1 && (
+          <nav
+            aria-label="Phân trang"
+            className="pt-2 flex items-center justify-center gap-1.5"
+          >
+            <button
+              type="button"
+              disabled={currentPage === 0}
+              onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
+              aria-label="Trang trước"
+              className="w-9 h-9 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={currentPage === 0}
-                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Trước
-              </button>
-              <button
-                type="button"
-                disabled={currentPage >= totalPages - 1}
-                onClick={() => setCurrentPage(currentPage + 1)}
-                className="h-8 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                Tiếp <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+            {pageItems.map((item, idx) =>
+              item === 'ellipsis' ? (
+                <span
+                  key={`ellipsis-${idx}`}
+                  className="w-9 h-9 flex items-center justify-center text-sm text-slate-400 select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => handlePageChange(item)}
+                  aria-current={currentPage === item ? 'page' : undefined}
+                  className={`w-9 h-9 rounded-full border text-xs font-bold flex items-center justify-center transition-colors cursor-pointer ${
+                    currentPage === item
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {item + 1}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              disabled={currentPage >= totalPages - 1}
+              onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
+              aria-label="Trang tiếp"
+              className="w-9 h-9 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </nav>
         )}
       </div>
     </div>

@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, Building2, ChevronRight, Home as HomeIcon, PawPrint, GraduationCap, Sofa } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { AlertCircle, ArrowRight, Home as HomeIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppButton } from '@/components/common/AppButton';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -10,40 +9,11 @@ import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomCard } from '@/components/room/RoomCard';
 import { roomService } from '@/services/room.service';
 
-type QuickFilterKey = 'gac_lung' | 'gan_dh' | 'thu_cung' | 'full_noi_that' | 'duoi_3tr' | null;
-
-const QUICK_FILTER_KEYWORDS: Record<Exclude<QuickFilterKey, null | 'duoi_3tr'>, string> = {
-  gac_lung: 'gác lửng',
-  gan_dh: 'đại học',
-  thu_cung: 'thú cưng',
-  full_noi_that: 'full nội thất',
-};
-
-const QUICK_FILTER_ITEMS: { key: Exclude<QuickFilterKey, null>; label: string; Icon: LucideIcon }[] = [
-  { key: 'gac_lung', label: 'Có gác lửng', Icon: HomeIcon },
-  { key: 'gan_dh', label: 'Gần ĐH', Icon: GraduationCap },
-  { key: 'thu_cung', label: 'Nuôi thú cưng', Icon: PawPrint },
-  { key: 'full_noi_that', label: 'Full nội thất', Icon: Sofa },
-  { key: 'duoi_3tr', label: 'Dưới 3 triệu', Icon: Building2 },
-];
+type FeaturedTab = 'recommended' | 'new' | 'price';
 
 export const FeaturedRoomsSection: React.FC = () => {
   const navigate = useNavigate();
-  const categoriesRef = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState('recommended');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [selectedQuickFilter, setSelectedQuickFilter] = useState<QuickFilterKey>(null);
-
-  const { data: roomTypes = [] } = useQuery({
-    queryKey: ['categories', 'room-types'],
-    queryFn: roomService.getRoomTypes,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const quickKeyword =
-    selectedQuickFilter && selectedQuickFilter !== 'duoi_3tr'
-      ? QUICK_FILTER_KEYWORDS[selectedQuickFilter]
-      : undefined;
+  const [tab, setTab] = useState<FeaturedTab>('recommended');
 
   const {
     data: roomsPage,
@@ -51,27 +21,36 @@ export const FeaturedRoomsSection: React.FC = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['rooms', 'landing-featured', selectedCategoryId, selectedQuickFilter, tab],
+    queryKey: ['rooms', 'landing-featured', tab],
     staleTime: 2 * 60 * 1000,
     queryFn: () =>
       roomService.searchRooms({
         page: 0,
-        size: 25,
+        size: 30,
         minDiemUyTin: 81,
-        sortBy: tab === 'price' ? 'giaThue' : tab === 'new' ? 'thoiGianDang' : undefined,
-        sortDirection: tab === 'price' ? 'ASC' : tab === 'new' ? 'DESC' : undefined,
-        maLpt: selectedCategoryId || undefined,
-        keyword: quickKeyword,
-        maxGia: selectedQuickFilter === 'duoi_3tr' ? 3000000 : undefined,
+        sortBy: tab === 'price' ? 'giaThue' : 'thoiGianDang',
+        sortDirection: tab === 'price' ? 'ASC' : 'DESC',
       }),
   });
 
   const baseRooms = (roomsPage?.content || []).filter((room) => (room.diemUyTinChuTro ?? 0) > 80);
-  const rooms = (
-    tab === 'recommended'
-      ? [...baseRooms].sort((a, b) => (b.diemUyTinChuTro ?? 0) - (a.diemUyTinChuTro ?? 0))
-      : baseRooms
-  ).slice(0, 25);
+  const rooms = [...baseRooms]
+    .sort((a, b) => {
+      if (tab === 'price') {
+        return (a.giaThue ?? 0) - (b.giaThue ?? 0);
+      }
+      if (tab === 'new') {
+        const timeA = a.thoiGianDang ? new Date(a.thoiGianDang).getTime() : 0;
+        const timeB = b.thoiGianDang ? new Date(b.thoiGianDang).getTime() : 0;
+        return timeB - timeA;
+      }
+      const repDiff = (b.diemUyTinChuTro ?? 0) - (a.diemUyTinChuTro ?? 0);
+      if (repDiff !== 0) return repDiff;
+      const timeA = a.thoiGianDang ? new Date(a.thoiGianDang).getTime() : 0;
+      const timeB = b.thoiGianDang ? new Date(b.thoiGianDang).getTime() : 0;
+      return timeB - timeA;
+    })
+    .slice(0, 30);
 
   return (
     <PageContainer width="wide" className="space-y-4 py-6">
@@ -90,57 +69,21 @@ export const FeaturedRoomsSection: React.FC = () => {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div ref={categoriesRef} className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2" aria-label="Danh mục tìm phòng">
-          {[{ id: '', label: 'Tất cả' }, ...roomTypes.map((cat) => ({
-            id: cat.maLpt || cat.maLoaiPhong || '', label: cat.tenLoaiPhongTro || cat.tenLoaiPhong || 'Phòng trọ',
-          })).filter(({ id }) => id)].map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={id === '' ? !selectedCategoryId && !selectedQuickFilter : selectedCategoryId === id}
-              onClick={() => {
-                if (id === '') {
-                  setSelectedCategoryId('');
-                  setSelectedQuickFilter(null);
-                  return;
-                }
-                setSelectedCategoryId(id);
-              }}
-              className="grid min-w-24 shrink-0 justify-items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 cursor-pointer"
-            >
-              <Building2 aria-hidden="true" className="size-5 text-teal-700" />{label}
-            </button>
-          ))}
-          {QUICK_FILTER_ITEMS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={selectedQuickFilter === key}
-              onClick={() => setSelectedQuickFilter((prev) => (prev === key ? null : key))}
-              className="grid min-w-24 shrink-0 justify-items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 cursor-pointer"
-            >
-              <Icon aria-hidden="true" className="size-5 text-teal-700" />{label}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-pressed={tab === 'new'}
-            onClick={() => setTab((prev) => (prev === 'new' ? 'recommended' : 'new'))}
-            className="grid min-w-24 shrink-0 justify-items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 cursor-pointer"
-          >
-            <Building2 aria-hidden="true" className="size-5 text-teal-700" />Mới đăng
-          </button>
-        </div>
-        <button type="button" aria-label="Xem thêm danh mục" className="grid size-9 shrink-0 place-items-center rounded-full border bg-white text-teal-800 cursor-pointer" onClick={() => {
-          const row = categoriesRef.current;
-          if (row) row.scrollBy({ left: row.scrollLeft + row.clientWidth >= row.scrollWidth - 2 ? -row.scrollWidth : row.clientWidth });
-        }}><ChevronRight aria-hidden="true" className="size-5" /></button>
-      </div>
       <div role="group" aria-label="Thứ tự hiển thị phòng" className="flex flex-wrap gap-2 border-b border-slate-200">
-        {[[ 'recommended', 'Dành cho bạn' ], [ 'new', 'Mới nhất' ], [ 'price', 'Giá tốt' ]].map(([key, label]) => (
-          <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}
-            className="border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-slate-600 aria-pressed:border-teal-700 aria-pressed:text-teal-800 cursor-pointer">{label}</button>
+        {([
+          ['recommended', 'Dành cho bạn'],
+          ['new', 'Mới nhất'],
+          ['price', 'Giá tốt'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={tab === key}
+            onClick={() => setTab(key)}
+            className="border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-slate-600 aria-pressed:border-teal-700 aria-pressed:text-teal-800 cursor-pointer"
+          >
+            {label}
+          </button>
         ))}
       </div>
 
@@ -166,26 +109,13 @@ export const FeaturedRoomsSection: React.FC = () => {
         </div>
       ) : (
         <EmptyState
-          title="Chưa có phòng phù hợp trong danh mục này"
-          description="Bạn có thể chọn tiêu chí khác hoặc mở trang Tìm phòng để xem toàn bộ danh sách."
+          title="Chưa có phòng nổi bật phù hợp"
+          description="Bạn có thể mở trang Tìm phòng để xem toàn bộ phòng trên danh sách hoặc bản đồ."
           icon={<HomeIcon className="w-6 h-6" />}
           action={
-            selectedCategoryId || selectedQuickFilter ? (
-              <AppButton
-                variant="secondary"
-                size="md"
-                onClick={() => {
-                  setSelectedCategoryId('');
-                  setSelectedQuickFilter(null);
-                }}
-              >
-                Xem tất cả phòng nổi bật
-              </AppButton>
-            ) : (
-              <AppButton variant="primary" size="md" onClick={() => navigate('/search')}>
-                Tìm phòng trên bản đồ
-              </AppButton>
-            )
+            <AppButton variant="primary" size="md" onClick={() => navigate('/search/map')}>
+              Tìm phòng trên bản đồ
+            </AppButton>
           }
         />
       )}
