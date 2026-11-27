@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LinkBankAccountModal } from '@/components/common/LinkBankAccountModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { PageContainer } from '@/components/common/PageContainer';
 import { transactionService } from '@/services/transaction.service';
 import {
   formatDateTime,
@@ -82,18 +83,20 @@ export const TransactionDetailPage: React.FC = () => {
 
   if (!tx) {
     return (
-      <EmptyState
-        title="Không tìm thấy giao dịch"
-        description="Mã giao dịch không tồn tại hoặc không thuộc tài khoản hiện tại."
-        action={
-          <Link
-            to="/transactions"
-            className="px-5 py-2.5 bg-teal-600 text-white rounded-full text-xs font-bold"
-          >
-            Quay lại lịch sử giao dịch
-          </Link>
-        }
-      />
+      <PageContainer width="wide" className="py-8">
+        <EmptyState
+          title="Không tìm thấy giao dịch"
+          description="Mã giao dịch không tồn tại hoặc không thuộc tài khoản hiện tại."
+          action={
+            <Link
+              to="/transactions"
+              className="px-5 py-2.5 bg-teal-600 text-white rounded-full text-xs font-bold"
+            >
+              Quay lại lịch sử giao dịch
+            </Link>
+          }
+        />
+      </PageContainer>
     );
   }
 
@@ -105,7 +108,7 @@ export const TransactionDetailPage: React.FC = () => {
   const rejectReason = extractRejectReason(tx.noiDung);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <PageContainer width="wide" className="space-y-6 animate-in fade-in duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <button
@@ -513,7 +516,7 @@ export const TransactionDetailPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

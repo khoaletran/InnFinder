@@ -67,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/roommates/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/roommates", "/api/roommates/*", "/api/roommates/*/comments").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/rooms/recommendations/impressions", "/api/rooms/recommendations/click").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**", "/api/categories/**", "/api/appointments/*/deposit-status", "/api/tours-360/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // 2. Quyền riêng cho Admin:

@@ -16,6 +16,7 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 // Admin Console Pages (Thành viên 1)
 import { AdminProfileInfoTab } from '@/components/admin/AdminProfileInfoTab';
 import { AdminProfilePage } from '@/pages/admin/AdminProfilePage';
+import { AiTrackingPage } from '@/pages/admin/AiTrackingPage';
 import { CategoriesPage } from '@/pages/admin/CategoriesPage';
 import { ComplaintsAdminPage } from '@/pages/admin/ComplaintsAdminPage';
 import { DashboardPage } from '@/pages/admin/DashboardPage';
@@ -216,6 +217,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="complaints" element={<ComplaintsAdminPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="statistics" element={<StatisticsPage />} />
+        <Route path="ai-tracking" element={<AiTrackingPage />} />
         <Route path="profile" element={<AdminProfilePage />}>
           <Route index element={<AdminProfileInfoTab />} />
           <Route path="security" element={<ProfileSecurityTab />} />

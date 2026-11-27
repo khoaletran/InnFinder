@@ -71,4 +71,6 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"loaiPhong"})
     @Query("SELECT p FROM PhongTro p")
     List<PhongTro> findAllWithLoaiPhong();
+    @Query("SELECT p.maPhongTro FROM PhongTro p WHERE p.trangThai = com.innfinder.backend.entity.enums.TrangThaiPhongTro.DA_DUYET AND p.tamAn = false ORDER BY p.thoiGianDang DESC, p.maPhongTro")
+    List<String> findRecommendationIds(org.springframework.data.domain.Pageable page);
 }

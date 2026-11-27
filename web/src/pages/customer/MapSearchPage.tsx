@@ -205,6 +205,8 @@ export const MapSearchPage: React.FC = () => {
 
   useEffect(() => {
     if (!navigator.geolocation) return;
+    const { userLat, userLng } = useRoomFilterStore.getState();
+    if (userLat !== undefined && userLng !== undefined) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation(pos.coords.latitude, pos.coords.longitude);
@@ -436,12 +438,7 @@ export const MapSearchPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* 0. Thanh tìm kiếm vị trí theo nhu cầu */}
             <div ref={locationSearchRef} className="relative w-full sm:w-64 lg:w-72 shrink-0">
-              <form onSubmit={handleLocationSearchSubmit} className="relative">
-                {isGeocoding ? (
-                  <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                ) : (
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                )}
+              <form onSubmit={handleLocationSearchSubmit} className="relative flex items-center">
                 <input
                   type="text"
                   value={locationQuery}
@@ -461,7 +458,9 @@ export const MapSearchPage: React.FC = () => {
                   }}
                   placeholder="Tìm vị trí (đường, quận, thành phố...)"
                   aria-label="Tìm vị trí trên bản đồ"
-                  className="h-8 sm:h-9 w-full pl-9 pr-8 rounded-full border border-slate-300 bg-slate-50/70 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                  className={`w-full h-9 pl-3.5 ${
+                    locationQuery ? 'pr-16' : 'pr-10'
+                  } bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500`}
                 />
                 {locationQuery && (
                   <button
@@ -472,11 +471,23 @@ export const MapSearchPage: React.FC = () => {
                       setLocationSuggestions([]);
                       setShowLocationSuggestions(false);
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                    className="absolute right-9 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+                <button
+                  type="submit"
+                  aria-label="Tìm vị trí"
+                  title="Tìm vị trí"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  {isGeocoding ? (
+                    <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </button>
               </form>
 
               {showLocationSuggestions && locationSuggestions.length > 0 && (
@@ -900,10 +911,10 @@ export const MapSearchPage: React.FC = () => {
                         onClick={() => handleSelectRoom(room)}
                         onMouseEnter={() => setHoveredRoomId(room.maPhongTro)}
                         onMouseLeave={() => setHoveredRoomId(null)}
-                        className={`group bg-white rounded-2xl border p-2.5 flex items-center gap-3 cursor-pointer transition-all shadow-xs hover:shadow-md ${
+                        className={`group bg-white rounded-2xl border p-2.5 flex items-center gap-3 cursor-pointer transition-all ${
                           isHovered
-                            ? 'border-teal-500 ring-1 ring-teal-500/20'
-                            : 'border-slate-200/90 hover:border-teal-500'
+                            ? 'border-teal-600 ring-4 ring-teal-500/20 shadow-[0_10px_22px_rgba(13,148,136,0.25)] -translate-y-0.5'
+                            : 'border-slate-200/90 shadow-xs hover:border-teal-600'
                         }`}
                       >
                         <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ArrowRight, Home as HomeIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,13 +7,19 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { PageContainer } from '@/components/common/PageContainer';
 import { SkeletonList } from '@/components/common/SkeletonList';
 import { RoomCard } from '@/components/room/RoomCard';
+import { getDistanceInKm } from '@/components/room/searchHelpers';
 import { roomService } from '@/services/room.service';
+import { useRoomFilterStore } from '@/store/useRoomFilterStore';
+import type { RoomSummaryResponse } from '@/types/room.types';
+import { getValidCoords } from '@/utils/formatters';
 
 type FeaturedTab = 'recommended' | 'new' | 'price';
 
 export const FeaturedRoomsSection: React.FC = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<FeaturedTab>('recommended');
+  const userLat = useRoomFilterStore((s) => s.userLat);
+  const userLng = useRoomFilterStore((s) => s.userLng);
 
   const {
     data: roomsPage,
@@ -26,31 +32,65 @@ export const FeaturedRoomsSection: React.FC = () => {
     queryFn: () =>
       roomService.searchRooms({
         page: 0,
-        size: 30,
-        minDiemUyTin: 81,
+        size: 100,
+        minDiemUyTin: tab === 'recommended' ? 81 : undefined,
         sortBy: tab === 'price' ? 'giaThue' : 'thoiGianDang',
         sortDirection: tab === 'price' ? 'ASC' : 'DESC',
       }),
   });
 
-  const baseRooms = (roomsPage?.content || []).filter((room) => (room.diemUyTinChuTro ?? 0) > 80);
-  const rooms = [...baseRooms]
-    .sort((a, b) => {
-      if (tab === 'price') {
-        return (a.giaThue ?? 0) - (b.giaThue ?? 0);
-      }
-      if (tab === 'new') {
-        const timeA = a.thoiGianDang ? new Date(a.thoiGianDang).getTime() : 0;
-        const timeB = b.thoiGianDang ? new Date(b.thoiGianDang).getTime() : 0;
-        return timeB - timeA;
-      }
-      const repDiff = (b.diemUyTinChuTro ?? 0) - (a.diemUyTinChuTro ?? 0);
-      if (repDiff !== 0) return repDiff;
-      const timeA = a.thoiGianDang ? new Date(a.thoiGianDang).getTime() : 0;
-      const timeB = b.thoiGianDang ? new Date(b.thoiGianDang).getTime() : 0;
-      return timeB - timeA;
-    })
-    .slice(0, 30);
+  const rooms = useMemo(() => {
+    const rawRooms = roomsPage?.content || [];
+    const baseRooms =
+      tab === 'recommended'
+        ? rawRooms.filter((room) => (room.diemUyTinChuTro ?? 0) > 80)
+        : rawRooms;
+
+    const getRoomDistance = (room: RoomSummaryResponse): number => {
+      if (userLat === undefined || userLng === undefined) return Number.POSITIVE_INFINITY;
+      const coords = getValidCoords(room);
+      if (!coords) return Number.POSITIVE_INFINITY;
+      return getDistanceInKm(userLat, userLng, coords.lat, coords.lng);
+    };
+
+    const compareDistance = (a: RoomSummaryResponse, b: RoomSummaryResponse): number => {
+      const distA = getRoomDistance(a);
+      const distB = getRoomDistance(b);
+      if (distA === distB) return 0;
+      if (!Number.isFinite(distA)) return 1;
+      if (!Number.isFinite(distB)) return -1;
+      return distA - distB;
+    };
+
+    const getRoomTime = (room: RoomSummaryResponse): number =>
+      room.thoiGianDang ? new Date(room.thoiGianDang).getTime() : 0;
+
+    return [...baseRooms]
+      .sort((a, b) => {
+        if (tab === 'new') {
+          const timeDiff = getRoomTime(b) - getRoomTime(a);
+          if (timeDiff !== 0) return timeDiff;
+          return compareDistance(a, b);
+        }
+
+        if (tab === 'price') {
+          const priceDiff = (a.giaThue ?? 0) - (b.giaThue ?? 0);
+          if (priceDiff !== 0) return priceDiff;
+          return compareDistance(a, b);
+        }
+
+        const distDiff = compareDistance(a, b);
+        if (distDiff !== 0) return distDiff;
+
+        // TODO: Ưu tiên điểm recommend từ userTracking khi hệ thống bổ sung
+
+        const repDiff = (b.diemUyTinChuTro ?? 0) - (a.diemUyTinChuTro ?? 0);
+        if (repDiff !== 0) return repDiff;
+
+        return getRoomTime(b) - getRoomTime(a);
+      })
+      .slice(0, 30);
+  }, [roomsPage?.content, tab, userLat, userLng]);
 
   return (
     <PageContainer width="wide" className="space-y-4 py-6">

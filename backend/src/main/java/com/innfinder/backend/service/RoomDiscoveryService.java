@@ -31,6 +31,17 @@ public class RoomDiscoveryService {
                 .filter(r -> r.getTrangThai() == TrangThaiPhongTro.DA_DUYET && !r.isTamAn()).map(this::document).toList();
     }
 
+    // Used only as private preference features; callers must never return these documents as candidates.
+    @Transactional(readOnly = true)
+    public List<Document> findPreferenceSeeds(List<String> ids) {
+        return ids.isEmpty() ? List.of() : repository.findByMaPhongTroIn(ids).stream().map(this::document).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Document> findRecommendationCandidates() {
+        return findByIds(repository.findRecommendationIds(org.springframework.data.domain.PageRequest.of(0, 500)));
+    }
+
     private Document document(PhongTro room) {
         RoomDetailResponse detail = RoomDetailResponse.fromEntity(room);
         String amenities = detail.getDsTienIch().stream().map(a -> a.getTenTienIch()).sorted()

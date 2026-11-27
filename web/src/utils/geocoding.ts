@@ -44,7 +44,7 @@ function calcDistanceMeters(
   return 2 * R * Math.atan2(Math.sqrt(sinA), Math.sqrt(1 - sinA));
 }
 
-function buildCacheKey(rawQuery: string, biasCoords?: { lat: number; lng: number }): string {
+function buildCacheKey(rawQuery: string, biasCoords?: { lat: number; lng: number } | null): string {
   const q = rawQuery.trim().toLowerCase();
   if (!q) return '';
   if (!biasCoords) return q;
@@ -62,7 +62,7 @@ export const getCachedAddressSuggestions = (
 export const searchAddressSuggestions = async (
   rawQuery: string,
   signal?: AbortSignal,
-  biasCoords?: { lat: number; lng: number },
+  biasCoords?: { lat: number; lng: number } | null,
 ): Promise<AddressSuggestion[]> => {
   const query = rawQuery.trim();
   if (query.length < 2) return [];
@@ -298,4 +298,77 @@ export const reverseGeocode = async (
   }
 
   return null;
+};
+
+const GEO_FILLER_TOKENS = new Set([
+  'truong',
+  'dai',
+  'hoc',
+  'vien',
+  'tp',
+  'hcm',
+  'tphcm',
+  'thanh',
+  'pho',
+  'co',
+  'so',
+  'khu',
+  'vuc',
+  'duong',
+  'phuong',
+  'quan',
+  'huyen',
+  'viet',
+  'nam',
+]);
+
+const normalizeGeoText = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const computeTokenOverlapRatio = (query: string, candidate: AddressSuggestion): number => {
+  const rawTokens = normalizeGeoText(query).split(' ').filter(Boolean);
+  const significantTokens = rawTokens.filter(
+    (token) => token.length >= 2 && !GEO_FILLER_TOKENS.has(token),
+  );
+  const tokensToMatch = significantTokens.length > 0 ? significantTokens : rawTokens;
+  if (tokensToMatch.length === 0) return 0;
+
+  const candidateNormalized = normalizeGeoText(`${candidate.title} ${candidate.fullAddress}`);
+  const candidateTokens = new Set(candidateNormalized.split(' ').filter(Boolean));
+  let matched = 0;
+  for (const token of tokensToMatch) {
+    if (candidateTokens.has(token) || candidateNormalized.includes(token)) {
+      matched += 1;
+    }
+  }
+  return matched / tokensToMatch.length;
+};
+
+export const resolveBestPlaceMatch = async (
+  rawQuery: string,
+  signal?: AbortSignal,
+  biasCoords?: { lat: number; lng: number } | null,
+): Promise<AddressSuggestion | null> => {
+  const query = rawQuery.trim();
+  if (query.length < 2) return null;
+
+  const candidates = await searchAddressSuggestions(query, signal, biasCoords);
+  let bestCandidate: AddressSuggestion | null = null;
+  let bestScore = 0;
+  for (const item of candidates) {
+    const score = computeTokenOverlapRatio(query, item);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = item;
+    }
+  }
+
+  return bestScore >= 0.6 ? bestCandidate : candidates[0] ?? null;
 };

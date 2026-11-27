@@ -33,6 +33,8 @@ public class GeminiClient {
     private final String apiKey;
     private final String chatModel;
     private final String fallbackChatModel;
+    @Autowired(required = false) private AiTrackingService trackingService;
+    private static final ThreadLocal<Boolean> FALLBACK_FLAG = new ThreadLocal<>();
     private final Semaphore slots = new Semaphore(3);
 
     @Autowired
@@ -77,6 +79,7 @@ public class GeminiClient {
     public JsonNode post(String model, String method, Map<String, Object> body) {
         if (!isConfigured()) throw new AppException(ErrorCode.AI_NOT_CONFIGURED);
         if (!model.matches("[a-zA-Z0-9._-]+")) throw new AppException(ErrorCode.AI_MODEL_UNAVAILABLE);
+        if (trackingService != null && trackingService.isDailyQuotaExceeded()) throw new AppException(ErrorCode.AI_QUOTA_EXCEEDED);
         if (!slots.tryAcquire()) throw new AppException(ErrorCode.AI_BUSY);
         long start = System.nanoTime();
         try {
@@ -85,22 +88,53 @@ public class GeminiClient {
                     .header("x-goog-api-key", apiKey.trim()).contentType(MediaType.APPLICATION_JSON)
                     .body(body).retrieve().body(String.class);
             if (result == null) throw new AppException(ErrorCode.AI_INVALID_RESPONSE);
-            return mapper.readTree(result);
+            JsonNode tree = mapper.readTree(result);
+            recordTracking(model, method, "SUCCESS", null, elapsed(start), tree);
+            return tree;
         } catch (AppException ex) {
+            recordTracking(model, method, "ERROR", ex.getErrorCode().name(), elapsed(start), null);
             throw ex;
         } catch (RestClientResponseException ex) {
             ErrorCode code = providerError(ex);
             log.warn("Gemini {}: {} (HTTP {}, {} ms)", method, code.name(), ex.getStatusCode().value(), elapsed(start));
+            recordTracking(model, method, "ERROR", code.name(), elapsed(start), null);
             throw new AppException(code);
         } catch (RestClientException ex) {
             ErrorCode code = isTimeout(ex) ? ErrorCode.AI_TIMEOUT : ErrorCode.AI_CONNECTION_FAILED;
             log.warn("Gemini {}: {} ({} ms)", method, code.name(), elapsed(start));
+            recordTracking(model, method, "ERROR", code.name(), elapsed(start), null);
             throw new AppException(code);
         } catch (Exception ex) {
+            recordTracking(model, method, "ERROR", ErrorCode.AI_INVALID_RESPONSE.name(), elapsed(start), null);
             throw new AppException(ErrorCode.AI_INVALID_RESPONSE);
         } finally {
             slots.release();
         }
+    }
+
+    private void recordTracking(String model, String method, String status, String error, long latency, JsonNode response) {
+        if (trackingService == null) return;
+        try {
+            var ctx = AiTrackingContext.current();
+            JsonNode usage = response == null ? mapper.createObjectNode() : response.path("usageMetadata");
+            int prompt = usage.path("promptTokenCount").asInt(0);
+            int completion = usage.path("candidatesTokenCount").asInt(0);
+            int thoughts = usage.path("thoughtsTokenCount").asInt(0);
+            int total = usage.path("totalTokenCount").asInt(prompt + completion + thoughts);
+            trackingService.observeProviderTokens(total);
+            var entry = com.innfinder.backend.entity.AiUsageLog.builder()
+                .traceId(ctx == null ? java.util.UUID.randomUUID().toString() : ctx.traceId)
+                .feature(ctx == null ? ("embedContent".equals(method) ? "AI_EMBEDDING" : "GEMINI_CALL") : ctx.feature)
+                .model(model).status(status).errorCode(error).latencyMs(latency)
+                .isFallback(Boolean.TRUE.equals(FALLBACK_FLAG.get())).cacheHit(false)
+                .maNguoiDung(ctx == null ? com.innfinder.backend.security.SecurityUtils.getCurrentUsername() : ctx.userId)
+                .promptTokens(prompt).completionTokens(completion).thoughtTokens(thoughts).totalTokens(total).build();
+            Runnable persist = () -> {
+                if (ctx != null) { entry.setIntent(ctx.intent); entry.setSearchMode(ctx.searchMode); entry.setMetadataSummary(ctx.metadataSummary); }
+                trackingService.recordAsync(entry);
+            };
+            if (ctx == null) persist.run(); else ctx.pending.add(persist);
+        } catch (Exception ignored) { }
     }
 
     private ErrorCode providerError(RestClientResponseException ex) {
@@ -140,7 +174,9 @@ public class GeminiClient {
             if (isFallbackable(ex.getErrorCode())
                     && fallbackChatModel != null && !fallbackChatModel.isBlank() && !fallbackChatModel.equals(chatModel)) {
                 log.warn("Gemini {} failed ({}); falling back to {}", chatModel, ex.getErrorCode().name(), fallbackChatModel);
-                return generateWithModel(fallbackChatModel, instruction, data, schema);
+                FALLBACK_FLAG.set(true);
+                try { return generateWithModel(fallbackChatModel, instruction, data, schema); }
+                finally { FALLBACK_FLAG.remove(); }
             }
             throw ex;
         }

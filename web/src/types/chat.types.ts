@@ -21,6 +21,9 @@ export interface ChatRequest {
   criteria?: SearchCriteria;
   userLat?: number;
   userLng?: number;
+  targetLat?: number;
+  targetLng?: number;
+  targetPlaceName?: string;
 }
 
 export interface ChatResponse {

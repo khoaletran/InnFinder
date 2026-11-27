@@ -389,10 +389,10 @@ export const FavoritesPage: React.FC = () => {
           ref={popoverBarRef}
           className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200 shadow-xs sticky top-[104px] z-30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5"
         >
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full lg:flex-1 lg:min-w-0">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-1.5 w-full lg:flex-1 lg:min-w-0">
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center w-full sm:w-[260px] lg:w-[300px] shrink-0"
+              className="flex items-center w-full lg:w-[200px] xl:w-[220px] shrink-0"
             >
               <div className="flex-1 relative flex items-center">
                 <input
@@ -413,13 +413,13 @@ export const FavoritesPage: React.FC = () => {
               </div>
             </form>
 
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5">
             {/* 1. Chip Giá */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasPriceFilter || activePopover === 'price'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -462,7 +462,7 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedCategory || activePopover === 'category'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -519,7 +519,7 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasAreaFilter || activePopover === 'area'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -563,7 +563,7 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     capacity !== undefined || activePopover === 'capacity'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -607,7 +607,7 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     amenityCount > 0 || activePopover === 'amenities'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -674,7 +674,7 @@ export const FavoritesPage: React.FC = () => {
                   setProvinceSearch('');
                   setActivePopover((p) => (p === 'province' ? null : 'province'));
                 }}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedProvince || activePopover === 'province'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -785,7 +785,7 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2.5 sm:px-3 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Xóa lọc</span>
@@ -797,7 +797,7 @@ export const FavoritesPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/search')}
-            className="w-full sm:w-auto lg:ml-auto inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+            className="w-full sm:w-auto lg:ml-auto inline-flex items-center justify-center gap-1.5 h-9 px-3 xl:px-3.5 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Tìm thêm phòng</span>

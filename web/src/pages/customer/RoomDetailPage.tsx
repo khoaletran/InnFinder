@@ -20,6 +20,7 @@ import { AppBreadcrumb } from '@/components/common/AppBreadcrumb';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { CommuteDistancePanel } from '@/components/room/CommuteDistancePanel';
 import { Tour360ViewerModal } from '@/components/tour360/Tour360ViewerModal';
+import { RecommendedRoomsSection } from '@/components/room/RecommendedRoomsSection';
 import { roomService } from '@/services/room.service';
 import { tour360Service } from '@/services/tour360.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -537,6 +538,11 @@ export const RoomDetailPage: React.FC = () => {
               </Card.Footer>
             </Card>
           </div>
+        </div>
+
+        {/* Phòng tương tự phù hợp với bạn */}
+        <div className="mt-10">
+          <RecommendedRoomsSection roomId={room.maPhongTro} compact />
         </div>
       </main>
 

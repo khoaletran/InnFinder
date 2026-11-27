@@ -13,10 +13,19 @@ public record ChatRequest(
         @Size(max = 6) List<@NotBlank @Pattern(regexp = "^PT(?:\\d{10}|\\d{12})$") String> roomIds,
         @Valid SearchCriteria criteria,
         @DecimalMin("-90.0") @DecimalMax("90.0") Double userLat,
-        @DecimalMin("-180.0") @DecimalMax("180.0") Double userLng) {
+        @DecimalMax("180.0") @DecimalMin("-180.0") Double userLng,
+        @DecimalMin("-90.0") @DecimalMax("90.0") Double targetLat,
+        @DecimalMin("-180.0") @DecimalMax("180.0") Double targetLng,
+        @Size(max = 200) String targetPlaceName) {
     public ChatRequest(String message, List<Turn> history, String currentRoomId,
             String selectedRoomId, List<String> roomIds, SearchCriteria criteria) {
-        this(message, history, currentRoomId, selectedRoomId, roomIds, criteria, null, null);
+        this(message, history, currentRoomId, selectedRoomId, roomIds, criteria, null, null, null, null, null);
+    }
+
+    public ChatRequest(String message, List<Turn> history, String currentRoomId,
+            String selectedRoomId, List<String> roomIds, SearchCriteria criteria,
+            Double userLat, Double userLng) {
+        this(message, history, currentRoomId, selectedRoomId, roomIds, criteria, userLat, userLng, null, null, null);
     }
 
     public record Turn(@NotNull Role role, @NotBlank @Size(max = 3000) String text) {}
