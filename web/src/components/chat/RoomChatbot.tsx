@@ -22,7 +22,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useRoomFilterStore } from "@/store/useRoomFilterStore";
 import type { ChatRequest } from "@/types/chat.types";
 import type { RoomSummaryResponse } from "@/types/room.types";
-import { searchAddressSuggestions } from "@/utils/geocoding";
+import { resolveBestPlaceMatch } from "@/utils/geocoding";
 import { ChatRoomCard } from "./ChatRoomCard";
 
 const STARTERS = [
@@ -385,12 +385,12 @@ export function RoomChatbot() {
     if (placeQuery) {
       setIsRequestingLocation(true);
       try {
-        const matches = await searchAddressSuggestions(placeQuery, controller.signal, coords);
-        if (matches.length > 0) {
+        const match = await resolveBestPlaceMatch(placeQuery, controller.signal, coords);
+        if (match) {
           targetPlace = {
-            lat: matches[0].lat,
-            lng: matches[0].lng,
-            name: matches[0].title || placeQuery,
+            lat: match.lat,
+            lng: match.lng,
+            name: match.title || placeQuery,
           };
         }
       } catch (geoErr: unknown) {

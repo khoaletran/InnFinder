@@ -1,6 +1,30 @@
 import { create } from 'zustand';
 import type { RoomFilterRequest } from '@/types/room.types';
 
+const USER_LOCATION_SESSION_KEY = 'innfinder:user-location';
+
+function loadSessionLocation(): MapCoords | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(USER_LOCATION_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MapCoords>;
+    if (
+      typeof parsed.lat === 'number' &&
+      typeof parsed.lng === 'number' &&
+      Number.isFinite(parsed.lat) &&
+      Number.isFinite(parsed.lng)
+    ) {
+      return { lat: parsed.lat, lng: parsed.lng };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const initialSessionLocation = loadSessionLocation();
+
 export interface MapCoords {
   lat: number;
   lng: number;
@@ -71,8 +95,8 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   categoryId: undefined,
   selectedAmenities: [],
   radiusKm: undefined,
-  userLat: undefined,
-  userLng: undefined,
+  userLat: initialSessionLocation?.lat,
+  userLng: initialSessionLocation?.lng,
   mapPickedCoords: null,
   mapDynamicRadiusKm: 5,
   mapSortBy: 'NEWEST',
@@ -91,7 +115,19 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   setCategoryId: (categoryId) => set({ categoryId }),
   setSelectedAmenities: (selectedAmenities) => set({ selectedAmenities }),
   setRadiusKm: (radiusKm) => set({ radiusKm }),
-  setUserLocation: (userLat, userLng) => set({ userLat, userLng }),
+  setUserLocation: (userLat, userLng) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.setItem(
+          USER_LOCATION_SESSION_KEY,
+          JSON.stringify({ lat: userLat, lng: userLng }),
+        );
+      } catch {
+        // Bỏ qua nếu sessionStorage bị hạn chế
+      }
+    }
+    set({ userLat, userLng });
+  },
   setMapPickedCoords: (mapPickedCoords) => set({ mapPickedCoords }),
   setMapDynamicRadiusKm: (mapDynamicRadiusKm) => set({ mapDynamicRadiusKm }),
   setMapSortBy: (mapSortBy) => set({ mapSortBy }),
