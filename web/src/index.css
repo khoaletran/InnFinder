@@ -82,34 +82,66 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Marker giá tiền tinh giản trên bản đồ */
+/* Marker ghim phòng ngôi nhà nổi bật trên bản đồ */
+.custom-price-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
 .custom-price-marker {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-  font-size: 12px;
-  padding: 5px 10px;
+  gap: 5px;
+  background-color: #0d9488;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1;
+  padding: 5px 10px 5px 8px;
   border-radius: 9999px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.42), 0 2px 5px rgba(15, 23, 42, 0.28);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease;
-  transform: translate(-50%, -50%);
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  transform: translate(-50%, calc(-100% - 7px));
+}
+
+.custom-price-marker::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #0d9488;
+  transition: border-top-color 140ms ease;
+}
+
+.custom-price-marker-icon {
+  flex-shrink: 0;
 }
 
 .custom-price-marker:hover,
 .custom-price-marker.hovered,
 .custom-price-marker.active {
-  background-color: var(--text);
-  color: var(--surface);
-  border-color: var(--text);
-  transform: translate(-50%, -50%) scale(1.06);
-  box-shadow: var(--shadow-card-hover);
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #ffffff;
+  transform: translate(-50%, calc(-100% - 9px)) scale(1.1);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.35), 0 8px 20px rgba(15, 23, 42, 0.38);
   z-index: 1000 !important;
+}
+
+.custom-price-marker:hover::after,
+.custom-price-marker.hovered::after,
+.custom-price-marker.active::after {
+  border-top-color: #0f172a;
 }
 
 .user-location-marker {

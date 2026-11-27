@@ -6,6 +6,13 @@ import innFinderPin from '@/assets/innfinder-pin.svg';
 import type { RoomSummaryResponse } from '@/types/room.types';
 import { formatVNDShort, getValidCoords } from '@/utils/formatters';
 
+export interface MapBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
 export interface RoomMapProps {
   rooms: RoomSummaryResponse[];
   selectedRoom?: RoomSummaryResponse | null;
@@ -15,6 +22,7 @@ export interface RoomMapProps {
   userCoords?: { lat: number; lng: number } | null;
   radiusKm?: number;
   onRadiusChange?: (radiusKm: number) => void;
+  showUserScanCircle?: boolean;
   onLocateUser?: () => void;
   isLocating?: boolean;
   locateTrigger?: number;
@@ -27,6 +35,8 @@ export interface RoomMapProps {
   markerStyle?: 'price' | 'brand';
   initialViewport?: { lat: number; lng: number; zoom: number } | null;
   onViewportChange?: (viewport: { lat: number; lng: number; zoom: number }) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
+  focusTarget?: { lat: number; lng: number; zoom?: number; seq: number } | null;
 }
 
 export const RoomMap: React.FC<RoomMapProps> = ({
@@ -38,6 +48,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   userCoords = null,
   radiusKm = 2,
   onRadiusChange,
+  showUserScanCircle = false,
   onLocateUser,
   isLocating = false,
   locateTrigger = 0,
@@ -50,6 +61,8 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   markerStyle = 'price',
   initialViewport = null,
   onViewportChange,
+  onBoundsChange,
+  focusTarget = null,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -60,6 +73,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   const pickedMarkerRef = useRef<L.Marker | null>(null);
   const onMapClickRef = useRef(onMapClick);
   const onViewportChangeRef = useRef(onViewportChange);
+  const onBoundsChangeRef = useRef(onBoundsChange);
   const hasPannedToInitialRef = useRef(Boolean(initialViewport));
   const navigate = useNavigate();
 
@@ -70,6 +84,10 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
 
   const userLat = userCoords?.lat;
   const userLng = userCoords?.lng;
@@ -89,7 +107,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
   const initialZoomRef = useRef<number>(
     initialViewport?.zoom ?? (rooms.length === 1 && !userCoords ? 16 : 14),
   );
-  const shouldShowRadiusBadge = showRadiusBadge ?? (Boolean(userCoords) || Boolean(onRadiusChange));
+  const shouldShowRadiusBadge = Boolean(showRadiusBadge);
 
   // 1. Khởi tạo bản đồ Leaflet một lần duy nhất khi mount
   useEffect(() => {
@@ -115,6 +133,16 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
+    const syncBounds = () => {
+      const bounds = map.getBounds();
+      onBoundsChangeRef.current?.({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      });
+    };
+
     const syncViewport = () => {
       const center = map.getCenter();
       onViewportChangeRef.current?.({
@@ -122,7 +150,10 @@ export const RoomMap: React.FC<RoomMapProps> = ({
         lng: center.lng,
         zoom: map.getZoom(),
       });
+      syncBounds();
     };
+
+    syncBounds();
 
     map.on('moveend', syncViewport);
     map.on('zoomend', syncViewport);
@@ -130,10 +161,12 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     // Đảm bảo Leaflet tính toán chuẩn tỷ lệ khung hình 1:1 ngay khi render
     const resizeTimer = setTimeout(() => {
       map.invalidateSize();
+      syncBounds();
     }, 200);
 
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
+      syncBounds();
     });
     if (mapContainerRef.current) {
       resizeObserver.observe(mapContainerRef.current);
@@ -167,6 +200,16 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       });
     }
   }, [userLat, userLng, locateTrigger]);
+
+  // 2b. Di chuyển bản đồ tới địa điểm người dùng chọn từ thanh tìm kiếm vị trí
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !focusTarget) return;
+    map.flyTo([focusTarget.lat, focusTarget.lng], focusTarget.zoom ?? 14, {
+      animate: true,
+      duration: 0.75,
+    });
+  }, [focusTarget]);
 
   // 3. Tự động tính bán kính quét sao cho vòng tròn LUÔN HIỂN THỊ TRỌN VẸN 100% trong khung nhìn bản đồ
   useEffect(() => {
@@ -262,12 +305,12 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     }
   }, [userLat, userLng]);
 
-  // 5. Render VÒNG TRÒN XANH quét bán kính phòng trọ (Đảm bảo luôn là hình tròn trọn vẹn trong khung hình)
+  // 5. Render VÒNG TRÒN XANH quét bán kính phòng trọ quanh người dùng (chỉ hiển thị khi bật showUserScanCircle)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    if (userLat === undefined || userLng === undefined) {
+    if (!showUserScanCircle || userLat === undefined || userLng === undefined) {
       if (circleLayerRef.current) {
         map.removeLayer(circleLayerRef.current);
         circleLayerRef.current = null;
@@ -290,7 +333,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
         dashArray: '6, 8',
       }).addTo(map);
     }
-  }, [userLat, userLng, radiusKm]);
+  }, [showUserScanCircle, userLat, userLng, radiusKm]);
 
   // 5b. Render điểm chọn thêm trên bản đồ + vòng tròn quét 15 km bổ sung
   useEffect(() => {
@@ -365,26 +408,31 @@ export const RoomMap: React.FC<RoomMapProps> = ({
 
     markersLayer.clearLayers();
 
-    const hasAnyScanZone =
-      (userLat !== undefined && userLng !== undefined && radiusKm > 0) ||
-      (pickedLat !== undefined && pickedLng !== undefined && pickedRadiusKm > 0);
+    const hasPickedZone =
+      pickedLat !== undefined && pickedLng !== undefined && pickedRadiusKm > 0;
+    const hasLegacyUserZone =
+      showUserScanCircle &&
+      userLat !== undefined &&
+      userLng !== undefined &&
+      radiusKm > 0;
+    const hasAnyScanZone = hasPickedZone || hasLegacyUserZone;
 
     rooms.forEach((room) => {
       const coords = getValidCoords(room);
       if (!coords) return;
 
-      // Chỉ hiển thị các phòng nằm trong phạm vi vòng tròn quét (vị trí hiện tại hoặc điểm vừa nhấn)
+      // Khi chọn điểm quét thêm (hoặc bật vòng quét người dùng), lọc marker theo vòng tròn tương ứng; mặc định hiển thị toàn bộ phòng trong khung nhìn
       if (hasAnyScanZone) {
         const roomLatLng = L.latLng(coords.lat, coords.lng);
         const inUserZone =
+          hasLegacyUserZone &&
           userLat !== undefined &&
           userLng !== undefined &&
-          radiusKm > 0 &&
           L.latLng(userLat, userLng).distanceTo(roomLatLng) <= radiusKm * 1000;
         const inPickedZone =
+          hasPickedZone &&
           pickedLat !== undefined &&
           pickedLng !== undefined &&
-          pickedRadiusKm > 0 &&
           L.latLng(pickedLat, pickedLng).distanceTo(roomLatLng) <= pickedRadiusKm * 1000;
         if (!inUserZone && !inPickedZone) return;
       }
@@ -395,11 +443,13 @@ export const RoomMap: React.FC<RoomMapProps> = ({
       const priceText =
         millions > 0 ? `${millions % 1 === 0 ? millions : millions.toFixed(1)}tr` : 'Xem';
 
+      const houseIconSvg = `<svg class="custom-price-marker-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`;
+
       const customIcon = L.divIcon({
-        className: '',
-        html: `<div class="custom-price-marker ${isSelected ? 'active' : ''} ${isHovered ? 'hovered' : ''}">${priceText}</div>`,
-        iconSize: [64, 30],
-        iconAnchor: [32, 15],
+        className: 'custom-price-marker-wrapper',
+        html: `<div class="custom-price-marker ${isSelected ? 'active' : ''} ${isHovered ? 'hovered' : ''}">${houseIconSvg}<span>${priceText}</span></div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
       });
 
       const marker = L.marker([coords.lat, coords.lng], {
@@ -428,6 +478,7 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     hoveredRoomId,
     onSelectRoom,
     onHoverRoom,
+    showUserScanCircle,
     userLat,
     userLng,
     radiusKm,
