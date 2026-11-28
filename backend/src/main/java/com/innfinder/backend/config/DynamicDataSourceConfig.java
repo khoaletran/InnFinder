@@ -169,7 +169,8 @@ public class DynamicDataSourceConfig {
         config.setMinimumIdle(2);
         config.setIdleTimeout(30000);
         config.setConnectionTimeout(10000);
-        config.setMaxLifetime(1800000);
+        config.setKeepaliveTime(120000);
+        config.setMaxLifetime(240000);
         return new HikariDataSource(config);
     }
 }
