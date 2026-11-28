@@ -228,9 +228,10 @@ sequenceDiagram
   6. Admin đưa ra kết luận xử lý:
      - Chuyển trạng thái sang `DA_XU_LI`.
      - Phân định mức độ vi phạm (`MucDoViPham`):
-       - `NHE`: Cảnh cáo nhắc nhở qua email/hệ thống.
-       - `TRUNG_BINH`: Trừ điểm uy tín (`diemUyTin`) của chủ trọ, tạm ẩn bài đăng 7 ngày.
-       - `NANG`: Khóa tài khoản vĩnh viễn, tịch thu cọc và hỗ trợ người bị hại.
+       - `NHE`: Ghi nhận cảnh cáo (`CANH_CAO_NHE`, `0` điểm); cộng dồn đủ mỗi `3` lần trong 30 ngày sẽ bị trừ `5` điểm uy tín (`CONG_DON_CANH_CAO_NHE`).
+       - `TRUNG_BINH`: Trừ `10` điểm uy tín (`KHIEU_NAI_TRUNG_BINH`) của chủ trọ và tạm ẩn bài đăng `7` ngày (`tamAnDen`).
+       - `NANG`: Đặt điểm uy tín về `0` (`KHIEU_NAI_NANG`), khóa tài khoản vĩnh viễn (`trangThaiKhoa = true`), chuyển các phòng `DA_DUYET`/`CHO_DUYET` sang `HUY`, hủy các lịch mở chưa `daNhanLaiCoc` và lập giao dịch `HOAN_COC` (`CHO_THANH_TOAN`) cho khách hàng.
+     - Hỗ trợ hoàn cọc theo lịch hẹn chỉ định (`maDatLichHoanCoc`) trước khi chốt chế tài mức `NANG` để tránh hoàn trùng.
 
 ---
 
@@ -244,6 +245,28 @@ sequenceDiagram
   3. Xem chi tiết thông tin: Hồ sơ cá nhân, vai trò, số dư, danh sách phòng trọ, lịch sử giao dịch và lịch sử vi phạm.
   4. Thực hiện chỉnh sửa trạng thái (Khóa tài khoản, Mở khóa, Cập nhật trạng thái duyệt CCCD trở thành Chủ trọ).
   5. Hệ thống ghi nhận lịch sử thay đổi (Audit Log) và thông báo đến người dùng.
+
+---
+
+### 2.9. Quy chuẩn Phạt, Điểm uy tín & Phục hồi Chủ trọ (`ReputationService`)
+- **Nguyên tắc chung**: Mọi biến động điểm uy tín (`0..100`, khởi tạo `100`) của `ChuTro` đều phải ghi vết vào bảng `lich_su_diem_uy_tin` (`LichSuDiemUyTin`).
+- **Các mức trừ điểm & chế tài tự động**:
+  - `QUA_HAN_PHAN_HOI` (`-3` điểm): Chủ trọ quá hạn phản hồi lịch hẹn.
+  - `HUY_LICH_SAU_XAC_NHAN` (`-5` điểm): Chủ trọ hủy lịch hẹn sau khi đã xác nhận (`XAC_NHAN`).
+  - `NO_SHOW_CHU_TRO` (`-10` điểm): Chủ trọ vắng mặt (khách báo sau giờ hẹn `30` phút và chưa `daNhanLaiCoc`). Nếu tái phạm `> 2` lần trong 30 ngày ➔ tự động tạm ẩn bài đăng `7` ngày (`tamAnDen`, `TAM_AN_7_NGAY`), đồng thời hoàn cọc 100% cho khách (`CHO_THANH_TOAN`).
+  - Khiếu nại (`NHE`, `TRUNG_BINH`, `NANG`): Theo quy tắc tại Mục 2.7.
+- **Ngưỡng phân hạng & giới hạn đăng tin (`diemUyTin`)**:
+  - `90..100`: *Chủ trọ Uy tín Cao*.
+  - `81..89`: *Chủ trọ Tiêu chuẩn (Tốt)*.
+  - `70..80`: *Chủ trọ Tiêu chuẩn (Mất đề xuất)*.
+  - `50..69`: *Hạn chế* — Tối đa `3` phòng ở trạng thái `DA_DUYET` hoặc `CHO_DUYET`.
+  - `30..49` (hoặc đang `isDangTamAn()`): *Đình chỉ đăng tin mới / mở lại phòng*. Khi điểm tụt từ `>= 50` xuống `< 50`, tự động kích hoạt tạm ẩn `7` ngày (`tamAnDen`).
+  - `< 30`: *Tự động khóa tài khoản* (`TU_DONG_KHOA_UY_TIN_THAP`) và xử lý thu hồi phòng + hoàn cọc tương tự mức `NANG`.
+- **Cơ chế phục hồi điểm uy tín**:
+  - Hoàn thành giao dịch thuê (`PHUC_HOI_HOAN_THANH_THUE`): `+3` điểm.
+  - Đánh giá mới (`PHUC_HOI_DANH_GIA`): 5 sao `+2` điểm, 4 sao `+1` điểm (tối đa `+10` điểm trong 30 ngày).
+  - Chuỗi hoạt động sạch 30 ngày (`PHUC_HOI_CHUOI_SACH`, cron `0 0 2 * * *`): `+5` điểm nếu 30 ngày không vi phạm và có lịch hẹn hợp lệ (`XAC_NHAN` / `HOAN_THANH`).
+  - Admin mở khóa (`ADMIN_MO_KHOA_PHUC_HOI`): khôi phục tối thiểu `50` điểm và gỡ `tamAnDen`; Admin điều chỉnh thủ công (`ADMIN_DIEU_CHINH`).
 
 ---
 
@@ -283,12 +306,14 @@ sequenceDiagram
 
 | STT | Thuộc tính | Kiểu dữ liệu | Ràng buộc & Regex | Ghi chú |
 |:---:|:---|:---|:---|:---|
-| 1 | `diemUyTin` | int | `>= 0`, mặc định khởi tạo là `100` | Điểm uy tín của chủ trọ |
+| 1 | `diemUyTin` | int | `0..100`, mặc định khởi tạo là `100` | Điểm uy tín của chủ trọ |
 | 2 | `soDu` | long | `>= 0` | Số dư tài khoản ví chủ trọ |
-| 3 | `dsPhongTro` | List\<PhongTro\> | Quan hệ 1 - Nhiều | Danh sách phòng trọ đang quản lý |
+| 3 | `tamAnDen` | LocalDateTime | Có thể null | Mốc thời gian kết thúc tạm ẩn bài đăng do chế tài uy tín |
+| 4 | `dsPhongTro` | List\<PhongTro\> | Quan hệ 1 - Nhiều | Danh sách phòng trọ đang quản lý |
 
 - **Phương thức bắt buộc**:
   - `+ chuTro(diemUyTin, soDu)`
+  - `+ isDangTamAn(): boolean` (`@Transient`, kiểm tra `tamAnDen != null && tamAnDen.isAfter(now)`)
   - `+ toString(): String`
 
 ---
@@ -299,6 +324,8 @@ sequenceDiagram
 | 1 | `id` | Long | Khóa chính tự tăng | Định danh tài khoản ngân hàng |
 | 2 | `soTaiKhoan` | String | `^\d{6,20}$` | Dãy từ 6 đến 20 chữ số |
 | 3 | `tenNganHang` | String | Không rỗng, chỉ chứa chữ cái và khoảng trắng | Tên ngân hàng (ví dụ: `Vietcombank`) |
+| 4 | `tenChuTaiKhoan` | String | Tối đa 100 ký tự, có thể null | Tên chủ tài khoản ngân hàng |
+| 5 | `macDinh` | boolean | True / False, mặc định `false` | Cờ tài khoản nhận tiền mặc định |
 
 - **Quan hệ**: `NguoiDung` (1) --- (1..*) `TaiKhoanNganHang`
 - **Phương thức**: `+ taiKhoanNganHang(soTaiKhoan, tenNganHang)`, `+ toString(): String`
@@ -323,6 +350,9 @@ sequenceDiagram
 | 13| `viDo` | String | Tọa độ vĩ độ (Latitude) hợp lệ | Tọa độ bản đồ |
 | 14| `diaChi` | String | Không được rỗng | Địa chỉ cụ thể |
 | 15| `cocPhong` | long | `>= 0` | Tiền cọc hợp đồng thuê phòng |
+| 16| `tamAn` | boolean | True / False, mặc định `false` | Chủ trọ chủ động tạm ẩn tin khỏi tìm kiếm |
+| 17| `giaDien` | Long | `>= 0`, mặc định `0` | Giá điện (VNĐ/kWh) |
+| 18| `giaNuoc` | GiaNuoc (`@Embedded`) | `gia >= 0`, `theoNguoi` (boolean) | Giá nước (theo m³ hoặc theo người) |
 
 - **Phương thức**:
   - `+ phongTro(maPhongTro, chuPhongTro, giaThue, dienTich, hinhAnh, moTa, soNguoi, loaiPhong, thoiGianDang, trangThai, dsDanhGia, kinhDo, viDo, diaChi, coc)`
@@ -477,8 +507,15 @@ sequenceDiagram
 | 3 | `soTien` | long | `> 0` | Số tiền giao dịch |
 | 4 | `loaiGiaoDich` | String | Ví dụ: `COC_XEM_PHONG`, `HOAN_COC`, `THU_HOA_HONG`, `RUT_TIEN` | Loại giao dịch |
 | 5 | `noiDung` | String | Mô tả giao dịch | Nội dung thanh toán |
-| 6 | `ngayGiaoDich`| LocalDateTime | Không được rỗng | Thời gian giao dịch |
-| 7 | `trangThai` | TrangThaiGD | `CHO_THANH_TOAN`, `THANH_CONG`, `THAT_BAI`, `HOAN_TIEN` | Trạng thái giao dịch |
+| 6 | `phieuDatLich` | PhieuDatLich | Có thể null (`ma_dat_lich`) | Phiếu đặt lịch liên quan (phục vụ đối soát) |
+| 7 | `maThamChieuNganHang` | String | Tối đa 100 ký tự, có thể null | Mã giao dịch/ref ngân hàng khi rút/hoàn tiền |
+| 8 | `nganHangNhan` | String | Tối đa 100 ký tự, có thể null | Tên ngân hàng nhận |
+| 9 | `taiKhoanNhan` | String | Tối đa 50 ký tự, có thể null | Số tài khoản nhận |
+| 10| `tenNguoiNhan` | String | Tối đa 100 ký tự, có thể null | Họ tên người nhận |
+| 11| `cocGoc` | Long | Có thể null | Tiền cọc gốc tại thời điểm đối soát |
+| 12| `phiHoaHong` | Long | Có thể null | Phí hoa hồng trích lại tại thời điểm đối soát |
+| 13| `ngayGiaoDich`| LocalDateTime | Không được rỗng | Thời gian giao dịch |
+| 14| `trangThai` | TrangThaiGD | `CHO_THANH_TOAN`, `THANH_CONG`, `THAT_BAI`, `HOAN_TIEN` | Trạng thái giao dịch |
 
 - **Phương thức**: `+ giaoDich()`, `+ toString(): String`
 
@@ -501,6 +538,25 @@ sequenceDiagram
 | 12| `lyDoTuChoi` | String | Bắt buộc khi từ chối | Lý do không phê duyệt hồ sơ |
 
 - **Phương thức**: `+ yeuCauChuTro()`, `+ toString(): String`
+
+---
+
+## 3.B. CÁC THỰC THỂ MỞ RỘNG & HẠ TẦNG (BỔ SUNG QUA FLYWAY)
+
+*Các bảng/class dưới đây mở rộng từ 16 Class cốt lõi trên Class Diagram để phục vụ phạt/uy tín, lịch sử biểu phí, AI Tracking, Vector Search và Tour 360°:*
+
+1. **`LichSuDiemUyTin`** (`lich_su_diem_uy_tin` - V17):
+   - Thuộc tính: `id` (Long), `chuTro` (`ChuTro`), `bienDong` (Integer), `diemTruoc` (Integer), `diemSau` (Integer), `loaiSuKien` (String, max 50), `maThamChieu` (String, max 64, nullable), `lyDo` (String, max 500), `thoiGian` (LocalDateTime).
+2. **`LichSuBieuPhi`** (`lich_su_bieu_phi` - V18):
+   - Thuộc tính: `id` (Long), `maLpt` (String), `tenLoaiPhong` (String), `cocCu` (Integer), `cocMoi` (Integer), `phiCu` (Integer), `phiMoi` (Integer), `lyDo` (String, max 500), `nguoiSua` (String, max 150), `thoiGian` (LocalDateTime).
+3. **`PhongTroTour360`** (`phong_tro_tour_360` - V13):
+   - Thuộc tính: `maTour` (String), `phongTro` (`PhongTro`, nullable), `chuTro` (`ChuTro`), `startNodeId` (String), `tourConfigJson` (MEDIUMTEXT), `nodeCount` (Integer), `createdAt` (LocalDateTime), `updatedAt` (LocalDateTime).
+4. **`AiUsageLog`** (`ai_usage_log` - V15, V16):
+   - Thuộc tính: `id` (Long), `traceId`, `feature`, `intent`, `searchMode`, `model`, `isFallback`, `cacheHit`, `maNguoiDung` (14 ký tự), `maPhongTro` (14 ký tự, V16), `promptTokens`, `completionTokens`, `thoughtTokens`, `totalTokens`, `latencyMs`, `status`, `errorCode`, `metadataSummary`, `createdAt`.
+5. **`GiaNuoc`** (`@Embeddable` nhúng vào `phong_tro` - V14):
+   - Thuộc tính: `gia` (`gia_nuoc_gia`, Long `>= 0`), `theoNguoi` (`gia_nuoc_theo_nguoi`, Boolean: `false` = theo m³, `true` = theo người).
+6. **`PhongTroVector`** (`phong_tro_vector` - V8):
+   - Thuộc tính: `maPhongTro` (String), `contentHash` (String, 64), `embeddingJson` (MEDIUMTEXT), `createdAt`, `updatedAt`.
 
 ---
 
@@ -568,15 +624,23 @@ Toàn bộ các Controller khi trả dữ liệu về cho Frontend (Web & Mobile
 - **Tuyệt đối KHÔNG truyền `maNguoiDung` qua Request Body hoặc Query Param** ở các API cá nhân để triệt tiêu lỗ hổng bảo mật giả mạo danh tính (IDOR).
 
 ### 5.4. Quy tắc Database & Flyway:
-- Mọi thay đổi bảng, thêm cột mới bắt buộc phải tạo file Flyway migration mới (`V3__...sql`, `V4__...sql`).
-- Tuyệt đối không sửa file cũ đã commit và chạy.
+- Schema hiện tại đã được quản lý tuần tự từ `V1` đến **`V18`**. Mọi thay đổi bảng, thêm cột/index/view mới bắt buộc phải tạo file Flyway migration mới từ `V19__...sql` trở đi.
+- Tuyệt đối không sửa file migration cũ đã commit và chạy.
+- Các View & Index tối ưu trọng yếu đang có hiệu lực:
+  - View `v_thong_ke_ngan_kho` (V9): tổng hợp thời gian thực doanh thu sàn, quỹ tạm giữ cọc, tổng số dư ví chủ trọ, quỹ chờ rút và số lệnh rút chờ duyệt.
+  - Covering indexes trên `phieu_dat_lich`, `giao_dich`, `phong_tro`, `nguoi_dung` (V9), `ai_usage_log` (V15, V16), `lich_su_diem_uy_tin` (V17) và `lich_su_bieu_phi` (V18).
 
-### 5.5. Quy chuẩn Nghiệp vụ Doanh thu & Sổ cái Giao dịch:
+### 5.5. Quy chuẩn Nghiệp vụ Doanh thu, Ngân khố & Thống kê:
 - **Doanh thu hệ thống (Platform Revenue)**: Sàn thu phí hoa hồng giới thiệu thuê thành công. Doanh thu được tính bằng:
   ```sql
   SELECT COALESCE(SUM(p.phi_thu), 0) FROM phieu_dat_lich p WHERE p.trang_thai = 'HOAN_THANH';
   ```
-- **Bảng `giao_dich`**: Chỉ là sổ cái ghi nhận dòng tiền đối soát qua ví (tạm giữ cọc, hoàn tiền cọc, chuyển tiền cọc cho chủ trọ). Tuyệt đối **KHÔNG dùng `giao_dich` để tính doanh thu** của hệ thống.
+- **Bảng `giao_dich`**: Chỉ là sổ cái ghi nhận dòng tiền đối soát qua ví (tạm giữ cọc, hoàn tiền cọc, chuyển tiền cọc cho chủ trọ, rút tiền). Tuyệt đối **KHÔNG dùng `giao_dich` để tính doanh thu** của hệ thống.
+- **Đối soát Ngân khố (Admin Statistics / `v_thong_ke_ngan_kho`)**:
+  - `tongQuyHeThong = quyTamGiuCoc + tongSoDuViChuTro + quyChoRut` (tổng nghĩa vụ tài chính thuộc người dùng đang lưu giữ trên sàn).
+  - `tongQuyThucTe = tongQuyHeThong + tongDoanhThu` (tổng tiền thực tế trong két).
+- **Thống kê Phễu chuyển đổi & AI Tracking (`ai_usage_log`)**:
+  - Theo dõi các sự kiện `AI_SEARCH`, `RECOMMEND_IMPRESSION`, `RECOMMEND_CLICK`, `ROOM_VIEW`, `TOUR_360_VIEW` gắn với `ma_phong_tro` (V16) để tính CTR gợi ý, tỷ lệ chốt từ đặt lịch/xem thực tế, ma trận Cung–Cầu–Hoa hồng theo loại phòng (`AdminService`) và phân tích hiệu suất cho Chủ trọ (`LandlordAnalyticsService`).
 
 ---
 
