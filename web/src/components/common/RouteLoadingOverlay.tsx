@@ -83,7 +83,7 @@ const HEAVY_ROUTE_MESSAGES: Array<{ match: (path: string) => boolean; message: s
   { match: (p) => p.startsWith('/roommates'), message: 'Đang tải dữ liệu ở ghép...' },
 ];
 
-export function resolveHeavyRouteMessage(pathname: string): string | null {
+function resolveHeavyRouteMessage(pathname: string): string | null {
   const found = HEAVY_ROUTE_MESSAGES.find((entry) => entry.match(pathname));
   return found ? found.message : null;
 }

@@ -41,20 +41,14 @@ public class AdminController {
     private final ComplaintService complaintService;
     private final ReputationService reputationService;
 
-    @GetMapping("/rooms")
-    @Operation(summary = "Lấy danh sách toàn bộ bài đăng phòng trọ theo tất cả trạng thái")
-    public ResponseEntity<ApiResponse<List<RoomResponseDTO>>> getAllRooms() {
-        List<RoomResponseDTO> result = adminService.getAllRooms();
-        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách toàn bộ phòng trọ thành công"));
-    }
-
     @GetMapping("/rooms/paged")
     @Operation(summary = "Lấy danh sách bài đăng phòng trọ có phân trang")
-    public ResponseEntity<ApiResponse<Page<RoomResponseDTO>>> getAllRoomsPaged(
+    public ResponseEntity<ApiResponse<AdminRoomPageResponseDTO>> getAllRoomsPaged(
+            @RequestParam(required = false) com.innfinder.backend.entity.enums.TrangThaiPhongTro trangThai,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "15") int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.clamp(size, 1, 100));
-        return ResponseEntity.ok(ApiResponse.ok(adminService.getAllRooms(pageable), "Lấy danh sách phòng trọ phân trang thành công"));
+        return ResponseEntity.ok(ApiResponse.ok(adminService.getRoomsPaged(trangThai, pageable), "Lấy danh sách phòng trọ phân trang thành công"));
     }
 
     @GetMapping("/rooms/pending")
@@ -191,12 +185,19 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách lịch xem phòng thành công"));
     }
 
-    @GetMapping("/transactions")
-    @Operation(summary = "Quản lý giao dịch: mặc định chỉ hiển thị giao dịch chờ xử lý, tra cứu toàn bộ giao dịch khi tìm theo thông tin người dùng")
-    public ResponseEntity<ApiResponse<List<AdminTransactionResponseDTO>>> getTransactions(
-            @RequestParam(required = false) String keyword) {
-        List<AdminTransactionResponseDTO> result = adminService.getTransactions(keyword);
-        return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách giao dịch thành công"));
+    @GetMapping("/transactions/paged")
+    @Operation(summary = "Lấy danh sách giao dịch Admin có phân trang và đếm theo trạng thái")
+    public ResponseEntity<ApiResponse<AdminTransactionPageResponseDTO>> getTransactionsPaged(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "ALL") String filterType,
+            @RequestParam(required = false) com.innfinder.backend.entity.enums.TrangThaiGD trangThai,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.clamp(size, 1, 100));
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getTransactionsPaged(keyword, filterType, trangThai, pageable),
+                "Lấy danh sách giao dịch phân trang thành công"
+        ));
     }
 
     @GetMapping("/transactions/{id}")

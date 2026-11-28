@@ -16,22 +16,6 @@ public interface AiUsageLogRepository extends JpaRepository<AiUsageLog, Long> {
 
     List<AiUsageLog> findByCreatedAtAfterOrderByCreatedAtAsc(LocalDateTime since);
 
-    @Query("""
-            SELECT l FROM AiUsageLog l
-            WHERE (:feature IS NULL OR :feature = '' OR l.feature = :feature)
-              AND (:status IS NULL OR :status = '' OR l.status = :status)
-              AND (:model IS NULL OR :model = '' OR l.model = :model)
-              AND (:since IS NULL OR l.createdAt >= :since)
-            ORDER BY l.createdAt DESC
-            """)
-    Page<AiUsageLog> searchLogs(
-            @Param("feature") String feature,
-            @Param("status") String status,
-            @Param("model") String model,
-            @Param("since") LocalDateTime since,
-            Pageable pageable
-    );
-
     @Query("SELECT COALESCE(SUM(l.totalTokens), 0L) FROM AiUsageLog l WHERE l.createdAt >= :since AND l.cacheHit = false AND l.feature NOT LIKE 'RECOMMEND%' AND l.feature NOT IN ('ROOM_VIEW', 'TOUR_360_VIEW')")
     Long sumTokensSince(@Param("since") LocalDateTime since);
 
@@ -52,9 +36,21 @@ public interface AiUsageLogRepository extends JpaRepository<AiUsageLog, Long> {
     );
 
     @Query("""
-            SELECT l.feature, l.maPhongTro, l.createdAt
+            SELECT l.feature, l.maPhongTro, COUNT(l)
             FROM AiUsageLog l
             WHERE l.feature IN ('AI_SEARCH', 'RECOMMEND_IMPRESSION', 'RECOMMEND_CLICK', 'ROOM_VIEW', 'TOUR_360_VIEW')
+              AND (:hasFilter = false OR (
+                  l.createdAt IS NOT NULL
+                  AND (:year IS NULL OR YEAR(l.createdAt) = :year)
+                  AND (:month IS NULL OR MONTH(l.createdAt) = :month)
+                  AND (:day IS NULL OR DAY(l.createdAt) = :day)
+              ))
+            GROUP BY l.feature, l.maPhongTro
             """)
-    List<Object[]> findTrackingSummaryForStats();
+    List<Object[]> aggregateTrackingSummaryForStats(
+            @Param("hasFilter") boolean hasFilter,
+            @Param("day") Integer day,
+            @Param("month") Integer month,
+            @Param("year") Integer year
+    );
 }

@@ -9,7 +9,7 @@ export interface RouteResult {
 const routeCache = new Map<string, RouteResult>();
 
 /** Haversine straight-line distance in meters */
-export function haversineDistanceMeters(
+function haversineDistanceMeters(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
 ): number {

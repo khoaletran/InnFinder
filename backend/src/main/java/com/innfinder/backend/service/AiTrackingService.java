@@ -95,10 +95,6 @@ public class AiTrackingService {
         try { if (dailyTokenBudget <= 0) return false; refreshObservedUsage(); return observedTokens >= dailyTokenBudget; }
         catch (Exception ex) { log.warn("AI budget check unavailable"); return false; }
     }
-    public synchronized boolean isDailyQuotaNearLimit() {
-        try { if (dailyTokenBudget <= 0) return false; refreshObservedUsage(); return observedTokens >= dailyTokenBudget * .8; }
-        catch (Exception ex) { return false; }
-    }
     public static boolean isBehavioralFeature(String feature) {
         if (feature == null) return false;
         return feature.startsWith("RECOMMEND")
@@ -194,10 +190,5 @@ public class AiTrackingService {
             .dailyUsage(daily).featureBreakdown(features).intentBreakdown(intents).build();
     }
 
-    @Transactional(readOnly = true)
-    public Page<AiUsageLog> getLogs(String feature, String status, String model, int days, int page, int size) {
-        LocalDateTime since = days > 0 ? LocalDate.now().minusDays(Math.clamp(days, 1, 90) - 1L).atStartOfDay() : null;
-        return logRepository.searchLogs(feature, status, model, since, PageRequest.of(Math.max(0, page), Math.clamp(size, 1, 100)));
-    }
     private static double round1(double value) { return Math.round(value * 10.0) / 10.0; }
 }

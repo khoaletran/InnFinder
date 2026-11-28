@@ -185,4 +185,9 @@ public interface PhieuDatLichRepository extends JpaRepository<PhieuDatLich, Stri
             Long minCoc
     );
     List<PhieuDatLich> findTop10ByKhachHang_MaNguoiDungOrderByNgayHenDesc(String userId);
+
+    @Query("SELECT p.maDatLich, p.trangThai, p.phiThu, p.coc, p.ngayHen, p.thoiGianDat, " +
+           "p.daNhanLaiCoc, p.khachHangDongY, p.chuTroDongY, p.liDoHuy, lp.tenLoaiPhongTro " +
+           "FROM PhieuDatLich p LEFT JOIN p.phongTro pt LEFT JOIN pt.loaiPhong lp")
+    List<Object[]> findAppointmentStatsRows();
 }

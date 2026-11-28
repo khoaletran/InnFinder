@@ -5,6 +5,8 @@ import com.innfinder.backend.entity.enums.TrangThaiGD;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -24,10 +26,9 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
      */
     List<GiaoDich> findByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String nguoiDungMaNguoiDung);
 
-    /**
-     * Lấy toàn bộ giao dịch trên hệ thống cho Admin
-     */
-    List<GiaoDich> findAllByOrderByNgayGiaoDichDesc();
+    @Override
+    @EntityGraph(attributePaths = {"nguoiDung"})
+    Page<GiaoDich> findAll(Specification<GiaoDich> spec, Pageable pageable);
 
     /**
      * Lấy danh sách giao dịch theo trạng thái (ví dụ: CHO_THANH_TOAN để phục vụ duyệt/chờ xử lý)
@@ -40,17 +41,6 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
      * Khi người dùng có thắc mắc, cung cấp thông tin cá nhân (SĐT, Email, Tên đăng nhập, Họ tên, CCCD, Mã người dùng hoặc Mã GD)
      * Admin tìm kiếm sẽ lấy TOÀN BỘ lịch sử giao dịch của người đó để đối soát
      */
-    @Query("SELECT g FROM GiaoDich g WHERE " +
-           "LOWER(g.nguoiDung.maNguoiDung) = LOWER(:kw) OR " +
-           "g.nguoiDung.sdt = :kw OR " +
-           "LOWER(g.nguoiDung.email) = LOWER(:kw) OR " +
-           "LOWER(g.nguoiDung.tenDangNhap) = LOWER(:kw) OR " +
-           "LOWER(g.nguoiDung.hoVaTen) LIKE LOWER(CONCAT('%', :kw, '%')) OR " +
-           "g.nguoiDung.cccd = :kw OR " +
-           "LOWER(g.maGiaoDich) = LOWER(:kw) " +
-           "ORDER BY g.ngayGiaoDich DESC")
-    List<GiaoDich> searchAllTransactionsByUserInfo(@Param("kw") String keyword);
-
     @Query("SELECT g FROM GiaoDich g WHERE (" +
            "LOWER(g.nguoiDung.maNguoiDung) = LOWER(:kw) OR " +
            "g.nguoiDung.sdt = :kw OR " +
@@ -60,23 +50,8 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
            "ORDER BY g.ngayGiaoDich DESC")
     Page<GiaoDich> searchByUserInfo(@Param("kw") String keyword, Pageable pageable);
 
-    @Query("SELECT COALESCE(SUM(g.soTien), 0L) FROM GiaoDich g WHERE g.trangThai = :trangThai")
-    Long sumSoTienByTrangThai(@Param("trangThai") TrangThaiGD trangThai);
-
     @Query("SELECT COALESCE(SUM(g.soTien), 0L) FROM GiaoDich g WHERE g.loaiGiaoDich = :loaiGiaoDich AND g.trangThai = :trangThai")
     Long sumSoTienByLoaiAndTrangThai(@Param("loaiGiaoDich") String loaiGiaoDich, @Param("trangThai") TrangThaiGD trangThai);
-
-    long countByLoaiGiaoDichAndTrangThai(String loaiGiaoDich, TrangThaiGD trangThai);
-
-    /**
-     * Tính tổng số tiền đã thu của một người dùng (loại trừ các loại giao dịch nhất định)
-     */
-    @Query("SELECT COALESCE(SUM(g.soTien), 0L) FROM GiaoDich g WHERE g.nguoiDung.maNguoiDung = :maNguoiDung AND g.loaiGiaoDich <> :excludeLoai AND g.trangThai = :trangThai")
-    Long sumSoTienByNguoiDungAndLoaiGiaoDichNotAndTrangThai(
-            @Param("maNguoiDung") String maNguoiDung,
-            @Param("excludeLoai") String excludeLoai,
-            @Param("trangThai") TrangThaiGD trangThai
-    );
 
     /**
      * Tính tổng số tiền theo loại giao dịch và trạng thái cụ thể của một người dùng (ví dụ: RUT_TIEN + THANH_CONG)
@@ -147,4 +122,65 @@ public interface GiaoDichRepository extends JpaRepository<GiaoDich, String>, org
 
     List<GiaoDich> findTop20ByNguoiDung_MaNguoiDungOrderByNgayGiaoDichDesc(String id);
 
+    @Query("SELECT DISTINCT YEAR(g.ngayGiaoDich) FROM GiaoDich g WHERE g.ngayGiaoDich IS NOT NULL")
+    List<Integer> findDistinctTransactionYears();
+
+    @Query("""
+            SELECT
+                COALESCE(SUM(CASE WHEN g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.CHO_THANH_TOAN
+                                   AND UPPER(COALESCE(g.loaiGiaoDich, '')) IN ('HOAN_COC', 'BOI_THUONG_NO_SHOW')
+                                  THEN COALESCE(g.soTien, 0L) ELSE 0L END), 0L),
+                COALESCE(SUM(CASE WHEN UPPER(COALESCE(g.loaiGiaoDich, '')) = 'RUT_TIEN'
+                                   AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.CHO_THANH_TOAN
+                                  THEN COALESCE(g.soTien, 0L) ELSE 0L END), 0L),
+                COALESCE(SUM(CASE WHEN UPPER(COALESCE(g.loaiGiaoDich, '')) = 'RUT_TIEN'
+                                   AND g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.CHO_THANH_TOAN
+                                  THEN 1L ELSE 0L END), 0L),
+                COALESCE(SUM(CASE WHEN g.trangThai = com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG
+                                   AND UPPER(COALESCE(g.loaiGiaoDich, '')) IN ('CONG_TIEN_COC', 'HOAN_COC', 'HOAN_TIEN_RUT')
+                                  THEN COALESCE(g.soTien, 0L) ELSE 0L END), 0L),
+                COALESCE(SUM(CASE WHEN UPPER(COALESCE(g.loaiGiaoDich, '')) = 'RUT_TIEN'
+                                   AND g.trangThai IN (
+                                       com.innfinder.backend.entity.enums.TrangThaiGD.THANH_CONG,
+                                       com.innfinder.backend.entity.enums.TrangThaiGD.CHO_THANH_TOAN,
+                                       com.innfinder.backend.entity.enums.TrangThaiGD.THAT_BAI
+                                   )
+                                  THEN COALESCE(g.soTien, 0L) ELSE 0L END), 0L)
+            FROM GiaoDich g
+            WHERE (:hasFilter = false OR (
+                g.ngayGiaoDich IS NOT NULL
+                AND (:year IS NULL OR YEAR(g.ngayGiaoDich) = :year)
+                AND (:month IS NULL OR MONTH(g.ngayGiaoDich) = :month)
+                AND (:day IS NULL OR DAY(g.ngayGiaoDich) = :day)
+            ))
+            """)
+    List<Object[]> aggregateLedgerStats(
+            @Param("hasFilter") boolean hasFilter,
+            @Param("day") Integer day,
+            @Param("month") Integer month,
+            @Param("year") Integer year
+    );
+
+    @Query("""
+            SELECT g.trangThai, COUNT(g)
+            FROM GiaoDich g
+            LEFT JOIN g.nguoiDung u
+            WHERE (
+                :filterType = 'ALL'
+                OR (:filterType = 'WITHDRAWAL' AND UPPER(COALESCE(g.loaiGiaoDich, '')) IN ('YEU_CAU_RUT_TIEN', 'RUT_TIEN'))
+                OR (:filterType = 'DEPOSIT' AND UPPER(COALESCE(g.loaiGiaoDich, '')) LIKE '%COC%')
+            )
+            AND (
+                :kw IS NULL OR :kw = ''
+                OR LOWER(COALESCE(u.maNguoiDung, '')) = LOWER(:kw)
+                OR COALESCE(u.sdt, '') = :kw
+                OR LOWER(COALESCE(u.email, '')) = LOWER(:kw)
+                OR LOWER(COALESCE(u.tenDangNhap, '')) = LOWER(:kw)
+                OR LOWER(COALESCE(u.hoVaTen, '')) LIKE LOWER(CONCAT('%', :kw, '%'))
+                OR COALESCE(u.cccd, '') = :kw
+                OR LOWER(g.maGiaoDich) = LOWER(:kw)
+            )
+            GROUP BY g.trangThai
+            """)
+    List<Object[]> countByTrangThaiFiltered(@Param("filterType") String filterType, @Param("kw") String keyword);
 }

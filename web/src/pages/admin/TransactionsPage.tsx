@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
 import {
   Copy,
@@ -81,6 +81,7 @@ export const TransactionsPage: React.FC = () => {
     }, { replace: true });
   };
   const [statusFilter, setStatusFilter] = useState<TrangThaiGD>('CHO_THANH_TOAN');
+  const [page, setPage] = useState(0);
   const [selectedTx, setSelectedTx] = useState<AdminTransactionItem | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -101,14 +102,24 @@ export const TransactionsPage: React.FC = () => {
   const [rejectReason, setRejectReason] = useState('');
 
   const {
-    data: transactions = [],
+    data: txPage,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin', 'transactions', submittedKeyword],
-    queryFn: () => adminService.getTransactions(submittedKeyword || undefined),
+    queryKey: ['admin', 'transactions', submittedKeyword, filterType, statusFilter, page],
+    queryFn: () =>
+      adminService.getTransactionsPaged({
+        keyword: submittedKeyword || undefined,
+        filterType,
+        trangThai: statusFilter,
+        page,
+        size: 20,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const {
@@ -154,6 +165,7 @@ export const TransactionsPage: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setPage(0);
     setSubmittedKeyword(searchInput.trim());
   };
 
@@ -177,40 +189,15 @@ export const TransactionsPage: React.FC = () => {
     return <StatusBadge className={tone.bg + ' ' + tone.text} dotClass={tone.dot}>{badge.label}</StatusBadge>;
   };
 
-  const typeFiltered = useMemo(
-    () =>
-      transactions.filter((tx) => {
-        if (
-          filterType === 'WITHDRAWAL' &&
-          tx.loaiGiaoDich !== 'YEU_CAU_RUT_TIEN' &&
-          tx.loaiGiaoDich !== 'RUT_TIEN'
-        ) {
-          return false;
-        }
-        if (filterType === 'DEPOSIT' && !tx.loaiGiaoDich.includes('COC')) {
-          return false;
-        }
-        return true;
-      }),
-    [transactions, filterType],
-  );
-
-  const statusCounts = useMemo(() => {
-    const counts: Record<TrangThaiGD, number> = {
-      CHO_THANH_TOAN: 0,
-      THANH_CONG: 0,
-      HOAN_TIEN: 0,
-      THAT_BAI: 0,
-    };
-    for (const tx of typeFiltered) {
-      if (tx.trangThai && tx.trangThai in counts) {
-        counts[tx.trangThai]++;
-      }
-    }
-    return counts;
-  }, [typeFiltered]);
-
-  const filtered = typeFiltered.filter((tx) => tx.trangThai === statusFilter);
+  const statusCounts = txPage?.statusCounts ?? {
+    CHO_THANH_TOAN: 0,
+    THANH_CONG: 0,
+    HOAN_TIEN: 0,
+    THAT_BAI: 0,
+  };
+  const filtered = txPage?.content ?? [];
+  const totalElements = txPage?.totalElements ?? 0;
+  const totalPages = Math.max(txPage?.totalPages ?? 1, 1);
 
   const tongDoanhThu = treasury?.tongDoanhThu ?? 0;
   const quyTamGiuCoc = treasury?.quyTamGiuCoc ?? 0;
@@ -276,7 +263,10 @@ export const TransactionsPage: React.FC = () => {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setFilterType(tab.key)}
+              onClick={() => {
+                setPage(0);
+                setFilterType(tab.key);
+              }}
               className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 filterType === tab.key
                   ? 'bg-surface text-tone-teal-strong font-semibold shadow-[var(--shadow-tab-active)]'
@@ -304,7 +294,10 @@ export const TransactionsPage: React.FC = () => {
       <StatusTabBar
         ariaLabel="Lọc giao dịch theo trạng thái"
         activeKey={statusFilter}
-        onChange={setStatusFilter}
+        onChange={(nextStatus) => {
+          setPage(0);
+          setStatusFilter(nextStatus);
+        }}
         tabs={[
           { key: 'CHO_THANH_TOAN', label: 'Chờ thanh toán', count: statusCounts.CHO_THANH_TOAN, icon: Clock },
           { key: 'THANH_CONG', label: 'Thành công', count: statusCounts.THANH_CONG, icon: CheckCircle2 },
@@ -325,7 +318,7 @@ export const TransactionsPage: React.FC = () => {
           <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-4 py-3">
             <h2 id="ledger-results-title" className="text-sm font-semibold text-text">Danh sách giao dịch</h2>
             <span aria-live="polite" className="text-[13px] text-text-muted">
-              {isLoading ? 'Đang tải…' : filtered.length.toLocaleString('vi-VN') + ' giao dịch'}
+              {isLoading && !txPage ? 'Đang tải…' : totalElements.toLocaleString('vi-VN') + ' giao dịch'}
             </span>
           </header>
           <table className="ledger-table text-left" aria-labelledby="ledger-results-title" role="table">
@@ -341,8 +334,13 @@ export const TransactionsPage: React.FC = () => {
                 ))}
               </tr>
             </thead>
-            <tbody role="rowgroup">
-              {isLoading ? <AdminTableSkeleton rows={6} cols={8} /> : filtered.length ? filtered.map((tx) => {
+            <tbody
+              role="rowgroup"
+              className={`transition-opacity duration-200 ${
+                isPlaceholderData && isFetching ? 'opacity-60' : 'opacity-100'
+              }`}
+            >
+              {isLoading && !txPage ? <AdminTableSkeleton rows={6} cols={8} /> : filtered.length ? filtered.map((tx) => {
                 const isWithdrawal = tx.loaiGiaoDich === 'YEU_CAU_RUT_TIEN' || tx.loaiGiaoDich === 'RUT_TIEN';
                 const isIncoming = tx.loaiGiaoDich === 'COC_XEM_PHONG' || tx.loaiGiaoDich === 'THU_HOA_HONG';
                 const refund = tx.loaiGiaoDich === 'HOAN_COC';
@@ -407,6 +405,29 @@ export const TransactionsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-border flex items-center justify-between text-xs">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(p - 1, 0))}
+                className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
+              >
+                Trang trước
+              </button>
+              <span className="text-text-muted font-medium tabular-nums">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
+              >
+                Trang sau
+              </button>
+            </div>
+          )}
         </div>
       )}
       </section>

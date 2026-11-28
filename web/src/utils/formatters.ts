@@ -117,7 +117,7 @@ export const formatPhoneNumber = (phone?: string | null): string => {
   return cleaned;
 };
 
-export const extractRoomCode = (noiDung?: string): string | null => {
+const extractRoomCode = (noiDung?: string): string | null => {
   if (!noiDung) return null;
   const match = noiDung.match(/(PT\d{8,12})/);
   return match ? match[1] : null;

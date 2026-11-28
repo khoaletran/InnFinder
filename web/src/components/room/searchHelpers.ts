@@ -224,11 +224,6 @@ function stripProvincePrefix(normalized: string): string {
     .trim();
 }
 
-export function getProvinceSearchToken(province: string): string {
-  if (province === 'TP. Hồ Chí Minh') return 'Hồ Chí Minh';
-  return province;
-}
-
 export function matchesProvinceAddress(address: string | undefined, province: string): boolean {
   if (!address || !province) return false;
   const segment = extractProvinceSegment(address);

@@ -54,26 +54,28 @@ public interface PhongTroRepository extends JpaRepository<PhongTro, String>, Jpa
     @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro"})
     List<PhongTro> findByMaPhongTroIn(List<String> maPhongTroList);
 
-    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
-    List<PhongTro> findAllByOrderByThoiGianDangDesc();
-
-    @EntityGraph(attributePaths = {"hinhAnh", "loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    @EntityGraph(attributePaths = {"loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
     Page<PhongTro> findAllByOrderByThoiGianDangDesc(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"loaiPhong", "chuPhongTro", "chuPhongTro.nguoiDung"})
+    Page<PhongTro> findByTrangThaiOrderByThoiGianDangDesc(TrangThaiPhongTro trangThai, Pageable pageable);
+
+    @Query("SELECT p.trangThai, COUNT(p) FROM PhongTro p GROUP BY p.trangThai")
+    List<Object[]> countRoomsGroupByTrangThai();
+
+    @Query("SELECT p.maPhongTro, lp.maLpt, lp.tenLoaiPhongTro, p.trangThai, p.tamAn, p.thoiGianDang " +
+           "FROM PhongTro p LEFT JOIN p.loaiPhong lp")
+    List<Object[]> findRoomStatsRows();
 
     long countByTrangThai(TrangThaiPhongTro trangThai);
 
     long countByChuPhongTro_MaChuTroAndTrangThaiIn(String maChuTro, List<TrangThaiPhongTro> trangThais);
-
-    long countByChuPhongTro_MaChuTroAndTrangThai(String maChuTro, TrangThaiPhongTro trangThai);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PhongTro p WHERE p.maPhongTro = :maPhongTro")
     Optional<PhongTro> findByIdForUpdate(@Param("maPhongTro") String maPhongTro);
 
     List<PhongTro> findTop20ByChuPhongTro_MaChuTroOrderByThoiGianDangDesc(String id);
-
-    @Query(value = "SELECT trang_thai FROM phong_tro WHERE ma_phong_tro = :id FOR UPDATE", nativeQuery = true)
-    String findStatusForUpdate(@Param("id") String id);
 
     @EntityGraph(attributePaths = {"loaiPhong"})
     @Query("SELECT p FROM PhongTro p")

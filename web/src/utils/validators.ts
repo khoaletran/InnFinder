@@ -141,18 +141,6 @@ export const complaintSchema = z.object({
   mucDoUuTien: z.number().min(1).max(3).default(2),
 });
 
-export const scheduleBookingSchema = z.object({
-  maPhongTro: z.string().min(1, 'Thiếu mã phòng trọ cần đặt lịch'),
-  ngayHen: z.string().refine((val) => {
-    const dt = new Date(val);
-    return !isNaN(dt.getTime()) && dt.getTime() >= Date.now() - 60_000;
-  }, 'Thời gian hẹn xem phòng phải từ thời điểm hiện tại trở đi'),
-  sdtLienHe: z
-    .string()
-    .regex(REGEX_PATTERNS.PHONE, 'Số điện thoại liên hệ không hợp lệ (03/05/07/08/09 hoặc +84)'),
-  ghiChu: z.string().max(500, 'Ghi chú tối đa 500 ký tự').optional(),
-});
-
 export const reviewSchema = z.object({
   diem: z.number().int().min(1, 'Vui lòng chọn từ 1 đến 5 sao').max(5, 'Tối đa 5 sao'),
   noiDung: z.string().min(10, 'Nhận xét tối thiểu 10 ký tự').max(1000, 'Tối đa 1000 ký tự'),

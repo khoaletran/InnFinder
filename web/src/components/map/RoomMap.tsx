@@ -733,5 +733,3 @@ export const RoomMap: React.FC<RoomMapProps> = ({
     </div>
   );
 };
-
-export const MapView = RoomMap;

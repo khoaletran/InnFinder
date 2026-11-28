@@ -13,6 +13,8 @@ public interface PhieuKhieuNaiRepository extends JpaRepository<PhieuKhieuNai, St
 
     List<PhieuKhieuNai> findByTrangThai(TrangThaiKhieuNai trangThai);
 
+    long countByTrangThai(TrangThaiKhieuNai trangThai);
+
     @EntityGraph(attributePaths = {"nguoiGui", "doiTuongKhieuNai", "nguoiDuyet"})
     List<PhieuKhieuNai> findByDoiTuongKhieuNai_MaNguoiDungOrderByNgayGuiDesc(String maNguoiDung);
 

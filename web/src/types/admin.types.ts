@@ -112,6 +112,7 @@ export interface AdminStatisticsResponse {
   soKhachHang: number;
   soChuTro: number;
   soChuTroChoDuyet: number;
+  soKhieuNaiChoDuyet?: number;
   tongDoanhThu: number;
   soLichHoanThanh: number;
   tongQuyHeThong: number;
@@ -200,6 +201,24 @@ export interface AdminPostItem {
   lyDoTuChoi?: string;
   mucCocXemPhong?: number;
   phiHoaHong?: number;
+}
+
+export interface AdminRoomPageResponse {
+  content: AdminPostItem[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  statusCounts: Record<TrangThaiPhongTro, number>;
+}
+
+export interface AdminTransactionPageResponse {
+  content: AdminTransactionItem[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  statusCounts: Record<TrangThaiGD, number>;
 }
 
 export interface AdminComplaintRelatedAppointment {

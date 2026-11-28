@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Spinner } from '@heroui/react';
 import { CheckCircle2, Clock, Compass, XCircle, Eye, MapPin, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import type { TrangThaiPhongTro } from '@/types/room.types';
 export const PostsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<TrangThaiPhongTro>('CHO_DUYET');
+  const [page, setPage] = useState(0);
   const [previewRoom, setPreviewRoom] = useState<AdminPostItem | null>(null);
   const [tour360Open, setTour360Open] = useState(false);
 
@@ -33,14 +34,17 @@ export const PostsPage: React.FC = () => {
   });
 
   const {
-    data: allRooms = [],
+    data: roomsPage,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin', 'rooms', 'all'],
-    queryFn: () => adminService.getAllRooms(),
+    queryKey: ['admin', 'rooms', 'paged', statusFilter, page],
+    queryFn: () => adminService.getRoomsPaged(statusFilter, page, 15),
+    placeholderData: keepPreviousData,
   });
 
   const handleRefresh = () => {
@@ -113,22 +117,14 @@ export const PostsPage: React.FC = () => {
     }
   };
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<TrangThaiPhongTro, number> = {
-      CHO_DUYET: 0,
-      DA_DUYET: 0,
-      HOAN_THANH: 0,
-      HUY: 0,
-    };
-    for (const room of allRooms) {
-      if (room.trangThai && room.trangThai in counts) {
-        counts[room.trangThai]++;
-      }
-    }
-    return counts;
-  }, [allRooms]);
-
-  const currentList = allRooms.filter((r) => r.trangThai === statusFilter);
+  const statusCounts = roomsPage?.statusCounts ?? {
+    CHO_DUYET: 0,
+    DA_DUYET: 0,
+    HOAN_THANH: 0,
+    HUY: 0,
+  };
+  const currentList = roomsPage?.content ?? [];
+  const totalPages = Math.max(roomsPage?.totalPages ?? 1, 1);
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6">
@@ -136,7 +132,10 @@ export const PostsPage: React.FC = () => {
       <StatusTabBar
         ariaLabel="Lọc bài đăng theo trạng thái"
         activeKey={statusFilter}
-        onChange={setStatusFilter}
+        onChange={(nextStatus) => {
+          setPage(0);
+          setStatusFilter(nextStatus);
+        }}
         tabs={[
           { key: 'CHO_DUYET', label: 'Chờ duyệt', count: statusCounts.CHO_DUYET, icon: Clock },
           {
@@ -180,8 +179,12 @@ export const PostsPage: React.FC = () => {
                   <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/70">
-                {isLoading ? (
+              <tbody
+                className={`divide-y divide-border/70 transition-opacity duration-200 ${
+                  isPlaceholderData && isFetching ? 'opacity-60' : 'opacity-100'
+                }`}
+              >
+                {isLoading && !roomsPage ? (
                   <AdminTableSkeleton rows={6} cols={5} />
                 ) : currentList.length > 0 ? (
                   currentList.map((room) => {
@@ -283,6 +286,29 @@ export const PostsPage: React.FC = () => {
               </tbody>
             </table>
           </Card.Content>
+          {totalPages > 1 && (
+            <Card.Footer className="p-4 border-t border-border flex items-center justify-between text-xs">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(p - 1, 0))}
+                className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
+              >
+                Trang trước
+              </button>
+              <span className="text-text-muted font-medium tabular-nums">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-subtle disabled:opacity-40 cursor-pointer transition-colors"
+              >
+                Trang sau
+              </button>
+            </Card.Footer>
+          )}
         </Card>
       )}
 

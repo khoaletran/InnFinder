@@ -80,13 +80,6 @@ public class CloudinaryService {
     public record PanoramaUploadResult(String url, int width, int height) {}
 
     /**
-     * Upload ảnh toàn cảnh 360° / Panorama (cho phép tối đa 15MB) vào innfinder/tours360.
-     */
-    public String uploadPanoramaImage(MultipartFile file) {
-        return uploadPanoramaImageWithMeta(file).url();
-    }
-
-    /**
      * Upload ảnh toàn cảnh 360° / Panorama và đọc width/height trực tiếp từ metadata Cloudinary (không giải nén ảnh vào JVM heap).
      */
     public PanoramaUploadResult uploadPanoramaImageWithMeta(MultipartFile file) {
@@ -173,53 +166,6 @@ public class CloudinaryService {
      */
     public List<String> uploadMultipleImages(List<MultipartFile> files) {
         return uploadMultipleImages(files, "rooms");
-    }
-
-    /**
-     * Xóa ảnh trên Cloudinary bằng publicId.
-     *
-     * @param publicId Định danh ảnh trên Cloudinary (ví dụ: innfinder/rooms/abcxyz)
-     */
-    public void deleteImageByPublicId(String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            return;
-        }
-        try {
-            cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-            log.info("Đã xóa ảnh trên Cloudinary: {}", publicId);
-        } catch (Exception e) {
-            log.warn("Không thể xóa ảnh trên Cloudinary với publicId {}: {}", publicId, e.getMessage());
-        }
-    }
-
-    /**
-     * Trích xuất publicId từ Cloudinary URL để phục vụ thao tác xóa.
-     * Ví dụ URL: https://res.cloudinary.com/.../image/upload/v12345/innfinder/rooms/img1.jpg
-     * Kết quả trích xuất: innfinder/rooms/img1
-     */
-    public String extractPublicIdFromUrl(String imageUrl) {
-        if (imageUrl == null || imageUrl.isBlank()) {
-            return null;
-        }
-        try {
-            int uploadIndex = imageUrl.indexOf("/upload/");
-            if (uploadIndex == -1) return null;
-            // Bỏ qua phần "/upload/v12345678/"
-            String pathAfterUpload = imageUrl.substring(uploadIndex + 8);
-            int firstSlash = pathAfterUpload.indexOf("/");
-            if (firstSlash != -1) {
-                pathAfterUpload = pathAfterUpload.substring(firstSlash + 1);
-            }
-            // Cắt bỏ phần mở rộng .jpg, .png...
-            int dotIndex = pathAfterUpload.lastIndexOf(".");
-            if (dotIndex != -1) {
-                return pathAfterUpload.substring(0, dotIndex);
-            }
-            return pathAfterUpload;
-        } catch (Exception e) {
-            log.warn("Không thể bóc tách public_id từ URL {}: {}", imageUrl, e.getMessage());
-            return null;
-        }
     }
 
     /**

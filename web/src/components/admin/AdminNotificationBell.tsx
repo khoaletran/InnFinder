@@ -97,7 +97,9 @@ const AdminNotificationBellInner: React.FC<{ storageKey: string }> = ({ storageK
         adminService.getPendingRooms(),
         adminService.getLandlordRequests(),
         adminService.getAllComplaints(),
-        adminService.getTransactions(),
+        adminService
+          .getTransactionsPaged({ trangThai: 'CHO_THANH_TOAN', page: 0, size: 20 })
+          .then((res) => res.content),
       ]);
 
       const feed: AdminNotificationItem[] = [];

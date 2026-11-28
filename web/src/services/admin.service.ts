@@ -9,9 +9,11 @@ import type {
   AdminReputationHistoryItem,
   AdminReviewItem,
   AdminRevenueInsightResponse,
+  AdminRoomPageResponse,
   AdminStatisticsFilter,
   AdminStatisticsResponse,
   AdminTransactionItem,
+  AdminTransactionPageResponse,
   AdminTreasuryStats,
   AdminUserDetailResponse,
   AdminUserItem,
@@ -22,6 +24,32 @@ import type {
 import type { PageResponse } from '@/types/api.types';
 import type { MucDoViPham, TrangThaiKhieuNai } from '@/types/auth-user.types';
 import type { AmenityResponse, CategoryResponse, TrangThaiPhongTro } from '@/types/room.types';
+import type { TrangThaiGD } from '@/types/transaction.types';
+
+function mapTransactionRecord(t: Record<string, unknown>): AdminTransactionItem {
+  return {
+    maGiaoDich: String(t.maGiaoDich ?? ''),
+    maDatLich: t.maDatLich as string | undefined,
+    phongTro: String(t.noiDung || t.phongTro || 'Giao dịch hệ thống'),
+    diaChiPhong: String(t.diaChiPhong || 'Hệ thống ví InnFinder'),
+    soTien: Number(t.soTien ?? 0),
+    loaiGiaoDich: String(t.loaiGiaoDich || 'GIAO_DICH'),
+    trangThai: (t.trangThai as AdminTransactionItem['trangThai']) || 'CHO_THANH_TOAN',
+    thoiGian: String(t.ngayGiaoDich || t.thoiGian || ''),
+    nguoiThucHien: String(t.hoVaTen || t.tenNguoiDung || t.nguoiThucHien || 'Người dùng'),
+    sdtNguoiThucHien: String(t.sdt || t.sdtNguoiThucHien || ''),
+    chuTro: String(t.tenNguoiDung || t.chuTro || 'Hệ thống'),
+    tienCoc: Number(t.tienCoc ?? t.soTien ?? 0),
+    phiDichVu: Number(t.phiDichVu ?? 0),
+    thucNhan: Number(t.thucNhan ?? t.soTien ?? 0),
+    tenNganHang: t.tenNganHang as string | undefined,
+    soTaiKhoan: t.soTaiKhoan as string | undefined,
+    tenChuTaiKhoan: (t.tenChuTaiKhoan as string | undefined) || (t.hoVaTen as string | undefined),
+    ghiChu: (t.noiDung as string | undefined) || (t.ghiChu as string | undefined),
+  };
+}
+
+let inFlightUnfilteredStats: Promise<AdminStatisticsResponse> | null = null;
 
 function mapRoomToAdminPost(r: Record<string, unknown>): AdminPostItem {
   const hinhAnhUrls = Array.isArray(r.hinhAnhUrls)
@@ -67,70 +95,89 @@ export const adminService = {
     if (filters?.month !== null && filters?.month !== undefined) params.month = filters.month;
     if (filters?.year !== null && filters?.year !== undefined) params.year = filters.year;
 
-    const d = await axiosClient.get<
-      unknown,
-      Partial<AdminStatisticsResponse> & { tongQuyThucTe?: number }
-    >('/api/admin/statistics', { params });
+    const isUnfiltered = Object.keys(params).length === 0;
+    if (isUnfiltered && inFlightUnfilteredStats) {
+      return inFlightUnfilteredStats;
+    }
 
-    const tongDoanhThu = Number(d?.tongDoanhThu ?? 0);
-    const tongQuyHeThong = Number(d?.tongQuyHeThong ?? 0);
+    const requestPromise = (async () => {
+      const d = await axiosClient.get<
+        unknown,
+        Partial<AdminStatisticsResponse> & { tongQuyThucTe?: number }
+      >('/api/admin/statistics', { params });
 
-    return {
-      tongSoPhong: Number(d?.tongSoPhong ?? 0),
-      soPhongChoDuyet: Number(d?.soPhongChoDuyet ?? 0),
-      soPhongDaDuyet: Number(d?.soPhongDaDuyet ?? 0),
-      soPhongHoanThanh: Number(d?.soPhongHoanThanh ?? 0),
-      soPhongHuy: Number(d?.soPhongHuy ?? 0),
-      tongNguoiDung: Number(d?.tongNguoiDung ?? 0),
-      soKhachHang: Number(d?.soKhachHang ?? 0),
-      soChuTro: Number(d?.soChuTro ?? 0),
-      soChuTroChoDuyet: Number(d?.soChuTroChoDuyet ?? 0),
-      tongDoanhThu,
-      soLichHoanThanh: Number(d?.soLichHoanThanh ?? 0),
-      tongQuyHeThong,
-      tongQuyThucTe: Number(d?.tongQuyThucTe ?? tongQuyHeThong + tongDoanhThu),
-      quyTamGiuCoc: Number(d?.quyTamGiuCoc ?? 0),
-      tongSoDuViChuTro: Number(d?.tongSoDuViChuTro ?? 0),
-      quyChoRut: Number(d?.quyChoRut ?? 0),
-      soLenhRutChoDuyet: Number(d?.soLenhRutChoDuyet ?? 0),
-      bieuDoDoanhThu: Array.isArray(d?.bieuDoDoanhThu)
-        ? d.bieuDoDoanhThu.map((p) => ({
-            nhan: String(p?.nhan ?? '').replace(/^T(?=\d{2}\/\d{4}$)/, ''),
-            doanhThu: Number(p?.doanhThu ?? 0),
-            soLichHoanThanh: Number(p?.soLichHoanThanh ?? 0),
-            soLichDat: Number(p?.soLichDat ?? 0),
-          }))
-        : d?.bieuDoDoanhThu === undefined
-          ? [
-              {
-                nhan: `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`,
-                doanhThu: tongDoanhThu,
-                soLichHoanThanh: 0,
-                soLichDat: 0,
-              },
-            ]
+      const tongDoanhThu = Number(d?.tongDoanhThu ?? 0);
+      const tongQuyHeThong = Number(d?.tongQuyHeThong ?? 0);
+
+      return {
+        tongSoPhong: Number(d?.tongSoPhong ?? 0),
+        soPhongChoDuyet: Number(d?.soPhongChoDuyet ?? 0),
+        soPhongDaDuyet: Number(d?.soPhongDaDuyet ?? 0),
+        soPhongHoanThanh: Number(d?.soPhongHoanThanh ?? 0),
+        soPhongHuy: Number(d?.soPhongHuy ?? 0),
+        tongNguoiDung: Number(d?.tongNguoiDung ?? 0),
+        soKhachHang: Number(d?.soKhachHang ?? 0),
+        soChuTro: Number(d?.soChuTro ?? 0),
+        soChuTroChoDuyet: Number(d?.soChuTroChoDuyet ?? 0),
+        soKhieuNaiChoDuyet:
+          d?.soKhieuNaiChoDuyet !== undefined ? Number(d.soKhieuNaiChoDuyet) : undefined,
+        tongDoanhThu,
+        soLichHoanThanh: Number(d?.soLichHoanThanh ?? 0),
+        tongQuyHeThong,
+        tongQuyThucTe: Number(d?.tongQuyThucTe ?? tongQuyHeThong + tongDoanhThu),
+        quyTamGiuCoc: Number(d?.quyTamGiuCoc ?? 0),
+        tongSoDuViChuTro: Number(d?.tongSoDuViChuTro ?? 0),
+        quyChoRut: Number(d?.quyChoRut ?? 0),
+        soLenhRutChoDuyet: Number(d?.soLenhRutChoDuyet ?? 0),
+        bieuDoDoanhThu: Array.isArray(d?.bieuDoDoanhThu)
+          ? d.bieuDoDoanhThu.map((p) => ({
+              nhan: String(p?.nhan ?? '').replace(/^T(?=\d{2}\/\d{4}$)/, ''),
+              doanhThu: Number(p?.doanhThu ?? 0),
+              soLichHoanThanh: Number(p?.soLichHoanThanh ?? 0),
+              soLichDat: Number(p?.soLichDat ?? 0),
+            }))
+          : d?.bieuDoDoanhThu === undefined
+            ? [
+                {
+                  nhan: `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`,
+                  doanhThu: tongDoanhThu,
+                  soLichHoanThanh: 0,
+                  soLichDat: 0,
+                },
+              ]
+            : [],
+        coCauLoaiPhong: Array.isArray(d?.coCauLoaiPhong)
+          ? d.coCauLoaiPhong.map((r) => ({
+              maLoaiPhong: r?.maLoaiPhong ? String(r.maLoaiPhong) : undefined,
+              tenLoaiPhong: String(r?.tenLoaiPhong ?? 'Khác'),
+              soLuong: Number(r?.soLuong ?? 0),
+              soPhongDangHienThi: Number(r?.soPhongDangHienThi ?? 0),
+              luotXem: Number(r?.luotXem ?? 0),
+              luotClickGoiY: Number(r?.luotClickGoiY ?? 0),
+              soLichDat: Number(r?.soLichDat ?? 0),
+              soLichHoanThanh: Number(r?.soLichHoanThanh ?? 0),
+              doanhThuHoaHong: Number(r?.doanhThuHoaHong ?? 0),
+              tyLeChot: Number(r?.tyLeChot ?? 0),
+            }))
           : [],
-      coCauLoaiPhong: Array.isArray(d?.coCauLoaiPhong)
-        ? d.coCauLoaiPhong.map((r) => ({
-            maLoaiPhong: r?.maLoaiPhong ? String(r.maLoaiPhong) : undefined,
-            tenLoaiPhong: String(r?.tenLoaiPhong ?? 'Khác'),
-            soLuong: Number(r?.soLuong ?? 0),
-            soPhongDangHienThi: Number(r?.soPhongDangHienThi ?? 0),
-            luotXem: Number(r?.luotXem ?? 0),
-            luotClickGoiY: Number(r?.luotClickGoiY ?? 0),
-            soLichDat: Number(r?.soLichDat ?? 0),
-            soLichHoanThanh: Number(r?.soLichHoanThanh ?? 0),
-            doanhThuHoaHong: Number(r?.doanhThuHoaHong ?? 0),
-            tyLeChot: Number(r?.tyLeChot ?? 0),
-          }))
-        : [],
-      cacNamCoDuLieu: Array.isArray(d?.cacNamCoDuLieu)
-        ? d.cacNamCoDuLieu.map(Number).filter((n) => Number.isFinite(n))
-        : [],
-      soSanhKyTruoc: d?.soSanhKyTruoc,
-      pheuChuyenDoi: d?.pheuChuyenDoi,
-      tongQuanAiTracking: d?.tongQuanAiTracking ?? null,
-    };
+        cacNamCoDuLieu: Array.isArray(d?.cacNamCoDuLieu)
+          ? d.cacNamCoDuLieu.map(Number).filter((n) => Number.isFinite(n))
+          : [],
+        soSanhKyTruoc: d?.soSanhKyTruoc,
+        pheuChuyenDoi: d?.pheuChuyenDoi,
+        tongQuanAiTracking: d?.tongQuanAiTracking ?? null,
+      };
+    })();
+
+    if (isUnfiltered) {
+      inFlightUnfilteredStats = requestPromise;
+      try {
+        return await requestPromise;
+      } finally {
+        inFlightUnfilteredStats = null;
+      }
+    }
+    return requestPromise;
   },
 
   generateRevenueInsights: async (
@@ -152,14 +199,16 @@ export const adminService = {
   getDashboardStats: async (): Promise<AdminDashboardStats> => {
     const d = await adminService.getStatistics();
 
-    let soKhieuNai = 0;
-    try {
-      const cList = await axiosClient.get<unknown, AdminComplaintItem[]>('/api/admin/complaints');
-      if (Array.isArray(cList)) {
-        soKhieuNai = cList.filter((c) => c.trangThai === 'CHO_DUYET').length;
+    let soKhieuNai = d.soKhieuNaiChoDuyet ?? 0;
+    if (d.soKhieuNaiChoDuyet === undefined) {
+      try {
+        const cList = await axiosClient.get<unknown, AdminComplaintItem[]>('/api/admin/complaints');
+        if (Array.isArray(cList)) {
+          soKhieuNai = cList.filter((c) => c.trangThai === 'CHO_DUYET').length;
+        }
+      } catch {
+        // ignore secondary counter failure
       }
-    } catch {
-      // ignore secondary counter failure
     }
 
     const currentMonth = new Date().getMonth() + 1;
@@ -365,10 +414,38 @@ export const adminService = {
     return res.map(mapRoomToAdminPost);
   },
 
-  getAllRooms: async (): Promise<AdminPostItem[]> => {
-    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>('/api/admin/rooms');
-    if (!Array.isArray(res)) return [];
-    return res.map(mapRoomToAdminPost);
+  getRoomsPaged: async (
+    trangThai?: TrangThaiPhongTro,
+    page = 0,
+    size = 15,
+  ): Promise<AdminRoomPageResponse> => {
+    const params: Record<string, string | number> = { page, size };
+    if (trangThai) params.trangThai = trangThai;
+    const res = await axiosClient.get<
+      unknown,
+      {
+        content?: Array<Record<string, unknown>>;
+        totalElements?: number;
+        totalPages?: number;
+        size?: number;
+        number?: number;
+        statusCounts?: Partial<Record<TrangThaiPhongTro, number>>;
+      }
+    >('/api/admin/rooms/paged', { params });
+
+    return {
+      content: Array.isArray(res?.content) ? res.content.map(mapRoomToAdminPost) : [],
+      totalElements: Number(res?.totalElements ?? 0),
+      totalPages: Math.max(Number(res?.totalPages ?? 1), 1),
+      size: Number(res?.size ?? size),
+      number: Number(res?.number ?? page),
+      statusCounts: {
+        CHO_DUYET: Number(res?.statusCounts?.CHO_DUYET ?? 0),
+        DA_DUYET: Number(res?.statusCounts?.DA_DUYET ?? 0),
+        HOAN_THANH: Number(res?.statusCounts?.HOAN_THANH ?? 0),
+        HUY: Number(res?.statusCounts?.HUY ?? 0),
+      },
+    };
   },
 
   approveRoom: (id: string) => {
@@ -381,34 +458,48 @@ export const adminService = {
     });
   },
 
-  getTransactions: async (keyword?: string): Promise<AdminTransactionItem[]> => {
-    const params: Record<string, string> = {};
-    if (keyword && keyword.trim()) params.keyword = keyword.trim();
-    const res = await axiosClient.get<unknown, Array<Record<string, unknown>>>(
-      '/api/admin/transactions',
-      { params },
-    );
-    if (!Array.isArray(res)) return [];
-    return res.map((t) => ({
-      maGiaoDich: String(t.maGiaoDich ?? ''),
-      maDatLich: t.maDatLich as string | undefined,
-      phongTro: String(t.noiDung || t.phongTro || 'Giao dịch hệ thống'),
-      diaChiPhong: String(t.diaChiPhong || 'Hệ thống ví InnFinder'),
-      soTien: Number(t.soTien ?? 0),
-      loaiGiaoDich: String(t.loaiGiaoDich || 'GIAO_DICH'),
-      trangThai: (t.trangThai as AdminTransactionItem['trangThai']) || 'CHO_THANH_TOAN',
-      thoiGian: String(t.ngayGiaoDich || t.thoiGian || ''),
-      nguoiThucHien: String(t.hoVaTen || t.tenNguoiDung || t.nguoiThucHien || 'Người dùng'),
-      sdtNguoiThucHien: String(t.sdt || t.sdtNguoiThucHien || ''),
-      chuTro: String(t.tenNguoiDung || t.chuTro || 'Hệ thống'),
-      tienCoc: Number(t.tienCoc ?? t.soTien ?? 0),
-      phiDichVu: Number(t.phiDichVu ?? 0),
-      thucNhan: Number(t.thucNhan ?? t.soTien ?? 0),
-      tenNganHang: t.tenNganHang as string | undefined,
-      soTaiKhoan: t.soTaiKhoan as string | undefined,
-      tenChuTaiKhoan: (t.tenChuTaiKhoan as string | undefined) || (t.hoVaTen as string | undefined),
-      ghiChu: (t.noiDung as string | undefined) || (t.ghiChu as string | undefined),
-    }));
+  getTransactionsPaged: async (options?: {
+    keyword?: string;
+    filterType?: 'ALL' | 'WITHDRAWAL' | 'DEPOSIT';
+    trangThai?: TrangThaiGD;
+    page?: number;
+    size?: number;
+  }): Promise<AdminTransactionPageResponse> => {
+    const page = options?.page ?? 0;
+    const size = options?.size ?? 20;
+    const params: Record<string, string | number> = {
+      page,
+      size,
+      filterType: options?.filterType ?? 'ALL',
+    };
+    if (options?.keyword?.trim()) params.keyword = options.keyword.trim();
+    if (options?.trangThai) params.trangThai = options.trangThai;
+
+    const res = await axiosClient.get<
+      unknown,
+      {
+        content?: Array<Record<string, unknown>>;
+        totalElements?: number;
+        totalPages?: number;
+        size?: number;
+        number?: number;
+        statusCounts?: Partial<Record<TrangThaiGD, number>>;
+      }
+    >('/api/admin/transactions/paged', { params });
+
+    return {
+      content: Array.isArray(res?.content) ? res.content.map(mapTransactionRecord) : [],
+      totalElements: Number(res?.totalElements ?? 0),
+      totalPages: Math.max(Number(res?.totalPages ?? 1), 1),
+      size: Number(res?.size ?? size),
+      number: Number(res?.number ?? page),
+      statusCounts: {
+        CHO_THANH_TOAN: Number(res?.statusCounts?.CHO_THANH_TOAN ?? 0),
+        THANH_CONG: Number(res?.statusCounts?.THANH_CONG ?? 0),
+        HOAN_TIEN: Number(res?.statusCounts?.HOAN_TIEN ?? 0),
+        THAT_BAI: Number(res?.statusCounts?.THAT_BAI ?? 0),
+      },
+    };
   },
 
   approveWithdrawal: (id: string, maThamChieu?: string) => {

@@ -19,6 +19,7 @@ public class AdminStatisticsResponseDTO {
     private long soKhachHang;
     private long soChuTro;
     private long soChuTroChoDuyet;
+    private long soKhieuNaiChoDuyet;
     private long tongDoanhThu;
     private long soLichHoanThanh;
 
