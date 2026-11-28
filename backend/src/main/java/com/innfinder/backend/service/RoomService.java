@@ -100,9 +100,10 @@ public class RoomService {
      * ============================================================== */
     @Transactional(readOnly = true)
     public Page<RoomSummaryResponse> searchRooms(RoomFilterRequest filter) {
+        String sortField = resolveSortField(filter.getSortBy());
         Sort sort = Sort.by(
                 "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                filter.getSortBy() != null ? filter.getSortBy() : "thoiGianDang"
+                sortField
         );
         Pageable pageable = PageRequest.of(
                 Math.max(0, filter.getPage()),
@@ -113,6 +114,15 @@ public class RoomService {
         Specification<PhongTro> spec = PhongTroSpecification.buildFilter(effectiveFilter);
         Page<PhongTro> roomPage = phongTroRepository.findAll(spec, pageable);
         return roomPage.map(RoomSummaryResponse::fromEntity);
+    }
+
+    private String resolveSortField(String rawSortBy) {
+        if (rawSortBy == null || rawSortBy.isBlank()) return "thoiGianDang";
+        return switch (rawSortBy.trim()) {
+            case "giaThue", "dienTich", "giaDien", "thoiGianDang" -> rawSortBy.trim();
+            case "giaNuoc", "giaNuoc.gia" -> "giaNuoc.gia";
+            default -> "thoiGianDang";
+        };
     }
     @Transactional(readOnly = true)
     public RoomDetailResponse getRoomDetail(String maPhongTro) {

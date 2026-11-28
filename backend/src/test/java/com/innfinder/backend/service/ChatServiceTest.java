@@ -372,4 +372,45 @@ class ChatServiceTest {
         assertTrue(result.message().contains("trường XYZ không tồn tại"));
         verifyNoInteractions(search);
     }
+
+    @Test void enrichesElectricityWaterCriteriaAndSortsForChatbotAndSearch() throws Exception {
+        plan("SEARCH", null, new SearchCriteria(null, null, null, null, null, null, null, List.of(), "RELEVANCE"));
+        when(search.search(anyString(), any(), eq(6), eq("ELECTRICITY_ASC")))
+                .thenReturn(new AiSearchService.Result(List.of(room(ID)), "FILTERED"));
+
+        ChatResponse res = service.chat(new ChatRequest(
+                "tìm phòng điện dưới 3.5k nước theo người từ 80k đến 120k giá điện tăng",
+                List.of(), null, null, List.of(), null));
+
+        ArgumentCaptor<RoomFilterRequest> filter = ArgumentCaptor.forClass(RoomFilterRequest.class);
+        verify(search).search(anyString(), filter.capture(), eq(6), eq("ELECTRICITY_ASC"));
+        assertNull(filter.getValue().getMinGiaDien());
+        assertEquals(3_500L, filter.getValue().getMaxGiaDien());
+        assertEquals(80_000L, filter.getValue().getMinGiaNuoc());
+        assertEquals(120_000L, filter.getValue().getMaxGiaNuoc());
+        assertEquals(Boolean.TRUE, filter.getValue().getNuocTheoNguoi());
+        assertEquals("ELECTRICITY_ASC", res.criteria().sort());
+    }
+
+    @Test void quickRoomAnswerReturnsElectricityAndWaterPrices() {
+        RoomDiscoveryService.Document withUtilities = new RoomDiscoveryService.Document(
+                RoomSummaryResponse.builder().maPhongTro(ID).giaThue(2_500_000L).giaDien(3_500L)
+                        .giaNuoc(com.innfinder.backend.entity.GiaNuoc.builder().gia(100_000L).theoNguoi(true).build())
+                        .dienTich(20).diaChi("Gò Vấp").build(),
+                RoomDetailResponse.builder().maPhongTro(ID).giaThue(2_500_000L).giaDien(3_500L)
+                        .giaNuoc(com.innfinder.backend.entity.GiaNuoc.builder().gia(100_000L).theoNguoi(true).build())
+                        .dienTich(20).diaChi("Gò Vấp").dsTienIch(List.of()).build(),
+                "phòng");
+        when(discovery.findByIds(anyList())).thenReturn(List.of(withUtilities));
+
+        ChatResponse elec = service.chat(new ChatRequest("Giá điện phòng này bao nhiêu?", List.of(), ID, null, List.of(), null));
+        assertTrue(elec.message().contains("3.500"));
+        assertTrue(elec.message().contains("kWh"));
+
+        ChatResponse water = service.chat(new ChatRequest("Giá nước phòng này bao nhiêu?", List.of(), ID, null, List.of(), null));
+        assertTrue(water.message().contains("100.000"));
+        assertTrue(water.message().contains("đầu người"));
+
+        verifyNoInteractions(gemini);
+    }
 }

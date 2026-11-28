@@ -18,7 +18,13 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { RoomDetailResponse, RoomSummaryResponse } from '@/types/room.types';
-import { formatRelativeTime, formatVND, formatVNDShort } from '@/utils/formatters';
+import {
+  formatElectricityPrice,
+  formatRelativeTime,
+  formatVND,
+  formatVNDShort,
+  formatWaterPrice,
+} from '@/utils/formatters';
 
 interface MapRoomDetailCardProps {
   room: RoomSummaryResponse;
@@ -177,6 +183,18 @@ export const MapRoomDetailCard: React.FC<MapRoomDetailCardProps> = ({
               <span className="text-slate-500 block text-[11px]">Cọc hợp đồng</span>
               <strong className="text-slate-800 font-bold">
                 {contractDeposit > 0 ? formatVND(contractDeposit) : 'Thỏa thuận'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Giá điện</span>
+              <strong className="text-slate-800 font-bold">
+                {formatElectricityPrice(detail?.giaDien ?? room.giaDien)}
+              </strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[11px]">Giá nước</span>
+              <strong className="text-slate-800 font-bold">
+                {formatWaterPrice(detail?.giaNuoc ?? room.giaNuoc)}
               </strong>
             </div>
           </div>

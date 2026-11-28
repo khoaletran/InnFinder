@@ -93,6 +93,10 @@ export const RouteLoadingOverlay: React.FC<RouteLoadingOverlayProps> = ({
 }) => {
   const location = useLocation();
   const routeMessage = resolveHeavyRouteMessage(location.pathname);
-  if (!routeMessage) return null;
-  return <RouteLoadingSession key={location.pathname} message={message ?? routeMessage} />;
+  return (
+    <RouteLoadingSession
+      key={location.pathname}
+      message={message ?? routeMessage ?? 'Đang tải dữ liệu trang...'}
+    />
+  );
 };

@@ -197,7 +197,7 @@ function extractNearbyPlaceQuery(text: string): string | null {
   candidate = candidate.split(/[,;]/)[0].trim();
   candidate = candidate
     .replace(
-      /\s+(?:giá\s+rẻ|gia\s+re|rẻ\s+hơn|re\s+hon|dưới|duoi|trên|tren|tầm|tam|khoảng|khoang|từ|tu|giá|gia|cho\s+\d+\s*(?:người|nguoi)|có\s+(?:gác|máy\s+lạnh|điều\s+hòa|wifi|ban\s+công|thang\s+máy|bãi\s+xe|tủ\s+lạnh|máy\s+giặt|nội\s+thất|bếp)|full\s+nội\s+thất|khép\s+kín|khep\s+kin|\d+\s*(?:tr|triệu|trieu|m2|m²|người|nguoi))\b.*$/iu,
+      /\s+(?:giá\s+rẻ|gia\s+re|rẻ\s+hơn|re\s+hon|dưới|duoi|trên|tren|tầm|tam|khoảng|khoang|từ|tu|giá\s+điện|gia\s+dien|tiền\s+điện|tien\s+dien|điện|dien|giá\s+nước|gia\s+nuoc|tiền\s+nước|tien\s+nuoc|nước|nuoc|giá|gia|cho\s+\d+\s*(?:người|nguoi)|có\s+(?:gác|máy\s+lạnh|điều\s+hòa|wifi|ban\s+công|thang\s+máy|bãi\s+xe|tủ\s+lạnh|máy\s+giặt|nội\s+thất|bếp)|full\s+nội\s+thất|khép\s+kín|khep\s+kin|\d+\s*(?:tr|triệu|trieu|m2|m²|người|nguoi))\b.*$/iu,
       "",
     )
     .trim();

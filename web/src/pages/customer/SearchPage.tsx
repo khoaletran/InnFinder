@@ -26,11 +26,13 @@ import {
   VIETNAM_PROVINCES,
 } from '@/components/room/searchHelpers';
 import { SearchModeTabs } from '@/components/room/SearchModeTabs';
+import { UtilityFilterPopover } from '@/components/room/UtilityFilterPopover';
 import { roomService } from '@/services/room.service';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 
 type ActivePopover =
   | 'price'
+  | 'utility'
   | 'category'
   | 'area'
   | 'capacity'
@@ -161,6 +163,11 @@ export const SearchPage: React.FC = () => {
         isAreaSearch,
         minPrice: filterStore.minPrice,
         maxPrice: filterStore.maxPrice,
+        minElectricityPrice: filterStore.minElectricityPrice,
+        maxElectricityPrice: filterStore.maxElectricityPrice,
+        minWaterPrice: filterStore.minWaterPrice,
+        maxWaterPrice: filterStore.maxWaterPrice,
+        waterByPerson: filterStore.waterByPerson,
         minArea: filterStore.minArea,
         maxArea: filterStore.maxArea,
         capacity: filterStore.capacity,
@@ -179,6 +186,11 @@ export const SearchPage: React.FC = () => {
         area: filterStore.province || (isAreaSearch ? trimmed : undefined),
         minGia: filterStore.minPrice,
         maxGia: filterStore.maxPrice,
+        minGiaDien: filterStore.minElectricityPrice,
+        maxGiaDien: filterStore.maxElectricityPrice,
+        minGiaNuoc: filterStore.minWaterPrice,
+        maxGiaNuoc: filterStore.maxWaterPrice,
+        nuocTheoNguoi: filterStore.waterByPerson,
         minDienTich: filterStore.minArea,
         maxDienTich: filterStore.maxArea,
         soNguoi: filterStore.capacity,
@@ -276,11 +288,11 @@ export const SearchPage: React.FC = () => {
         ref={popoverBarRef}
         className="bg-white/95 backdrop-blur-md border-b border-slate-200 py-2.5 sticky top-[100px] z-30 shrink-0"
       >
-        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full lg:flex-1 lg:min-w-0">
+        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between gap-2">
+          <div className="flex flex-col lg:flex-row lg:flex-nowrap lg:items-center gap-1.5 w-full lg:flex-1 lg:min-w-0">
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center w-full sm:w-[260px] lg:w-[320px] shrink-0"
+              className="flex items-center w-full lg:flex-1 lg:min-w-[130px] lg:max-w-[210px]"
             >
               <div className="flex-1 relative flex items-center">
                 <input
@@ -288,7 +300,7 @@ export const SearchPage: React.FC = () => {
                   value={searchInput}
                   onChange={(e) => setSearchInputDraft(e.target.value)}
                   placeholder="Mô tả phòng cần tìm"
-                  className="w-full h-9 pl-3.5 pr-10 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
+                  className="w-full h-9 pl-3.5 pr-9 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
                 />
                 <button
                   type="submit"
@@ -301,20 +313,20 @@ export const SearchPage: React.FC = () => {
               </div>
             </form>
 
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap lg:flex-nowrap lg:shrink-0 items-center gap-1 xl:gap-1.5">
             {/* 1. Chip Giá */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasPriceFilter || activePopover === 'price'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{priceLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[82px] xl:max-w-[104px] truncate">{priceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'price' && (
@@ -346,19 +358,43 @@ export const SearchPage: React.FC = () => {
               )}
             </div>
 
+            {/* 1b. Chip Điện / Nước */}
+            <UtilityFilterPopover
+              isOpen={activePopover === 'utility'}
+              onToggle={() => setActivePopover((p) => (p === 'utility' ? null : 'utility'))}
+              onClose={() => setActivePopover(null)}
+              value={{
+                minElectricityPrice: filterStore.minElectricityPrice,
+                maxElectricityPrice: filterStore.maxElectricityPrice,
+                minWaterPrice: filterStore.minWaterPrice,
+                maxWaterPrice: filterStore.maxWaterPrice,
+                waterByPerson: filterStore.waterByPerson,
+              }}
+              onApply={(next) => {
+                filterStore.setElectricityRange(next.minElectricityPrice, next.maxElectricityPrice);
+                filterStore.setWaterFilter(
+                  next.minWaterPrice,
+                  next.maxWaterPrice,
+                  next.waterByPerson,
+                );
+                setCurrentPage(0);
+              }}
+              buttonPaddingClass="px-2 xl:px-2.5"
+            />
+
             {/* 2. Chip Loại phòng */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   filterStore.categoryId || activePopover === 'category'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{categoryLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[82px] xl:max-w-[104px] truncate">{categoryLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'category' && (
@@ -412,14 +448,14 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasAreaFilter || activePopover === 'area'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{areaLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[100px] truncate">{areaLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'area' && (
@@ -457,14 +493,14 @@ export const SearchPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     filterStore.capacity !== undefined || activePopover === 'capacity'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{capacityLabel}</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span className="max-w-[74px] xl:max-w-[92px] truncate">{capacityLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                 </button>
 
                 {activePopover === 'capacity' && (
@@ -501,14 +537,14 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   amenityCount > 0 || activePopover === 'amenities'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <span>{amenityCount > 0 ? `Tiện ích (${amenityCount})` : 'Tiện ích'}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'amenities' && (
@@ -572,14 +608,14 @@ export const SearchPage: React.FC = () => {
                   setProvinceSearch('');
                   setActivePopover((p) => (p === 'province' ? null : 'province'));
                 }}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   filterStore.province || activePopover === 'province'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{provinceLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[82px] xl:max-w-[104px] truncate">{provinceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'province' && (
@@ -661,7 +697,7 @@ export const SearchPage: React.FC = () => {
               })()}
 
               {activePopover === 'sort' && (
-                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-56 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
                   {ROOM_SORT_OPTIONS.map((option) => {
                     const selected = sortBy === option.value;
                     return (
@@ -692,10 +728,12 @@ export const SearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2.5 sm:px-3 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
+                title="Xóa bộ lọc"
+                aria-label="Xóa bộ lọc"
+                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>Xóa lọc</span>
+                <span>Xóa</span>
               </button>
             )}
             </div>

@@ -36,12 +36,25 @@ export interface MapViewportState {
   zoom: number;
 }
 
-export type MapSortOption = 'NEWEST' | 'OLDEST' | 'PRICE_ASC' | 'PRICE_DESC';
+export type MapSortOption =
+  | 'NEWEST'
+  | 'OLDEST'
+  | 'PRICE_ASC'
+  | 'PRICE_DESC'
+  | 'ELECTRICITY_ASC'
+  | 'ELECTRICITY_DESC'
+  | 'WATER_ASC'
+  | 'WATER_DESC';
 
 interface RoomFilterState {
   keyword: string;
   minPrice?: number;
   maxPrice?: number;
+  minElectricityPrice?: number;
+  maxElectricityPrice?: number;
+  minWaterPrice?: number;
+  maxWaterPrice?: number;
+  waterByPerson?: boolean;
   minArea?: number;
   maxArea?: number;
   capacity?: number;
@@ -63,6 +76,8 @@ interface RoomFilterState {
 
   setKeyword: (keyword: string) => void;
   setPriceRange: (min?: number, max?: number) => void;
+  setElectricityRange: (min?: number, max?: number) => void;
+  setWaterFilter: (min?: number, max?: number, byPerson?: boolean) => void;
   setAreaRange: (min?: number, max?: number) => void;
   setCapacity: (capacity?: number) => void;
   setProvince: (province?: string) => void;
@@ -88,6 +103,11 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
   keyword: '',
   minPrice: undefined,
   maxPrice: undefined,
+  minElectricityPrice: undefined,
+  maxElectricityPrice: undefined,
+  minWaterPrice: undefined,
+  maxWaterPrice: undefined,
+  waterByPerson: undefined,
   minArea: undefined,
   maxArea: undefined,
   capacity: undefined,
@@ -109,6 +129,10 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
 
   setKeyword: (keyword) => set({ keyword }),
   setPriceRange: (minPrice, maxPrice) => set({ minPrice, maxPrice }),
+  setElectricityRange: (minElectricityPrice, maxElectricityPrice) =>
+    set({ minElectricityPrice, maxElectricityPrice }),
+  setWaterFilter: (minWaterPrice, maxWaterPrice, waterByPerson) =>
+    set({ minWaterPrice, maxWaterPrice, waterByPerson }),
   setAreaRange: (minArea, maxArea) => set({ minArea, maxArea }),
   setCapacity: (capacity) => set({ capacity }),
   setProvince: (province) => set({ province }),
@@ -143,6 +167,11 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
       keyword: '',
       minPrice: undefined,
       maxPrice: undefined,
+      minElectricityPrice: undefined,
+      maxElectricityPrice: undefined,
+      minWaterPrice: undefined,
+      maxWaterPrice: undefined,
+      waterByPerson: undefined,
       minArea: undefined,
       maxArea: undefined,
       capacity: undefined,
@@ -160,6 +189,14 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
     let count = 0;
     if (s.keyword.trim().length > 0) count++;
     if (s.minPrice !== undefined || s.maxPrice !== undefined) count++;
+    if (s.minElectricityPrice !== undefined || s.maxElectricityPrice !== undefined) count++;
+    if (
+      s.minWaterPrice !== undefined ||
+      s.maxWaterPrice !== undefined ||
+      s.waterByPerson !== undefined
+    ) {
+      count++;
+    }
     if (s.minArea !== undefined || s.maxArea !== undefined) count++;
     if (s.capacity !== undefined) count++;
     if (s.province !== undefined) count++;
@@ -175,6 +212,11 @@ export const useRoomFilterStore = create<RoomFilterState>((set, get) => ({
       area: s.province || undefined,
       minGia: s.minPrice,
       maxGia: s.maxPrice,
+      minGiaDien: s.minElectricityPrice,
+      maxGiaDien: s.maxElectricityPrice,
+      minGiaNuoc: s.minWaterPrice,
+      maxGiaNuoc: s.maxWaterPrice,
+      nuocTheoNguoi: s.waterByPerson,
       minDienTich: s.minArea,
       maxDienTich: s.maxArea,
       soNguoi: s.capacity,

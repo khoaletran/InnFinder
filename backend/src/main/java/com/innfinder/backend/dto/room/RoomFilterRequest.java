@@ -26,6 +26,12 @@ public class RoomFilterRequest {
     // Khoảng giá thuê (VNĐ)
     private Long minGia;
     private Long maxGia;
+    // Khoảng giá điện (VNĐ/kWh) & giá nước (VNĐ)
+    private Long minGiaDien;
+    private Long maxGiaDien;
+    private Long minGiaNuoc;
+    private Long maxGiaNuoc;
+    private Boolean nuocTheoNguoi;
     // Khoảng diện tích (m2)
     private Integer minDienTich;
     private Integer maxDienTich;
@@ -40,6 +46,6 @@ public class RoomFilterRequest {
     // Phân trang & Sắp xếp
     private int page = 0;
     private int size = 10;
-    private String sortBy = "thoiGianDang"; // thoiGianDang, giaThue, dienTich
+    private String sortBy = "thoiGianDang"; // thoiGianDang, giaThue, dienTich, giaDien, giaNuoc.gia
     private String sortDirection = "DESC";  // ASC hoặc DESC
 }

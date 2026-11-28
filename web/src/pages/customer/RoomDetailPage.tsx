@@ -26,7 +26,14 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { formatDate, formatVND, formatVNDShort, getValidCoords } from '@/utils/formatters';
+import {
+  formatDate,
+  formatElectricityPrice,
+  formatVND,
+  formatVNDShort,
+  formatWaterPrice,
+  getValidCoords,
+} from '@/utils/formatters';
 
 export const RoomDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -346,23 +353,46 @@ export const RoomDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Thông số chính (3 cột gọn gàng, không trùng giá/cọc ở card phải) */}
-            <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
-              <div className="text-center p-2">
-                <div className="text-base font-extrabold text-slate-800">{room.dienTich} m²</div>
-                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Diện tích</div>
-              </div>
-
-              <div className="text-center p-2 border-l border-slate-200">
-                <div className="text-base font-extrabold text-slate-800">{roomTypeLabel}</div>
-                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Loại phòng</div>
-              </div>
-
-              <div className="text-center p-2 border-l border-slate-200">
-                <div className="text-base font-extrabold text-slate-800">
-                  {room.soNguoi || 2} người
+            {/* Thông số chính & Chi phí điện nước */}
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-100">
+                <div className="text-center p-2">
+                  <div className="text-base font-extrabold text-slate-800">{room.dienTich} m²</div>
+                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">Diện tích</div>
                 </div>
-                <div className="text-[11px] font-medium text-slate-500 mt-0.5">Sức chứa</div>
+
+                <div className="text-center p-2 border-l border-slate-200">
+                  <div className="text-base font-extrabold text-slate-800">{roomTypeLabel}</div>
+                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">Loại phòng</div>
+                </div>
+
+                <div className="text-center p-2 border-l border-slate-200">
+                  <div className="text-base font-extrabold text-slate-800">
+                    {room.soNguoi || 2} người
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">Sức chứa</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 text-xs">
+                  <span className="font-semibold text-slate-700">Giá điện</span>
+                  <strong className="text-slate-900 font-bold">
+                    {formatElectricityPrice(room.giaDien)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-sky-50/60 border border-sky-200/70 text-xs">
+                  <span className="font-semibold text-slate-700">Giá nước</span>
+                  <strong className="text-slate-900 font-bold">
+                    {formatWaterPrice(room.giaNuoc)}
+                    {room.giaNuoc && room.giaNuoc.gia > 0 && (
+                      <span className="font-medium text-slate-500">
+                        {' '}
+                        ({room.giaNuoc.theoNguoi ? 'theo đầu người' : 'theo m³'})
+                      </span>
+                    )}
+                  </strong>
+                </div>
               </div>
             </div>
 
@@ -482,16 +512,16 @@ export const RoomDetailPage: React.FC = () => {
                   <div className="flex justify-between text-slate-600">
                     <span>Giá điện:</span>
                     <strong className="text-slate-900">
-                      {room.giaDien && room.giaDien > 0
-                        ? `${formatVND(room.giaDien)} / kWh`
-                        : 'Thỏa thuận'}
+                      {formatElectricityPrice(room.giaDien)}
                     </strong>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Giá nước:</span>
-                    <strong className="text-slate-900">
+                    <strong className="text-slate-900 text-right">
                       {room.giaNuoc && room.giaNuoc.gia > 0
-                        ? `${formatVND(room.giaNuoc.gia)} / ${room.giaNuoc.theoNguoi ? 'người' : 'm³'}`
+                        ? `${formatWaterPrice(room.giaNuoc)} (${
+                            room.giaNuoc.theoNguoi ? 'đầu người' : 'theo m³'
+                          })`
                         : 'Thỏa thuận'}
                     </strong>
                   </div>

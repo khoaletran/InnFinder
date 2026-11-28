@@ -2,7 +2,7 @@ import { Card } from '@heroui/react';
 import { ArrowUpRight, CalendarDays, MapPin, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { formatVNDShort } from '@/utils/formatters';
+import { formatElectricityPrice, formatVNDShort, formatWaterPrice } from '@/utils/formatters';
 
 interface Props {
   room: RoomSummaryResponse;
@@ -28,6 +28,9 @@ export function ChatRoomCard({ room, index, disabled, onAsk, onBook }: Props) {
             <span className="line-clamp-1">{title}</span><ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
           </Link>
           <p className="text-sm font-extrabold text-teal-700">{formatVNDShort(room.giaThue)}</p>
+          <p className="line-clamp-1 text-[11px] font-medium text-slate-600">
+            Điện: {formatElectricityPrice(room.giaDien)} · Nước: {formatWaterPrice(room.giaNuoc)}
+          </p>
           <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500">{room.diaChi}</p>
         </Card.Content>
       </div>

@@ -21,20 +21,30 @@ import {
   buildCapacityOptions,
   buildNumericBrackets,
   formatMillions,
+  hasUtilityFilter,
   matchesProvinceAddress,
+  matchesUtilityFilter,
   ROOM_SORT_OPTIONS,
   sortRoomsByOption,
+  type UtilityFilterValue,
   VIETNAM_PROVINCES,
 } from '@/components/room/searchHelpers';
+import { UtilityFilterPopover } from '@/components/room/UtilityFilterPopover';
 import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { MapSortOption } from '@/store/useRoomFilterStore';
 import type { RoomDetailResponse } from '@/types/room.types';
-import { formatVND, formatVNDShort } from '@/utils/formatters';
+import {
+  formatElectricityPrice,
+  formatVND,
+  formatVNDShort,
+  formatWaterPrice,
+} from '@/utils/formatters';
 
 type ActivePopover =
   | 'price'
+  | 'utility'
   | 'category'
   | 'area'
   | 'capacity'
@@ -79,6 +89,7 @@ export const FavoritesPage: React.FC = () => {
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
+  const [utilityFilter, setUtilityFilter] = useState<UtilityFilterValue>({});
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [minArea, setMinArea] = useState<number | undefined>(undefined);
   const [maxArea, setMaxArea] = useState<number | undefined>(undefined);
@@ -277,6 +288,14 @@ export const FavoritesPage: React.FC = () => {
         (minPrice === undefined || r.giaThue >= minPrice) &&
         (maxPrice === undefined || r.giaThue <= maxPrice);
 
+      const matchUtility = matchesUtilityFilter(
+        {
+          giaDien: detail?.giaDien ?? r.giaDien,
+          giaNuoc: detail?.giaNuoc ?? r.giaNuoc,
+        },
+        utilityFilter,
+      );
+
       const matchCategory = !selectedCategory || roomTypeLabel === selectedCategory;
 
       const matchArea =
@@ -295,6 +314,7 @@ export const FavoritesPage: React.FC = () => {
       return (
         matchSearch &&
         matchPrice &&
+        matchUtility &&
         matchCategory &&
         matchArea &&
         matchCapacity &&
@@ -311,6 +331,7 @@ export const FavoritesPage: React.FC = () => {
     dbMatchedIds,
     minPrice,
     maxPrice,
+    utilityFilter,
     selectedCategory,
     minArea,
     maxArea,
@@ -347,6 +368,7 @@ export const FavoritesPage: React.FC = () => {
     setSubmittedQuery('');
     setMinPrice(undefined);
     setMaxPrice(undefined);
+    setUtilityFilter({});
     setSelectedCategory(undefined);
     setMinArea(undefined);
     setMaxArea(undefined);
@@ -375,6 +397,7 @@ export const FavoritesPage: React.FC = () => {
     Boolean(submittedQuery.trim()) ||
     Boolean(searchInput.trim()) ||
     hasPriceFilter ||
+    hasUtilityFilter(utilityFilter) ||
     Boolean(selectedCategory) ||
     hasAreaFilter ||
     capacity !== undefined ||
@@ -387,12 +410,12 @@ export const FavoritesPage: React.FC = () => {
       {rooms.length > 0 && (
         <div
           ref={popoverBarRef}
-          className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200 shadow-xs sticky top-[104px] z-30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5"
+          className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200 shadow-xs sticky top-[104px] z-30 flex flex-col lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between gap-2"
         >
-          <div className="flex flex-col lg:flex-row lg:items-center gap-1.5 w-full lg:flex-1 lg:min-w-0">
+          <div className="flex flex-col lg:flex-row lg:flex-nowrap lg:items-center gap-1.5 w-full lg:flex-1 lg:min-w-0">
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center w-full lg:w-[200px] xl:w-[220px] shrink-0"
+              className="flex items-center w-full lg:flex-1 lg:min-w-[120px] lg:max-w-[185px]"
             >
               <div className="flex-1 relative flex items-center">
                 <input
@@ -400,7 +423,7 @@ export const FavoritesPage: React.FC = () => {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Mô tả phòng cần tìm"
-                  className="w-full h-9 pl-3.5 pr-10 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
+                  className="w-full h-9 pl-3.5 pr-9 bg-slate-50 focus:bg-white text-xs sm:text-sm text-slate-900 rounded-xl border border-slate-200 focus:border-teal-600 outline-none transition-colors placeholder:text-slate-500"
                 />
                 <button
                   type="submit"
@@ -413,20 +436,20 @@ export const FavoritesPage: React.FC = () => {
               </div>
             </form>
 
-            <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5">
+            <div className="flex flex-wrap lg:flex-nowrap lg:shrink-0 items-center gap-1 xl:gap-1.5">
             {/* 1. Chip Giá */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasPriceFilter || activePopover === 'price'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{priceLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[96px] truncate">{priceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'price' && (
@@ -457,19 +480,29 @@ export const FavoritesPage: React.FC = () => {
               )}
             </div>
 
+            {/* 1b. Chip Điện / Nước */}
+            <UtilityFilterPopover
+              isOpen={activePopover === 'utility'}
+              onToggle={() => setActivePopover((p) => (p === 'utility' ? null : 'utility'))}
+              onClose={() => setActivePopover(null)}
+              value={utilityFilter}
+              onApply={setUtilityFilter}
+              buttonPaddingClass="px-2 xl:px-2.5"
+            />
+
             {/* 2. Chip Loại phòng */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedCategory || activePopover === 'category'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{categoryLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[96px] truncate">{categoryLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'category' && (
@@ -519,14 +552,14 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasAreaFilter || activePopover === 'area'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{areaLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[96px] truncate">{areaLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'area' && (
@@ -563,14 +596,14 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     capacity !== undefined || activePopover === 'capacity'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{capacityLabel}</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span className="max-w-[74px] xl:max-w-[88px] truncate">{capacityLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                 </button>
 
                 {activePopover === 'capacity' && (
@@ -607,14 +640,14 @@ export const FavoritesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     amenityCount > 0 || activePopover === 'amenities'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <span>{amenityCount > 0 ? `Tiện ích (${amenityCount})` : 'Tiện ích'}</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                 </button>
 
                 {activePopover === 'amenities' && (
@@ -674,14 +707,14 @@ export const FavoritesPage: React.FC = () => {
                   setProvinceSearch('');
                   setActivePopover((p) => (p === 'province' ? null : 'province'));
                 }}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 xl:px-3 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   selectedProvince || activePopover === 'province'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{provinceLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[96px] truncate">{provinceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'province' && (
@@ -755,7 +788,7 @@ export const FavoritesPage: React.FC = () => {
               </button>
 
               {activePopover === 'sort' && (
-                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-56 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
                   {ROOM_SORT_OPTIONS.map((option) => {
                     const selected = sortOption === option.value;
                     return (
@@ -785,10 +818,12 @@ export const FavoritesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
+                title="Xóa bộ lọc"
+                aria-label="Xóa bộ lọc"
+                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>Xóa lọc</span>
+                <span>Xóa</span>
               </button>
             )}
             </div>
@@ -797,7 +832,7 @@ export const FavoritesPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/search')}
-            className="w-full sm:w-auto lg:ml-auto inline-flex items-center justify-center gap-1.5 h-9 px-3 xl:px-3.5 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            className="w-full sm:w-auto lg:ml-auto inline-flex items-center justify-center gap-1.5 h-9 px-2.5 xl:px-3 rounded-full bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Tìm thêm phòng</span>
@@ -937,6 +972,10 @@ export const FavoritesPage: React.FC = () => {
                         </p>
                         <p className="text-[11px] text-slate-500">
                           Cọc: {formatVND(contractDeposit)}
+                        </p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Điện: {formatElectricityPrice(detail?.giaDien ?? room.giaDien)} · Nước:{' '}
+                          {formatWaterPrice(detail?.giaNuoc ?? room.giaNuoc)}
                         </p>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">

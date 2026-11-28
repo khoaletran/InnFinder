@@ -31,17 +31,23 @@ import {
   sortRoomsByOption,
 } from '@/components/room/searchHelpers';
 import { SearchModeTabs } from '@/components/room/SearchModeTabs';
+import { UtilityFilterPopover } from '@/components/room/UtilityFilterPopover';
 import { roomService } from '@/services/room.service';
 import { useRoomFilterStore } from '@/store/useRoomFilterStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { formatVNDShort, getValidCoords } from '@/utils/formatters';
+import {
+  formatElectricityPrice,
+  formatVNDShort,
+  formatWaterPrice,
+  getValidCoords,
+} from '@/utils/formatters';
 import {
   getCachedAddressSuggestions,
   searchAddressSuggestions,
   type AddressSuggestion,
 } from '@/utils/geocoding';
 
-type ActivePopover = 'price' | 'category' | 'area' | 'capacity' | 'amenities' | 'sort' | null;
+type ActivePopover = 'price' | 'utility' | 'category' | 'area' | 'capacity' | 'amenities' | 'sort' | null;
 
 export const MapSearchPage: React.FC = () => {
   const navigate = useNavigate();
@@ -277,6 +283,11 @@ export const MapSearchPage: React.FC = () => {
       {
         minPrice: filterStore.minPrice,
         maxPrice: filterStore.maxPrice,
+        minElectricityPrice: filterStore.minElectricityPrice,
+        maxElectricityPrice: filterStore.maxElectricityPrice,
+        minWaterPrice: filterStore.minWaterPrice,
+        maxWaterPrice: filterStore.maxWaterPrice,
+        waterByPerson: filterStore.waterByPerson,
         minArea: filterStore.minArea,
         maxArea: filterStore.maxArea,
         capacity: filterStore.capacity,
@@ -290,6 +301,11 @@ export const MapSearchPage: React.FC = () => {
       const res = await roomService.searchRooms({
         minGia: filterStore.minPrice,
         maxGia: filterStore.maxPrice,
+        minGiaDien: filterStore.minElectricityPrice,
+        maxGiaDien: filterStore.maxElectricityPrice,
+        minGiaNuoc: filterStore.minWaterPrice,
+        maxGiaNuoc: filterStore.maxWaterPrice,
+        nuocTheoNguoi: filterStore.waterByPerson,
         minDienTich: filterStore.minArea,
         maxDienTich: filterStore.maxArea,
         soNguoi: filterStore.capacity,
@@ -434,10 +450,10 @@ export const MapSearchPage: React.FC = () => {
         ref={popoverBarRef}
         className="bg-white border-b border-slate-200 py-2.5 z-30 shrink-0"
       >
-        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <div className="max-w-[1360px] w-full mx-auto px-4 sm:px-6 flex flex-col lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between gap-2">
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-1 xl:gap-1.5 w-full lg:flex-1 lg:min-w-0">
             {/* 0. Thanh tìm kiếm vị trí theo nhu cầu */}
-            <div ref={locationSearchRef} className="relative w-full sm:w-64 lg:w-72 shrink-0">
+            <div ref={locationSearchRef} className="relative w-full sm:w-64 lg:flex-1 lg:min-w-[145px] lg:max-w-[235px]">
               <form onSubmit={handleLocationSearchSubmit} className="relative flex items-center">
                 <input
                   type="text"
@@ -524,14 +540,14 @@ export const MapSearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'price' ? null : 'price'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasPriceFilter || activePopover === 'price'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{priceLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[82px] xl:max-w-[104px] truncate">{priceLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'price' && (
@@ -562,19 +578,42 @@ export const MapSearchPage: React.FC = () => {
               )}
             </div>
 
+            {/* 1b. Chip Điện / Nước */}
+            <UtilityFilterPopover
+              isOpen={activePopover === 'utility'}
+              onToggle={() => setActivePopover((p) => (p === 'utility' ? null : 'utility'))}
+              onClose={() => setActivePopover(null)}
+              value={{
+                minElectricityPrice: filterStore.minElectricityPrice,
+                maxElectricityPrice: filterStore.maxElectricityPrice,
+                minWaterPrice: filterStore.minWaterPrice,
+                maxWaterPrice: filterStore.maxWaterPrice,
+                waterByPerson: filterStore.waterByPerson,
+              }}
+              onApply={(next) => {
+                filterStore.setElectricityRange(next.minElectricityPrice, next.maxElectricityPrice);
+                filterStore.setWaterFilter(
+                  next.minWaterPrice,
+                  next.maxWaterPrice,
+                  next.waterByPerson,
+                );
+              }}
+              buttonPaddingClass="px-2 xl:px-2.5"
+            />
+
             {/* 2. Chip Loại phòng */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'category' ? null : 'category'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   filterStore.categoryId || activePopover === 'category'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{categoryLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[82px] xl:max-w-[104px] truncate">{categoryLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'category' && (
@@ -626,14 +665,14 @@ export const MapSearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'area' ? null : 'area'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   hasAreaFilter || activePopover === 'area'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <span>{areaLabel}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="max-w-[78px] xl:max-w-[100px] truncate">{areaLabel}</span>
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'area' && (
@@ -670,14 +709,14 @@ export const MapSearchPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActivePopover((p) => (p === 'capacity' ? null : 'capacity'))}
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     filterStore.capacity !== undefined || activePopover === 'capacity'
                       ? 'bg-teal-50 text-teal-800 border-teal-500'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{capacityLabel}</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span className="max-w-[74px] xl:max-w-[92px] truncate">{capacityLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                 </button>
 
                 {activePopover === 'capacity' && (
@@ -713,14 +752,14 @@ export const MapSearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActivePopover((p) => (p === 'amenities' ? null : 'amenities'))}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 h-8 sm:h-9 px-2 xl:px-2.5 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   amenityCount > 0 || activePopover === 'amenities'
                     ? 'bg-teal-50 text-teal-800 border-teal-500'
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <span>{amenityCount > 0 ? `Tiện ích (${amenityCount})` : 'Tiện ích'}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               {activePopover === 'amenities' && (
@@ -795,7 +834,7 @@ export const MapSearchPage: React.FC = () => {
               })()}
 
               {activePopover === 'sort' && (
-                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-48 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
+                <div className="fixed inset-x-4 mt-2 sm:inset-x-auto sm:absolute sm:left-0 sm:w-56 bg-white rounded-2xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
                   {ROOM_SORT_OPTIONS.map((option) => {
                     const selected = sortBy === option.value;
                     return (
@@ -825,10 +864,12 @@ export const MapSearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2.5 sm:px-3 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
+                title="Xóa bộ lọc"
+                aria-label="Xóa bộ lọc"
+                className="inline-flex items-center gap-1 h-8 sm:h-9 px-2 rounded-full text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>Xóa lọc</span>
+                <span>Xóa</span>
               </button>
             )}
           </div>
@@ -944,6 +985,10 @@ export const MapSearchPage: React.FC = () => {
 
                           <p className="text-xs font-extrabold text-teal-700 mt-0.5">
                             {formatVNDShort(room.giaThue)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            Điện: {formatElectricityPrice(room.giaDien)} · Nước:{' '}
+                            {formatWaterPrice(room.giaNuoc)}
                           </p>
                         </div>
 

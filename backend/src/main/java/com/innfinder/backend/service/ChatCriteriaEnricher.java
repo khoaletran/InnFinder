@@ -68,6 +68,11 @@ final class ChatCriteriaEnricher {
 
         Long parsedMinPrice = parsed.getMinGia();
         Long parsedMaxPrice = parsed.getMaxGia();
+        Long parsedMinElectricity = parsed.getMinGiaDien();
+        Long parsedMaxElectricity = parsed.getMaxGiaDien();
+        Long parsedMinWater = parsed.getMinGiaNuoc();
+        Long parsedMaxWater = parsed.getMaxGiaNuoc();
+        Boolean parsedWaterByPerson = parsed.getNuocTheoNguoi();
         Integer parsedMinArea = parsed.getMinDienTich();
         Integer parsedMaxArea = parsed.getMaxDienTich();
         Integer parsedCapacity = parsed.getSoNguoi();
@@ -86,10 +91,16 @@ final class ChatCriteriaEnricher {
             parsedMaxPrice = CHEAP_MAX_PRICE_VND;
         }
 
+        String matchedUtilitySort = matchUtilitySort(normalized);
         String matchedCategory = matchCategoryId(normalized, roomTypes);
         List<String> matchedAmenities = matchAmenityIds(normalized, amenities);
 
+        boolean hasParsedElec = parsedMinElectricity != null || parsedMaxElectricity != null;
+        boolean hasParsedWater = parsedMinWater != null || parsedMaxWater != null;
+
         boolean foundAnyParsed = parsedMinPrice != null || parsedMaxPrice != null
+                || hasParsedElec || hasParsedWater || parsedWaterByPerson != null
+                || matchedUtilitySort != null
                 || parsedMinArea != null || parsedMaxArea != null || parsedCapacity != null
                 || matchedCategory != null || !matchedAmenities.isEmpty();
         if (base == null && !foundAnyParsed) {
@@ -99,6 +110,21 @@ final class ChatCriteriaEnricher {
         String location = base == null ? null : base.location();
         Long minPrice = parsedMinPrice != null ? parsedMinPrice : (base == null ? null : base.minPrice());
         Long maxPrice = parsedMaxPrice != null ? parsedMaxPrice : (base == null ? null : base.maxPrice());
+        Long minElectricityPrice = hasParsedElec
+                ? parsedMinElectricity
+                : (base == null ? null : base.minElectricityPrice());
+        Long maxElectricityPrice = hasParsedElec
+                ? parsedMaxElectricity
+                : (base == null ? null : base.maxElectricityPrice());
+        Long minWaterPrice = hasParsedWater
+                ? parsedMinWater
+                : (base == null ? null : base.minWaterPrice());
+        Long maxWaterPrice = hasParsedWater
+                ? parsedMaxWater
+                : (base == null ? null : base.maxWaterPrice());
+        Boolean waterByPerson = parsedWaterByPerson != null
+                ? parsedWaterByPerson
+                : (base == null ? null : base.waterByPerson());
         Integer minArea = parsedMinArea != null ? parsedMinArea : (base == null ? null : base.minArea());
         Integer maxArea = parsedMaxArea != null ? parsedMaxArea : (base == null ? null : base.maxArea());
         Integer capacity = parsedCapacity != null ? parsedCapacity : (base == null ? null : base.capacity());
@@ -111,7 +137,9 @@ final class ChatCriteriaEnricher {
         }
         mergedAmenities.addAll(matchedAmenities);
 
-        String sort = base != null ? base.sort() : (mentionsCheap ? "PRICE_ASC" : "RELEVANCE");
+        String sort = matchedUtilitySort != null
+                ? matchedUtilitySort
+                : (base != null ? base.sort() : (mentionsCheap ? "PRICE_ASC" : "RELEVANCE"));
         if (mentionsCheap && (sort == null || "RELEVANCE".equals(sort))) {
             sort = "PRICE_ASC";
         }
@@ -120,12 +148,49 @@ final class ChatCriteriaEnricher {
                 location,
                 minPrice,
                 maxPrice,
+                minElectricityPrice,
+                maxElectricityPrice,
+                minWaterPrice,
+                maxWaterPrice,
+                waterByPerson,
                 minArea,
                 maxArea,
                 capacity,
                 categoryId,
                 new ArrayList<>(mergedAmenities),
                 sort);
+    }
+
+    private static String matchUtilitySort(String normalizedMsg) {
+        if (containsWordOrPhrase(normalizedMsg, "gia dien tang")
+                || containsWordOrPhrase(normalizedMsg, "dien tang")
+                || containsWordOrPhrase(normalizedMsg, "dien re nhat")
+                || containsWordOrPhrase(normalizedMsg, "gia dien thap nhat")
+                || containsWordOrPhrase(normalizedMsg, "dien thap nhat")) {
+            return "ELECTRICITY_ASC";
+        }
+        if (containsWordOrPhrase(normalizedMsg, "gia dien giam")
+                || containsWordOrPhrase(normalizedMsg, "dien giam")
+                || containsWordOrPhrase(normalizedMsg, "dien cao nhat")
+                || containsWordOrPhrase(normalizedMsg, "gia dien cao nhat")
+                || containsWordOrPhrase(normalizedMsg, "dien dat nhat")) {
+            return "ELECTRICITY_DESC";
+        }
+        if (containsWordOrPhrase(normalizedMsg, "gia nuoc tang")
+                || containsWordOrPhrase(normalizedMsg, "nuoc tang")
+                || containsWordOrPhrase(normalizedMsg, "nuoc re nhat")
+                || containsWordOrPhrase(normalizedMsg, "gia nuoc thap nhat")
+                || containsWordOrPhrase(normalizedMsg, "nuoc thap nhat")) {
+            return "WATER_ASC";
+        }
+        if (containsWordOrPhrase(normalizedMsg, "gia nuoc giam")
+                || containsWordOrPhrase(normalizedMsg, "nuoc giam")
+                || containsWordOrPhrase(normalizedMsg, "nuoc cao nhat")
+                || containsWordOrPhrase(normalizedMsg, "gia nuoc cao nhat")
+                || containsWordOrPhrase(normalizedMsg, "nuoc dat nhat")) {
+            return "WATER_DESC";
+        }
+        return null;
     }
 
     private static String matchCategoryId(String normalizedMsg, List<CategoryResponse> roomTypes) {

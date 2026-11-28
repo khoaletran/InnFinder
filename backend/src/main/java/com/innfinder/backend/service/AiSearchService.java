@@ -73,8 +73,13 @@ public class AiSearchService {
             } catch (Exception ignored) { /* Never compare corrupt or old vectors. */ }
         }
         List<Double> query = null;
-        // Do not wait for a query embedding if the candidate set is incomplete or the user explicitly sorts by price.
-        if (current.size() == candidates.size() && !"PRICE_ASC".equals(sort) && !"PRICE_DESC".equals(sort)
+        boolean explicitOrderSort = sort != null && Set.of(
+                "PRICE_ASC", "PRICE_DESC",
+                "ELECTRICITY_ASC", "ELECTRICITY_DESC",
+                "WATER_ASC", "WATER_DESC"
+        ).contains(sort);
+        // Do not wait for a query embedding if the candidate set is incomplete or the user explicitly sorts by rent/utility price.
+        if (current.size() == candidates.size() && !explicitOrderSort
                 && prompt != null && !prompt.isBlank()) {
             try { query = embedding.getEmbedding(prompt); }
             catch (com.innfinder.backend.exception.AppException ignored) { /* Explicit FILTERED mode below. */ }
@@ -87,10 +92,18 @@ public class AiSearchService {
                     : lexicalScore(prompt, room.text());
             scored.add(new Scored(room, score));
         }
-        Comparator<Scored> order = Comparator.comparingDouble(Scored::score).reversed()
-                .thenComparing(s -> s.room().summary().getMaPhongTro());
-        if ("PRICE_ASC".equals(sort)) order = Comparator.comparingLong(s -> s.room().summary().getGiaThue());
-        if ("PRICE_DESC".equals(sort)) order = Comparator.<Scored>comparingLong(s -> s.room().summary().getGiaThue()).reversed();
+        Comparator<Scored> order = switch (sort == null ? "RELEVANCE" : sort) {
+            case "PRICE_ASC" -> Comparator.comparingLong(s -> s.room().summary().getGiaThue());
+            case "PRICE_DESC" -> Comparator.<Scored>comparingLong(s -> s.room().summary().getGiaThue()).reversed();
+            case "ELECTRICITY_ASC" -> Comparator.comparingLong(s -> normalizeUtilityForAsc(s.room().summary().getGiaDien()));
+            case "ELECTRICITY_DESC" -> Comparator.<Scored>comparingLong(s -> normalizeUtilityForDesc(s.room().summary().getGiaDien())).reversed();
+            case "WATER_ASC" -> Comparator.comparingLong(s -> normalizeUtilityForAsc(
+                    s.room().summary().getGiaNuoc() == null ? null : s.room().summary().getGiaNuoc().getGia()));
+            case "WATER_DESC" -> Comparator.<Scored>comparingLong(s -> normalizeUtilityForDesc(
+                    s.room().summary().getGiaNuoc() == null ? null : s.room().summary().getGiaNuoc().getGia())).reversed();
+            default -> Comparator.comparingDouble(Scored::score).reversed()
+                    .thenComparing(s -> s.room().summary().getMaPhongTro());
+        };
         boolean boostPhongTro = (filter == null || filter.getMaLpt() == null || filter.getMaLpt().isBlank())
                 && prefersPhongTro(prompt);
         if (boostPhongTro) {
@@ -98,6 +111,14 @@ public class AiSearchService {
         }
         return new Result(scored.stream().sorted(order).limit(Math.clamp(limit, 1, 30)).map(Scored::room).toList(),
                 semantic ? "SEMANTIC" : "FILTERED");
+    }
+
+    private static long normalizeUtilityForAsc(Long value) {
+        return (value == null || value <= 0) ? Long.MAX_VALUE : value;
+    }
+
+    private static long normalizeUtilityForDesc(Long value) {
+        return (value == null || value <= 0) ? -1L : value;
     }
 
     public static boolean prefersPhongTro(String prompt) {

@@ -47,7 +47,12 @@ public class ChatService {
             - QUESTION: khi chào hỏi, cảm ơn, trò chuyện tư vấn kinh nghiệm thuê trọ/sinh viên, hỏi quy trình, hoặc câu hỏi ngoài phạm vi. Hỏi 'đặt lịch thế nào?' là QUESTION.
             query: mô tả nhu cầu ngữ nghĩa ĐẦY ĐỦ, kết hợp các lượt trước khi khách hỏi tiếp. Nếu khách muốn xem 'tất cả các phòng', 'xem các phòng đang có' hoặc gợi ý chung không nêu tiêu chí, đặt query="" và xóa sạch các tiêu chí lọc trong criteria (không kế thừa previousCriteria).
             criteria: toàn bộ tiêu chí đang hiệu lực, kế thừa previousCriteria trừ khi khách đổi/xóa hoặc muốn xem tất cả phòng.
-            Tiền là VNĐ: 3 triệu=3000000, 3,5tr=3500000. Diện tích m². capacity là số người cần ở.
+            Tiền là VNĐ: 3 triệu=3000000, 3,5tr=3500000; 3.5k/3k5=3500, 20k=20000, 100k=100000. Diện tích m². capacity là số người cần ở.
+            Giá điện & nước:
+            - minElectricityPrice / maxElectricityPrice (VNĐ/kWh): thấp hơn/dưới X -> đặt maxElectricityPrice=X; cao hơn/trên X -> đặt minElectricityPrice=X; khoảng từ X đến Y -> đặt cả min và max; chính xác X -> đặt cả minElectricityPrice=X và maxElectricityPrice=X; 'điện thỏa thuận' / 'điện miễn phí' -> đặt minElectricityPrice=0 và maxElectricityPrice=0.
+            - minWaterPrice / maxWaterPrice (VNĐ): quy tắc thấp hơn / cao hơn / khoảng / chính xác / 'thỏa thuận' (0) tương tự giá điện.
+            - waterByPerson: true nếu khách yêu cầu nước tính theo đầu người (VD: 'nước theo người', '100k/người'); false nếu khách yêu cầu nước tính theo số khối / m³ / đồng hồ / giá cố định; null nếu không lọc cách tính nước.
+            - sort: dùng PRICE_ASC/PRICE_DESC cho giá phòng, ELECTRICITY_ASC/ELECTRICITY_DESC cho giá điện tăng/giảm, WATER_ASC/WATER_DESC cho giá nước tăng/giảm.
             location chỉ là địa danh có trong yêu cầu, KHÔNG chứa 'gần', 'tìm phòng', 'tất cả', tiện ích, giá.
             Nếu khách hỏi tìm phòng gần vị trí hiện tại ('gần tôi', 'gần đây', 'quanh đây', 'gần vị trí của tôi') hoặc gần một địa điểm cụ thể (khi có targetPlaceName hoặc 'gần <tên địa điểm/trường/bệnh viện>'), đặt location=null vì hệ thống sẽ lọc theo tọa độ bán kính 15 km.
             Khi hỏi gần trường/địa điểm nhưng chưa có targetPlaceName, giữ nhu cầu đó ở query, location=null;
@@ -314,6 +319,19 @@ public class ChatService {
             return room.getGiaThue() == null ? "Phòng này chưa có thông tin giá thuê. Bạn hãy hỏi thêm chủ trọ nhé."
                     : "Giá thuê phòng này là " + money(room.getGiaThue()) + "/tháng. Tiền thuê được thanh toán trực tiếp với chủ trọ, ngoài sàn InnFinder.";
         }
+        if (Set.of("gia dien phong nay bao nhieu", "phong nay gia dien bao nhieu", "tien dien phong nay bao nhieu",
+                "gia dien bao nhieu", "dien phong nay bao nhieu", "phong nay dien bao nhieu").contains(text)) {
+            return formatElectricitySummary(room) + " Bạn có thể xác nhận lại với chủ trọ khi đi xem phòng nhé.";
+        }
+        if (Set.of("gia nuoc phong nay bao nhieu", "phong nay gia nuoc bao nhieu", "tien nuoc phong nay bao nhieu",
+                "gia nuoc bao nhieu", "nuoc phong nay bao nhieu", "phong nay nuoc bao nhieu",
+                "nuoc tinh theo gi", "phong nay nuoc tinh theo gi").contains(text)) {
+            return formatWaterSummary(room) + " Bạn có thể xác nhận lại với chủ trọ khi đi xem phòng nhé.";
+        }
+        if (Set.of("dien nuoc phong nay bao nhieu", "gia dien nuoc phong nay bao nhieu",
+                "dien nuoc phong nay the nao", "gia dien nuoc bao nhieu").contains(text)) {
+            return formatElectricitySummary(room) + "\n" + formatWaterSummary(room);
+        }
         if (Set.of("tien coc phong nay la bao nhieu", "phong nay coc bao nhieu", "coc phong nay bao nhieu").contains(text)) {
             Integer viewing = room.getLoaiPhong() == null ? null : room.getLoaiPhong().getSoTienCoc();
             return "Cọc hợp đồng: " + (room.getCoc() == null ? "chưa có thông tin" : money(room.getCoc()))
@@ -329,6 +347,22 @@ public class ChatService {
                         + ". Bạn có thể kiểm tra thực tế khi đến xem phòng.";
         }
         return null;
+    }
+
+    private String formatElectricitySummary(RoomDetailResponse room) {
+        if (room.getGiaDien() == null || room.getGiaDien() <= 0) {
+            return "Giá điện phòng này hiện để mức thỏa thuận trực tiếp với chủ trọ.";
+        }
+        return "Giá điện phòng này là " + money(room.getGiaDien()) + "/kWh.";
+    }
+
+    private String formatWaterSummary(RoomDetailResponse room) {
+        if (room.getGiaNuoc() == null || room.getGiaNuoc().getGia() == null || room.getGiaNuoc().getGia() <= 0) {
+            return "Giá nước phòng này hiện để mức thỏa thuận trực tiếp với chủ trọ.";
+        }
+        boolean byPerson = Boolean.TRUE.equals(room.getGiaNuoc().getTheoNguoi());
+        return "Giá nước phòng này là " + money(room.getGiaNuoc().getGia())
+                + (byPerson ? "/người (tính theo đầu người)." : "/m³ (tính theo số khối / giá cố định).");
     }
 
     private String money(long amount) { return java.text.NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(amount) + " ₫"; }
@@ -362,13 +396,23 @@ public class ChatService {
             // Explicit filters are authoritative, including when a prompt suggests a different value.
             if (explicit.getMinGia() != null) filter.setMinGia(explicit.getMinGia());
             if (explicit.getMaxGia() != null) filter.setMaxGia(explicit.getMaxGia());
+            if (explicit.getMinGiaDien() != null) filter.setMinGiaDien(explicit.getMinGiaDien());
+            if (explicit.getMaxGiaDien() != null) filter.setMaxGiaDien(explicit.getMaxGiaDien());
+            if (explicit.getMinGiaNuoc() != null) filter.setMinGiaNuoc(explicit.getMinGiaNuoc());
+            if (explicit.getMaxGiaNuoc() != null) filter.setMaxGiaNuoc(explicit.getMaxGiaNuoc());
+            if (explicit.getNuocTheoNguoi() != null) filter.setNuocTheoNguoi(explicit.getNuocTheoNguoi());
             if (explicit.getMinDienTich() != null) filter.setMinDienTich(explicit.getMinDienTich());
             if (explicit.getMaxDienTich() != null) filter.setMaxDienTich(explicit.getMaxDienTich());
             if (explicit.getSoNguoi() != null) filter.setSoNguoi(explicit.getSoNguoi());
             if (explicit.getMaLpt() != null) filter.setMaLpt(explicit.getMaLpt());
             if (explicit.getDsTienIch() != null) filter.setDsTienIch(explicit.getDsTienIch());
             String sort = criteria == null ? null : criteria.sort();
-            if ("giaThue".equals(explicit.getSortBy())) sort = "ASC".equalsIgnoreCase(explicit.getSortDirection()) ? "PRICE_ASC" : "PRICE_DESC";
+            boolean explicitAsc = "ASC".equalsIgnoreCase(explicit.getSortDirection());
+            if ("giaThue".equals(explicit.getSortBy())) sort = explicitAsc ? "PRICE_ASC" : "PRICE_DESC";
+            else if ("giaDien".equals(explicit.getSortBy())) sort = explicitAsc ? "ELECTRICITY_ASC" : "ELECTRICITY_DESC";
+            else if ("giaNuoc".equals(explicit.getSortBy()) || "giaNuoc.gia".equals(explicit.getSortBy())) {
+                sort = explicitAsc ? "WATER_ASC" : "WATER_DESC";
+            }
             AiSearchService.Result result = search.search(plan.query(), filter, limit, sort);
             return new SearchResponse(result.rooms().stream().map(RoomDiscoveryService.Document::summary).toList(), criteria, result.mode());
         } finally {
@@ -410,6 +454,10 @@ public class ChatService {
     private void validateCriteria(SearchCriteria c) {
         if (c == null) return;
         if ((c.minPrice() != null && c.maxPrice() != null && c.minPrice() > c.maxPrice())
+                || (c.minElectricityPrice() != null && c.maxElectricityPrice() != null
+                        && c.minElectricityPrice() > c.maxElectricityPrice())
+                || (c.minWaterPrice() != null && c.maxWaterPrice() != null
+                        && c.minWaterPrice() > c.maxWaterPrice())
                 || (c.minArea() != null && c.maxArea() != null && c.minArea() > c.maxArea())) {
             throw new AppException(ErrorCode.INVALID_KEY);
         }
@@ -427,6 +475,8 @@ public class ChatService {
         facts.put("roomId", r.getMaPhongTro());
         facts.put("address", r.getDiaChi());
         facts.put("rent", r.getGiaThue());
+        facts.put("electricityPrice", r.getGiaDien());
+        facts.put("waterPrice", r.getGiaNuoc());
         facts.put("area", r.getDienTich());
         facts.put("capacity", r.getSoNguoi());
         facts.put("contractDeposit", r.getCoc());
@@ -498,6 +548,30 @@ public class ChatService {
                 return price == null ? Long.MIN_VALUE : price;
             }).reversed().thenComparingDouble(RoomDistance::km);
         }
+        if ("ELECTRICITY_ASC".equals(sort)) {
+            return Comparator.comparingLong((RoomDistance item) -> {
+                Long price = item.doc().summary().getGiaDien();
+                return (price == null || price <= 0) ? Long.MAX_VALUE : price;
+            }).thenComparingDouble(RoomDistance::km);
+        }
+        if ("ELECTRICITY_DESC".equals(sort)) {
+            return Comparator.comparingLong((RoomDistance item) -> {
+                Long price = item.doc().summary().getGiaDien();
+                return (price == null || price <= 0) ? -1L : price;
+            }).reversed().thenComparingDouble(RoomDistance::km);
+        }
+        if ("WATER_ASC".equals(sort)) {
+            return Comparator.comparingLong((RoomDistance item) -> {
+                Long price = item.doc().summary().getGiaNuoc() == null ? null : item.doc().summary().getGiaNuoc().getGia();
+                return (price == null || price <= 0) ? Long.MAX_VALUE : price;
+            }).thenComparingDouble(RoomDistance::km);
+        }
+        if ("WATER_DESC".equals(sort)) {
+            return Comparator.comparingLong((RoomDistance item) -> {
+                Long price = item.doc().summary().getGiaNuoc() == null ? null : item.doc().summary().getGiaNuoc().getGia();
+                return (price == null || price <= 0) ? -1L : price;
+            }).reversed().thenComparingDouble(RoomDistance::km);
+        }
         return Comparator.comparingDouble(RoomDistance::km);
     }
 
@@ -550,10 +624,21 @@ public class ChatService {
     private Map<String, Object> planSchema() {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("location", nullable("STRING"));
-        for (String key : List.of("minPrice", "maxPrice", "minArea", "maxArea", "capacity")) fields.put(key, nullable("INTEGER"));
+        for (String key : List.of(
+                "minPrice", "maxPrice",
+                "minElectricityPrice", "maxElectricityPrice",
+                "minWaterPrice", "maxWaterPrice",
+                "minArea", "maxArea", "capacity")) {
+            fields.put(key, nullable("INTEGER"));
+        }
+        fields.put("waterByPerson", nullable("BOOLEAN"));
         fields.put("categoryId", nullable("STRING"));
         fields.put("amenityIds", Map.of("type", "ARRAY", "items", Map.of("type", "STRING")));
-        fields.put("sort", Map.of("type", "STRING", "enum", List.of("RELEVANCE", "PRICE_ASC", "PRICE_DESC")));
+        fields.put("sort", Map.of("type", "STRING", "enum", List.of(
+                "RELEVANCE",
+                "PRICE_ASC", "PRICE_DESC",
+                "ELECTRICITY_ASC", "ELECTRICITY_DESC",
+                "WATER_ASC", "WATER_DESC")));
         return Map.of("type", "OBJECT", "properties", Map.of(
                 "intent", Map.of("type", "STRING", "enum", List.of("SEARCH", "DETAIL", "BOOKING", "QUESTION")),
                 "query", Map.of("type", "STRING"), "roomId", nullable("STRING"), "reply", Map.of("type", "STRING"),

@@ -1,15 +1,138 @@
 import type { MapSortOption } from '@/store/useRoomFilterStore';
-import type { RoomSummaryResponse } from '@/types/room.types';
+import type { GiaNuoc, RoomSummaryResponse } from '@/types/room.types';
+import { formatVND } from '@/utils/formatters';
+
+export interface UtilityFilterValue {
+  minElectricityPrice?: number;
+  maxElectricityPrice?: number;
+  minWaterPrice?: number;
+  maxWaterPrice?: number;
+  waterByPerson?: boolean;
+}
+
+export function hasUtilityFilter(value: UtilityFilterValue): boolean {
+  return (
+    value.minElectricityPrice !== undefined ||
+    value.maxElectricityPrice !== undefined ||
+    value.minWaterPrice !== undefined ||
+    value.maxWaterPrice !== undefined ||
+    value.waterByPerson !== undefined
+  );
+}
+
+function formatCompactMoney(amount: number): string {
+  if (amount >= 1000 && amount % 100 === 0) {
+    return `${(amount / 1000).toString().replace('.', ',')}k`;
+  }
+  return formatVND(amount, true, 'đ');
+}
+
+export function formatUtilityFilterLabel(value: UtilityFilterValue): string {
+  const parts: string[] = [];
+  if (value.minElectricityPrice !== undefined && value.maxElectricityPrice !== undefined) {
+    if (value.minElectricityPrice === 0 && value.maxElectricityPrice === 0) {
+      parts.push('Điện thỏa thuận');
+    } else {
+      parts.push(
+        value.minElectricityPrice === value.maxElectricityPrice
+          ? `Điện ${formatCompactMoney(value.minElectricityPrice)}`
+          : `Điện ${formatCompactMoney(value.minElectricityPrice)}–${formatCompactMoney(value.maxElectricityPrice)}`,
+      );
+    }
+  } else if (value.maxElectricityPrice !== undefined) {
+    parts.push(
+      value.maxElectricityPrice === 0
+        ? 'Điện thỏa thuận'
+        : `Điện ≤${formatCompactMoney(value.maxElectricityPrice)}`,
+    );
+  } else if (value.minElectricityPrice !== undefined) {
+    parts.push(`Điện ≥${formatCompactMoney(value.minElectricityPrice)}`);
+  }
+
+  const waterUnit =
+    value.waterByPerson === true ? '/người' : value.waterByPerson === false ? '/m³' : '';
+  if (value.minWaterPrice !== undefined && value.maxWaterPrice !== undefined) {
+    if (value.minWaterPrice === 0 && value.maxWaterPrice === 0) {
+      parts.push('Nước thỏa thuận');
+    } else {
+      parts.push(
+        value.minWaterPrice === value.maxWaterPrice
+          ? `Nước ${formatCompactMoney(value.minWaterPrice)}${waterUnit}`
+          : `Nước ${formatCompactMoney(value.minWaterPrice)}–${formatCompactMoney(value.maxWaterPrice)}${waterUnit}`,
+      );
+    }
+  } else if (value.maxWaterPrice !== undefined) {
+    parts.push(
+      value.maxWaterPrice === 0
+        ? 'Nước thỏa thuận'
+        : `Nước ≤${formatCompactMoney(value.maxWaterPrice)}${waterUnit}`,
+    );
+  } else if (value.minWaterPrice !== undefined) {
+    parts.push(`Nước ≥${formatCompactMoney(value.minWaterPrice)}${waterUnit}`);
+  } else if (value.waterByPerson === true) {
+    parts.push('Nước/người');
+  } else if (value.waterByPerson === false) {
+    parts.push('Nước/m³');
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : 'Điện / Nước';
+}
+
+export function matchesUtilityFilter(
+  room: { giaDien?: number; giaNuoc?: GiaNuoc },
+  filter: UtilityFilterValue,
+): boolean {
+  const elec = room.giaDien ?? 0;
+  if (filter.minElectricityPrice !== undefined && elec < filter.minElectricityPrice) {
+    return false;
+  }
+  if (filter.maxElectricityPrice !== undefined) {
+    if (
+      filter.maxElectricityPrice > 0 &&
+      (filter.minElectricityPrice === undefined || filter.minElectricityPrice > 0) &&
+      elec <= 0
+    ) {
+      return false;
+    }
+    if (elec > filter.maxElectricityPrice) return false;
+  }
+
+  const waterPrice = room.giaNuoc?.gia ?? 0;
+  if (filter.minWaterPrice !== undefined && waterPrice < filter.minWaterPrice) {
+    return false;
+  }
+  if (filter.maxWaterPrice !== undefined) {
+    if (
+      filter.maxWaterPrice > 0 &&
+      (filter.minWaterPrice === undefined || filter.minWaterPrice > 0) &&
+      waterPrice <= 0
+    ) {
+      return false;
+    }
+    if (waterPrice > filter.maxWaterPrice) return false;
+  }
+
+  if (filter.waterByPerson !== undefined) {
+    const byPerson = Boolean(room.giaNuoc?.theoNguoi);
+    if (byPerson !== filter.waterByPerson) return false;
+  }
+
+  return true;
+}
 
 export const ROOM_SORT_OPTIONS: ReadonlyArray<{ value: MapSortOption; label: string }> = [
   { value: 'NEWEST', label: 'Mới nhất' },
   { value: 'OLDEST', label: 'Cũ nhất' },
-  { value: 'PRICE_ASC', label: 'Giá tăng' },
-  { value: 'PRICE_DESC', label: 'Giá giảm' },
+  { value: 'PRICE_ASC', label: 'Giá phòng tăng' },
+  { value: 'PRICE_DESC', label: 'Giá phòng giảm' },
+  { value: 'ELECTRICITY_ASC', label: 'Giá điện tăng' },
+  { value: 'ELECTRICITY_DESC', label: 'Giá điện giảm' },
+  { value: 'WATER_ASC', label: 'Giá nước tăng' },
+  { value: 'WATER_DESC', label: 'Giá nước giảm' },
 ];
 
 export function resolveRoomSortParams(sortBy: MapSortOption): {
-  sortBy: 'thoiGianDang' | 'giaThue';
+  sortBy: 'thoiGianDang' | 'giaThue' | 'giaDien' | 'giaNuoc.gia';
   sortDirection: 'ASC' | 'DESC';
 } {
   switch (sortBy) {
@@ -19,10 +142,26 @@ export function resolveRoomSortParams(sortBy: MapSortOption): {
       return { sortBy: 'giaThue', sortDirection: 'ASC' };
     case 'PRICE_DESC':
       return { sortBy: 'giaThue', sortDirection: 'DESC' };
+    case 'ELECTRICITY_ASC':
+      return { sortBy: 'giaDien', sortDirection: 'ASC' };
+    case 'ELECTRICITY_DESC':
+      return { sortBy: 'giaDien', sortDirection: 'DESC' };
+    case 'WATER_ASC':
+      return { sortBy: 'giaNuoc.gia', sortDirection: 'ASC' };
+    case 'WATER_DESC':
+      return { sortBy: 'giaNuoc.gia', sortDirection: 'DESC' };
     case 'NEWEST':
     default:
       return { sortBy: 'thoiGianDang', sortDirection: 'DESC' };
   }
+}
+
+function normalizeUtilitySortAsc(value: number | undefined | null): number {
+  return typeof value === 'number' && value > 0 ? value : Number.POSITIVE_INFINITY;
+}
+
+function normalizeUtilitySortDesc(value: number | undefined | null): number {
+  return typeof value === 'number' && value > 0 ? value : -1;
 }
 
 export function sortRoomsByOption<T>(
@@ -38,6 +177,24 @@ export function sortRoomsByOption<T>(
     }
     if (sortBy === 'PRICE_DESC') {
       return (roomB.giaThue ?? 0) - (roomA.giaThue ?? 0);
+    }
+    if (sortBy === 'ELECTRICITY_ASC') {
+      return normalizeUtilitySortAsc(roomA.giaDien) - normalizeUtilitySortAsc(roomB.giaDien);
+    }
+    if (sortBy === 'ELECTRICITY_DESC') {
+      return normalizeUtilitySortDesc(roomB.giaDien) - normalizeUtilitySortDesc(roomA.giaDien);
+    }
+    if (sortBy === 'WATER_ASC') {
+      return (
+        normalizeUtilitySortAsc(roomA.giaNuoc?.gia) -
+        normalizeUtilitySortAsc(roomB.giaNuoc?.gia)
+      );
+    }
+    if (sortBy === 'WATER_DESC') {
+      return (
+        normalizeUtilitySortDesc(roomB.giaNuoc?.gia) -
+        normalizeUtilitySortDesc(roomA.giaNuoc?.gia)
+      );
     }
     const timeA = roomA.thoiGianDang ? new Date(roomA.thoiGianDang).getTime() : 0;
     const timeB = roomB.thoiGianDang ? new Date(roomB.thoiGianDang).getTime() : 0;

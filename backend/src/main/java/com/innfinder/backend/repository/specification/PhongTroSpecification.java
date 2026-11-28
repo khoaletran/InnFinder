@@ -156,6 +156,31 @@ public class PhongTroSpecification {
             if (filter.getMinDiemUyTin() != null && filter.getMinDiemUyTin() > 0) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("chuPhongTro").get("diemUyTin"), filter.getMinDiemUyTin()));
             }
+            // 9. Lọc theo khoảng giá điện (VNĐ/kWh)
+            if (filter.getMinGiaDien() != null && filter.getMinGiaDien() >= 0) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("giaDien"), filter.getMinGiaDien()));
+            }
+            if (filter.getMaxGiaDien() != null && filter.getMaxGiaDien() >= 0) {
+                if (filter.getMaxGiaDien() > 0
+                        && (filter.getMinGiaDien() == null || filter.getMinGiaDien() > 0)) {
+                    predicates.add(cb.greaterThan(root.get("giaDien"), 0L));
+                }
+                predicates.add(cb.lessThanOrEqualTo(root.get("giaDien"), filter.getMaxGiaDien()));
+            }
+            // 10. Lọc theo giá nước & cách tính nước (theo đầu người hoặc theo m³)
+            if (filter.getMinGiaNuoc() != null && filter.getMinGiaNuoc() >= 0) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("giaNuoc").get("gia"), filter.getMinGiaNuoc()));
+            }
+            if (filter.getMaxGiaNuoc() != null && filter.getMaxGiaNuoc() >= 0) {
+                if (filter.getMaxGiaNuoc() > 0
+                        && (filter.getMinGiaNuoc() == null || filter.getMinGiaNuoc() > 0)) {
+                    predicates.add(cb.greaterThan(root.get("giaNuoc").get("gia"), 0L));
+                }
+                predicates.add(cb.lessThanOrEqualTo(root.get("giaNuoc").get("gia"), filter.getMaxGiaNuoc()));
+            }
+            if (filter.getNuocTheoNguoi() != null) {
+                predicates.add(cb.equal(root.get("giaNuoc").get("theoNguoi"), filter.getNuocTheoNguoi()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

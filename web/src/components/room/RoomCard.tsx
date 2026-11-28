@@ -8,7 +8,12 @@ import { roomService } from '@/services/room.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFavoriteStore } from '@/store/useFavoriteStore';
 import type { RoomSummaryResponse } from '@/types/room.types';
-import { formatRelativeTime, formatVNDShort } from '@/utils/formatters';
+import {
+  formatElectricityPrice,
+  formatRelativeTime,
+  formatVNDShort,
+  formatWaterPrice,
+} from '@/utils/formatters';
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -157,6 +162,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               {formatPrice(room.giaThue)}
             </div>
 
+            <p className="text-xs text-slate-600 font-medium truncate">
+              Điện: {formatElectricityPrice(room.giaDien)} · Nước: {formatWaterPrice(room.giaNuoc)}
+            </p>
+
             <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
               <div className="flex items-center gap-1.5 min-w-0">
                 <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
@@ -215,6 +224,9 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         <div className="flex flex-1 flex-col gap-1.5 p-2.5">
           <Link to={details} className="line-clamp-2 min-h-10 text-sm font-semibold text-slate-900 hover:text-teal-800">{roomTitle}</Link>
           <p className="text-sm font-bold text-orange-800">{formatPrice(room.giaThue)}</p>
+          <p className="truncate text-[11px] font-medium text-slate-600">
+            Điện: {formatElectricityPrice(room.giaDien)} · Nước: {formatWaterPrice(room.giaNuoc)}
+          </p>
           <p className="truncate text-xs text-slate-600" title={room.diaChi}>{room.dienTich} m² · {room.tenLoaiPhong || 'Phòng trọ'} · {room.diaChi}</p>
           <span className="flex items-center gap-1 text-xs font-semibold text-teal-800"><ShieldCheck aria-hidden="true" className="size-3.5" /> Đã kiểm duyệt</span>
           {typeof room.diemUyTinChuTro === 'number' && <span className="text-xs text-slate-700">Uy tín {room.diemUyTinChuTro}/100</span>}
@@ -300,6 +312,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
             <span className="truncate">{room.diaChi}</span>
           </div>
+
+          <p className="text-xs text-slate-600 font-medium truncate">
+            Điện: {formatElectricityPrice(room.giaDien)} · Nước: {formatWaterPrice(room.giaNuoc)}
+          </p>
 
           {room.dsTienIch && room.dsTienIch.length > 0 && (
             <p className="text-xs text-slate-600 line-clamp-1">

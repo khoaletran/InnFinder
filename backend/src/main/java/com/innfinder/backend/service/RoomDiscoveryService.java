@@ -55,9 +55,16 @@ public class RoomDiscoveryService {
         RoomDetailResponse detail = RoomDetailResponse.fromEntity(room);
         String amenities = detail.getDsTienIch().stream().map(a -> a.getTenTienIch()).sorted()
                 .collect(java.util.stream.Collectors.joining(", "));
+        String electricityText = (room.getGiaDien() != null && room.getGiaDien() > 0)
+                ? room.getGiaDien() + " VNĐ/kWh"
+                : "Thỏa thuận";
+        String waterText = (room.getGiaNuoc() != null && room.getGiaNuoc().getGia() != null && room.getGiaNuoc().getGia() > 0)
+                ? room.getGiaNuoc().getGia() + (Boolean.TRUE.equals(room.getGiaNuoc().getTheoNguoi()) ? " VNĐ/người" : " VNĐ/m³")
+                : "Thỏa thuận";
         String text = "Loại phòng: " + detail.getLoaiPhong().getTenLoaiPhongTro()
                 + ". Địa chỉ: " + room.getDiaChi() + ". Giá thuê: " + room.getGiaThue()
-                + " VNĐ/tháng. Diện tích: " + room.getDienTich() + " m². Sức chứa: " + room.getSoNguoi()
+                + " VNĐ/tháng. Giá điện: " + electricityText + ". Giá nước: " + waterText
+                + ". Diện tích: " + room.getDienTich() + " m². Sức chứa: " + room.getSoNguoi()
                 + " người. Tiện ích: " + amenities + ". Mô tả: " + (room.getMoTa() == null ? "" : room.getMoTa());
         return new Document(RoomSummaryResponse.fromEntity(room), detail, text);
     }

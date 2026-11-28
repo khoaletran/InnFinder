@@ -102,6 +102,11 @@ export interface RoomFilterRequest {
   area?: string;
   minGia?: number;
   maxGia?: number;
+  minGiaDien?: number;
+  maxGiaDien?: number;
+  minGiaNuoc?: number;
+  maxGiaNuoc?: number;
+  nuocTheoNguoi?: boolean;
   minDienTich?: number;
   maxDienTich?: number;
   soNguoi?: number;

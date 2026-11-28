@@ -4,12 +4,24 @@ export interface SearchCriteria {
   location?: string | null;
   minPrice?: number | null;
   maxPrice?: number | null;
+  minElectricityPrice?: number | null;
+  maxElectricityPrice?: number | null;
+  minWaterPrice?: number | null;
+  maxWaterPrice?: number | null;
+  waterByPerson?: boolean | null;
   minArea?: number | null;
   maxArea?: number | null;
   capacity?: number | null;
   categoryId?: string | null;
   amenityIds?: string[];
-  sort?: 'RELEVANCE' | 'PRICE_ASC' | 'PRICE_DESC';
+  sort?:
+    | 'RELEVANCE'
+    | 'PRICE_ASC'
+    | 'PRICE_DESC'
+    | 'ELECTRICITY_ASC'
+    | 'ELECTRICITY_DESC'
+    | 'WATER_ASC'
+    | 'WATER_DESC';
 }
 
 export interface ChatRequest {

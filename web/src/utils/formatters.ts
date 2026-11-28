@@ -52,6 +52,22 @@ export const formatVNDShort = (
   return `${formatVND(num)}${suffix}`;
 };
 
+export const formatElectricityPrice = (giaDien?: number | null): string => {
+  if (giaDien === undefined || giaDien === null || giaDien <= 0) {
+    return 'Thỏa thuận';
+  }
+  return `${formatVND(giaDien, true, 'đ')}/kWh`;
+};
+
+export const formatWaterPrice = (
+  giaNuoc?: { gia?: number | null; theoNguoi?: boolean | null } | null,
+): string => {
+  if (!giaNuoc || giaNuoc.gia === undefined || giaNuoc.gia === null || giaNuoc.gia <= 0) {
+    return 'Thỏa thuận';
+  }
+  return `${formatVND(giaNuoc.gia, true, 'đ')}/${giaNuoc.theoNguoi ? 'người' : 'm³'}`;
+};
+
 export const formatDate = (dateString?: string | null): string => {
   if (!dateString) return '--/--/----';
   try {

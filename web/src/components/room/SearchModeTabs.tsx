@@ -11,7 +11,7 @@ export const SearchModeTabs: React.FC<{ activeMode: 'list' | 'map' }> = ({ activ
     <Link
       to="/search"
       aria-current={activeMode === 'list' ? 'page' : undefined}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+      className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
         activeMode === 'list'
           ? 'bg-white text-teal-800 shadow-xs'
           : 'text-slate-600 hover:text-slate-900'
@@ -23,7 +23,7 @@ export const SearchModeTabs: React.FC<{ activeMode: 'list' | 'map' }> = ({ activ
     <Link
       to="/search/map"
       aria-current={activeMode === 'map' ? 'page' : undefined}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+      className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
         activeMode === 'map'
           ? 'bg-white text-teal-800 shadow-xs'
           : 'text-slate-600 hover:text-slate-900'
