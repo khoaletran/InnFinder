@@ -15,3 +15,7 @@ Thumbs.db
 graphify-out/
 .graphify*
 *graphify*
+
+# Firebase Admin SDK Secrets (Never commit)
+backend/secrets/
+*firebase-adminsdk*.json
